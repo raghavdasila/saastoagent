@@ -5,8 +5,8 @@ REST-only workspace agent built by copying and adapting proven pieces from `saas
 ## Current State
 
 - Context pipeline scaffold is in place.
+- Slice 1 runnable shell is now scaffolded.
 - The implementation plan lives in `plans/saastoagent_v0_1_workspace_agent_plan.md`.
-- Code has not been copied yet; this folder currently hosts project context, planning, and documentation scaffolding.
 
 ## Product Boundary
 
@@ -22,6 +22,19 @@ REST-only workspace agent built by copying and adapting proven pieces from `saas
 2. Read `context.md`
 3. Review `plans/saastoagent_v0_1_workspace_agent_plan.md`
 4. Use `work_prompt.md` for session start and closeout
+
+## Run Slice 1
+
+From this directory:
+
+```bash
+docker compose up --build
+```
+
+Then open:
+
+- Frontend: `http://localhost:3005`
+- Backend API: `http://localhost:8085/api/health`
 
 ## Context Pipeline
 

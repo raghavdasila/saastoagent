@@ -10,4 +10,4 @@ Archived full snapshots of prior `context.md` files live here.
 
 ## Chain
 
-No archived snapshots yet.
+- `20260505_1959_context_session1_slice1-runtime-pre-agentic-reset.md` -> `../context.md`

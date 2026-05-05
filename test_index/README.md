@@ -16,4 +16,4 @@ Test documentation and coverage tracking for SaaStoAgent v0.1.
 
 ## Current Suite Index
 
-No test docs yet.
+- `slice1-runtime-validation.md` — manual runtime validation for the Slice 1 Docker Compose shell

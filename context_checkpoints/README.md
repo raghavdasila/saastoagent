@@ -13,4 +13,4 @@ End-of-session handoff snapshots live here.
 
 ## Checkpoints
 
-No checkpoints yet.
+- `context_checkpoint_05-05-2026-7-59PM.md` — Slice 1 runtime handoff with agentic reset called out as the next step

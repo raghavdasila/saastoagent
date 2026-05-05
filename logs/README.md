@@ -16,4 +16,4 @@ Session activity records.
 
 ## Log Index
 
-No logs yet.
+- `20260505_1959_slice1-runtime-and-direction-correction.md` — Slice 1 runtime completion, port normalization, and agentic direction correction

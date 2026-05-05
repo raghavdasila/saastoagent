@@ -20,4 +20,6 @@ The current architecture direction is:
 
 ## Current State
 
-Planning only. No implementation docs yet.
+- Slice 1 backend, frontend, and Docker Compose foundation are implemented and runtime-validated.
+- The current implementation proves auth, workspace, tenancy, and shell plumbing.
+- The visible product surface still needs an agentic reset before further slice expansion.

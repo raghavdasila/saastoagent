@@ -2,16 +2,18 @@
 
 Last Updated: May 5, 2026
 Project: SaaStoAgent v0.1
-Status: Context pipeline scaffold created. Planning is active. Implementation has not started yet.
+Status: Slice 1 runtime is working, but the current shell has drifted into a generic SaaS app shape and needs an agentic reset before Slice 2.
 Repository: `agent-lab-powered-projects/saastoagent-v0.1`
 
 ---
 
 ## Live State
 
-- The new project folder exists and has a clean context-pipeline scaffold.
-- The initial implementation plan is documented in `plans/saastoagent_v0_1_workspace_agent_plan.md`.
-- The build strategy is copy-as-context from `saastoagent` and `foundation-agent`.
+- Slice 1 backend, frontend, and Docker Compose runtime are implemented and validated locally.
+- Runtime entry points are aligned with the existing platform: frontend at `http://localhost:3005`, backend health at `http://localhost:8085/api/health`, and db at `5435`.
+- The fresh frontend implementation now lives in `frontend/`, not `frontend-v3/`.
+- The current UI shell still behaves more like a SaaS dashboard/workspace shell than an operator-facing agent product.
+- Product vision and slice order remain anchored in `critical_prompt.md` and `plans/saastoagent_v0_1_workspace_agent_plan.md`.
 
 ## Current Product Shape
 
@@ -19,20 +21,22 @@ Repository: `agent-lab-powered-projects/saastoagent-v0.1`
 - REST only
 - Entity + actions model included in v0.1
 - QA agent included as a first-class slice
+- Current implementation proves plumbing, not yet the desired agentic surface
 
 ## Current Focus
 
-1. Use the v0.1 plan to begin Slice 1 implementation
-2. Copy the workspace-as-agent shell into this folder
-3. Keep the new project clean from legacy multi-system and non-REST surfaces
+1. Recenter Slice 1 around an agentic workspace home
+2. Remove generic SaaS-shell framing from dashboard, workspace overview, nav, and placeholder routes
+3. Only after that, begin Slice 2 REST onboarding and action-catalog work
 
 ## Immediate Next Step
 
-Start Slice 1 implementation from the exact copy order in `plans/saastoagent_v0_1_workspace_agent_plan.md`.
+Revise the Slice 1 shell surfaces in `frontend/src/pages/DashboardPage.tsx`, `frontend/src/pages/WorkspaceOverviewPage.tsx`, `frontend/src/components/layout/Header.tsx`, `frontend/src/components/layout/Sidebar.tsx`, and related route framing so the first user impression is an agent control plane rather than a generic SaaS app.
 
 ## References
 
 - Vision: `critical_prompt.md`
 - Plan: `plans/saastoagent_v0_1_workspace_agent_plan.md`
-- Process: `instructions.md`
+- Architecture decision: `decisions/ADR-001-recenter-agentic-product-boundary.md`
+- Validation: `test_index/slice1-runtime-validation.md`
 - Pipeline: `context_pipeline.md`

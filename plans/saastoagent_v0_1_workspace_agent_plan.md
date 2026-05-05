@@ -24,6 +24,31 @@ Done when:
 - The workspace lands on a workspace overview
 - The workspace is the visible agent home
 
+Current assessment:
+
+- The technical Slice 1 foundation is in place and runs locally.
+- The visible shell is still too close to a generic SaaS dashboard plus workspace router.
+- Treat the current implementation as a working base, not as the desired product surface.
+
+### Correction Gate — Recenter The Shell Before Slice 2
+
+Do this before broad Slice 2 copy work.
+
+Done when:
+
+- the first post-login experience feels like entering an agent workspace, not a generic SaaS dashboard
+- workspace navigation is framed around agent operation and capability state
+- workspace home foregrounds connections, actions, execution, QA, and learnings as the agent surface
+- labels and placeholder copy stop reinforcing a generic app-shell model
+
+Primary edit targets:
+
+- `frontend/src/pages/DashboardPage.tsx`
+- `frontend/src/pages/WorkspaceOverviewPage.tsx`
+- `frontend/src/components/layout/Header.tsx`
+- `frontend/src/components/layout/Sidebar.tsx`
+- `frontend/src/App.tsx`
+
 ### Slice 2 — REST onboarding and action catalog
 
 Add a REST connection, activate it, inspect action nodes, and inspect generated tools.
@@ -76,17 +101,17 @@ Copy from `saastoagent` first:
 
 Copy and adapt in this order:
 
-- `frontend-v3/src/lib/api.ts`
-- `frontend-v3/src/lib/storage.ts`
-- `frontend-v3/src/types/domain.ts`
-- `frontend-v3/src/components/layout/AppShell.tsx`
-- `frontend-v3/src/pages/DashboardPage.tsx`
-- `frontend-v3/src/context/WorkspaceContext.tsx`
-- `frontend-v3/src/components/layout/Header.tsx`
-- `frontend-v3/src/components/layout/Sidebar.tsx`
-- `frontend-v3/src/components/layout/WorkspaceLayout.tsx`
-- `frontend-v3/src/pages/WorkspaceOverviewPage.tsx`
-- `frontend-v3/src/App.tsx`
+- `frontend/src/lib/api.ts`
+- `frontend/src/lib/storage.ts`
+- `frontend/src/types/domain.ts`
+- `frontend/src/components/layout/AppShell.tsx`
+- `frontend/src/pages/DashboardPage.tsx`
+- `frontend/src/context/WorkspaceContext.tsx`
+- `frontend/src/components/layout/Header.tsx`
+- `frontend/src/components/layout/Sidebar.tsx`
+- `frontend/src/components/layout/WorkspaceLayout.tsx`
+- `frontend/src/pages/WorkspaceOverviewPage.tsx`
+- `frontend/src/App.tsx`
 
 Adaptation rule: remove systems-first UX and make the workspace the agent home.
 
@@ -109,14 +134,14 @@ Copy and adapt:
 
 Copy and adapt in the user path order:
 
-- `frontend-v3/src/pages/ConnectionsPage.tsx`
-- `frontend-v3/src/components/ConnectionCard.tsx`
-- `frontend-v3/src/components/NewConnectionFlow.tsx`
-- `frontend-v3/src/pages/ConnectionDetailPage.tsx`
-- `frontend-v3/src/components/StatusBadge.tsx`
-- `frontend-v3/src/components/EmptyState.tsx`
-- `frontend-v3/src/components/ActionNodeCard.tsx`
-- `frontend-v3/src/pages/ActionNodeDetailPage.tsx`
+- `frontend/src/pages/ConnectionsPage.tsx`
+- `frontend/src/components/ConnectionCard.tsx`
+- `frontend/src/components/NewConnectionFlow.tsx`
+- `frontend/src/pages/ConnectionDetailPage.tsx`
+- `frontend/src/components/StatusBadge.tsx`
+- `frontend/src/components/EmptyState.tsx`
+- `frontend/src/components/ActionNodeCard.tsx`
+- `frontend/src/pages/ActionNodeDetailPage.tsx`
 
 Adaptation rule: keep only REST provider surfaces from the beginning.
 

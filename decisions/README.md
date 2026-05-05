@@ -14,4 +14,4 @@ Architectural Decision Records for SaaStoAgent v0.1.
 
 ## ADR Index
 
-No ADRs yet.
+- `ADR-001-recenter-agentic-product-boundary.md` — use the current Slice 1 shell as technical foundation, then reset the visible product surface before Slice 2
