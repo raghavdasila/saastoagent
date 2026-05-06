@@ -1,42 +1,59 @@
 # SaaStoAgent v0.1 Context
 
-Last Updated: May 5, 2026
+Last Updated: May 6, 2026
 Project: SaaStoAgent v0.1
-Status: Slice 1 runtime is working, but the current shell has drifted into a generic SaaS app shape and needs an agentic reset before Slice 2.
+Status: Slice 1 complete including Correction Gate. Product is now agent-first. Dark mode live. Ready for Slice 2.
 Repository: `agent-lab-powered-projects/saastoagent-v0.1`
 
 ---
 
 ## Live State
 
-- Slice 1 backend, frontend, and Docker Compose runtime are implemented and validated locally.
-- Runtime entry points are aligned with the existing platform: frontend at `http://localhost:3005`, backend health at `http://localhost:8085/api/health`, and db at `5435`.
-- The fresh frontend implementation now lives in `frontend/`, not `frontend-v3/`.
-- The current UI shell still behaves more like a SaaS dashboard/workspace shell than an operator-facing agent product.
-- Product vision and slice order remain anchored in `critical_prompt.md` and `plans/saastoagent_v0_1_workspace_agent_plan.md`.
+- Slice 1 backend, frontend, and Docker Compose runtime are validated locally.
+- Frontend at `http://localhost:3005` (Vite, Docker port-mapped from internal 3000).
+- Backend health at `http://localhost:8085/api/health`. DB at `5435`.
+- The Correction Gate (ADR-001) is complete — the product now reads as an agent-first interface, not a generic SaaS shell.
+- Dark mode (black/clean, non-blue) is implemented, persisted, and verified in the live runtime.
 
 ## Current Product Shape
 
-- 1 workspace = 1 SaaS agent
-- REST only
-- Entity + actions model included in v0.1
-- QA agent included as a first-class slice
-- Current implementation proves plumbing, not yet the desired agentic surface
+- Root `/` — Agent Desk: auto-enters sole workspace; shows workspace selector / zero-workspace hero otherwise
+- Workspace `/w/:id` — `ActivityBar` (compact vertical) + full-width `AgentCanvas`
+- Default canvas view: `AgentChatStub` — talk-first local shell with starter prompts and setup redirect
+- Setup canvas view: `ConnectSetupView` — first REST connection setup UI (UI only, not wired to backend)
+- No sidebar. No generic SaaS chrome.
+- Theme: dark/light toggle with localStorage persistence (`sta_v01_theme`)
+
+## State Architecture
+
+- `authStore.ts` — canonical auth state (Zustand)
+- `workspaceStore.ts` — active view, workspace ID, per-workspace shell thread messages
+- `themeStore.ts` — theme mode + `.dark` class on `<html>`
+- `AuthContext.tsx` / `WorkspaceContext.tsx` — thin Zustand wrapper shims kept for hook compatibility
 
 ## Current Focus
 
-1. Recenter Slice 1 around an agentic workspace home
-2. Remove generic SaaS-shell framing from dashboard, workspace overview, nav, and placeholder routes
-3. Only after that, begin Slice 2 REST onboarding and action-catalog work
+Begin Slice 2 — REST onboarding and action catalog:
+1. Wire `ConnectSetupView` to a real `POST /api/workspaces/{id}/connections` endpoint
+2. Build backend connection registration + activation
+3. Add action-catalog inspection to the canvas
+
+## Known Gaps
+
+- `AgentChatStub` is local/scripted — not connected to a real agent/LLM backend
+- ~152 hard-coded light-mode Tailwind classes remain; partially addressed by `surface-*` helpers
+- No server-side session/thread persistence for agent chat
 
 ## Immediate Next Step
 
-Revise the Slice 1 shell surfaces in `frontend/src/pages/DashboardPage.tsx`, `frontend/src/pages/WorkspaceOverviewPage.tsx`, `frontend/src/components/layout/Header.tsx`, `frontend/src/components/layout/Sidebar.tsx`, and related route framing so the first user impression is an agent control plane rather than a generic SaaS app.
+**Slice 2 — REST onboarding:** Create `POST /api/workspaces/{id}/connections` backend route, wire `ConnectSetupView` form submit, and return an activated connection with action count to the canvas.
 
 ## References
 
 - Vision: `critical_prompt.md`
 - Plan: `plans/saastoagent_v0_1_workspace_agent_plan.md`
-- Architecture decision: `decisions/ADR-001-recenter-agentic-product-boundary.md`
+- ADR-001: `decisions/ADR-001-recenter-agentic-product-boundary.md`
+- ADR-002: `decisions/ADR-002-agent-first-interface.md`
 - Validation: `test_index/slice1-runtime-validation.md`
+- Latest log: `logs/20260506_0735_slice1-agentic-reset-and-dark-mode.md`
 - Pipeline: `context_pipeline.md`

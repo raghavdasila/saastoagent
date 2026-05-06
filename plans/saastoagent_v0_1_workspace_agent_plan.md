@@ -14,50 +14,48 @@ Build `saastoagent-v0.1` as a REST-only workspace agent product.
 
 ## Slice Plan
 
-### Slice 1 — Workspace-as-agent shell
+### ✅ Slice 1 — Workspace-as-agent shell
 
-Ship the workspace boundary first and make it the only visible agent container.
+Status: **COMPLETE** (as of 2026-05-06)
 
-Done when:
+Done:
 
 - A user can create/select a workspace
-- The workspace lands on a workspace overview
-- The workspace is the visible agent home
+- The workspace lands on an agent-first canvas
+- ActivityBar + AgentCanvas replaces sidebar/dashboard pattern
+- `AgentChatStub` provides a talk-first local conversational shell
+- Zustand state layer in place (authStore, workspaceStore, themeStore)
+- Dark mode (black/clean) implemented and verified
+- Auth, workspace, routing, Docker foundations all validated
 
-Current assessment:
+### ✅ Correction Gate — Recenter The Shell Before Slice 2
 
-- The technical Slice 1 foundation is in place and runs locally.
-- The visible shell is still too close to a generic SaaS dashboard plus workspace router.
-- Treat the current implementation as a working base, not as the desired product surface.
+Status: **COMPLETE** (as of 2026-05-06)
 
-### Correction Gate — Recenter The Shell Before Slice 2
+All criteria met:
 
-Do this before broad Slice 2 copy work.
+- Root `/` is an Agent Desk, not a generic dashboard
+- Workspace canvas is activity-bar + full-width canvas, not a sidebar app
+- `AgentChatStub` is the primary entry surface — conversation-first
+- `Sidebar.tsx`, `ConnectionsPage.tsx`, `ChatPage.tsx` deleted
+- ADR-002 filed to record the agent-first interface decision
 
-Done when:
-
-- the first post-login experience feels like entering an agent workspace, not a generic SaaS dashboard
-- workspace navigation is framed around agent operation and capability state
-- workspace home foregrounds connections, actions, execution, QA, and learnings as the agent surface
-- labels and placeholder copy stop reinforcing a generic app-shell model
-
-Primary edit targets:
-
-- `frontend/src/pages/DashboardPage.tsx`
-- `frontend/src/pages/WorkspaceOverviewPage.tsx`
-- `frontend/src/components/layout/Header.tsx`
-- `frontend/src/components/layout/Sidebar.tsx`
-- `frontend/src/App.tsx`
-
-### Slice 2 — REST onboarding and action catalog
+### 🔲 Slice 2 — REST onboarding and action catalog  ← ACTIVE
 
 Add a REST connection, activate it, inspect action nodes, and inspect generated tools.
 
 Done when:
 
-- A user can connect an OpenAPI source
+- A user can connect an OpenAPI source via `ConnectSetupView`
+- Backend route `POST /api/workspaces/{id}/connections` registers the source
 - Activation runs end to end
-- One generated tool can be inspected from the UI
+- One generated tool can be inspected from the canvas
+
+First tasks:
+
+1. `POST /api/workspaces/{id}/connections` backend route
+2. Wire `ConnectSetupView` form submit
+3. Return activated connection + action count to canvas
 
 ### Slice 3 — Simplified entity explorer
 
