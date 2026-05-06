@@ -1,11 +1,9 @@
 import type { ReactNode } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 
 import { AppShell } from '@/components/layout/AppShell'
 import { WorkspaceLayout } from '@/components/layout/WorkspaceLayout'
 import { useAuth } from '@/context/AuthContext'
-import { ChatPage } from '@/pages/ChatPage'
-import { ConnectionsPage } from '@/pages/ConnectionsPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
@@ -45,6 +43,11 @@ function PublicRoute({ children }: { children: ReactNode }) {
   }
 
   return <>{children}</>
+}
+
+function WorkspaceRouteRedirect() {
+  const { workspaceId } = useParams<{ workspaceId: string }>()
+  return <Navigate to={`/w/${workspaceId}`} replace />
 }
 
 export function App() {
@@ -87,8 +90,7 @@ export function App() {
           }
         >
           <Route index element={<WorkspaceOverviewPage />} />
-          <Route path="connections" element={<ConnectionsPage />} />
-          <Route path="chat" element={<ChatPage />} />
+          <Route path="*" element={<WorkspaceRouteRedirect />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

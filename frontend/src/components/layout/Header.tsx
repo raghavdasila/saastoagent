@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/context/AuthContext'
+import { ThemeToggleButton } from '@/components/theme/ThemeToggleButton'
 import { useWorkspace } from '@/context/WorkspaceContext'
 
 export function Header() {
@@ -9,7 +10,7 @@ export function Header() {
   const { workspaceId } = useWorkspace()
 
   return (
-    <header className="border-b bg-white/90 backdrop-blur">
+    <header className="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-white/10 dark:bg-[#050506]/90">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
           <button
@@ -20,20 +21,25 @@ export function Header() {
             SaaStoAgent v0.1
           </button>
           {workspaceId && (
-            <span className="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">
-              Workspace agent
-            </span>
+            <button
+              className="text-sm font-medium text-muted-foreground transition hover:text-foreground"
+              onClick={() => navigate('/')}
+              type="button"
+            >
+              Workspaces
+            </button>
           )}
         </div>
 
         <div className="flex items-center gap-3 text-sm">
+          <ThemeToggleButton />
           {user?.email && <span className="hidden text-muted-foreground sm:inline">{user.email}</span>}
           <button
             onClick={() => {
               logout()
               navigate('/login')
             }}
-            className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-white transition hover:opacity-90"
+            className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
             type="button"
           >
             Log out

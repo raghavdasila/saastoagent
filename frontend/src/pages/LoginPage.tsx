@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
+import { ThemeToggleButton } from '@/components/theme/ThemeToggleButton'
 import { useAuth } from '@/context/AuthContext'
 
 export function LoginPage() {
@@ -28,8 +29,11 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen bg-background px-4 py-12">
-      <div className="mx-auto max-w-md rounded-2xl border bg-card p-8 shadow-sm">
-        <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
+      <div className="mx-auto mb-4 flex max-w-md justify-end">
+        <ThemeToggleButton />
+      </div>
+      <div className="surface-card mx-auto max-w-md rounded-2xl bg-card p-8">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Sign in</h1>
         <p className="mt-2 text-sm text-muted-foreground">Access your workspace agents.</p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -40,7 +44,7 @@ export function LoginPage() {
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-md border bg-white px-3 py-2 outline-none ring-0 focus:border-primary"
+              className="w-full rounded-md border border-border bg-white px-3 py-2 text-foreground outline-none ring-0 placeholder:text-muted-foreground focus:border-primary dark:bg-white/[0.03]"
               placeholder="you@example.com"
               required
             />
@@ -51,14 +55,14 @@ export function LoginPage() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-md border bg-white px-3 py-2 outline-none ring-0 focus:border-primary"
+              className="w-full rounded-md border border-border bg-white px-3 py-2 text-foreground outline-none ring-0 placeholder:text-muted-foreground focus:border-primary dark:bg-white/[0.03]"
               required
             />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-md bg-primary px-4 py-2 font-medium text-white transition hover:opacity-90 disabled:opacity-60"
+            className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
           >
             {loading ? 'Signing in...' : 'Sign in'}
           </button>
