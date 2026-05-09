@@ -18,6 +18,8 @@ Validation for the user operating model introduced by ADR-006.
 - Autonomy ladder is visible but advisory until REST execution approval gates are wired.
 - Unknown and future artifact widget types fail closed; new readiness/tool/plan/approval/trace/learning widgets render when emitted.
 - Mobile keeps chat primary and treats context/evidence as drawer-style secondary surfaces.
+- Product chrome renders `SaaStoAgent`; the operator persona renders exactly as `Corpus`.
+- Legacy persisted workspace names such as `SaaStoAgent Operator - It Will Talk To My Saas` render through display cleanup and do not appear in the header.
 
 ## Current Evidence
 

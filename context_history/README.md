@@ -15,4 +15,5 @@ Archived full snapshots of prior `context.md` files live here.
 - `20260507_1200_context_session4_entry-flow-ux-polish.md`
 - `20260507_1946_context_before_rest_setup_graph.md`
 - `20260508_0759_context_before_conversational_entry_canvas.md`
-- `20260509_1852_context_before_persistent_quick_actions_closeout.md` -> `../context.md`
+- `20260509_1852_context_before_persistent_quick_actions_closeout.md`
+- `20260509_2125_context_before_ux_research_closeout.md` -> `../context.md`

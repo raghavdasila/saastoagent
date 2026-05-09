@@ -1,8 +1,8 @@
 # SaaStoAgent v0.1 Context
 
-Last Updated: May 9, 2026 9:25 PM
+Last Updated: May 9, 2026 8:05 PM
 Project: SaaStoAgent v0.1
-Status: Unified operator workbench, conversational entry, anonymous workspace chat, responsive context lens, evidence drawer, autonomy ladder, and backend-owned next actions are implemented. Product/operator naming is corrected: the product is `SaaStoAgent`, and the operator is exactly `Corpus`. Entry/setup remains graph-owned; workspace chat remains a bridged agent runtime. The current focus is browser QA and wiring generated REST tools into chat execution.
+Status: Unified operator workbench, conversational entry, anonymous workspace chat, responsive context lens, evidence drawer, autonomy ladder, and backend-owned next actions are implemented. Entry/setup remains graph-owned; workspace chat remains a bridged agent runtime. The current focus is browser QA and wiring generated REST tools into chat execution.
 Repository: `agent-lab-powered-projects/saastoagent-v0.1`
 
 ---
@@ -14,7 +14,6 @@ Repository: `agent-lab-powered-projects/saastoagent-v0.1`
 - Database image: `pgvector/pgvector:pg17`.
 - REST/OpenAPI setup is the active integration path; DB connectors remain out of immediate scope.
 - If existing dev servers were started before this checkpoint, restart backend/frontend so the new persistent-actions endpoint and CSS are loaded.
-- After the latest naming cleanup, restart/reload the frontend before judging visible header copy.
 
 ## Current Product Shape
 
@@ -85,9 +84,7 @@ Repository: `agent-lab-powered-projects/saastoagent-v0.1`
 - `useSSEChat` avoids bogus `Bearer undefined/null`, surfaces non-SSE HTTP failures, and sends first-turn handoff context.
 - The right side panel is responsive on mobile through the `.operator-side-panel` CSS class.
 - The evidence drawer is collapsed by default and exposes runtime ids, graph stage, readiness summary, future tool/trace/learning artifacts, and an advisory autonomy ladder.
-- Product chrome and workspace navigation use `SaaStoAgent`.
-- The visible operator label is exactly `Corpus`; do not append `operator` to it in UI copy.
-- Legacy robotic title copy and awkward generated workspace names from generic talk-to-my-SaaS phrasing are removed from source and cleaned at display time.
+- The visible operator label is now `Corpus`; legacy robotic title copy and awkward generated workspace names from generic talk-to-my-SaaS phrasing are removed from source.
 - The central chat viewport now uses a clamped height to avoid forcing full-page scroll under the status strip/action dock/evidence drawer.
 
 ## Known Gaps
@@ -106,8 +103,7 @@ Repository: `agent-lab-powered-projects/saastoagent-v0.1`
 - `npm run type-check`: passed.
 - `npm run build`: passed.
 - Operator workbench baseline compile/build validation passed after adding status strip, capability rail, next action dock, context lens, evidence drawer, autonomy ladder, registry model, and new artifact renderers.
-- Follow-up copy/height validation passed after title cleanup, workspace-name normalization, chat viewport clamp, and the final `SaaStoAgent`/`Corpus` split.
-- Source search found no visible `Corpus operator`, `SaaSToAgent Operator`, or `It Will Talk To My Saas` matches in frontend source.
+- Follow-up copy/height validation passed after title cleanup, workspace-name normalization, and chat viewport clamp.
 - Playwright smoke against a fresh Vite server passed:
   - direct anonymous workspace route keeps chat available
   - mobile side panel fits viewport
@@ -128,13 +124,11 @@ Repository: `agent-lab-powered-projects/saastoagent-v0.1`
 - Vision: `critical_prompt.md`
 - Work prompt: `work_prompt.md`
 - Flow index: `SYSTEM_FLOW_INDEX.md`
-- UX research:
-  - `knowledgebase/patterns/agentic-workbench-ux-research.md`
 - Decisions:
   - `decisions/ADR-003-unified-agentic-operator-experience.md`
   - `decisions/ADR-004-backend-owned-persistent-actions.md`
   - `decisions/ADR-005-widget-canvas-artifact-contract.md`
   - `decisions/ADR-006-operator-workbench-extensibility-contract.md`
-- Latest log: `logs/20260509_2125_ux_research_and_closeout.md`
-- Latest checkpoint: `context_checkpoints/context_checkpoint_09-05-2026-09-25PM.md`
-- Context archive: `context_history/20260509_2125_context_before_ux_research_closeout.md`
+- Latest log: `logs/20260509_2005_operator_workbench_baseline.md`
+- Latest checkpoint: `context_checkpoints/context_checkpoint_09-05-2026-08-05PM.md`
+- Context archive: `context_history/20260509_1852_context_before_persistent_quick_actions_closeout.md`

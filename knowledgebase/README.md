@@ -17,7 +17,12 @@ Verified research findings, implementation notes, and reusable technical pattern
 
 ## Current Focus Areas
 
+- Agentic workbench UX and UI patterns
 - REST onboarding and action generation
 - Workspace-as-agent architecture
 - Structural REST retrieval and entity inference
 - QA workflow patterns
+
+## Pattern Index
+
+- `patterns/agentic-workbench-ux-research.md` - sourced UX/UI research basis for the SaaStoAgent workbench, Corpus interaction model, approvals, evidence, feedback, and progressive disclosure

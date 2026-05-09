@@ -16,6 +16,8 @@ Session activity records.
 
 ## Log Index
 
+- `20260509_2125_ux_research_and_closeout.md` - UX research knowledgebase note, final SaaStoAgent/Corpus naming cleanup, and session closeout
+- `20260509_2005_operator_workbench_baseline.md` - Operator workbench baseline, ADR-006 implementation, and follow-up copy/height fixes
 - `20260509_1852_persistent_quick_actions_and_anonymous_chat.md` - Persistent quick actions, anonymous workspace chat, responsive panel fixes, and session closeout
 - `20260508_1429_unified_main_layout_operator_experience.md` - Unified main-layout shell, runtime bridge, and handoff context
 - `20260508_0759_conversational_entry_canvas_core.md` - Conversational entry, platform KB, UI artifacts, and canvas core

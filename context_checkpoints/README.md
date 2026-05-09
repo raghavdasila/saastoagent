@@ -13,6 +13,8 @@ End-of-session handoff snapshots live here.
 
 ## Checkpoints
 
+- `context_checkpoint_09-05-2026-09-25PM.md` - UX research knowledgebase note, final SaaStoAgent/Corpus naming cleanup, and closeout
+- `context_checkpoint_09-05-2026-08-05PM.md` - Operator workbench baseline and ADR-006 implementation
 - `context_checkpoint_09-05-2026-06-52PM.md` - Persistent quick actions, anonymous workspace chat, and responsive unified shell fixes
 - `context_checkpoint_08-05-2026-02-29PM.md` - Unified main-layout shell, runtime bridge, and handoff context
 - `context_checkpoint_08-05-2026-07-59AM.md` - Conversational entry and widget canvas core

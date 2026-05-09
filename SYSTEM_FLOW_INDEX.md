@@ -1,6 +1,6 @@
 # System Flow Index - SaaStoAgent v0.1
 
-Last Updated: May 9, 2026 8:05 PM
+Last Updated: May 9, 2026 9:25 PM
 
 This file is the source of truth for the currently implemented runtime and UX flows.
 
@@ -39,6 +39,8 @@ This file is the source of truth for the currently implemented runtime and UX fl
 11. The next action dock ranks backend-owned actions and shows one recommended next step plus secondary persistent actions.
 12. The evidence drawer is collapsed by default and exposes graph/session/run ids, readiness evidence, emitted trace/tool/learning widgets, and an advisory autonomy ladder.
 13. Direct `/w/:workspaceId` can show backend-provided anonymous auth actions without blocking workspace chat.
+14. Product chrome renders `SaaStoAgent`; the operator persona renders exactly as `Corpus`.
+15. Legacy persisted workspace names are cleaned at display time so old generated phrasing does not leak into the header.
 
 ## Workbench Extensibility Contract
 
