@@ -18,7 +18,7 @@ export function Header() {
             className="text-left text-sm font-semibold tracking-tight text-foreground"
             type="button"
           >
-            SaaStoAgent v0.1
+            SaaSToAgent Operator
           </button>
           {workspaceId && (
             <button

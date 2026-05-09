@@ -1,22 +1,59 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowRight, Plus } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-import { WorkspaceCreateModal } from '@/components/workspace/WorkspaceCreateModal'
+import { WorkspaceLaunchPad } from '@/components/workspace/WorkspaceLaunchPad'
 import { useAuth } from '@/context/AuthContext'
 import { api } from '@/lib/api'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import type { Workspace } from '@/types/domain'
+
+function WorkspaceListItem({
+  workspace,
+  isCurrent,
+  onOpen,
+}: {
+  workspace: Workspace
+  isCurrent: boolean
+  onOpen: () => void
+}) {
+  return (
+    <button
+      className={[
+        'surface-card flex w-full items-center justify-between rounded-3xl px-5 py-5 text-left transition',
+        isCurrent
+          ? 'border-sky-400 shadow-[0_0_0_1px_rgba(56,189,248,0.35)] dark:border-sky-500/40'
+          : 'hover:border-slate-300 dark:hover:border-white/15',
+      ].join(' ')}
+      onClick={onOpen}
+      type="button"
+    >
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="truncate text-base font-semibold text-slate-950 dark:text-white">{workspace.name}</div>
+          {isCurrent && (
+            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:bg-sky-500/10 dark:text-sky-300">
+              Current
+            </span>
+          )}
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+          <span>/{workspace.slug}</span>
+          <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" />
+          <span className="capitalize">{workspace.role || 'member'}</span>
+        </div>
+      </div>
+      <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" aria-hidden="true" />
+    </button>
+  )
+}
 
 export function DashboardPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const currentWorkspaceId = useWorkspaceStore((state) => state.workspaceId)
-  const workspaceModalOpen = useWorkspaceStore((state) => state.workspaceModalOpen)
-  const openWorkspaceCreate = useWorkspaceStore((state) => state.openWorkspaceCreate)
-  const closeWorkspaceCreate = useWorkspaceStore((state) => state.closeWorkspaceCreate)
   const setWorkspaceId = useWorkspaceStore((state) => state.setWorkspaceId)
   const [error, setError] = useState('')
 
@@ -26,7 +63,7 @@ export function DashboardPage() {
   })
 
   useEffect(() => {
-    if (isLoading || !workspaces || workspaceModalOpen) {
+    if (isLoading || !workspaces) {
       return
     }
 
@@ -34,14 +71,13 @@ export function DashboardPage() {
       setWorkspaceId(workspaces[0].id)
       navigate(`/w/${workspaces[0].id}`, { replace: true })
     }
-  }, [isLoading, navigate, setWorkspaceId, workspaceModalOpen, workspaces])
+  }, [isLoading, navigate, setWorkspaceId, workspaces])
 
   const createWorkspace = useMutation({
     mutationFn: (body: { name: string; slug: string }) => api.post<Workspace>('/workspaces', body),
     onSuccess: async (workspace) => {
       await queryClient.invalidateQueries({ queryKey: ['workspaces'] })
       setError('')
-      closeWorkspaceCreate()
       setWorkspaceId(workspace.id)
       navigate(`/w/${workspace.id}`)
     },
@@ -49,16 +85,6 @@ export function DashboardPage() {
       setError(err.message || 'Failed to create workspace')
     },
   })
-
-  const subtitle = useMemo(() => {
-    if (!workspaces || workspaces.length === 0) {
-      return 'Create your first agent workspace.'
-    }
-    if (workspaces.length === 1) {
-      return 'Opening your agent workspace.'
-    }
-    return `You have ${workspaces.length} agent workspaces ready.`
-  }, [workspaces])
 
   const workspacesList = workspaces || []
   const primaryWorkspace = useMemo(() => {
@@ -68,170 +94,93 @@ export function DashboardPage() {
 
     return workspacesList.find((workspace) => workspace.id === currentWorkspaceId) || workspacesList[0]
   }, [currentWorkspaceId, workspacesList])
-  const otherWorkspaces = useMemo(
-    () => workspacesList.filter((workspace) => workspace.id !== primaryWorkspace?.id),
-    [primaryWorkspace?.id, workspacesList],
-  )
-
-  if (!isLoading && workspacesList.length === 0) {
-    return (
-      <>
-        <div className="surface-card mx-auto max-w-4xl rounded-3xl p-8 sm:p-10">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">Agent desk</div>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-5xl">
-            Start with the agent you want to work through
-          </h1>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 dark:text-slate-400">
-            Create a workspace-owned agent, connect its REST surface, and use conversation as the control plane for planning, execution, QA, and learnings.
-          </p>
-
-          <div className="mt-8 flex flex-wrap gap-3">
-            <button
-              className="surface-solid-button inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium"
-              onClick={() => {
-                setError('')
-                openWorkspaceCreate()
-              }}
-              type="button"
-            >
-              Create first agent
-              <Plus className="h-4 w-4" aria-hidden="true" />
-            </button>
-          </div>
-
-          <div className="mt-10 grid gap-4 sm:grid-cols-3">
-            <div className="surface-muted rounded-2xl p-4">
-              <div className="text-sm font-semibold text-slate-950 dark:text-white">1. Define the job</div>
-              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">Anchor the workspace around the outcome the agent should own, not around generic configuration.</p>
-            </div>
-            <div className="surface-muted rounded-2xl p-4">
-              <div className="text-sm font-semibold text-slate-950 dark:text-white">2. Connect the API</div>
-              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">Activate a REST source so the agent can inspect actions, infer entities, and prepare workflows.</p>
-            </div>
-            <div className="surface-muted rounded-2xl p-4">
-              <div className="text-sm font-semibold text-slate-950 dark:text-white">3. Work through chat</div>
-              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">Use the thread as the control surface for intent, execution, QA, and later learnings.</p>
-            </div>
-          </div>
-        </div>
-
-        <WorkspaceCreateModal
-          error={error}
-          isOpen={workspaceModalOpen}
-          isPending={createWorkspace.isPending}
-          onClose={closeWorkspaceCreate}
-          onCreate={(body) => createWorkspace.mutate(body)}
-        />
-      </>
-    )
-  }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
-      <section className="space-y-6">
-        <div className="surface-card rounded-3xl p-8 sm:p-10">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">Agent desk</div>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-5xl">
-            {primaryWorkspace ? `Continue with ${primaryWorkspace.name}` : user?.display_name ? `Welcome, ${user.display_name}` : 'Choose an agent'}
+    <div className="grid gap-6 xl:grid-cols-[22rem_1fr]">
+      <aside className="space-y-6">
+        <section className="surface-card rounded-3xl p-6 sm:p-8">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">Operator navigation</div>
+          <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+            {workspacesList.length === 0 ? 'Launch your first operator' : 'SaaSToAgent Operator'}
           </h1>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 dark:text-slate-400">
-            {primaryWorkspace
-              ? 'Use the workspace agent as the operating surface. Open it, state the outcome you want, and let the agent drive setup, action discovery, and later execution.'
-              : subtitle}
+          <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-400">
+            {workspacesList.length === 0
+              ? 'Start with a focused SaaS operating job. The launch flow stays in the sidebar and the workspace list stays clean.'
+              : primaryWorkspace
+                ? `Current workspace: ${primaryWorkspace.name}. Pick a workspace from the list or launch another operator here.`
+                : 'Pick a workspace from the list or launch another operator here.'}
           </p>
 
           {primaryWorkspace && (
-            <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-600 dark:text-slate-400">
-              <div className="rounded-full bg-slate-100 px-3 py-1 dark:bg-white/[0.06]">/{primaryWorkspace.slug}</div>
-              <div className="rounded-full bg-slate-100 px-3 py-1 dark:bg-white/[0.06]">Role: {primaryWorkspace.role || 'member'}</div>
-            </div>
+            <button
+              className="surface-solid-button mt-6 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium"
+              onClick={() => navigate(`/w/${primaryWorkspace.id}`)}
+              type="button"
+            >
+              Open current operator
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </button>
           )}
+        </section>
 
-          {primaryWorkspace && (
-            <div className="mt-8 flex flex-wrap gap-3">
-              <button
-                className="surface-solid-button inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium"
-                onClick={() => navigate(`/w/${primaryWorkspace.id}`)}
-                type="button"
-              >
-                Open agent
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </button>
-              <button
-                className="surface-outline-button inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium"
-                onClick={() => {
-                  setError('')
-                  openWorkspaceCreate()
-                }}
-                type="button"
-              >
-                Create another agent
-                <Plus className="h-4 w-4" aria-hidden="true" />
-              </button>
+        <WorkspaceLaunchPad
+          title={workspacesList.length === 0 ? 'Launch SaaSToAgent Operator' : 'Launch another SaaSToAgent Operator'}
+          description={
+            workspacesList.length === 0
+              ? 'Describe the first SaaS operating job this operator should own.'
+              : 'Describe the next SaaS operating job when a separate operator should own it.'
+          }
+          error={error}
+          isPending={createWorkspace.isPending}
+          onCreate={(body) => createWorkspace.mutate(body)}
+        />
+      </aside>
+
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">Workspace list</div>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+              {user?.display_name ? `${user.display_name}'s operators` : 'Operator workspaces'}
+            </h2>
+          </div>
+
+          {!isLoading && workspacesList.length > 0 && (
+            <div className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600 dark:bg-white/[0.06] dark:text-slate-400">
+              {workspacesList.length} workspace{workspacesList.length === 1 ? '' : 's'}
             </div>
           )}
         </div>
 
-        {otherWorkspaces.length > 0 && (
+        {isLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((item) => (
+              <div key={item} className="surface-card h-24 rounded-3xl animate-pulse" />
+            ))}
+          </div>
+        ) : workspacesList.length > 0 ? (
+          <div className="space-y-3">
+            {workspacesList.map((workspace) => (
+              <WorkspaceListItem
+                key={workspace.id}
+                workspace={workspace}
+                isCurrent={workspace.id === primaryWorkspace?.id}
+                onOpen={() => {
+                  setWorkspaceId(workspace.id)
+                  navigate(`/w/${workspace.id}`)
+                }}
+              />
+            ))}
+          </div>
+        ) : (
           <section className="surface-card rounded-3xl p-6 sm:p-8">
-            <h2 className="text-xl font-semibold text-slate-950 dark:text-white">Other agents</h2>
-            <div className="mt-5 space-y-3">
-              {otherWorkspaces.map((workspace) => (
-                <button
-                  key={workspace.id}
-                  className="surface-muted flex w-full items-center justify-between rounded-2xl px-4 py-4 text-left transition hover:border-sky-300 dark:hover:border-white/20"
-                  onClick={() => navigate(`/w/${workspace.id}`)}
-                  type="button"
-                >
-                  <div>
-                    <div className="text-sm font-semibold text-slate-950 dark:text-white">{workspace.name}</div>
-                    <div className="mt-1 text-sm text-slate-500 dark:text-slate-500">/{workspace.slug}</div>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-slate-400 dark:text-slate-500" aria-hidden="true" />
-                </button>
-              ))}
-            </div>
+            <div className="text-sm font-semibold text-slate-950 dark:text-white">No operators launched yet</div>
+            <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
+              Once you create an operator, it will appear here with its slug and access role.
+            </p>
           </section>
         )}
       </section>
-
-      <aside className="space-y-6">
-        <section className="surface-card rounded-3xl p-6 sm:p-8">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">Create agent</div>
-          <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">Start another workspace agent</h2>
-          <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-400">
-            Create a new agent when you need a separate SaaS operating boundary, not just another admin container.
-          </p>
-          <button
-            className="surface-solid-button mt-6 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium"
-            onClick={() => {
-              setError('')
-              openWorkspaceCreate()
-            }}
-            type="button"
-          >
-            New agent
-            <Plus className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </section>
-
-        <section className="surface-card rounded-3xl p-6 sm:p-8">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">How this works</div>
-          <div className="mt-4 space-y-4 text-sm leading-6 text-slate-600 dark:text-slate-400">
-            <p><span className="font-semibold text-slate-950 dark:text-white">1.</span> Anchor the workspace around the job the agent should own.</p>
-            <p><span className="font-semibold text-slate-950 dark:text-white">2.</span> Connect the REST API that gives the agent real actions.</p>
-            <p><span className="font-semibold text-slate-950 dark:text-white">3.</span> Use chat as the control plane for execution, QA, and learnings.</p>
-          </div>
-        </section>
-      </aside>
-
-      <WorkspaceCreateModal
-        error={error}
-        isOpen={workspaceModalOpen}
-        isPending={createWorkspace.isPending}
-        onClose={closeWorkspaceCreate}
-        onCreate={(body) => createWorkspace.mutate(body)}
-      />
     </div>
   )
 }

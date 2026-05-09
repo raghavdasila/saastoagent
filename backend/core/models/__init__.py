@@ -1,5 +1,27 @@
 from .base import Base, TenantBase
 from .public import User, Workspace, WorkspaceMember, WorkspaceRole
+from .agent import (
+    AgentDocument,
+    AgentDocumentChunk,
+    AgentMemory,
+    AgentMessage,
+    AgentSession,
+)
+from .entry import EntryArtifact, EntryOutput, EntryRun, EntrySession, EntryStage
+from .connection import (
+    ActionNode,
+    ActionNodeStatus,
+    ActivationOverallStatus,
+    ActivationStepStatus,
+    AuthType,
+    Connection,
+    ConnectionActivationState,
+    ConnectionType,
+    EncryptedCredential,
+    GeneratedTool,
+    RiskLevel,
+    ToolStatus,
+)
 
 __all__ = [
     "Base",
@@ -8,4 +30,26 @@ __all__ = [
     "Workspace",
     "WorkspaceMember",
     "WorkspaceRole",
+    "AgentSession",
+    "AgentMessage",
+    "AgentDocument",
+    "AgentDocumentChunk",
+    "AgentMemory",
+    "EntrySession",
+    "EntryRun",
+    "EntryStage",
+    "EntryOutput",
+    "EntryArtifact",
+    "Connection",
+    "EncryptedCredential",
+    "ActionNode",
+    "GeneratedTool",
+    "ConnectionActivationState",
+    "ConnectionType",
+    "AuthType",
+    "RiskLevel",
+    "ActionNodeStatus",
+    "ToolStatus",
+    "ActivationOverallStatus",
+    "ActivationStepStatus",
 ]

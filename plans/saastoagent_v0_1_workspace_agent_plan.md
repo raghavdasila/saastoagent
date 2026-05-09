@@ -40,22 +40,38 @@ All criteria met:
 - `Sidebar.tsx`, `ConnectionsPage.tsx`, `ChatPage.tsx` deleted
 - ADR-002 filed to record the agent-first interface decision
 
-### 🔲 Slice 2 — REST onboarding and action catalog  ← ACTIVE
+### ✅ Slice 2A — Agentic REST setup and action catalog foundation
 
-Add a REST connection, activate it, inspect action nodes, and inspect generated tools.
+Status: **IMPLEMENTED** (as of 2026-05-07)
+
+Implemented:
+
+- Entry graph continues from auth/workspace creation into REST setup
+- Backend action components support structured REST setup forms
+- `POST /api/workspaces/{id}/connections` registers REST/OpenAPI sources
+- Activation parses OpenAPI specs and generates action nodes/tools
+- Workspace stats count connections and tools
+- REST catalog routes expose providers, connections, activation state, action nodes, and tools
+
+Deferred from the original Slice 2 wording:
+
+- Browser QA through a real OpenAPI setup path
+- Action/tool inspection inside the canvas
+- Generated REST tool binding into chat/runtime execution
+
+### 🔲 Slice 2B — REST tool inspection and chat binding  ← ACTIVE NEXT
+
+Status note (2026-05-09):
+
+- Unified shell, conversational entry, persistent quick actions, anonymous direct workspace chat, and setup handoff are now in place.
+- The next slice should start from generated REST tool inspection/binding rather than more entry/auth shell work.
+- Direct `/w/:id` now supports anonymous chat and backend-provided auth quick actions, but still needs graph-owned setup redirection when no ready REST connection exists.
 
 Done when:
 
-- A user can connect an OpenAPI source via `ConnectSetupView`
-- Backend route `POST /api/workspaces/{id}/connections` registers the source
-- Activation runs end to end
-- One generated tool can be inspected from the canvas
-
-First tasks:
-
-1. `POST /api/workspaces/{id}/connections` backend route
-2. Wire `ConnectSetupView` form submit
-3. Return activated connection + action count to canvas
+- A generated REST action/tool can be inspected from the workspace
+- Operator chat can find relevant generated REST tools for a request
+- The setup path is enforced or clearly redirected for `/w/:id` deep links with no ready connection
 
 ### Slice 3 — Simplified entity explorer
 

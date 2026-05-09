@@ -9,3 +9,17 @@ python-multipart==0.0.9
 pydantic-settings==2.7.1
 pydantic[email]>=2.0
 structlog==24.4.0
+
+# Agent runtime (Slice 2)
+langgraph>=0.2.0
+langchain-core>=0.3.0
+langchain-openai>=0.2.0
+openai>=1.55.0
+pgvector>=0.3.6
+PyMuPDF>=1.25.0
+pandas>=2.2.0
+beautifulsoup4>=4.12.0
+httpx>=0.28.0
+cryptography>=43.0.0
+PyYAML>=6.0.0
+jsonref>=1.1.0

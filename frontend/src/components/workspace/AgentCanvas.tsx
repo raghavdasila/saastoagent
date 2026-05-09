@@ -1,4 +1,6 @@
-import { AgentChatStub } from '@/components/workspace/AgentChatStub'
+import { AdminPanel } from '@/components/agent/AdminPanel'
+import { AgentChat } from '@/components/agent/AgentChat'
+import { AttachmentsPanel } from '@/components/agent/AttachmentsPanel'
 import { ConnectSetupView } from '@/components/workspace/ConnectSetupView'
 import { LockedCanvasView } from '@/components/workspace/LockedCanvasView'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
@@ -17,7 +19,15 @@ export function AgentCanvas({ workspace, stats }: AgentCanvasProps) {
   }
 
   if (activeView === 'chat') {
-    return <AgentChatStub workspace={workspace} stats={stats} />
+    return <AgentChat workspace={workspace} />
+  }
+
+  if (activeView === 'attachments') {
+    return <AttachmentsPanel />
+  }
+
+  if (activeView === 'admin') {
+    return <AdminPanel workspace={workspace} />
   }
 
   return <LockedCanvasView view={activeView} />

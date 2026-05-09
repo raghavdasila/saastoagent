@@ -13,12 +13,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = storage.getToken()
   const workspaceId = storage.getWorkspaceId()
 
+  const isFormData = options.body instanceof FormData
+
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   }
 
-  if (token) {
+  if (!isFormData && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json'
+  }
+
+  if (token && token !== 'undefined' && token !== 'null') {
     headers.Authorization = `Bearer ${token}`
   }
 
@@ -28,6 +33,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   const response = await fetch(`/api${path}`, {
     ...options,
+    credentials: 'same-origin',
     headers,
   })
 
@@ -50,4 +56,9 @@ export const api = {
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  upload: <T>(path: string, file: File, fieldName: string = 'file') => {
+    const fd = new FormData()
+    fd.append(fieldName, file)
+    return request<T>(path, { method: 'POST', body: fd })
+  },
 }

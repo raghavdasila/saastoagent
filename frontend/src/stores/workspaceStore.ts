@@ -2,7 +2,7 @@ import { create } from 'zustand'
 
 import { storage } from '@/lib/storage'
 
-export type WorkspaceView = 'connect' | 'entities' | 'actions' | 'chat' | 'qa'
+export type WorkspaceView = 'connect' | 'entities' | 'actions' | 'chat' | 'attachments' | 'admin' | 'qa'
 export type CapabilityStatus = 'active' | 'ready' | 'pending' | 'locked'
 
 export interface ShellMessage {
@@ -25,7 +25,6 @@ interface WorkspaceState {
   workspaceId: string | null
   activeView: WorkspaceView
   lastActiveViewByWorkspace: Record<string, WorkspaceView>
-  workspaceModalOpen: boolean
   shellDraftByWorkspace: Record<string, string>
   shellMessagesByWorkspace: Record<string, ShellMessage[]>
   selectedConnectionId: string | null
@@ -35,8 +34,6 @@ interface WorkspaceState {
   setWorkspaceId: (workspaceId: string | null) => void
   clearWorkspace: () => void
   setActiveView: (view: WorkspaceView) => void
-  openWorkspaceCreate: () => void
-  closeWorkspaceCreate: () => void
   setShellDraft: (workspaceId: string, draft: string) => void
   appendShellMessage: (workspaceId: string, message: ShellMessage) => void
   clearShellMessages: (workspaceId: string) => void
@@ -63,18 +60,39 @@ function writeActiveViews(activeViews: Record<string, WorkspaceView>) {
 
 export const capabilityItems: CapabilityItem[] = [
   {
+    id: 'chat',
+    label: 'Operator Chat',
+    shortLabel: 'Chat',
+    slice: 'Live now',
+    status: 'active',
+  },
+  {
     id: 'connect',
-    label: 'Connect API',
+    label: 'Connections',
     shortLabel: 'Connect',
-    slice: 'Slice 2',
+    slice: 'Live now',
     status: 'ready',
     disabledReason: 'Use this view to prepare the first API connection',
+  },
+  {
+    id: 'attachments',
+    label: 'Knowledge Base',
+    shortLabel: 'Knowledge',
+    slice: 'Live now',
+    status: 'ready',
+  },
+  {
+    id: 'admin',
+    label: 'Sessions & Memory',
+    shortLabel: 'Sessions',
+    slice: 'Live now',
+    status: 'ready',
   },
   {
     id: 'entities',
     label: 'Entities',
     shortLabel: 'Entities',
-    slice: 'Slice 3',
+    slice: 'Later',
     status: 'locked',
     disabledReason: 'Entity exploration unlocks after REST activation',
   },
@@ -82,22 +100,15 @@ export const capabilityItems: CapabilityItem[] = [
     id: 'actions',
     label: 'Actions',
     shortLabel: 'Actions',
-    slice: 'Slice 2',
+    slice: 'Later',
     status: 'locked',
     disabledReason: 'Generated action tools unlock after REST activation',
-  },
-  {
-    id: 'chat',
-    label: 'Chat',
-    shortLabel: 'Chat',
-    slice: 'Slice 1',
-    status: 'active',
   },
   {
     id: 'qa',
     label: 'QA',
     shortLabel: 'QA',
-    slice: 'Slice 6',
+    slice: 'Later',
     status: 'locked',
     disabledReason: 'QA and learnings arrive after execution is available',
   },
@@ -107,7 +118,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   workspaceId: storage.getWorkspaceId(),
   activeView: 'chat',
   lastActiveViewByWorkspace: readActiveViews(),
-  workspaceModalOpen: false,
   shellDraftByWorkspace: {},
   shellMessagesByWorkspace: {},
   selectedConnectionId: null,
@@ -155,8 +165,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set({ activeView, lastActiveViewByWorkspace: nextViews })
   },
 
-  openWorkspaceCreate: () => set({ workspaceModalOpen: true }),
-  closeWorkspaceCreate: () => set({ workspaceModalOpen: false }),
   setShellDraft: (workspaceId, draft) =>
     set((state) => ({
       shellDraftByWorkspace: {

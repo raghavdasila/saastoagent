@@ -12,6 +12,7 @@ interface AuthState {
   hydrateAuth: () => Promise<void>
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, displayName?: string) => Promise<void>
+  applySession: (user: User, token: string) => void
   logout: () => void
   setUser: (user: User | null) => void
 }
@@ -67,6 +68,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       display_name: displayName || undefined,
     })
     await get().login(email, password)
+  },
+
+  applySession: (user, token) => {
+    storage.setToken(token)
+    set({ user, token, isLoading: false })
   },
 
   logout: () => {

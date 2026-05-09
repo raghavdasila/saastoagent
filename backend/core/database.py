@@ -1,3 +1,4 @@
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from backend.core.config import settings
@@ -14,9 +15,14 @@ async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit
 
 async def create_tables():
     async with engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
 
 
 async def get_async_session():
     async with async_session() as session:
         yield session
+
+
+# Alias used by agent routes for parity with foundation-agent naming.
+get_db = get_async_session

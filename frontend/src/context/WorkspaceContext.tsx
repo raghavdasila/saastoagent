@@ -15,8 +15,16 @@ const WorkspaceContext = createContext<WorkspaceContextValue>({
   setActiveView: () => undefined,
 })
 
-export function WorkspaceProvider({ children }: { children: ReactNode }) {
-  const { workspaceId } = useParams<{ workspaceId: string }>()
+interface WorkspaceProviderProps {
+  children: ReactNode
+  /** Optional override — when set, useParams is ignored.  Used by WorkspaceShell
+   *  (rendered inside OperatorGateway) which is not mounted under a /w/:id route. */
+  workspaceId?: string
+}
+
+export function WorkspaceProvider({ children, workspaceId: workspaceIdProp }: WorkspaceProviderProps) {
+  const { workspaceId: routeWorkspaceId } = useParams<{ workspaceId: string }>()
+  const workspaceId = workspaceIdProp ?? routeWorkspaceId
   const storedWorkspaceId = useWorkspaceStore((state) => state.workspaceId)
   const activeView = useWorkspaceStore((state) => state.activeView)
   const setWorkspaceId = useWorkspaceStore((state) => state.setWorkspaceId)

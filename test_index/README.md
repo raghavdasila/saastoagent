@@ -16,4 +16,7 @@ Test documentation and coverage tracking for SaaStoAgent v0.1.
 
 ## Current Suite Index
 
-- `slice1-runtime-validation.md` — manual runtime validation for the Slice 1 Docker Compose shell
+- `persistent-quick-actions.md` - validation for backend-owned persistent actions, sidebar dispatch, and direct workspace auth actions
+- `slice1-runtime-validation.md` - manual runtime validation for the Slice 1 Docker Compose shell
+- `conversational-entry-canvas.md` - validation for public entry assistant, chips, UI artifacts, and setup draft carry-over
+- `unified-operator-shell.md` - validation for unified main-layout routing, runtime bridging, and handoff context
