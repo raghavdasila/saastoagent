@@ -21,6 +21,8 @@ EntryGraphNode = Literal[
 AuthIntent = Literal["login", "register"]
 EntryActionEmphasis = Literal["primary", "secondary"]
 EntryActionKind = Literal["button", "chip", "form", "nav", "summary"]
+EntryActionCategory = Literal["auth", "setup", "navigation", "execution", "feedback", "learning"]
+EntryActionPlacement = Literal["next_best", "rail", "inline", "evidence"]
 EntryActionFieldType = Literal["text", "password", "select", "url"]
 EntryUIArtifactKind = Literal["widget", "markup"]
 EntryUIArtifactSurface = Literal["inline", "canvas", "both"]
@@ -79,6 +81,11 @@ class EntryActionCard(BaseModel):
     description: str | None = Field(default=None, max_length=240)
     emphasis: EntryActionEmphasis = "secondary"
     kind: EntryActionKind = "button"
+    category: EntryActionCategory | None = None
+    placement: EntryActionPlacement | None = None
+    explanation: str | None = Field(default=None, max_length=500)
+    recovery_prompt: str | None = Field(default=None, max_length=300)
+    feedback_target: str | None = Field(default=None, max_length=160)
     fields: list[EntryActionField] = Field(default_factory=list)
     payload: dict[str, Any] = Field(default_factory=dict)
     disabled_reason: str | None = Field(default=None, max_length=240)

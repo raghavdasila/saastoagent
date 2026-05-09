@@ -1,3 +1,4 @@
+import { formatWorkspaceDisplayName } from '@/lib/entryGraph'
 import type { Workspace, WorkspaceStats } from '@/types/domain'
 
 function lineBreaks(lines: string[]) {
@@ -5,7 +6,7 @@ function lineBreaks(lines: string[]) {
 }
 
 export function buildInitialAgentMessage(workspace?: Workspace, stats?: WorkspaceStats) {
-  const workspaceName = workspace?.name || 'this workspace'
+  const workspaceName = formatWorkspaceDisplayName(workspace?.name) || 'this workspace'
   const hasConnections = (stats?.connections_count ?? 0) > 0
 
   if (hasConnections) {
@@ -24,7 +25,7 @@ export function buildInitialAgentMessage(workspace?: Workspace, stats?: Workspac
 export function buildShellAgentReply(input: string, workspace?: Workspace, stats?: WorkspaceStats) {
   const text = input.trim()
   const normalized = text.toLowerCase()
-  const workspaceName = workspace?.name || 'this workspace'
+  const workspaceName = formatWorkspaceDisplayName(workspace?.name) || 'this workspace'
   const hasConnections = (stats?.connections_count ?? 0) > 0
 
   if (!hasConnections) {

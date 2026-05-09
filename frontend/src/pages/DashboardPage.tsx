@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import { WorkspaceLaunchPad } from '@/components/workspace/WorkspaceLaunchPad'
 import { useAuth } from '@/context/AuthContext'
 import { api } from '@/lib/api'
+import { formatWorkspaceDisplayName, PRODUCT_NAME } from '@/lib/entryGraph'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import type { Workspace } from '@/types/domain'
 
@@ -31,7 +32,7 @@ function WorkspaceListItem({
     >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="truncate text-base font-semibold text-slate-950 dark:text-white">{workspace.name}</div>
+          <div className="truncate text-base font-semibold text-slate-950 dark:text-white">{formatWorkspaceDisplayName(workspace.name) || workspace.name}</div>
           {isCurrent && (
             <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:bg-sky-500/10 dark:text-sky-300">
               Current
@@ -99,16 +100,16 @@ export function DashboardPage() {
     <div className="grid gap-6 xl:grid-cols-[22rem_1fr]">
       <aside className="space-y-6">
         <section className="surface-card rounded-3xl p-6 sm:p-8">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">Operator navigation</div>
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">Workspace navigation</div>
           <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
-            {workspacesList.length === 0 ? 'Launch your first operator' : 'SaaSToAgent Operator'}
+            {workspacesList.length === 0 ? 'Launch your first workspace' : PRODUCT_NAME}
           </h1>
           <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-400">
             {workspacesList.length === 0
               ? 'Start with a focused SaaS operating job. The launch flow stays in the sidebar and the workspace list stays clean.'
               : primaryWorkspace
-                ? `Current workspace: ${primaryWorkspace.name}. Pick a workspace from the list or launch another operator here.`
-                : 'Pick a workspace from the list or launch another operator here.'}
+                ? `Current workspace: ${formatWorkspaceDisplayName(primaryWorkspace.name) || primaryWorkspace.name}. Pick a workspace from the list or launch another one here.`
+                : 'Pick a workspace from the list or launch another one here.'}
           </p>
 
           {primaryWorkspace && (
@@ -117,18 +118,18 @@ export function DashboardPage() {
               onClick={() => navigate(`/w/${primaryWorkspace.id}`)}
               type="button"
             >
-              Open current operator
+              Open current workspace
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
         </section>
 
         <WorkspaceLaunchPad
-          title={workspacesList.length === 0 ? 'Launch SaaSToAgent Operator' : 'Launch another SaaSToAgent Operator'}
+          title={workspacesList.length === 0 ? 'Launch a SaaS workspace' : 'Launch another SaaS workspace'}
           description={
             workspacesList.length === 0
-              ? 'Describe the first SaaS operating job this operator should own.'
-              : 'Describe the next SaaS operating job when a separate operator should own it.'
+              ? 'Describe the first SaaS job this workspace should handle.'
+              : 'Describe the next SaaS job when a separate workspace should handle it.'
           }
           error={error}
           isPending={createWorkspace.isPending}
@@ -141,7 +142,7 @@ export function DashboardPage() {
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">Workspace list</div>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
-              {user?.display_name ? `${user.display_name}'s operators` : 'Operator workspaces'}
+              {user?.display_name ? `${user.display_name}'s workspaces` : 'SaaS workspaces'}
             </h2>
           </div>
 
@@ -174,9 +175,9 @@ export function DashboardPage() {
           </div>
         ) : (
           <section className="surface-card rounded-3xl p-6 sm:p-8">
-            <div className="text-sm font-semibold text-slate-950 dark:text-white">No operators launched yet</div>
+            <div className="text-sm font-semibold text-slate-950 dark:text-white">No workspaces launched yet</div>
             <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
-              Once you create an operator, it will appear here with its slug and access role.
+              Once you create a workspace, it will appear here with its slug and access role.
             </p>
           </section>
         )}

@@ -2,6 +2,10 @@ export type AuthIntent = 'login' | 'register'
 export type AuthStep = 'intent' | 'display_name' | 'email' | 'password' | 'done'
 export type WorkspaceLaunchStep = 'ask_job' | 'confirm' | 'done'
 
+export const PRODUCT_NAME = 'SaaSToAgent'
+export const OPERATOR_NAME = 'Corpus'
+export const PRODUCT_MONOGRAM = 'STA'
+
 export function detectAuthIntent(value: string): AuthIntent | null {
   const normalized = value.trim().toLowerCase()
   if (!normalized) return null
@@ -41,11 +45,11 @@ export function toSlug(value: string): string {
     .replace(/-+/g, '-')
 }
 
-const OPERATOR_PREFIX = 'SaaSToAgent Operator'
-
 export function normalizeWorkspaceName(value: string): string {
   const cleaned = value
     .replace(/^(create|launch|make|start|open)\s+/i, '')
+    .replace(/^(i\s+(want|need)\s+)?(it|this operator|the operator)\s+(will|should|can|needs to|is going to|to)\s+/i, '')
+    .replace(/^(talk|speak|connect)\s+(to|with)\s+my\s+/i, 'my ')
     .replace(/\s+/g, ' ')
     .trim()
 
@@ -53,14 +57,61 @@ export function normalizeWorkspaceName(value: string): string {
     return ''
   }
 
+  if (/^(my\s+)?(saas|app|application|platform|product)$/i.test(cleaned)) {
+    return 'SaaS Operations Workspace'
+  }
+
   const titled = cleaned
     .split(' ')
-    .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
+    .map((part) => {
+      const lowered = part.toLowerCase()
+      if (lowered === 'saas') return 'SaaS'
+      if (lowered === 'api') return 'API'
+      if (['crm', 'erp'].includes(lowered)) return lowered.toUpperCase()
+      return part ? part[0].toUpperCase() + part.slice(1) : part
+    })
     .join(' ')
 
-  if (new RegExp(OPERATOR_PREFIX, 'i').test(titled)) {
+  if (/(workspace|operator)$/i.test(titled)) {
     return titled.slice(0, 80)
   }
 
-  return `${OPERATOR_PREFIX} - ${titled}`.slice(0, 80)
+  return `${titled} Workspace`.slice(0, 80)
+}
+
+export function formatWorkspaceDisplayName(value?: string | null): string {
+  const trimmed = value?.trim().replace(/\s+/g, ' ') ?? ''
+  if (!trimmed) {
+    return ''
+  }
+
+  const legacyPrefixes = [
+    `${PRODUCT_NAME} Operator - `,
+    `${PRODUCT_NAME} Operator: `,
+    `${PRODUCT_NAME} Operator | `,
+    `${PRODUCT_NAME} - `,
+    `${PRODUCT_NAME}: `,
+    `${PRODUCT_NAME} | `,
+    `${OPERATOR_NAME} Operator - `,
+    `${OPERATOR_NAME} Operator: `,
+    `${OPERATOR_NAME} Operator | `,
+    `${OPERATOR_NAME} - `,
+    `${OPERATOR_NAME}: `,
+    `${OPERATOR_NAME} | `,
+  ]
+
+  const legacyPrefix = legacyPrefixes.find((prefix) =>
+    trimmed.toLowerCase().startsWith(prefix.toLowerCase()),
+  )
+  const withoutLegacyPrefix = legacyPrefix ? trimmed.slice(legacyPrefix.length).trim() : trimmed
+
+  if (
+    /^(?:i\s+(?:want|need)\s+)?(?:it|this operator|the operator)\s+(?:will|should|can|needs to|is going to|to)\s+/i.test(withoutLegacyPrefix) ||
+    /^(?:talk|speak|connect)\s+(?:to|with)\s+my\s+/i.test(withoutLegacyPrefix) ||
+    /^(?:my\s+)?(?:saas|app|application|platform|product)$/i.test(withoutLegacyPrefix)
+  ) {
+    return normalizeWorkspaceName(withoutLegacyPrefix)
+  }
+
+  return withoutLegacyPrefix
 }

@@ -5,7 +5,7 @@ import { CommandComposer } from '@/components/agent/CommandComposer'
 import { MessageBubble } from '@/components/agent/MessageBubble'
 import { ThemeToggleButton } from '@/components/theme/ThemeToggleButton'
 import { useAuth } from '@/context/AuthContext'
-import { detectAuthIntent, isValidEmail, wantsSkip, type AuthIntent, type AuthStep } from '@/lib/entryGraph'
+import { detectAuthIntent, isValidEmail, OPERATOR_NAME, PRODUCT_NAME, wantsSkip, type AuthIntent, type AuthStep } from '@/lib/entryGraph'
 import type { ChatUIMessage } from '@/types/agent'
 
 interface AuthAgentDeskProps {
@@ -26,7 +26,7 @@ function startingMessages(intent: AuthIntent | undefined): ChatUIMessage[] {
     return [
       makeMessage(
         'assistant',
-        "You're at the SaaSToAgent Operator auth desk now, not a settings form. We'll sign you in through conversation. Start with the email tied to your account.",
+        "You're at the Corpus sign-in step now, not a settings form. We'll sign you in through conversation. Start with the email tied to your account.",
       ),
     ]
   }
@@ -35,7 +35,7 @@ function startingMessages(intent: AuthIntent | undefined): ChatUIMessage[] {
     return [
       makeMessage(
         'assistant',
-        "We'll create your account conversationally, then drop you into SaaSToAgent Operator setup. Tell me the name you want on the account, or type `skip` if you don't care.",
+        "We'll create your account conversationally, then drop you into workspace setup. Tell me the name you want on the account, or type `skip` if you don't care.",
       ),
     ]
   }
@@ -179,9 +179,9 @@ export function AuthAgentDesk({ initialIntent }: AuthAgentDeskProps) {
     <div className="min-h-screen bg-background px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-5xl items-center justify-between">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">SaaSToAgent Operator</div>
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">{PRODUCT_NAME}</div>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-            Operator authentication through conversation
+            Sign in through conversation
           </h1>
         </div>
         <ThemeToggleButton />
@@ -212,7 +212,7 @@ export function AuthAgentDesk({ initialIntent }: AuthAgentDeskProps) {
           <section className="surface-card rounded-3xl p-6 sm:p-8">
             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">Why this changed</div>
             <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-400">
-              Auth is now handled like an operator handoff instead of a detached form. The desk collects only the next field it needs, keeps the flow in one thread, and hands you straight into operator workspace setup.
+              Auth is handled inside {OPERATOR_NAME} instead of a detached form. The flow collects only the next field it needs, stays in one thread, and hands you straight into workspace setup.
             </p>
           </section>
 

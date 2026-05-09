@@ -23,8 +23,8 @@ function makeMessage(role: 'user' | 'assistant', content: string): ChatUIMessage
 }
 
 export function WorkspaceLaunchPad({
-  title = 'Launch a SaaSToAgent Operator',
-  description = 'Describe the SaaS operating job this operator should own, then confirm the generated operator workspace name.',
+  title = 'Launch a SaaS workspace',
+  description = 'Describe the SaaS job this workspace should handle, then confirm the generated workspace name.',
   error,
   isPending,
   onCreate,
@@ -35,7 +35,7 @@ export function WorkspaceLaunchPad({
   const [messages, setMessages] = useState<ChatUIMessage[]>([
     makeMessage(
       'assistant',
-      'Tell me what SaaS operating job this operator should own. For example: `support escalations`, `renewal recovery`, or `billing exceptions`.',
+      'Tell me what SaaS job this workspace should handle. For example: `support escalations`, `renewal recovery`, or `billing exceptions`.',
     ),
   ])
   const lastError = useRef('')
@@ -67,7 +67,7 @@ export function WorkspaceLaunchPad({
     if (step === 'ask_job') {
       const nextName = normalizeWorkspaceName(value)
       if (!nextName) {
-        appendAssistant('I need at least a short operating job before I can derive the SaaSToAgent Operator name.')
+        appendAssistant('I need at least a short operating job before I can suggest a workspace name.')
         return
       }
       const slug = toSlug(nextName)
@@ -87,7 +87,7 @@ export function WorkspaceLaunchPad({
 
       const nextName = normalizeWorkspaceName(value)
       if (!nextName) {
-        appendAssistant('That rename did not leave me with a valid operator workspace name. Try again.')
+        appendAssistant('That rename did not leave me with a valid workspace name. Try again.')
         return
       }
       const slug = toSlug(nextName)
@@ -99,7 +99,7 @@ export function WorkspaceLaunchPad({
   return (
     <section className="surface-card rounded-3xl overflow-hidden">
       <div className="px-6 py-6 sm:px-8">
-        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">Operator launch pad</div>
+        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">Workspace launch pad</div>
         <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">{title}</h2>
         <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-400">{description}</p>
       </div>
@@ -115,7 +115,7 @@ export function WorkspaceLaunchPad({
           value={draft}
           onChange={setDraft}
           onSend={handleSend}
-          placeholder={step === 'ask_job' ? 'What job should this operator own?' : 'launch or rename'}
+          placeholder={step === 'ask_job' ? 'What job should this workspace handle?' : 'launch or rename'}
           disabled={isPending}
         />
       </div>

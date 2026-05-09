@@ -2,17 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Bot,
-  Brain,
-  Database,
-  FlaskConical,
-  GitBranch,
-  LogIn,
-  MessageSquareText,
-  Paperclip,
-  PanelRightOpen,
-  PlugZap,
-  Shield,
-  UserPlus,
 } from 'lucide-react'
 
 import { AdminPanel } from '@/components/agent/AdminPanel'
@@ -25,6 +14,15 @@ import { EntryActionCards } from '@/components/entry/EntryActionCards'
 import { EntryArtifactRenderer } from '@/components/entry/EntryArtifactRenderer'
 import { EntryCanvasLauncher } from '@/components/entry/EntryCanvasLauncher'
 import { EntryCanvasShell } from '@/components/entry/EntryCanvasShell'
+import {
+  ActionDock,
+  buildReadiness,
+  CapabilityRail,
+  ContextLens,
+  EvidenceDrawer,
+  OperatorStatusStrip,
+  type AutonomyLevel,
+} from '@/components/operator/OperatorWorkbench'
 import { ThemeToggleButton } from '@/components/theme/ThemeToggleButton'
 import { ConnectSetupView } from '@/components/workspace/ConnectSetupView'
 import { LockedCanvasView } from '@/components/workspace/LockedCanvasView'
@@ -32,6 +30,8 @@ import { useAuth } from '@/context/AuthContext'
 import { useSSEChat } from '@/hooks/useSSEChat'
 import { api, ApiError } from '@/lib/api'
 import { cn } from '@/lib/cn'
+import { formatWorkspaceDisplayName, OPERATOR_NAME, PRODUCT_NAME } from '@/lib/entryGraph'
+import { entryCapabilities, pickNextBestAction, workspaceCapabilities, type OperatorCapabilityDefinition } from '@/lib/operatorExperience'
 import { storage } from '@/lib/storage'
 import { useAuthStore } from '@/stores/authStore'
 import { useEntryStore } from '@/stores/entryStore'
@@ -66,37 +66,6 @@ export interface OperatorGatewayProps {
   initialIntent?: AuthIntent
   initialWorkspaceId?: string | null
 }
-
-const entrySidebarItems: Array<{
-  id: OperatorSidebarItem
-  label: string
-  description: string
-  icon: typeof MessageSquareText
-  actionId?: string
-}> = [
-  { id: 'chat', label: 'Chat', description: 'Ask or continue setup', icon: MessageSquareText },
-  { id: 'learn', label: 'Learn', description: 'Platform overview', icon: Brain, actionId: 'entry.learn.platform' },
-  { id: 'setup', label: 'Setup Draft', description: 'Prepare API setup', icon: Database, actionId: 'entry.learn.setup' },
-  { id: 'signin', label: 'Sign In', description: 'Existing account', icon: LogIn, actionId: 'intent.sign_in' },
-  { id: 'register', label: 'Create Account', description: 'New account', icon: UserPlus, actionId: 'intent.register' },
-]
-
-const workspaceSidebarItems: Array<{
-  id: OperatorSidebarItem
-  workspaceView?: WorkspaceView
-  label: string
-  description: string
-  icon: typeof MessageSquareText
-  enabled: boolean
-}> = [
-  { id: 'chat', workspaceView: 'chat', label: 'Operator Chat', description: 'Primary workspace chat', icon: MessageSquareText, enabled: true },
-  { id: 'connect', workspaceView: 'connect', label: 'Connections', description: 'REST setup and activation', icon: PlugZap, enabled: true },
-  { id: 'attachments', workspaceView: 'attachments', label: 'Knowledge Base', description: 'Documents and sources', icon: Paperclip, enabled: true },
-  { id: 'admin', workspaceView: 'admin', label: 'Sessions', description: 'Memory and admin', icon: Shield, enabled: true },
-  { id: 'entities', workspaceView: 'entities', label: 'Entities', description: 'Unlocks after runtime wiring', icon: GitBranch, enabled: false },
-  { id: 'actions', workspaceView: 'actions', label: 'Actions', description: 'Unlocks after tool binding', icon: Bot, enabled: false },
-  { id: 'qa', workspaceView: 'qa', label: 'QA', description: 'Unlocks after execution', icon: FlaskConical, enabled: false },
-]
 
 const agentStarterPrompts = [
   'What can you do here?',
@@ -152,6 +121,8 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   const activeSidebarItem = useEntryStore((state) => state.activeSidebarItem)
   const entrySessionId = useEntryStore((state) => state.entrySessionId)
   const agentSessionId = useEntryStore((state) => state.agentSessionId)
+  const runId = useEntryStore((state) => state.runId)
+  const graphManifest = useEntryStore((state) => state.graphManifest)
   const messages = useEntryStore((state) => state.messages)
   const draft = useEntryStore((state) => state.draft)
   const busy = useEntryStore((state) => state.busy)
@@ -186,6 +157,8 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   const [operatorError, setOperatorError] = useState<string | null>(null)
   const [injectText, setInjectText] = useState('')
   const [handoffWorkspaceId, setHandoffWorkspaceId] = useState<string | null>(initialWorkspaceId ?? null)
+  const [evidenceOpen, setEvidenceOpen] = useState(false)
+  const [autonomyLevel, setAutonomyLevel] = useState<AutonomyLevel>('ask')
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const bootstrapped = useRef(false)
@@ -262,6 +235,37 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   const actionLookup = useMemo(
     () => dedupeActions([...persistentActions, ...availableActions]),
     [availableActions, persistentActions],
+  )
+  const visibleMode: OperatorExperienceMode = showOperatorMode ? 'operator' : 'entry'
+  const capabilities = visibleMode === 'operator' ? workspaceCapabilities : entryCapabilities
+  const activeCapability = capabilities.find((candidate) => candidate.id === activeSidebarItem)
+  const capabilityRuntime = useMemo(
+    () => ({
+      busy: showOperatorMode ? agentStreaming : busy,
+      hasWorkspace: Boolean(workspaceId),
+      isAuthenticated: Boolean(user),
+      stats,
+      operatorError,
+    }),
+    [agentStreaming, busy, operatorError, stats, user, workspaceId, showOperatorMode],
+  )
+  const readiness = useMemo(
+    () => buildReadiness({
+      mode: visibleMode,
+      workspaceId,
+      stats,
+      isAuthenticated: Boolean(user),
+      operatorError,
+    }),
+    [operatorError, stats, user, visibleMode, workspaceId],
+  )
+  const nextBestAction = useMemo(
+    () => pickNextBestAction(actionLookup, visibleMode),
+    [actionLookup, visibleMode],
+  )
+  const workspaceDisplayName = useMemo(
+    () => formatWorkspaceDisplayName(workspace?.name),
+    [workspace?.name],
   )
 
   useEffect(() => {
@@ -524,14 +528,13 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
 
   const handleSidebarAction = useCallback((item: OperatorSidebarItem) => {
     setActiveSidebarItem(item)
-    const entryItem = entrySidebarItems.find((candidate) => candidate.id === item)
-    if (entryItem?.actionId) {
-      const action = actionLookup.find((candidate) => candidate.id === entryItem.actionId)
+    const definition = [...entryCapabilities, ...workspaceCapabilities].find((candidate) => candidate.id === item)
+    if (definition?.actionId) {
+      const action = actionLookup.find((candidate) => candidate.id === definition.actionId)
       if (action) void handleActionSelect(action)
       return
     }
-    const workspaceItem = workspaceSidebarItems.find((candidate) => candidate.id === item)
-    if (workspaceItem?.workspaceView) setWorkspaceActiveView(workspaceItem.workspaceView)
+    if (definition?.workspaceView) setWorkspaceActiveView(definition.workspaceView)
   }, [actionLookup, handleActionSelect, setActiveSidebarItem, setWorkspaceActiveView])
 
   const inlineArtifacts = useMemo(
@@ -555,7 +558,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
     email: 'you@example.com',
     password: 'Password',
     workspace_select: 'Number or new job description',
-    workspace_job: 'What SaaS job should this operator own?',
+    workspace_job: 'What SaaS job should this workspace handle?',
     workspace_confirm: 'launch or rename',
     setup_intro: 'Connect an API or choose an action',
     connection_confirm: 'activate or edit setup',
@@ -572,9 +575,13 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
       <header className="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-white/10 dark:bg-[#050506]/90">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div>
-            <div className="text-sm font-semibold tracking-tight text-foreground">SaaSToAgent Operator</div>
+            <div className="text-sm font-semibold tracking-tight text-foreground">{PRODUCT_NAME}</div>
             <div className="hidden text-xs text-muted-foreground sm:block">
-              {showOperatorMode ? workspace?.name || 'Workspace operator' : 'Entry, setup, and operator chat'}
+              {showOperatorMode
+                ? workspaceDisplayName
+                  ? `${OPERATOR_NAME} · ${workspaceDisplayName}`
+                  : OPERATOR_NAME
+                : `${OPERATOR_NAME} · entry, setup, and workspace chat`}
             </div>
           </div>
           <div className="flex items-center gap-3 text-sm">
@@ -590,18 +597,29 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
       </header>
 
       <div className="md:flex">
-        <UnifiedSidebar
-          mode={showOperatorMode ? 'operator' : 'entry'}
+        <CapabilityRail
+          capabilities={capabilities}
           activeItem={activeSidebarItem}
-          hasWorkspace={Boolean(workspaceId)}
-          isAuthenticated={Boolean(user)}
+          runtime={capabilityRuntime}
           onSelect={handleSidebarAction}
         />
 
         <main className="min-w-0 flex-1">
           <div className={cn('mx-auto grid gap-4 px-3 py-4 sm:px-6 lg:px-8', showCanvas || showPanel ? 'max-w-7xl lg:grid-cols-[minmax(0,1fr)_minmax(24rem,0.52fr)]' : 'max-w-5xl')}>
+            <div className={cn((showCanvas || showPanel) && 'lg:col-span-2')}>
+              <OperatorStatusStrip
+                mode={visibleMode}
+                workspace={workspace}
+                workspaceId={workspaceId}
+                stats={stats}
+                graphNode={gs?.node}
+                graphManifest={graphManifest}
+                readiness={readiness}
+                busy={showOperatorMode ? agentStreaming : busy}
+              />
+            </div>
             <section className="surface-card min-w-0 overflow-hidden rounded-2xl">
-              <div ref={scrollRef} className="min-h-[calc(100vh-14rem)] max-h-[calc(100vh-11rem)] overflow-y-auto py-4">
+              <div ref={scrollRef} className="h-[clamp(14rem,calc(100vh-25rem),34rem)] overflow-y-auto py-4">
                 {allMessages.length === 0 ? (
                   <div className="flex min-h-[18rem] items-center justify-center text-slate-400 dark:text-slate-500">
                     {showEntryThinking ? (
@@ -609,7 +627,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
                         <ThinkingIndicator />
                       </div>
                     ) : (
-                      <span className="text-sm">{showOperatorMode ? 'Ready for operator chat.' : 'Starting operator flow...'}</span>
+                      <span className="text-sm">{showOperatorMode ? 'Corpus is ready.' : 'Starting workspace setup...'}</span>
                     )}
                   </div>
                 ) : (
@@ -659,7 +677,8 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
               </div>
 
               <div className="border-t border-slate-200 bg-white px-4 py-4 dark:border-white/10 dark:bg-[#09090b] sm:px-6">
-                <PersistentActionRail
+                <ActionDock
+                  primaryAction={nextBestAction}
                   actions={persistentActions}
                   busy={busy}
                   onSelect={(action) => { void handleActionSelect(action) }}
@@ -676,7 +695,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
                       onSend={handleAgentSend}
                       onFileUpload={user ? (file) => uploadFile.mutate(file) : undefined}
                       disabled={agentStreaming || !workspaceId}
-                      placeholder="Tell the operator what you need done"
+                      placeholder="Describe what you need done"
                       injectText={injectText}
                     />
                   </>
@@ -685,12 +704,25 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
                     value={draft}
                     onChange={setDraft}
                     onSend={() => { void handleEntrySend() }}
-                    placeholder={gs ? placeholder[gs.node] : 'Starting operator flow...'}
+                    placeholder={gs ? placeholder[gs.node] : 'Starting workspace setup...'}
                     disabled={inputDisabled}
                     inputType={inputType}
                   />
                 )}
               </div>
+              <EvidenceDrawer
+                open={evidenceOpen}
+                onToggle={() => setEvidenceOpen((value) => !value)}
+                mode={visibleMode}
+                graphNode={gs?.node}
+                graphManifest={graphManifest}
+                runId={runId}
+                sessionId={showOperatorMode ? agentSessionId : entrySessionId}
+                readiness={readiness}
+                uiArtifacts={uiArtifacts}
+                autonomyLevel={autonomyLevel}
+                onAutonomyChange={setAutonomyLevel}
+              />
             </section>
 
             {showCanvas ? (
@@ -703,6 +735,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
                   workspace={workspace}
                   stats={stats}
                   uiArtifacts={uiArtifacts}
+                  capability={activeCapability}
                   onOpenCanvas={openCanvasArtifact}
                   onClose={() => setActiveSidebarItem('chat')}
                 />
@@ -715,64 +748,13 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   )
 }
 
-function UnifiedSidebar({
-  mode,
-  activeItem,
-  hasWorkspace,
-  isAuthenticated,
-  onSelect,
-}: {
-  mode: OperatorExperienceMode
-  activeItem: OperatorSidebarItem
-  hasWorkspace: boolean
-  isAuthenticated: boolean
-  onSelect: (item: OperatorSidebarItem) => void
-}) {
-  const items = mode === 'operator' ? workspaceSidebarItems : entrySidebarItems
-  return (
-    <aside className="border-b border-slate-200 bg-white md:min-h-[calc(100vh-3.5rem)] md:w-20 md:shrink-0 md:border-b-0 md:border-r dark:border-white/10 dark:bg-[#09090b]">
-      <div className="hidden border-b border-slate-200 px-3 py-4 md:flex md:justify-center dark:border-white/10">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-sky-200 bg-sky-50 text-xs font-bold tracking-[0.16em] text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-200">
-          STA
-        </div>
-      </div>
-
-      <nav className="flex gap-2 overflow-x-auto px-2 py-2 md:flex-col md:items-center md:gap-2 md:px-0 md:py-4" aria-label="Operator navigation">
-        {items.map((item) => {
-          const Icon = item.icon
-          const isActive = item.id === activeItem
-          const enabled = mode === 'entry' ? true : item.enabled && hasWorkspace && (isAuthenticated || item.id === 'chat')
-          return (
-            <button
-              key={item.id}
-              type="button"
-              disabled={!enabled}
-              onClick={() => onSelect(item.id)}
-              title={enabled ? item.label : `${item.label} - ${item.description}`}
-              className={cn(
-                'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border transition',
-                isActive
-                  ? 'border-slate-900 bg-slate-950 text-white shadow-sm dark:border-white dark:bg-white dark:text-slate-950'
-                  : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50 dark:text-slate-400 dark:hover:border-white/10 dark:hover:bg-white/[0.06]',
-                enabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50',
-              )}
-            >
-              <Icon className="h-5 w-5" aria-hidden="true" />
-              <span className="sr-only">{item.label}</span>
-            </button>
-          )
-        })}
-      </nav>
-    </aside>
-  )
-}
-
 function UnifiedSidePanel({
   item,
   mode,
   workspace,
   stats,
   uiArtifacts,
+  capability,
   onOpenCanvas,
   onClose,
 }: {
@@ -781,6 +763,7 @@ function UnifiedSidePanel({
   workspace?: Workspace
   stats?: WorkspaceStats
   uiArtifacts: EntryUIArtifact[]
+  capability?: OperatorCapabilityDefinition
   onOpenCanvas: (artifactId: string) => void
   onClose: () => void
 }) {
@@ -790,38 +773,28 @@ function UnifiedSidePanel({
     else if (item === 'attachments') content = <AttachmentsPanel />
     else if (item === 'admin') content = <AdminPanel workspace={workspace} />
     else if (item === 'entities' || item === 'actions' || item === 'qa') content = <LockedCanvasView view={item as WorkspaceView} />
-    else content = <PanelEmpty title="Operator panel" body="Select a workspace surface from the sidebar." />
+    else content = <PanelEmpty title="Workspace panel" body="Select a workspace surface from the rail." />
   } else {
     const artifact = item === 'learn'
       ? uiArtifacts.find((candidate) => candidate.widget_type === 'platform_overview')
-      : uiArtifacts.find((candidate) => candidate.widget_type === 'setup_draft_summary' || candidate.widget_type === 'onboarding_checklist')
+      : item === 'setup'
+        ? uiArtifacts.find((candidate) => candidate.widget_type === 'setup_draft_summary' || candidate.widget_type === 'onboarding_checklist')
+        : null
     content = artifact
       ? <EntryArtifactRenderer artifact={artifact} />
-      : <PanelEmpty title={item === 'learn' ? 'Platform overview' : 'Setup draft'} body="Ask in chat or choose an action to populate this panel." />
+      : <PanelEmpty title={capability?.label || 'Workspace context'} body={capability?.emptyState || 'Ask in chat or choose an action to populate this panel.'} />
   }
 
   return (
-    <aside className="operator-side-panel flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-white/10 dark:bg-[#09090b] lg:shadow-sm">
-      <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
-        <button type="button" onClick={onClose} className="rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-500 transition hover:bg-slate-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5">
-          Close
-        </button>
-        {uiArtifacts.some((artifact) => artifact.surface === 'canvas' || artifact.surface === 'both') && (
-          <button
-            type="button"
-            onClick={() => {
-              const artifact = uiArtifacts.find((candidate) => candidate.surface === 'canvas' || candidate.surface === 'both')
-              if (artifact) onOpenCanvas(artifact.id)
-            }}
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-500 transition hover:bg-slate-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
-          >
-            <PanelRightOpen className="h-3.5 w-3.5" />
-            Canvas
-          </button>
-        )}
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto lg:max-h-[calc(100vh-10rem)]">{content}</div>
-    </aside>
+    <ContextLens
+      title={capability?.label || 'Workspace context'}
+      capability={capability}
+      uiArtifacts={uiArtifacts}
+      onOpenCanvas={onOpenCanvas}
+      onClose={onClose}
+    >
+      {content}
+    </ContextLens>
   )
 }
 
@@ -830,44 +803,6 @@ function PanelEmpty({ title, body }: { title: string; body: string }) {
     <div className="rounded-lg border border-dashed border-slate-200 p-4 text-sm dark:border-white/10">
       <div className="font-semibold text-slate-950 dark:text-white">{title}</div>
       <p className="mt-2 text-slate-500 dark:text-slate-400">{body}</p>
-    </div>
-  )
-}
-
-function PersistentActionRail({
-  actions,
-  busy,
-  onSelect,
-}: {
-  actions: EntryActionCard[]
-  busy: boolean
-  onSelect: (action: EntryActionCard) => void
-}) {
-  const railActions = actions.filter((action) => action.kind !== 'form')
-  if (railActions.length === 0) return null
-
-  return (
-    <div className="mb-3 flex flex-wrap gap-2">
-      {railActions.map((action) => {
-        const isPrimary = action.emphasis === 'primary'
-        return (
-          <button
-            key={action.id}
-            type="button"
-            disabled={busy || Boolean(action.disabled_reason)}
-            title={action.description ?? undefined}
-            onClick={() => onSelect(action)}
-            className={cn(
-              'inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50',
-              isPrimary
-                ? 'border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-300 dark:hover:bg-sky-500/20'
-                : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:border-sky-500/40 dark:hover:bg-sky-500/10 dark:hover:text-sky-300',
-            )}
-          >
-            {action.label}
-          </button>
-        )
-      })}
     </div>
   )
 }

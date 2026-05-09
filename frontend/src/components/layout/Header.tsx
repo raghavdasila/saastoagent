@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/context/AuthContext'
+import { PRODUCT_NAME } from '@/lib/entryGraph'
 import { ThemeToggleButton } from '@/components/theme/ThemeToggleButton'
 import { useWorkspace } from '@/context/WorkspaceContext'
 
@@ -18,7 +19,7 @@ export function Header() {
             className="text-left text-sm font-semibold tracking-tight text-foreground"
             type="button"
           >
-            SaaSToAgent Operator
+            {PRODUCT_NAME}
           </button>
           {workspaceId && (
             <button

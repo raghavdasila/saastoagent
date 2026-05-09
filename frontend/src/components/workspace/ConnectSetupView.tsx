@@ -1,5 +1,6 @@
 import { ArrowRight, MessageSquareText, PlugZap, Sparkles } from 'lucide-react'
 
+import { formatWorkspaceDisplayName } from '@/lib/entryGraph'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import type { Workspace, WorkspaceStats } from '@/types/domain'
 
@@ -10,7 +11,7 @@ interface ConnectSetupViewProps {
 
 export function ConnectSetupView({ workspace, stats }: ConnectSetupViewProps) {
   const setActiveView = useWorkspaceStore((state) => state.setActiveView)
-  const workspaceName = workspace?.name || 'This workspace'
+  const workspaceName = formatWorkspaceDisplayName(workspace?.name) || 'This workspace'
   const connectionCount = stats?.connections_count ?? 0
 
   return (

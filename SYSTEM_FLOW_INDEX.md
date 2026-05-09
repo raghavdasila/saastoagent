@@ -1,16 +1,16 @@
 # System Flow Index - SaaStoAgent v0.1
 
-Last Updated: May 9, 2026 6:52 PM
+Last Updated: May 9, 2026 8:05 PM
 
 This file is the source of truth for the currently implemented runtime and UX flows.
 
 ## Active Primary Flows
 
-1. Unified operator shell: icon sidebar + central chat for entry, auth, setup, and workspace chat
+1. Unified operator workbench: capability rail + status strip + central intent spine + contextual lens/evidence drawer
 2. Conversational entry graph: public platform Q&A/setup drafting -> login/signup -> workspace create/select -> REST setup -> operator ready
 3. REST connection onboarding and activation
 4. Workspace operator chat, attachments, and admin inspection
-5. Persistent quick actions for global entry/auth/setup actions
+5. Persistent quick actions and next best action dock for global entry/auth/setup actions
 6. Anonymous direct workspace chat with IP rate limiting
 7. Later: generated REST tool discovery in chat
 8. Later: REST execution, QA, tuning, and governed learnings
@@ -18,22 +18,36 @@ This file is the source of truth for the currently implemented runtime and UX fl
 ## Unified Operator Shell
 
 1. `/`, `/login`, `/register`, and `/w/:workspaceId` all render `OperatorGateway`.
-2. `OperatorGateway` owns the unified layout:
-   - left icon sidebar
-   - central chat rail
-   - optional right panel/canvas
+2. `OperatorGateway` owns the unified operator workbench:
+   - capability rail with visible readiness states
+   - operator status strip
+   - central intent spine
+   - backend-owned next action dock
+   - optional context lens and canvas
+   - collapsed evidence drawer
    - shared composer
 3. `OperatorExperienceMode` selects the runtime adapter:
    - `entry` sends through `/api/entry/stream`
    - `operator` sends through `/api/workspaces/{workspaceId}/agent/chat`
 4. `UnifiedOperatorMessage` keeps the existing chat message shape and adds a `source` marker for entry, agent, or system messages.
-5. Anonymous sidebar items are Chat, Learn/Overview, Setup Draft, Sign In, and Create Account.
-6. Authenticated workspace sidebar items are Operator Chat, Connections, Knowledge Base, Sessions/Admin, and locked Entities/Actions/QA.
-7. Sidebar selection opens panels/canvas without replacing the central chat unless the selected item is Chat.
-8. Canvas artifacts remain closed by default and mount only after the user opens a canvas-capable artifact.
-9. `operator_ready` changes mode and workspace context inside the same shell; it does not replace the page with another layout.
-10. Persistent quick actions render near the composer and remain available separately from inline contextual graph actions.
-11. Direct `/w/:workspaceId` can show backend-provided anonymous auth actions without blocking workspace chat.
+5. Anonymous capabilities are Intent Spine, Platform Lens, Setup Draft, Sign In, and Create Account.
+6. Workspace capabilities are Intent Spine, Connections, Knowledge Base, Sessions & Memory, and locked Entities/Actions/QA.
+7. Capability selection opens the context lens/canvas without replacing the central intent spine unless the selected item is Chat.
+8. Capability state is registry-driven: Ready, Needs setup, Locked, Running, Needs approval, or Has findings.
+9. Canvas artifacts remain closed by default and mount only after the user opens a canvas-capable artifact.
+10. `operator_ready` changes mode and workspace context inside the same shell; it does not replace the page with another layout.
+11. The next action dock ranks backend-owned actions and shows one recommended next step plus secondary persistent actions.
+12. The evidence drawer is collapsed by default and exposes graph/session/run ids, readiness evidence, emitted trace/tool/learning widgets, and an advisory autonomy ladder.
+13. Direct `/w/:workspaceId` can show backend-provided anonymous auth actions without blocking workspace chat.
+
+## Workbench Extensibility Contract
+
+1. New visible capabilities must register a label, state model, auth/workspace requirement, empty state, failure state, evidence surface, and primary action behavior.
+2. The frontend may place and rank actions, but backend graph/runtime remains the source of valid auth, setup, and execution action ids.
+3. Status strip data comes from existing graph state, graph manifest, workspace stats, and runtime stream state.
+4. Context lens content is capability-specific and can render typed backend artifacts.
+5. Evidence drawer content is progressive: graph metadata and readiness are always available; tool candidates, execution plans, approval requests, trace summaries, and learning candidates appear when backend artifacts emit them.
+6. Autonomy ladder is visible now as the future REST execution policy surface, but backend approval gates remain authoritative until execution is wired.
 
 ## Entry Graph Runtime
 
@@ -83,7 +97,7 @@ This file is the source of truth for the currently implemented runtime and UX fl
 2. `stream_start` returns the entry `session_id`; `OperatorGateway.tsx` stores it and sends it in later turn bodies.
 3. `message_delta` events append assistant messages.
 4. `stage_completed.output.available_actions` renders contextual action components inline in the thread.
-5. `persistent_actions` render in a compact rail near the composer and are not cleared during streaming.
+5. `persistent_actions` render through the next action dock near the composer and are not cleared during streaming.
 6. Chip actions submit lightweight follow-up prompts from backend payloads.
 7. Button/nav actions submit `selected_action_id`.
 8. Form actions submit `selected_action_id` plus `action_payload`.
@@ -94,6 +108,8 @@ This file is the source of truth for the currently implemented runtime and UX fl
 13. `setup_step` events append activation progress messages.
 14. `operator_ready` with `active_workspace_id` switches the unified store to `operator` mode and keeps existing entry messages visible.
 15. Direct workspace Sign In/Create Account can temporarily switch the same shell into entry/auth composer mode without replacing the page.
+16. `entry_turn_result.graph_manifest`, `graph_version`, `run_id`, and `session_id` are retained for the status strip and evidence drawer.
+17. Workbench widget renderer accepts readiness, tool candidate, execution plan, approval request, trace summary, and learning candidate artifacts.
 
 ## Public Platform Assistant
 
@@ -195,6 +211,7 @@ All routes are workspace-scoped and require workspace membership.
 
 - Direct `/w/:id` deep links can still bypass graph-owned REST setup until the user explicitly enters setup/auth.
 - Generated REST tools are persisted but not yet bound into the chat agent execution loop.
+- Autonomy ladder is visible as an execution-policy surface, but it is advisory until REST execution approval gates are wired.
 - Entity/action browsing remains locked.
 - Full browser QA for the responsive unified shell and entry canvas/artifact UX is still pending beyond smoke checks.
 - Frontend artifact renderer tests are not yet automated.

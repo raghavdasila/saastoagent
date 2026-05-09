@@ -2,6 +2,7 @@ import { create } from 'zustand'
 
 import type {
   EntryActionCard,
+  EntryGraphManifest,
   EntryTurnResponse,
   EntryUIArtifact,
   GatewayState,
@@ -17,6 +18,9 @@ interface EntryState {
   activeSidebarItem: OperatorSidebarItem
   entrySessionId: string | null
   agentSessionId: string | null
+  runId: string | null
+  graphVersion: string | null
+  graphManifest: EntryGraphManifest | null
   messages: UnifiedOperatorMessage[]
   draft: string
   busy: boolean
@@ -64,6 +68,9 @@ const initialState = {
   activeSidebarItem: 'chat' as OperatorSidebarItem,
   entrySessionId: null,
   agentSessionId: null,
+  runId: null,
+  graphVersion: null,
+  graphManifest: null,
   messages: [],
   draft: '',
   busy: false,
@@ -112,6 +119,9 @@ export const useEntryStore = create<EntryState>((set) => ({
     const hasWorkspace = Boolean(activeWorkspaceId)
     return {
       graphState: payload.state,
+      runId: payload.run_id || state.runId,
+      graphVersion: payload.graph_version || state.graphVersion,
+      graphManifest: payload.graph_manifest || state.graphManifest,
       mode: hasWorkspace ? 'operator' : state.mode,
       activeWorkspaceId,
       activeSidebarItem: hasWorkspace && state.mode !== 'operator' ? 'chat' : state.activeSidebarItem,

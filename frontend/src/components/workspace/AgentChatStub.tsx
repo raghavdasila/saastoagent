@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { ArrowRight, Bot, RotateCcw, Send } from 'lucide-react'
 
 import { buildInitialAgentMessage, buildShellAgentReply } from '@/components/workspace/shellAgent'
+import { formatWorkspaceDisplayName } from '@/lib/entryGraph'
 import { useWorkspaceStore, type ShellMessage } from '@/stores/workspaceStore'
 import type { Workspace, WorkspaceStats } from '@/types/domain'
 
@@ -11,7 +12,7 @@ interface AgentChatStubProps {
 }
 
 export function AgentChatStub({ workspace, stats }: AgentChatStubProps) {
-  const workspaceName = workspace?.name || 'this workspace'
+  const workspaceName = formatWorkspaceDisplayName(workspace?.name) || 'this workspace'
   const workspaceId = useWorkspaceStore((state) => state.workspaceId)
   const setActiveView = useWorkspaceStore((state) => state.setActiveView)
   const setShellDraft = useWorkspaceStore((state) => state.setShellDraft)

@@ -62,6 +62,10 @@ export interface EntrySession {
 
 export interface EntryTurnResponse {
   state: GatewayState
+  session_id?: string | null
+  run_id?: string | null
+  graph_version?: string | null
+  graph_manifest?: EntryGraphManifest | null
   messages: EntryTurnMessage[]
   session?: EntrySession | null
   available_actions?: EntryActionCard[]
@@ -72,6 +76,26 @@ export interface EntryTurnResponse {
 
 export interface EntryPersistentActionsResponse {
   persistent_actions: EntryActionCard[]
+}
+
+export interface EntryGraphManifestNode {
+  id: string
+  label: string
+  lane: string
+  parent?: string | null
+}
+
+export interface EntryGraphManifestEdge {
+  from: string
+  to: string
+  type: string
+  condition?: string | null
+}
+
+export interface EntryGraphManifest {
+  version: string
+  nodes: EntryGraphManifestNode[]
+  edges: EntryGraphManifestEdge[]
 }
 
 export interface StageCompletedEvent {
@@ -107,6 +131,11 @@ export interface EntryActionCard {
   description?: string | null
   emphasis?: 'primary' | 'secondary'
   kind?: EntryActionKind
+  category?: 'auth' | 'setup' | 'navigation' | 'execution' | 'feedback' | 'learning'
+  placement?: 'next_best' | 'rail' | 'inline' | 'evidence'
+  explanation?: string | null
+  recovery_prompt?: string | null
+  feedback_target?: string | null
   fields?: EntryActionField[]
   payload?: Record<string, unknown>
   disabled_reason?: string | null

@@ -59,6 +59,24 @@ Deferred from the original Slice 2 wording:
 - Action/tool inspection inside the canvas
 - Generated REST tool binding into chat/runtime execution
 
+### ✅ UX Baseline Gate - Operator workbench operating model
+
+Status: **IMPLEMENTED** (as of 2026-05-09)
+
+Implemented:
+
+- `OperatorGateway` now presents a workbench instead of chat plus side panels.
+- A registry-driven capability model defines state, empty state, failure state, evidence surface, and action linkage for entry/workspace capabilities.
+- The workbench has a status strip, capability rail, next action dock, context lens, evidence drawer, and advisory autonomy ladder.
+- Frontend action placement remains backend-action driven; auth/setup/execution command validity stays backend-owned.
+- ADR-006 records the extensibility contract for future capabilities.
+
+Done when:
+
+- First-run users can see the current stage, readiness, and next step without opening multiple panels.
+- Power users can expand evidence and see runtime ids, graph state, readiness, future artifact surfaces, and execution policy controls.
+- Future slices can add entities, actions, QA, and learnings through the capability registry rather than one-off shell changes.
+
 ### 🔲 Slice 2B — REST tool inspection and chat binding  ← ACTIVE NEXT
 
 Status note (2026-05-09):

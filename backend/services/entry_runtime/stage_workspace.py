@@ -60,7 +60,7 @@ def _normalize_workspace_name(value: str) -> str:
     if not cleaned:
         return ""
     if re.fullmatch(r"(my\s+)?(saas|app|application|platform|product)", cleaned, flags=re.I):
-        return f"My SaaS {WORKSPACE_SUFFIX}"
+        return f"SaaS Operations {WORKSPACE_SUFFIX}"
 
     words: list[str] = []
     for part in cleaned.split(" "):

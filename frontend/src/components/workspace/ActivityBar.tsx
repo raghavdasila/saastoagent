@@ -1,5 +1,6 @@
 import { Bot, FlaskConical, GitBranch, MessageSquareText, Paperclip, PlugZap, Shield } from 'lucide-react'
 
+import { PRODUCT_NAME } from '@/lib/entryGraph'
 import { capabilityItems, useWorkspaceStore, type CapabilityStatus, type WorkspaceView } from '@/stores/workspaceStore'
 
 const icons: Record<WorkspaceView, typeof PlugZap> = {
@@ -27,7 +28,7 @@ export function ActivityBar() {
     <aside className="border-b border-slate-200 bg-white md:min-h-[calc(100vh-3.5rem)] md:w-72 md:shrink-0 md:border-b-0 md:border-r dark:border-white/10 dark:bg-[#09090b]">
       <div className="hidden border-b border-slate-200 px-4 py-4 md:block dark:border-white/10">
         <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">Workspace navigation</div>
-        <div className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">SaaSToAgent Operator</div>
+        <div className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">{PRODUCT_NAME}</div>
         <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
           Use the live operator surfaces first. Locked capabilities stay visible until the runtime is wired.
         </p>

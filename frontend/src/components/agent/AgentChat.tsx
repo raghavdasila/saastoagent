@@ -6,6 +6,7 @@ import { ChatInput } from '@/components/agent/ChatInput'
 import { MessageBubble } from '@/components/agent/MessageBubble'
 import { useSSEChat } from '@/hooks/useSSEChat'
 import { api, ApiError } from '@/lib/api'
+import { formatWorkspaceDisplayName, OPERATOR_NAME } from '@/lib/entryGraph'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import type {
   AgentDocument,
@@ -18,7 +19,7 @@ import type { Workspace } from '@/types/domain'
 const STARTER_PROMPTS = [
   'Map the SaaS operating workflow you should own in this workspace.',
   'Summarise the documents I uploaded and turn them into operator guidance.',
-  'What SaaSToAgent Operator capabilities are live here, and what is still missing?',
+  'What can this workspace do right now, and what is still missing?',
 ]
 
 interface AgentChatProps {
@@ -118,8 +119,8 @@ export function AgentChat({ workspace }: AgentChatProps) {
   })
 
   const sessions = sessionsData?.sessions ?? []
-  const workspaceName = workspace?.name || 'this workspace'
-  const operatorTitle = 'SaaSToAgent Operator'
+  const workspaceName = formatWorkspaceDisplayName(workspace?.name) || 'this workspace'
+  const operatorTitle = OPERATOR_NAME
 
   const handleSend = (text: string) => {
     setError(null)
@@ -273,7 +274,7 @@ export function AgentChat({ workspace }: AgentChatProps) {
               onSend={handleSend}
               onFileUpload={(file) => uploadFile.mutate(file)}
               disabled={isStreaming || !workspaceId}
-              placeholder="Tell the operator what you need done"
+              placeholder="Describe what you need done"
               injectText={injectText}
             />
           </div>
