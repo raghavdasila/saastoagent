@@ -23,6 +23,7 @@ import {
   OperatorStatusStrip,
   type AutonomyLevel,
 } from '@/components/operator/OperatorWorkbench'
+import { RouteDeckNavWidget } from '@/components/operator/RouteDeckNavWidget'
 import { ThemeToggleButton } from '@/components/theme/ThemeToggleButton'
 import { ConnectSetupView } from '@/components/workspace/ConnectSetupView'
 import { LockedCanvasView } from '@/components/workspace/LockedCanvasView'
@@ -31,7 +32,7 @@ import { useSSEChat } from '@/hooks/useSSEChat'
 import { api, ApiError } from '@/lib/api'
 import { cn } from '@/lib/cn'
 import { formatWorkspaceDisplayName, OPERATOR_NAME, PRODUCT_NAME } from '@/lib/entryGraph'
-import { entryCapabilities, pickNextBestAction, workspaceCapabilities, type OperatorCapabilityDefinition } from '@/lib/operatorExperience'
+import { entryCapabilities, findCapabilityAction, pickNextBestAction, workspaceCapabilities, type OperatorCapabilityDefinition } from '@/lib/operatorExperience'
 import { storage } from '@/lib/storage'
 import { useAuthStore } from '@/stores/authStore'
 import { useEntryStore } from '@/stores/entryStore'
@@ -123,6 +124,8 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   const agentSessionId = useEntryStore((state) => state.agentSessionId)
   const runId = useEntryStore((state) => state.runId)
   const graphManifest = useEntryStore((state) => state.graphManifest)
+  const routeDeckSnapshot = useEntryStore((state) => state.routeDeckSnapshot)
+  const selectedDebugNode = useEntryStore((state) => state.selectedDebugNode)
   const messages = useEntryStore((state) => state.messages)
   const draft = useEntryStore((state) => state.draft)
   const busy = useEntryStore((state) => state.busy)
@@ -149,6 +152,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   const setAgentSessionId = useEntryStore((state) => state.setAgentSessionId)
   const enterOperatorMode = useEntryStore((state) => state.enterOperatorMode)
   const setActiveSidebarItem = useEntryStore((state) => state.setActiveSidebarItem)
+  const setSelectedDebugNode = useEntryStore((state) => state.setSelectedDebugNode)
 
   const setWorkspaceId = useWorkspaceStore((state) => state.setWorkspaceId)
   const setWorkspaceActiveView = useWorkspaceStore((state) => state.setActiveView)
@@ -459,10 +463,22 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
         appendAssistant('Connection failed')
         finishStream()
       }
+      const fallbackWorkspaceState = !gs && workspaceId
+        ? {
+            node: 'operator_ready',
+            intent: null,
+            display_name: '',
+            email: '',
+            workspace_name: '',
+            workspace_slug: '',
+            active_workspace_id: workspaceId,
+          }
+        : undefined
 
       xhr.send(
         JSON.stringify({
           session_id: entrySessionIdRef.current,
+          state: fallbackWorkspaceState,
           user_input: userInput,
           selected_action_id: selectedActionId,
           action_payload: actionPayload,
@@ -470,7 +486,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
         }),
       )
     },
-    [appendAssistant, busy, clearAvailableActions, finishStream, initialIntent, parseSSEChunk, setBusy],
+    [appendAssistant, busy, clearAvailableActions, finishStream, gs, initialIntent, parseSSEChunk, setBusy, workspaceId],
   )
 
   useEffect(() => {
@@ -529,13 +545,13 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   const handleSidebarAction = useCallback((item: OperatorSidebarItem) => {
     setActiveSidebarItem(item)
     const definition = [...entryCapabilities, ...workspaceCapabilities].find((candidate) => candidate.id === item)
-    if (definition?.actionId) {
-      const action = actionLookup.find((candidate) => candidate.id === definition.actionId)
-      if (action) void handleActionSelect(action)
+    const action = findCapabilityAction(definition, actionLookup, graphManifest)
+    if (action) {
+      void handleActionSelect(action)
       return
     }
     if (definition?.workspaceView) setWorkspaceActiveView(definition.workspaceView)
-  }, [actionLookup, handleActionSelect, setActiveSidebarItem, setWorkspaceActiveView])
+  }, [actionLookup, graphManifest, handleActionSelect, setActiveSidebarItem, setWorkspaceActiveView])
 
   const inlineArtifacts = useMemo(
     () => uiArtifacts.filter((artifact) => artifact.surface !== 'canvas'),
@@ -552,7 +568,9 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
 
   const inputDisabled = busy || !gs
   const inputType: 'text' | 'email' | 'password' = gs?.node === 'password' ? 'password' : gs?.node === 'email' ? 'email' : 'text'
+  const manifestNode = gs ? graphManifest?.nodes.find((node) => node.id === gs.node) : null
   const placeholder: Record<GatewayNode, string> = {
+    bootstrap: 'Starting workspace setup...',
     intent: 'Ask about SaaStoAgent, draft setup, or sign in',
     display_name: 'Display name, or skip',
     email: 'you@example.com',
@@ -579,9 +597,9 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
             <div className="hidden text-xs text-muted-foreground sm:block">
               {showOperatorMode
                 ? workspaceDisplayName
-                  ? `${OPERATOR_NAME} · ${workspaceDisplayName}`
+                  ? `${OPERATOR_NAME} Â· ${workspaceDisplayName}`
                   : OPERATOR_NAME
-                : `${OPERATOR_NAME} · entry, setup, and workspace chat`}
+                : `${OPERATOR_NAME} Â· entry, setup, and workspace chat`}
             </div>
           </div>
           <div className="flex items-center gap-3 text-sm">
@@ -616,6 +634,17 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
                 graphManifest={graphManifest}
                 readiness={readiness}
                 busy={showOperatorMode ? agentStreaming : busy}
+              />
+            </div>
+            <div className={cn((showCanvas || showPanel) && 'lg:col-span-2')}>
+              <RouteDeckNavWidget
+                graphNode={gs?.node}
+                graphManifest={graphManifest}
+                routeDeckSnapshot={routeDeckSnapshot}
+                selectedDebugNode={selectedDebugNode}
+                onSelectedDebugNodeChange={setSelectedDebugNode}
+                runId={runId}
+                sessionId={showOperatorMode ? agentSessionId : entrySessionId}
               />
             </div>
             <section className="surface-card min-w-0 overflow-hidden rounded-2xl">
@@ -704,7 +733,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
                     value={draft}
                     onChange={setDraft}
                     onSend={() => { void handleEntrySend() }}
-                    placeholder={gs ? placeholder[gs.node] : 'Starting workspace setup...'}
+                    placeholder={manifestNode?.prompt_placeholder || (gs ? placeholder[gs.node] : 'Starting workspace setup...')}
                     disabled={inputDisabled}
                     inputType={inputType}
                   />
@@ -715,7 +744,6 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
                 onToggle={() => setEvidenceOpen((value) => !value)}
                 mode={visibleMode}
                 graphNode={gs?.node}
-                graphManifest={graphManifest}
                 runId={runId}
                 sessionId={showOperatorMode ? agentSessionId : entrySessionId}
                 readiness={readiness}

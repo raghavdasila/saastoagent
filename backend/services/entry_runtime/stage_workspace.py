@@ -21,10 +21,13 @@ from backend.core.models import (
 from backend.core.schemas import WorkspaceRead
 from backend.core.tenancy import create_tenant_schema
 from backend.services.discovery.activation import ActivationService
+from backend.services.route_deck import RouteDeckActionIds
+from backend.services.route_deck.ids import is_workspace_select_open_action
 
 from .graph_runtime import EntryRuntimeState, merge_messages
 from .ui_actions import (
     connection_confirm_actions,
+    display_name_actions,
     setup_chat_actions,
     setup_intro_actions,
     standard_workspace_actions,
@@ -293,7 +296,7 @@ async def workspace_select_node(state: EntryRuntimeState) -> dict[str, Any]:
 
     workspaces = await list_workspaces(state, current_user.id)
     selected_action_id = state.get("selected_action_id") or ""
-    if isinstance(selected_action_id, str) and selected_action_id.startswith("workspace_select.open:"):
+    if is_workspace_select_open_action(selected_action_id):
         raw_index = selected_action_id.split(":", 1)[1]
         try:
             selection = int(raw_index)
@@ -384,7 +387,7 @@ async def workspace_confirm_node(state: EntryRuntimeState) -> dict[str, Any]:
 
     selected_action_id = state.get("selected_action_id") or ""
     value = (state.get("user_input") or "").strip()
-    if selected_action_id == "workspace_confirm.launch" or _wants_confirm(value):
+    if selected_action_id == RouteDeckActionIds.WORKSPACE_CONFIRM_LAUNCH or _wants_confirm(value):
         workspace_name = _normalize_workspace_name(state.get("workspace_name", ""))
         workspace_slug = _to_slug(workspace_name)
         if not workspace_name or not workspace_slug:
@@ -449,8 +452,32 @@ async def workspace_confirm_node(state: EntryRuntimeState) -> dict[str, Any]:
 
 
 async def operator_ready_node(state: EntryRuntimeState) -> dict[str, Any]:
+    selected_action_id = _selected_action_id(state)
+    if selected_action_id == RouteDeckActionIds.INTENT_SIGN_IN:
+        return {
+            "node": "email",
+            "intent": "login",
+            "display_name": "",
+            "messages": merge_messages(state, "Signing you in. Give me the email for your account."),
+        }
+    if selected_action_id == RouteDeckActionIds.INTENT_REGISTER:
+        return {
+            "node": "display_name",
+            "intent": "register",
+            "messages": merge_messages(
+                state,
+                "Creating your account. What display name should I use? Type `skip` to leave it blank.",
+            ),
+            "available_actions": display_name_actions(),
+        }
     if state.get("current_user") is None:
         return _auth_required(state)
+    if selected_action_id == RouteDeckActionIds.SETUP_REST_START:
+        return {
+            "node": "setup_intro",
+            "messages": merge_messages(state, "Let's connect the REST API this operator can use."),
+            "available_actions": setup_intro_actions(state.get("connection_draft") or {}),
+        }
     return {}
 
 
@@ -510,13 +537,13 @@ async def setup_intro_node(state: EntryRuntimeState) -> dict[str, Any]:
     selected_action_id = _selected_action_id(state)
     entry_draft = state.get("entry_draft") or {}
     current_connection_draft = state.get("connection_draft") or entry_draft.get("api_draft") or {}
-    if selected_action_id == "setup.open_chat":
+    if selected_action_id == RouteDeckActionIds.SETUP_OPEN_CHAT:
         return {
             "node": "operator_ready",
             "messages": merge_messages(state, "Continuing without API setup for now. API setup remains available in Connections."),
             "available_actions": standard_workspace_actions(),
         }
-    if selected_action_id == "setup.rest.start":
+    if selected_action_id == RouteDeckActionIds.SETUP_REST_START:
         planner_result = await plan_setup_turn(
             workspace_name=state.get("workspace_name"),
             user_input=state.get("user_input"),
@@ -531,7 +558,7 @@ async def setup_intro_node(state: EntryRuntimeState) -> dict[str, Any]:
             "connection_draft": planner_result.draft,
             "available_actions": setup_intro_actions(planner_result.draft),
         }
-    if selected_action_id == "setup.rest.configure":
+    if selected_action_id == RouteDeckActionIds.SETUP_REST_CONFIGURE:
         draft, error = _validate_connection_payload(_action_payload(state))
         if error:
             return {
@@ -599,13 +626,13 @@ async def connection_confirm_node(state: EntryRuntimeState) -> dict[str, Any]:
         }
 
     selected_action_id = _selected_action_id(state)
-    if selected_action_id == "setup.open_chat":
+    if selected_action_id == RouteDeckActionIds.SETUP_OPEN_CHAT:
         return {
             "node": "operator_ready",
             "messages": merge_messages(state, "Continuing without API setup for now. API setup remains available in Connections."),
             "available_actions": standard_workspace_actions(),
         }
-    if selected_action_id == "setup.rest.configure":
+    if selected_action_id == RouteDeckActionIds.SETUP_REST_CONFIGURE:
         draft, error = _validate_connection_payload(_action_payload(state))
         if error:
             return {
@@ -618,7 +645,7 @@ async def connection_confirm_node(state: EntryRuntimeState) -> dict[str, Any]:
             "messages": merge_messages(state, f"Updated setup to **{draft['name']}**. Activate it now?"),
             "available_actions": connection_confirm_actions(draft),
         }
-    if selected_action_id != "setup.connection.activate":
+    if selected_action_id != RouteDeckActionIds.SETUP_CONNECTION_ACTIVATE:
         draft = state.get("connection_draft") or {}
         return {
             "messages": merge_messages(state, "Activate the API when the details look right, or edit the setup."),

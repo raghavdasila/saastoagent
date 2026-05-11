@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from backend.services.route_deck import build_route_deck_manifest
+
 GRAPH_VERSION = "entry_v1"
 
 
@@ -180,24 +182,4 @@ def get_node_spec(stage_id: str) -> EntryNodeSpec:
 
 
 def build_graph_manifest() -> dict[str, Any]:
-    return {
-        "version": GRAPH_VERSION,
-        "nodes": [
-            {
-                "id": spec.id.value,
-                "label": spec.label,
-                "lane": spec.lane.value,
-                "parent": spec.parent,
-            }
-            for spec in ENTRY_NODE_SPECS.values()
-        ],
-        "edges": [
-            {
-                "from": edge.from_stage.value,
-                "to": edge.to_stage.value,
-                "type": edge.edge_type,
-                "condition": edge.condition,
-            }
-            for edge in ENTRY_EDGE_SPECS
-        ],
-    }
+    return build_route_deck_manifest().model_dump(mode="json", by_alias=True)

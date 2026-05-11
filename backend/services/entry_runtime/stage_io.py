@@ -3,8 +3,9 @@ from __future__ import annotations
 from typing import Any, Awaitable, Callable
 
 from backend.core.schemas import EntryActionCard, EntryGraphMessage, EntryGraphSession, EntryUIArtifact, WorkspaceRead
+from backend.services.route_deck import build_runtime_snapshot, is_action_allowed_for_node, recover_from_invalid_action
 
-from .graph_runtime import EntryRuntimeState
+from .graph_runtime import EntryRuntimeState, merge_messages
 from .graph_spec import get_node_spec
 
 StageHandler = Callable[[EntryRuntimeState], Awaitable[dict[str, Any]]]
@@ -80,6 +81,8 @@ def _stage_output_payload(updates: dict[str, Any]) -> dict[str, Any]:
             artifact.model_dump(mode="json") for artifact in updates["ui_artifacts"]
             if isinstance(artifact, EntryUIArtifact)
         ]
+    if updates.get("route_deck_snapshot"):
+        payload["route_deck_snapshot"] = updates.get("route_deck_snapshot")
 
     session_payload = updates.get("session_payload")
     if isinstance(session_payload, EntryGraphSession):
@@ -152,7 +155,24 @@ async def execute_stage(
                 payload=action_payload,
             )
 
-        updates = await handler(state)
+        selected_action_id = state.get("selected_action_id")
+        if selected_action_id and not is_action_allowed_for_node(stage_id, selected_action_id):
+            recovery_message, recovery_actions = recover_from_invalid_action(stage_id, selected_action_id)
+            updates = {
+                "messages": merge_messages(state, recovery_message),
+                "available_actions": recovery_actions,
+                "route_deck_snapshot": build_runtime_snapshot(
+                    current_node=stage_id,
+                    executed_nodes=runtime.executed_stage_ids,
+                    valid_actions=recovery_actions,
+                    diagnostics={
+                        "invalid_action_id": selected_action_id,
+                        "recovery": "route_deck_invalid_action",
+                    },
+                ),
+            }
+        else:
+            updates = await handler(state)
         messages = updates.get("messages", [])
         for message in messages:
             if isinstance(message, EntryGraphMessage):

@@ -24,6 +24,7 @@ export interface OperatorReadiness {
 }
 
 const graphNodeLabels: Record<GatewayNode, string> = {
+  bootstrap: 'Bootstrap',
   intent: 'Intent',
   display_name: 'Display name',
   email: 'Email',
@@ -304,7 +305,6 @@ export function EvidenceDrawer({
   onToggle,
   mode,
   graphNode,
-  graphManifest,
   runId,
   sessionId,
   readiness,
@@ -316,7 +316,6 @@ export function EvidenceDrawer({
   onToggle: () => void
   mode: OperatorExperienceMode
   graphNode?: GatewayNode | null
-  graphManifest?: EntryGraphManifest | null
   runId?: string | null
   sessionId?: string | null
   readiness: OperatorReadiness
@@ -351,7 +350,7 @@ export function EvidenceDrawer({
               <div><dt className="font-medium text-slate-700 dark:text-slate-200">Stage</dt><dd>{graphNode ? graphNodeLabels[graphNode] : 'Workspace chat'}</dd></div>
               <div><dt className="font-medium text-slate-700 dark:text-slate-200">Run</dt><dd className="break-all">{runId || 'Not emitted yet'}</dd></div>
               <div><dt className="font-medium text-slate-700 dark:text-slate-200">Session</dt><dd className="break-all">{sessionId || 'Not emitted yet'}</dd></div>
-              <div><dt className="font-medium text-slate-700 dark:text-slate-200">Graph</dt><dd>{graphManifest?.version || 'Workspace bridge'}</dd></div>
+              <div><dt className="font-medium text-slate-700 dark:text-slate-200">Graph</dt><dd>{graphNode ? 'RouteDeck entry graph' : 'Workspace bridge'}</dd></div>
             </dl>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs dark:border-white/10 dark:bg-white/[0.03]">

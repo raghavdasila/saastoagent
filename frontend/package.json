@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.0",
+    "@xyflow/react": "^12.10.2",
     "clsx": "^2.1.1",
     "lucide-react": "^1.14.0",
     "react": "^18.3.1",
@@ -22,6 +23,7 @@
     "zustand": "^5.0.13"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/node": "^20.17.10",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 
 import type { WorkspaceView } from '@/stores/workspaceStore'
-import type { EntryActionCard, OperatorExperienceMode, OperatorSidebarItem } from '@/types/entry'
+import type { EntryActionCard, EntryGraphManifest, OperatorExperienceMode, OperatorSidebarItem } from '@/types/entry'
 import type { WorkspaceStats } from '@/types/domain'
 
 export type CapabilityState = 'ready' | 'needs_setup' | 'locked' | 'running' | 'needs_approval' | 'has_findings'
@@ -28,7 +28,6 @@ export interface OperatorCapabilityDefinition {
   shortLabel: string
   description: string
   icon: LucideIcon
-  actionId?: string
   authRequired?: boolean
   enabled: boolean
   emptyState: string
@@ -64,7 +63,6 @@ export const entryCapabilities: OperatorCapabilityDefinition[] = [
     shortLabel: 'Learn',
     description: 'Understand what SaaStoAgent can operate and where the boundaries are.',
     icon: Brain,
-    actionId: 'entry.learn.platform',
     enabled: true,
     emptyState: 'Ask a platform question to populate this lens.',
     failureState: 'Platform answer is unavailable; use the chat spine to retry.',
@@ -77,7 +75,6 @@ export const entryCapabilities: OperatorCapabilityDefinition[] = [
     shortLabel: 'Setup',
     description: 'Capture the workspace job and REST API details before auth.',
     icon: Database,
-    actionId: 'entry.learn.setup',
     enabled: true,
     emptyState: 'Describe the API or product you want this operator to run.',
     failureState: 'Setup draft is incomplete or needs user correction.',
@@ -90,7 +87,6 @@ export const entryCapabilities: OperatorCapabilityDefinition[] = [
     shortLabel: 'Sign In',
     description: 'Authenticate without leaving the operator shell.',
     icon: LogIn,
-    actionId: 'intent.sign_in',
     enabled: true,
     emptyState: 'Use when an existing account should own the workspace.',
     failureState: 'Authentication failed; deterministic auth stages own retry.',
@@ -103,7 +99,6 @@ export const entryCapabilities: OperatorCapabilityDefinition[] = [
     shortLabel: 'Create',
     description: 'Create an account while preserving the setup draft.',
     icon: UserPlus,
-    actionId: 'intent.register',
     enabled: true,
     emptyState: 'Use when a new workspace owner should be created.',
     failureState: 'Registration failed; deterministic auth stages own retry.',
@@ -231,6 +226,19 @@ export function isCapabilitySelectable(definition: OperatorCapabilityDefinition,
   if (!context.hasWorkspace) return false
   if (definition.authRequired && !context.isAuthenticated) return false
   return definition.id === 'chat' || context.isAuthenticated || definition.id === 'connect'
+}
+
+export function findCapabilityAction(
+  definition: OperatorCapabilityDefinition | undefined,
+  actions: EntryActionCard[],
+  graphManifest: EntryGraphManifest | null | undefined,
+): EntryActionCard | null {
+  if (!definition || definition.mode !== 'entry') return null
+  const cardAction = actions.find((action) => action.capability_id === definition.id)
+  if (cardAction) return cardAction
+  const manifestAction = graphManifest?.actions?.find((action) => action.capability_id === definition.id)
+  if (!manifestAction) return null
+  return actions.find((action) => action.id === manifestAction.id) ?? null
 }
 
 export function stateLabel(state: CapabilityState): string {

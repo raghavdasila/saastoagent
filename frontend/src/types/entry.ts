@@ -22,6 +22,7 @@ export type UnifiedOperatorMessage = ChatUIMessage & {
 }
 
 export type GatewayNode =
+  | 'bootstrap'
   | 'intent'
   | 'display_name'
   | 'email'
@@ -71,6 +72,7 @@ export interface EntryTurnResponse {
   available_actions?: EntryActionCard[]
   persistent_actions?: EntryActionCard[]
   ui_artifacts?: EntryUIArtifact[]
+  route_deck_snapshot?: RouteDeckRuntimeSnapshot | null
   replace_path?: string | null
 }
 
@@ -83,6 +85,11 @@ export interface EntryGraphManifestNode {
   label: string
   lane: string
   parent?: string | null
+  description?: string | null
+  prompt_placeholder?: string | null
+  allowed_actions?: string[]
+  expected_input?: string | null
+  recovery_prompt?: string | null
 }
 
 export interface EntryGraphManifestEdge {
@@ -90,12 +97,45 @@ export interface EntryGraphManifestEdge {
   to: string
   type: string
   condition?: string | null
+  explanation?: string | null
+  action_id?: string | null
+}
+
+export interface EntryGraphManifestAction {
+  id: string
+  label: string
+  capability_id?: string | null
+  description?: string | null
+  emphasis?: 'primary' | 'secondary'
+  kind?: EntryActionKind
+  category?: 'auth' | 'setup' | 'navigation' | 'execution' | 'feedback' | 'learning'
+  placement?: 'next_best' | 'rail' | 'inline' | 'evidence'
+  fields?: EntryActionField[]
+  payload?: Record<string, unknown>
+  allowed_nodes?: string[]
+  visibility?: 'contextual' | 'persistent' | 'dynamic' | string
+  recovery_prompt?: string | null
+  sensitive?: boolean
+}
+
+export interface RouteDeckRuntimeSnapshot {
+  current_node?: string | null
+  reachable_nodes?: string[]
+  valid_actions?: EntryActionCard[]
+  blocked_actions?: { id: string; reason: string }[]
+  executed_nodes?: string[]
+  progress?: Record<string, unknown>
+  recovery_prompts?: string[]
+  diagnostics?: Record<string, unknown>
 }
 
 export interface EntryGraphManifest {
   version: string
   nodes: EntryGraphManifestNode[]
   edges: EntryGraphManifestEdge[]
+  actions?: EntryGraphManifestAction[]
+  policies?: Record<string, unknown>
+  test_paths?: Record<string, unknown>[]
 }
 
 export interface StageCompletedEvent {
@@ -107,6 +147,7 @@ export interface StageCompletedEvent {
     available_actions?: EntryActionCard[]
     persistent_actions?: EntryActionCard[]
     ui_artifacts?: EntryUIArtifact[]
+    route_deck_snapshot?: RouteDeckRuntimeSnapshot
     connection_draft?: Record<string, unknown>
     entry_draft?: Record<string, unknown>
   }
@@ -123,11 +164,14 @@ export interface EntryActionField {
   default?: unknown
   options?: { value: string; label: string }[] | null
   help_text?: string | null
+  validation_hint?: string | null
+  sensitive?: boolean
 }
 
 export interface EntryActionCard {
   id: string
   label: string
+  capability_id?: string | null
   description?: string | null
   emphasis?: 'primary' | 'secondary'
   kind?: EntryActionKind

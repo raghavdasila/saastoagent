@@ -6,6 +6,7 @@ import type {
   EntryTurnResponse,
   EntryUIArtifact,
   GatewayState,
+  RouteDeckRuntimeSnapshot,
   OperatorExperienceMode,
   OperatorSidebarItem,
   UnifiedOperatorMessage,
@@ -21,6 +22,8 @@ interface EntryState {
   runId: string | null
   graphVersion: string | null
   graphManifest: EntryGraphManifest | null
+  routeDeckSnapshot: RouteDeckRuntimeSnapshot | null
+  selectedDebugNode: string | null
   messages: UnifiedOperatorMessage[]
   draft: string
   busy: boolean
@@ -35,6 +38,7 @@ interface EntryState {
   setAgentSessionId: (sessionId: string | null) => void
   enterOperatorMode: (workspaceId: string) => void
   setActiveSidebarItem: (item: OperatorSidebarItem) => void
+  setSelectedDebugNode: (nodeId: string | null) => void
   setDraft: (draft: string) => void
   setBusy: (busy: boolean) => void
   setAvailableActions: (actions: EntryActionCard[]) => void
@@ -71,6 +75,8 @@ const initialState = {
   runId: null,
   graphVersion: null,
   graphManifest: null,
+  routeDeckSnapshot: null,
+  selectedDebugNode: null,
   messages: [],
   draft: '',
   busy: false,
@@ -90,6 +96,7 @@ export const useEntryStore = create<EntryState>((set) => ({
   setAgentSessionId: (agentSessionId) => set({ agentSessionId }),
   enterOperatorMode: (activeWorkspaceId) => set({ mode: 'operator', activeWorkspaceId, activeSidebarItem: 'chat' }),
   setActiveSidebarItem: (activeSidebarItem) => set({ activeSidebarItem }),
+  setSelectedDebugNode: (selectedDebugNode) => set({ selectedDebugNode }),
   setDraft: (draft) => set({ draft }),
   setBusy: (busy) => set({ busy }),
   setAvailableActions: (availableActions) => set({ availableActions }),
@@ -122,6 +129,8 @@ export const useEntryStore = create<EntryState>((set) => ({
       runId: payload.run_id || state.runId,
       graphVersion: payload.graph_version || state.graphVersion,
       graphManifest: payload.graph_manifest || state.graphManifest,
+      routeDeckSnapshot: payload.route_deck_snapshot || state.routeDeckSnapshot,
+      selectedDebugNode: state.selectedDebugNode || payload.route_deck_snapshot?.current_node || payload.state.node,
       mode: hasWorkspace ? 'operator' : state.mode,
       activeWorkspaceId,
       activeSidebarItem: hasWorkspace && state.mode !== 'operator' ? 'chat' : state.activeSidebarItem,

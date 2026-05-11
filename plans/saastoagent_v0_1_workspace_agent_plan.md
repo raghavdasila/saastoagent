@@ -77,11 +77,33 @@ Done when:
 - Power users can expand evidence and see runtime ids, graph state, readiness, future artifact surfaces, and execution policy controls.
 - Future slices can add entities, actions, QA, and learnings through the capability registry rather than one-off shell changes.
 
+### ✅ RouteDeck Contract Gate - Graph-owned navigation and debugger
+
+Status: **IMPLEMENTED** (as of 2026-05-10)
+
+Implemented:
+
+- Entry/auth/setup/workspace handoff now has a backend-owned RouteDeck manifest and runtime snapshot.
+- RouteDeck action ids, node ids, field specs, sensitive policy, recovery prompts, and test paths live in a central catalog.
+- Existing entry response shapes are preserved through adapters while richer RouteDeck metadata is emitted.
+- Stage input validates submitted `selected_action_id` values before handlers run.
+- Invalid selected actions recover with visible alternatives instead of falling into dead-end copy.
+- Reusable framework code lives under `routedeck_framework/` with Python core contracts, React types/debugger, docs, packaging notes, and a minimal FastAPI/React example.
+- The standalone RouteDeck nav widget shows a compact status strip and a side map with focused graph, full-site graph, allowed actions, blocked actions, and JSON export.
+- The full-site graph uses a vertical lane layout on a manifest-sized scrollable canvas so the widget can ship with RouteDeck rather than only fit this app.
+- `ADR-007` records RouteDeck as the reusable framework contract.
+
+Done when:
+
+- Sign in, signup, setup, direct workspace, and invalid action recovery can be diagnosed from RouteDeck state.
+- Docker/browser QA can open the RouteDeck map from the product shell without Vite alias/HMR failures.
+- Future REST execution, approvals, QA, and learnings can adopt RouteDeck instead of inventing separate frontend/backend action contracts.
+
 ### 🔲 Slice 2B — REST tool inspection and chat binding  ← ACTIVE NEXT
 
-Status note (2026-05-09):
+Status note (2026-05-10):
 
-- Unified shell, conversational entry, persistent quick actions, anonymous direct workspace chat, and setup handoff are now in place.
+- Unified shell, conversational entry, persistent quick actions, anonymous direct workspace chat, setup handoff, and RouteDeck graph-navigation/debugging are now in place.
 - The next slice should start from generated REST tool inspection/binding rather than more entry/auth shell work.
 - Direct `/w/:id` now supports anonymous chat and backend-provided auth quick actions, but still needs graph-owned setup redirection when no ready REST connection exists.
 

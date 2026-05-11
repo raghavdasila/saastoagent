@@ -1,19 +1,20 @@
 # System Flow Index - SaaStoAgent v0.1
 
-Last Updated: May 9, 2026 9:25 PM
+Last Updated: May 10, 2026 6:53 PM
 
 This file is the source of truth for the currently implemented runtime and UX flows.
 
 ## Active Primary Flows
 
-1. Unified operator workbench: capability rail + status strip + central intent spine + contextual lens/evidence drawer
+1. Unified operator workbench: capability rail + status strip + RouteDeck status strip/side map + central intent spine + contextual lens/evidence drawer
 2. Conversational entry graph: public platform Q&A/setup drafting -> login/signup -> workspace create/select -> REST setup -> operator ready
 3. REST connection onboarding and activation
 4. Workspace operator chat, attachments, and admin inspection
 5. Persistent quick actions and next best action dock for global entry/auth/setup actions
 6. Anonymous direct workspace chat with IP rate limiting
-7. Later: generated REST tool discovery in chat
-8. Later: REST execution, QA, tuning, and governed learnings
+7. RouteDeck contract and debugger for entry/auth/setup/workspace handoff visibility
+8. Later: generated REST tool discovery in chat
+9. Later: REST execution, QA, tuning, and governed learnings
 
 ## Unified Operator Shell
 
@@ -21,6 +22,7 @@ This file is the source of truth for the currently implemented runtime and UX fl
 2. `OperatorGateway` owns the unified operator workbench:
    - capability rail with visible readiness states
    - operator status strip
+   - RouteDeck status strip and side map overlay
    - central intent spine
    - backend-owned next action dock
    - optional context lens and canvas
@@ -37,10 +39,26 @@ This file is the source of truth for the currently implemented runtime and UX fl
 9. Canvas artifacts remain closed by default and mount only after the user opens a canvas-capable artifact.
 10. `operator_ready` changes mode and workspace context inside the same shell; it does not replace the page with another layout.
 11. The next action dock ranks backend-owned actions and shows one recommended next step plus secondary persistent actions.
-12. The evidence drawer is collapsed by default and exposes graph/session/run ids, readiness evidence, emitted trace/tool/learning widgets, and an advisory autonomy ladder.
-13. Direct `/w/:workspaceId` can show backend-provided anonymous auth actions without blocking workspace chat.
-14. Product chrome renders `SaaStoAgent`; the operator persona renders exactly as `Corpus`.
-15. Legacy persisted workspace names are cleaned at display time so old generated phrasing does not leak into the header.
+12. RouteDeck navigation is split into a compact status strip and a right-side map overlay with focused and full-site SVG node-link visualization, allowed-action visibility, blocked-action visibility, and JSON export. The full-site graph uses a vertical lane layout on a manifest-sized scrollable canvas so the widget remains reusable outside this app.
+13. The evidence drawer is collapsed by default and exposes graph/session/run ids, readiness evidence, emitted trace/tool/learning widgets, and an advisory autonomy ladder.
+14. Direct `/w/:workspaceId` can show backend-provided anonymous auth actions without blocking workspace chat.
+15. Product chrome renders `SaaStoAgent`; the operator persona renders exactly as `Corpus`.
+16. Legacy persisted workspace names are cleaned at display time so old generated phrasing does not leak into the header.
+
+## RouteDeck Contract
+
+1. `backend/services/route_deck/catalog.py` is the source for visible entry graph nodes, edges, action specs, REST form fields, sensitive-field policy, and test paths.
+2. `routedeck_framework/routedeck_core` is the reusable Python framework layer for manifest models, validation, and runtime snapshot helpers.
+3. `routedeck_framework/react` is the reusable frontend layer for RouteDeck TypeScript contracts and the debugger component.
+4. `routedeck_framework/examples/minimal-fastapi-react` is the minimal reference showing how FastAPI and React consume the framework without SaaStoAgent product code.
+5. `graph_spec.py` delegates `build_graph_manifest()` to RouteDeck while retaining the LangGraph compatibility enums used by the executor.
+6. `ui_actions.py` adapts RouteDeck action specs into the existing `EntryActionCard` response shape.
+7. `stage_io.py` validates submitted `selected_action_id` values against the current RouteDeck node before running a stage handler.
+8. Invalid actions return a recoverable assistant message plus valid visible actions instead of falling into node-specific dead-end copy.
+9. `EntryGraphTurnResponse.route_deck_snapshot` exposes current node, reachable nodes, valid actions, blocked actions, executed nodes, recovery prompts, and diagnostics.
+10. `python -m backend.services.route_deck.validate` validates the manifest contract.
+11. Docker images copy or build against `routedeck_framework/`; frontend Docker serves the built Vite preview to avoid host-only alias and HMR websocket failures.
+12. Docs live under `docs/route-deck/` and framework docs live under `routedeck_framework/docs/`.
 
 ## Workbench Extensibility Contract
 
@@ -48,7 +66,7 @@ This file is the source of truth for the currently implemented runtime and UX fl
 2. The frontend may place and rank actions, but backend graph/runtime remains the source of valid auth, setup, and execution action ids.
 3. Status strip data comes from existing graph state, graph manifest, workspace stats, and runtime stream state.
 4. Context lens content is capability-specific and can render typed backend artifacts.
-5. Evidence drawer content is progressive: graph metadata and readiness are always available; tool candidates, execution plans, approval requests, trace summaries, and learning candidates appear when backend artifacts emit them.
+5. Evidence drawer content is progressive: runtime metadata and readiness are always available; tool candidates, execution plans, approval requests, trace summaries, and learning candidates appear when backend artifacts emit them. Route/control-flow visualization belongs in the RouteDeck status strip and side map.
 6. Autonomy ladder is visible now as the future REST execution policy surface, but backend approval gates remain authoritative until execution is wired.
 
 ## Entry Graph Runtime
@@ -199,6 +217,8 @@ All routes are workspace-scoped and require workspace membership.
 - Provider catalog verified in Docker
 - Frontend type-check: `npm run type-check`
 - Frontend build: `npm run build`
+- RouteDeck manifest validation: `python -m backend.services.route_deck.validate`
+- RouteDeck Docker/browser validation: `docker compose up -d --build frontend`, then Playwright against `http://localhost:3007` opening `Map` -> `Full graph`, confirming vertical lane order, 11 nodes, 24 paths, no same-row node overlap, no title/badge overlap, and no console errors.
 - Persistent quick actions smoke: anonymous landing and direct workspace route show backend-provided Sign In/Create Account, and Sign In enters email collection.
 - Anonymous workspace smoke: direct workspace chat remains visible without auth.
 - Responsive panel smoke: mobile side panel fits a 390x844 viewport.

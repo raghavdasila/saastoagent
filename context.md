@@ -1,140 +1,114 @@
 # SaaStoAgent v0.1 Context
 
-Last Updated: May 9, 2026 9:25 PM
+Last Updated: May 10, 2026 6:53 PM
 Project: SaaStoAgent v0.1
-Status: Unified operator workbench, conversational entry, anonymous workspace chat, responsive context lens, evidence drawer, autonomy ladder, and backend-owned next actions are implemented. Product/operator naming is corrected: the product is `SaaStoAgent`, and the operator is exactly `Corpus`. Entry/setup remains graph-owned; workspace chat remains a bridged agent runtime. The current focus is browser QA and wiring generated REST tools into chat execution.
+Status: Unified operator workbench, conversational entry, anonymous workspace chat, responsive context lens, evidence drawer, backend-owned persistent actions, and RouteDeck graph-navigation/debugger framework are implemented. Product/operator naming remains `SaaStoAgent` / `Corpus`. Entry/setup remains graph-owned; workspace chat remains a bridged agent runtime. Active next work is generated REST tool inspection and binding into workspace agent execution.
 Repository: `agent-lab-powered-projects/saastoagent-v0.1`
 
 ---
 
 ## Live State
 
-- Frontend dev URL used during this slice: `http://localhost:3007`.
+- Frontend Docker/browser URL: `http://localhost:3007`.
 - Backend health URL: `http://localhost:8085/api/health`.
 - Database image: `pgvector/pgvector:pg17`.
-- REST/OpenAPI setup is the active integration path; DB connectors remain out of immediate scope.
-- If existing dev servers were started before this checkpoint, restart backend/frontend so the new persistent-actions endpoint and CSS are loaded.
-- After the latest naming cleanup, restart/reload the frontend before judging visible header copy.
+- Docker frontend now runs build plus Vite preview to avoid dev-server HMR websocket and host `@fs` alias failures.
+- Backend Docker image copies `routedeck_framework/`.
+- REST/OpenAPI setup remains the active integration path; DB connectors remain out of immediate scope.
 
 ## Current Product Shape
 
-- `/`, `/login`, `/register`, and `/w/:workspaceId` all mount the unified `OperatorGateway` workbench.
-- The capability rail, status strip, central intent spine, next action dock, and evidence drawer are always structurally available; canvas and context lens mount only when needed.
-- Anonymous users can:
-  - ask SaaStoAgent/platform questions before auth
-  - draft workspace/API setup before auth
-  - chat in a direct workspace route with a configurable IP rate limit
-  - use backend-provided persistent Sign In / Create Account / Learn / Setup quick actions
+- `/`, `/login`, `/register`, and `/w/:workspaceId` mount the unified `OperatorGateway` workbench.
+- Anonymous users can ask platform questions, draft setup, sign in, create an account, or chat on direct workspace routes.
 - Auth/login/signup remain deterministic graph stages for sensitive work.
 - Workspace creation and REST setup remain graph-owned after auth.
 - Workspace operator chat remains bridged through `/api/workspaces/{workspaceId}/agent/chat`.
 - Entry messages and setup draft are preserved through auth, workspace creation, REST setup, and operator handoff.
-- The user operating loop is: describe the job -> see readiness -> approve or adjust plan -> let agent act -> inspect evidence -> give feedback or save learning.
+- The workbench zones are capability rail, operator status strip, RouteDeck status strip, central intent spine, next action dock, context lens, evidence drawer, optional canvas, and shared composer.
 
-## Backend Runtime Shape
+## RouteDeck State
 
-- Entry runtime:
-  - `POST /api/entry/stream` owns conversational entry/auth/setup.
-  - `EntryGraphState` persists `entry_draft`, `connection_draft`, `platform_question_context`, `canvas_artifacts`, and `follow_up_context`.
-- `EntryGraphTurnResponse` now separates contextual `available_actions` from global `persistent_actions`.
-- `EntryGraphTurnResponse` emits `session_id`, `run_id`, `graph_version`, and `graph_manifest`; the frontend now retains these for the workbench status/evidence surfaces.
-  - `GET /api/entry/persistent-actions` returns backend-owned stable actions for direct routes and non-streaming startup surfaces.
-- Persistent actions:
-  - anonymous users receive Learn, Setup, Sign In, and Create Account unless they are already in deterministic auth nodes
-  - authenticated workspace users can receive setup-oriented persistent actions without reintroducing a redundant Open Chat action
-  - action ids are preserved: `intent.sign_in`, `intent.register`, `entry.learn.platform`, `entry.learn.setup`
-- Public platform assistant:
-  - uses `ChatOpenAI.with_structured_output` when `STA_OPENAI_API_KEY` is configured
-  - falls back to deterministic planning when LLM calls are unavailable
-  - uses local platform KB retrieval with embedding search when available and keyword fallback otherwise
-- Anonymous workspace chat:
-  - `/api/workspaces/{workspace_id}/agent/chat` accepts unauthenticated chat when the workspace exists
-  - IP rate limit defaults to `10` messages per hour
-  - config: `STA_ANONYMOUS_CHAT_MESSAGES_PER_HOUR`, `STA_ANONYMOUS_CHAT_RATE_LIMIT_WINDOW_SECONDS`
-- Agent handoff:
-  - `ChatRequest.handoff_context` is optional
-  - first-turn handoff metadata is stored on `AgentSession.metadata_`
-  - agent context assembly prepends a concise handoff summary when present
+- RouteDeck replaced the earlier GraphUI naming everywhere.
+- Product-specific RouteDeck catalog/adapters live under `backend/services/route_deck/`.
+- Reusable framework code lives under `routedeck_framework/`:
+  - `routedeck_core`: Python models, runtime helpers, and validation.
+  - `react`: TypeScript contracts and `RouteDeckDebugger`.
+  - `docs`: framework architecture, minimal example, and packaging roadmap.
+  - `examples/minimal-fastapi-react`: minimal FastAPI/React reference.
+- `backend/services/route_deck/catalog.py` is the source of truth for visible nodes, edges, actions, fields, sensitive policy, recovery prompts, and test paths.
+- `graph_spec.py` delegates visible manifest data to RouteDeck while preserving executor compatibility.
+- `ui_actions.py` adapts RouteDeck actions into existing response shapes.
+- `stage_io.py` validates submitted `selected_action_id` before stage handlers run.
+- Invalid actions recover with visible alternatives instead of dead-end copy.
+- `EntryGraphTurnResponse.route_deck_snapshot` exposes current node, reachable nodes, valid/blocked actions, executed nodes, recovery prompts, and diagnostics.
+- `python -m backend.services.route_deck.validate` validates the manifest contract.
 
 ## Frontend Runtime Shape
 
-- `OperatorGateway.tsx` owns the unified shell, runtime bridge, stream handling, sidebar, chat thread, action rendering, and responsive panel/canvas layout.
-- `OperatorGateway.tsx` owns the unified workbench runtime bridge and composes stable zones:
-  - capability rail
-  - operator status strip
-  - central intent spine
-  - next action dock
-  - context lens
-  - evidence drawer
-  - optional canvas
-- `operatorExperience.ts` is the registry-driven capability model for entry/workspace surfaces, readiness states, empty states, failure states, evidence surfaces, and action ids.
-- `entryStore.ts` centralizes cross-flow state:
-  - mode
-  - active workspace id
-  - active sidebar item
-  - entry and agent session ids
-  - graph state
-  - messages
-  - contextual `availableActions`
-  - stable `persistentActions`
-  - UI artifacts and canvas state
-- Persistent quick actions render through the next action dock near the composer and are not cleared during streaming.
-- Contextual action cards render inline under the assistant turn and remain graph-node specific.
-- Sidebar Sign In/Create Account/Learn/Setup dispatch backend action ids from persistent actions first, then contextual actions.
-- Direct `/w/:workspaceId` can show backend-provided auth quick actions and can switch into entry/auth composer mode without leaving the unified layout.
-- `useSSEChat` avoids bogus `Bearer undefined/null`, surfaces non-SSE HTTP failures, and sends first-turn handoff context.
-- The right side panel is responsive on mobile through the `.operator-side-panel` CSS class.
-- The evidence drawer is collapsed by default and exposes runtime ids, graph stage, readiness summary, future tool/trace/learning artifacts, and an advisory autonomy ladder.
-- Product chrome and workspace navigation use `SaaStoAgent`.
-- The visible operator label is exactly `Corpus`; do not append `operator` to it in UI copy.
-- Legacy robotic title copy and awkward generated workspace names from generic talk-to-my-SaaS phrasing are removed from source and cleaned at display time.
-- The central chat viewport now uses a clamped height to avoid forcing full-page scroll under the status strip/action dock/evidence drawer.
+- `OperatorGateway.tsx` owns the unified shell and runtime bridge.
+- `entryStore.ts` centralizes mode, workspace id, entry/agent sessions, graph state, messages, actions, artifacts, canvas state, RouteDeck snapshot, and selected debug node.
+- `operatorExperience.ts` remains the registry-driven capability model.
+- Persistent quick actions render through the next action dock and are not cleared during streaming.
+- Contextual action cards render inline under assistant turns.
+- Sidebar/capability actions dispatch backend action ids from persistent actions first, then contextual actions.
+- Direct `/w/:workspaceId` can expose backend-provided auth actions and temporarily switch into entry/auth composer mode without leaving the unified layout.
+- RouteDeck navigation is a standalone widget:
+  - compact status strip in the workbench
+  - side map overlay separate from evidence/trace UI
+  - focus graph for current/incoming/outgoing nodes
+  - full-site vertical lane graph on a manifest-sized scrollable canvas
+  - allowed actions, blocked actions, recovery/input details, and JSON export
+- The full-site graph widget is framework-oriented: reusable node sizing, idle/current/previous/next states, width-aware text truncation, and no app-specific fixed node count.
 
 ## Known Gaps
 
-- Generated REST tools are persisted but not yet bound into workspace agent tool selection/execution.
-- The autonomy ladder is visible but advisory until REST execution and approval gates are wired.
-- Browser QA should be expanded beyond smoke tests to cover full anonymous/auth/setup/workspace permutations.
-- Frontend renderer tests are still not automated in the repo package.
+- Generated REST tools are persisted but not yet bound into workspace agent selection/execution.
+- Direct `/w/:id` deep links can still bypass graph-owned REST setup until the user explicitly enters setup/auth.
+- Autonomy ladder is visible but advisory until REST execution and approval gates are wired.
+- Browser QA is still smoke-level; repo-native Playwright/component tests are needed.
 - Backend pytest is not yet wired into a reliable local/container test image.
-- Platform KB is still a small static corpus and needs richer source management/citation UX.
-- Anonymous workspace chat rate limiting is in-memory and process-local for this slice.
+- Platform KB remains small and needs richer source management/citation UX.
+- Anonymous workspace chat rate limiting is in-memory and process-local.
+- RouteDeck currently covers entry/auth/setup/workspace handoff; REST execution, approvals, QA, and learnings should adopt it later.
 
 ## Verification
 
+- `python -m backend.services.route_deck.validate`: passed.
 - `python -m compileall backend`: passed.
 - `npm run type-check`: passed.
 - `npm run build`: passed.
-- Operator workbench baseline compile/build validation passed after adding status strip, capability rail, next action dock, context lens, evidence drawer, autonomy ladder, registry model, and new artifact renderers.
-- Follow-up copy/height validation passed after title cleanup, workspace-name normalization, chat viewport clamp, and the final `SaaStoAgent`/`Corpus` split.
-- Source search found no visible `Corpus operator`, `SaaSToAgent Operator`, or `It Will Talk To My Saas` matches in frontend source.
-- Playwright smoke against a fresh Vite server passed:
-  - direct anonymous workspace route keeps chat available
-  - mobile side panel fits viewport
-  - anonymous landing shows backend-provided persistent auth quick actions
-  - direct anonymous workspace route shows backend-provided auth quick actions
-  - Sign In quick action enters the email step
+- `docker compose up -d --build frontend`: passed.
+- Docker frontend logs show Vite preview serving on container port 3000.
+- Docker backend logs show application startup complete and entry requests returning 200.
+- Playwright against `http://localhost:3007`:
+  - opened RouteDeck `Map`.
+  - switched to `Full graph`.
+  - confirmed vertical lane order: system, auth, workspace, terminal.
+  - confirmed 11 SVG node groups and 24 SVG path elements.
+  - confirmed drawer width 1152px and canvas width 1266px.
+  - confirmed no same-row node overlap.
+  - confirmed no title/badge overlap.
+  - confirmed no browser console errors.
 
 ## Immediate Next Steps
 
-1. Restart the live dev backend/frontend and browser QA the actual running stack at `localhost:3007`.
-2. Wire generated REST tools into workspace agent execution.
-3. Add repo-native frontend tests for `OperatorGateway` action dock, capability rail dispatch, evidence drawer, and direct workspace auth transition.
-4. Add a backend test image or dependency path for reliable pytest execution.
-5. Expand platform KB source indexing and citation display.
+1. Wire generated REST tools into workspace agent execution.
+2. Add repo-native tests for RouteDeck sign in, signup, invalid action recovery, direct workspace auth actions, and debugger rendering.
+3. Extend RouteDeck to generated REST execution, approvals, QA, and learnings.
+4. Enforce or clearly redirect graph-owned setup from direct `/w/:id` deep links when no ready REST connection exists.
+5. Add a backend test image or dependency path for reliable pytest execution.
 
 ## References
 
 - Vision: `critical_prompt.md`
 - Work prompt: `work_prompt.md`
 - Flow index: `SYSTEM_FLOW_INDEX.md`
-- UX research:
-  - `knowledgebase/patterns/agentic-workbench-ux-research.md`
-- Decisions:
-  - `decisions/ADR-003-unified-agentic-operator-experience.md`
-  - `decisions/ADR-004-backend-owned-persistent-actions.md`
-  - `decisions/ADR-005-widget-canvas-artifact-contract.md`
-  - `decisions/ADR-006-operator-workbench-extensibility-contract.md`
-- Latest log: `logs/20260509_2125_ux_research_and_closeout.md`
-- Latest checkpoint: `context_checkpoints/context_checkpoint_09-05-2026-09-25PM.md`
-- Context archive: `context_history/20260509_2125_context_before_ux_research_closeout.md`
+- Active plan: `plans/saastoagent_v0_1_workspace_agent_plan.md`
+- Latest log: `logs/20260510_1853_routedeck_contract_framework_and_debugger.md`
+- Latest checkpoint: `context_checkpoints/context_checkpoint_10-05-2026-06-53PM.md`
+- Context archive: `context_history/20260510_1853_context_before_routedeck_closeout.md`
+- RouteDeck ADR: `decisions/ADR-007-routedeck-framework-contract.md`
+- RouteDeck test index: `test_index/route-deck-contract.md`
+- RouteDeck packaging error note: `errors/20260510_routedeck_framework_container_packaging.md`
+- RouteDeck product docs: `docs/route-deck/`
+- RouteDeck framework docs: `routedeck_framework/docs/`

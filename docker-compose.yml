@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: saastoagent_v0_1
       PGDATA: /var/lib/postgresql/data/pgdata
-    # No host port binding — backend accesses db via Docker DNS (db:5432).
+    # No host port binding; backend accesses db via Docker DNS (db:5432).
     # Avoids port 5435 conflict with the sibling saastoagent project.
     volumes:
       - saastoagent_v0_1_pgdata17:/var/lib/postgresql/data
@@ -38,18 +38,23 @@ services:
     command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./backend:/app/backend
+      - ./routedeck_framework:/app/routedeck_framework
       - sta_v01_uploads:/app/uploads
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    environment:
+      VITE_API_PROXY_TARGET: http://backend:8000
+    command: sh -c "npm install && npm run build && npm run preview"
     ports:
       - "3007:3000"
     depends_on:
       - backend
     volumes:
       - ./frontend:/app
+      - ./routedeck_framework:/routedeck_framework
       - /app/node_modules
 
 volumes:

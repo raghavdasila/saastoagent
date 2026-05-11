@@ -16,6 +16,7 @@ COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ ./backend/
+COPY routedeck_framework/ ./routedeck_framework/
 
 RUN mkdir -p /app/uploads
 

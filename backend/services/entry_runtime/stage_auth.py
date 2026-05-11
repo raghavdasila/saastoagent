@@ -10,6 +10,8 @@ from fastapi_users.db import SQLAlchemyUserDatabase
 from backend.core.auth import UserManager, get_jwt_strategy
 from backend.core.models import User
 from backend.core.schemas import EntryGraphSession, UserCreate
+from backend.services.route_deck import RouteDeckActionIds
+from backend.services.route_deck.ids import follow_up_action_id, is_follow_up_action
 
 from .entry_assistant import run_entry_assistant
 from .graph_runtime import EntryRuntimeState, merge_messages, user_read
@@ -70,14 +72,14 @@ def _assistant_actions(follow_up_prompts: list[str]) -> list:
             continue
         auth_intent = _detect_auth_intent(normalized)
         if auth_intent == "login":
-            actions.append(entry_action("intent.sign_in", "Sign In", kind="chip", emphasis="primary"))
+            actions.append(entry_action(RouteDeckActionIds.INTENT_SIGN_IN, "Sign In", kind="chip", emphasis="primary"))
             continue
         if auth_intent == "register":
-            actions.append(entry_action("intent.register", "Create Account", kind="chip", emphasis="primary"))
+            actions.append(entry_action(RouteDeckActionIds.INTENT_REGISTER, "Create Account", kind="chip", emphasis="primary"))
             continue
         actions.append(
             entry_action(
-                f"entry.follow_up:{index}",
+                follow_up_action_id(index),
                 normalized[:48],
                 description=normalized,
                 kind="chip",
@@ -107,14 +109,14 @@ async def bootstrap_node(state: EntryRuntimeState) -> dict[str, Any]:
     # Resilience: if session state was lost but the client sent a known action,
     # honour it directly rather than looping back to the intent prompt.
     selected_action_id = _selected_action_id(state)
-    if selected_action_id == "intent.sign_in":
+    if selected_action_id == RouteDeckActionIds.INTENT_SIGN_IN:
         return {
             "node": "email",
             "intent": "login",
             "display_name": "",
             "messages": merge_messages(state, "Signing you in. Give me the email for your account."),
         }
-    if selected_action_id == "intent.register":
+    if selected_action_id == RouteDeckActionIds.INTENT_REGISTER:
         return {
             "node": "display_name",
             "intent": "register",
@@ -182,17 +184,17 @@ async def bootstrap_node(state: EntryRuntimeState) -> dict[str, Any]:
 
 async def intent_node(state: EntryRuntimeState) -> dict[str, Any]:
     selected_action_id = _selected_action_id(state)
-    if selected_action_id == "intent.sign_in":
+    if selected_action_id == RouteDeckActionIds.INTENT_SIGN_IN:
         intent = "login"
-    elif selected_action_id == "intent.register":
+    elif selected_action_id == RouteDeckActionIds.INTENT_REGISTER:
         intent = "register"
     else:
         value = (state.get("user_input") or "").strip()
         intent = _detect_auth_intent(value)
 
     should_call_assistant = (
-        selected_action_id in (None, "entry.learn.platform", "entry.learn.setup")
-        or bool(selected_action_id and selected_action_id.startswith("entry.follow_up:"))
+        selected_action_id in (None, RouteDeckActionIds.ENTRY_LEARN_PLATFORM, RouteDeckActionIds.ENTRY_LEARN_SETUP)
+        or is_follow_up_action(selected_action_id)
     )
     assistant_updates: dict[str, Any] = {}
     if not intent and should_call_assistant:
@@ -248,7 +250,7 @@ async def intent_node(state: EntryRuntimeState) -> dict[str, Any]:
 
 async def display_name_node(state: EntryRuntimeState) -> dict[str, Any]:
     selected_action_id = _selected_action_id(state)
-    if selected_action_id == "display_name.skip":
+    if selected_action_id == RouteDeckActionIds.DISPLAY_NAME_SKIP:
         display_name = ""
     elif selected_action_id is not None:
         return {
@@ -295,7 +297,7 @@ async def email_node(state: EntryRuntimeState) -> dict[str, Any]:
     return {
         "node": "password",
         "email": value,
-        "messages": merge_messages(state, "Got it. Send the password — I'll mask it in the thread."),
+        "messages": merge_messages(state, "Got it. Send the password â€” I'll mask it in the thread."),
     }
 
 

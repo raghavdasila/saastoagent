@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from backend.core.config import settings
 from backend.core.schemas import EntryUIArtifact
+from backend.services.route_deck import RouteDeckActionIds
 
 from .platform_kb import PlatformKBResult, citation_payload, platform_kb
 from .setup_planner import _infer_from_text
@@ -41,9 +42,9 @@ def _detect_auth_intent(value: str) -> EntryAssistantNextStep | None:
 def action_prompt(action_id: str | None, payload: dict[str, Any] | None) -> str | None:
     if payload and isinstance(payload.get("prompt"), str):
         return str(payload["prompt"])
-    if action_id == "entry.learn.platform":
+    if action_id == RouteDeckActionIds.ENTRY_LEARN_PLATFORM:
         return "What is SaaStoAgent and what can I build with it?"
-    if action_id == "entry.learn.setup":
+    if action_id == RouteDeckActionIds.ENTRY_LEARN_SETUP:
         return "How do I set up a workspace and connect an API?"
     return None
 

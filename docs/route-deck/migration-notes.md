@@ -1,0 +1,27 @@
+# RouteDeck Migration Notes
+
+## Moved Into RouteDeck
+
+- Reusable framework contracts moved into `routedeck_framework/routedeck_core`.
+- Reusable React debugger moved into `routedeck_framework/react`.
+- Node labels, descriptions, lanes, placeholders, expected inputs, and recovery prompts moved into `backend/services/route_deck/catalog.py`.
+- Static action metadata moved into the central action catalog.
+- Backend action and node ids are exposed through `backend/services/route_deck/ids.py`.
+- Frontend entry rail actions bind through RouteDeck `capability_id` metadata instead of duplicated action ids.
+- REST setup form field definitions moved into `REST_CONNECTION_FIELDS`.
+- Sensitive field metadata is now explicit on field specs and validated against the masking policy.
+- Manifest export now includes nodes, edges, actions, policies, and test paths.
+
+## Still In Existing Runtime Files
+
+- `entry_runtime/graph_spec.py` still provides the LangGraph enum compatibility layer and delegates manifest building to RouteDeck.
+- `entry_runtime/ui_actions.py` remains the adapter that creates `EntryActionCard` instances for the current API shape.
+- `backend/services/route_deck/` remains SaaStoAgent-specific and imports framework-level models/helpers from `routedeck_framework/`.
+- `stage_auth.py` and `stage_workspace.py` still own dynamic auth/workspace/setup behavior.
+- `OperatorGateway.tsx` still owns streaming, workbench layout, and shell state.
+
+## Follow-Up Refactors
+
+- Move more static auth/setup messages from stage handlers into RouteDeck node or action copy.
+- Generate TypeScript manifest types or fixtures from the backend contract.
+- Extend RouteDeck beyond entry/setup into REST execution, approval gates, QA, and learnings.

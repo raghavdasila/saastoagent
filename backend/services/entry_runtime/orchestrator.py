@@ -6,6 +6,7 @@ import uuid
 
 from backend.core.models import User
 from backend.core.schemas import EntryGraphState, EntryGraphTurnRequest, EntryGraphTurnResponse
+from backend.services.route_deck import build_runtime_snapshot
 
 from .graph_executor import entry_graph_executor
 from .graph_runtime import EntryEventSink, EntryRuntimeState, EntryTurnRuntime, state_dump, state_payload
@@ -144,6 +145,19 @@ async def run_entry_turn(
         result["persistent_actions"] = persistent_actions
         final_state = state_dump(result)
         last_stage_id = runtime.executed_stage_ids[-1] if runtime.executed_stage_ids else None
+        route_deck_snapshot = build_runtime_snapshot(
+            current_node=result.get("node"),
+            executed_nodes=runtime.executed_stage_ids,
+            valid_actions=[
+                *result.get("available_actions", []),
+                *persistent_actions,
+            ],
+            diagnostics={
+                "run_id": str(run_record.id),
+                "session_id": str(session_record.id),
+                "graph_version": GRAPH_VERSION,
+            },
+        )
 
         await store.persist_session_state(
             session_record,
@@ -171,6 +185,7 @@ async def run_entry_turn(
             available_actions=result.get("available_actions", []),
             persistent_actions=persistent_actions,
             ui_artifacts=result.get("ui_artifacts", []),
+            route_deck_snapshot=route_deck_snapshot,
             replace_path=result.get("replace_path"),
         )
         await runtime.emit(
