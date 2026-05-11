@@ -1,8 +1,8 @@
 # SaaStoAgent v0.1 Context
 
-Last Updated: May 10, 2026 6:53 PM
+Last Updated: May 11, 2026
 Project: SaaStoAgent v0.1
-Status: Unified operator workbench, conversational entry, anonymous workspace chat, responsive context lens, evidence drawer, backend-owned persistent actions, and RouteDeck graph-navigation/debugger framework are implemented. Product/operator naming remains `SaaStoAgent` / `Corpus`. Entry/setup remains graph-owned; workspace chat remains a bridged agent runtime. Active next work is generated REST tool inspection and binding into workspace agent execution.
+Status: Unified operator workbench, conversational entry, anonymous workspace chat, responsive context lens, evidence drawer, backend-owned persistent actions, RouteDeck graph-navigation/debugger framework, and post-RouteDeck UI cleanup are implemented. Product/operator naming remains `SaaStoAgent` / `Corpus`. Entry/setup remains graph-owned; workspace chat remains a bridged agent runtime. Active next work is generated REST/OpenAPI upload, inspection, and binding into workspace agent execution.
 Repository: `agent-lab-powered-projects/saastoagent-v0.1`
 
 ---
@@ -11,6 +11,8 @@ Repository: `agent-lab-powered-projects/saastoagent-v0.1`
 
 - Frontend Docker/browser URL: `http://localhost:3007`.
 - Backend health URL: `http://localhost:8085/api/health`.
+- Current local SaaStoAgent dev URL for this cleanup pass: `http://127.0.0.1:5177`.
+- Current standalone RouteDeck example URLs: frontend `http://127.0.0.1:5190`, backend `http://127.0.0.1:8096`; now launched with `routedeck_framework/examples/minimal-fastapi-react/docker-compose.yml`.
 - Database image: `pgvector/pgvector:pg17`.
 - Docker frontend now runs build plus Vite preview to avoid dev-server HMR websocket and host `@fs` alias failures.
 - Backend Docker image copies `routedeck_framework/`.
@@ -59,6 +61,12 @@ Repository: `agent-lab-powered-projects/saastoagent-v0.1`
   - full-site vertical lane graph on a manifest-sized scrollable canvas
   - allowed actions, blocked actions, recovery/input details, and JSON export
 - The full-site graph widget is framework-oriented: reusable node sizing, idle/current/previous/next states, width-aware text truncation, and no app-specific fixed node count.
+- Default entry UI is cleaner after RouteDeck integration:
+  - backend no longer emits onboarding, platform overview, knowledge sources, follow-up chips, or canvas artifacts on the initial empty bootstrap turn.
+  - platform overview stays inline when explicitly requested instead of opening as a default canvas-capable artifact.
+  - next action dock stays hidden on the entry default until the user has interacted.
+  - canvas collapse now switches the workbench to a narrow canvas rail so the chat column regains width.
+  - platform overview cards use responsive auto-fit tracks to avoid horizontal squishing.
 
 ## Known Gaps
 
@@ -77,6 +85,17 @@ Repository: `agent-lab-powered-projects/saastoagent-v0.1`
 - `python -m compileall backend`: passed.
 - `npm run type-check`: passed.
 - `npm run build`: passed.
+- Standalone RouteDeck example `npm run type-check`: passed.
+- Standalone RouteDeck example `npm run build`: passed.
+- Standalone RouteDeck example `docker compose up -d --build`: passed.
+- RouteDeck example frontend now includes Tailwind/PostCSS config that scans `../../../react/src` so shared debugger utility classes render in the minimal app.
+- Playwright screenshot smoke against `http://127.0.0.1:5177`:
+  - confirmed default entry surface no longer shows onboarding checklist.
+  - confirmed canvas opens and collapse expands the main chat column from about 746px to about 1048px at 1280px viewport.
+- Docker rebuild and Playwright smoke against `http://127.0.0.1:3007`:
+  - `docker compose up -d --build backend frontend`: passed.
+  - confirmed default entry surface does not show Platform Overview, Knowledge Sources, onboarding/checklist, or Next Best Action.
+- Playwright screenshot smoke against `http://127.0.0.1:5190`: confirmed standalone RouteDeck example renders against backend `8096`.
 - `docker compose up -d --build frontend`: passed.
 - Docker frontend logs show Vite preview serving on container port 3000.
 - Docker backend logs show application startup complete and entry requests returning 200.

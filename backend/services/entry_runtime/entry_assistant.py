@@ -103,7 +103,7 @@ async def run_entry_assistant(
         )
         context = context[-8:]
 
-    artifacts = _build_artifacts(result.entry_draft, kb_results)
+    artifacts = _build_artifacts(result.entry_draft, kb_results) if prompt else []
     return result, artifacts, context
 
 
@@ -132,11 +132,7 @@ def _fallback_result(
                 "I can explain SaaStoAgent, help draft the workspace/API setup, or get you signed in when you are ready."
             ),
             entry_draft=draft,
-            follow_up_prompts=[
-                "What is SaaStoAgent?",
-                "How does API setup work?",
-                "I want to create a workspace",
-            ],
+            follow_up_prompts=[],
         )
 
     if draft.get("api_draft") or draft.get("workspace_job"):
@@ -223,7 +219,7 @@ def _build_artifacts(
         EntryUIArtifact(
             id="platform-overview",
             kind="widget",
-            surface="both",
+            surface="inline",
             title="Platform Overview",
             widget_type="platform_overview",
             payload={
@@ -240,21 +236,6 @@ def _build_artifacts(
                         "title": "Closed improvement loop",
                         "body": "Capture weak outcomes, inspect traces, tune behavior, and persist validated learnings.",
                     },
-                ]
-            },
-        ),
-        EntryUIArtifact(
-            id="onboarding-checklist",
-            kind="widget",
-            surface="inline",
-            title="Onboarding Checklist",
-            widget_type="onboarding_checklist",
-            payload={
-                "items": [
-                    {"label": "Ask questions or describe the intended operator", "status": "active"},
-                    {"label": "Sign in or create an account", "status": "pending"},
-                    {"label": "Create or select a workspace", "status": "pending"},
-                    {"label": "Connect and activate a REST API", "status": "pending"},
                 ]
             },
         ),

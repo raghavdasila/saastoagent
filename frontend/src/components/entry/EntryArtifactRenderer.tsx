@@ -88,9 +88,9 @@ function ArtifactFrame({
   compact?: boolean
 }) {
   return (
-    <section className={['rounded-lg border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0b0d]', compact ? 'p-3' : 'p-4'].join(' ')}>
+    <section className={['min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0b0d]', compact ? 'p-3' : 'p-4'].join(' ')}>
       {title && <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{title}</h3>}
-      <div className={title ? 'mt-3' : ''}>{children}</div>
+      <div className={title ? 'mt-3 min-w-0' : 'min-w-0'}>{children}</div>
     </section>
   )
 }
@@ -99,11 +99,11 @@ function PlatformOverview({ artifact, compact }: { artifact: EntryUIArtifact; co
   const cards = Array.isArray(artifact.payload?.cards) ? artifact.payload.cards : []
   return (
     <ArtifactFrame title={artifact.title} compact={compact}>
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-3">
         {cards.map((card, index) => {
           const item = card as { title?: string; body?: string }
           return (
-            <div key={index} className="rounded-md border border-slate-100 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+            <div key={index} className="min-w-0 rounded-md border border-slate-100 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
               <div className="text-xs font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">{item.title}</div>
               <p className="mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">{item.body}</p>
             </div>

@@ -587,6 +587,15 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   const mobileCanvasArtifact = canvasArtifact?.surface === 'canvas' ? canvasArtifact : null
   const showPanel = activeSidebarItem !== 'chat'
   const showEntryThinking = !showOperatorMode && busy
+  const userHasInteracted = allMessages.some((message) => message.role === 'user')
+  const showActionDock = showOperatorMode || userHasInteracted
+  const workbenchGridClass = showCanvas
+    ? canvasCollapsed
+      ? 'max-w-7xl lg:grid-cols-[minmax(0,1fr)_3.5rem]'
+      : 'max-w-7xl lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.48fr)]'
+    : showPanel
+      ? 'max-w-7xl lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.48fr)]'
+      : 'max-w-5xl'
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -597,9 +606,9 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
             <div className="hidden text-xs text-muted-foreground sm:block">
               {showOperatorMode
                 ? workspaceDisplayName
-                  ? `${OPERATOR_NAME} Â· ${workspaceDisplayName}`
+                  ? `${OPERATOR_NAME} - ${workspaceDisplayName}`
                   : OPERATOR_NAME
-                : `${OPERATOR_NAME} Â· entry, setup, and workspace chat`}
+                : `${OPERATOR_NAME} - entry, setup, and workspace chat`}
             </div>
           </div>
           <div className="flex items-center gap-3 text-sm">
@@ -623,7 +632,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
         />
 
         <main className="min-w-0 flex-1">
-          <div className={cn('mx-auto grid gap-4 px-3 py-4 sm:px-6 lg:px-8', showCanvas || showPanel ? 'max-w-7xl lg:grid-cols-[minmax(0,1fr)_minmax(24rem,0.52fr)]' : 'max-w-5xl')}>
+          <div className={cn('mx-auto grid gap-4 px-3 py-4 sm:px-6 lg:px-8', workbenchGridClass)}>
             <div className={cn((showCanvas || showPanel) && 'lg:col-span-2')}>
               <OperatorStatusStrip
                 mode={visibleMode}
@@ -647,7 +656,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
                 sessionId={showOperatorMode ? agentSessionId : entrySessionId}
               />
             </div>
-            <section className="surface-card min-w-0 overflow-hidden rounded-2xl">
+            <section className="surface-card min-w-0 overflow-hidden rounded-lg">
               <div ref={scrollRef} className="h-[clamp(14rem,calc(100vh-25rem),34rem)] overflow-y-auto py-4">
                 {allMessages.length === 0 ? (
                   <div className="flex min-h-[18rem] items-center justify-center text-slate-400 dark:text-slate-500">
@@ -656,7 +665,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
                         <ThinkingIndicator />
                       </div>
                     ) : (
-                      <span className="text-sm">{showOperatorMode ? 'Corpus is ready.' : 'Starting workspace setup...'}</span>
+                      <span className="text-sm">{showOperatorMode ? 'Corpus is ready for direction.' : 'Ask a question or describe the API workflow to set up.'}</span>
                     )}
                   </div>
                 ) : (
@@ -706,12 +715,14 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
               </div>
 
               <div className="border-t border-slate-200 bg-white px-4 py-4 dark:border-white/10 dark:bg-[#09090b] sm:px-6">
-                <ActionDock
-                  primaryAction={nextBestAction}
-                  actions={persistentActions}
-                  busy={busy}
-                  onSelect={(action) => { void handleActionSelect(action) }}
-                />
+                {showActionDock && (
+                  <ActionDock
+                    primaryAction={nextBestAction}
+                    actions={persistentActions}
+                    busy={busy}
+                    onSelect={(action) => { void handleActionSelect(action) }}
+                  />
+                )}
                 {showOperatorMode ? (
                   <>
                     {operatorError && (

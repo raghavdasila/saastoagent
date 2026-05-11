@@ -60,6 +60,8 @@ def _selected_action_id(state: EntryRuntimeState) -> str | None:
 
 
 def _assistant_actions(follow_up_prompts: list[str]) -> list:
+    if not follow_up_prompts:
+        return []
     actions = entry_assistant_actions()
     existing_payloads = {
         str(action.payload.get("prompt", "")).strip().lower()
