@@ -155,12 +155,6 @@ def standard_workspace_actions() -> list[EntryActionCard]:
             emphasis="primary",
             kind="nav",
         ),
-        entry_action(
-            RouteDeckActionIds.SETUP_OPEN_CHAT,
-            "Skip API Setup",
-            description="Continue without connecting an API right now. API setup remains available in Connections.",
-            kind="nav",
-        ),
     ]
 
 
@@ -203,6 +197,12 @@ def connection_confirm_actions(draft: dict[str, Any]) -> list[EntryActionCard]:
             emphasis="primary",
         ),
         rest_connection_form_action(draft=draft, label="Edit Details"),
+        entry_action(
+            RouteDeckActionIds.SETUP_OPEN_CHAT,
+            "Skip API Setup",
+            description="Continue without connecting an API right now. API setup remains available in Connections.",
+            kind="nav",
+        ),
         *standard_workspace_actions(),
     ]
 
@@ -210,5 +210,11 @@ def connection_confirm_actions(draft: dict[str, Any]) -> list[EntryActionCard]:
 def setup_intro_actions(draft: dict[str, Any] | None = None) -> list[EntryActionCard]:
     return [
         rest_connection_form_action(draft=draft),
+        entry_action(
+            RouteDeckActionIds.SETUP_OPEN_CHAT,
+            "Skip API Setup",
+            description="Continue without connecting an API right now. API setup remains available in Connections.",
+            kind="nav",
+        ),
         *standard_workspace_actions(),
     ]

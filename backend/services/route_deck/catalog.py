@@ -3,9 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from backend.core.schemas import EntryActionCard, EntryActionField
-from routedeck_framework.routedeck_core import build_runtime_snapshot as build_core_runtime_snapshot
-from routedeck_framework.routedeck_core import reachable_nodes as core_reachable_nodes
-from routedeck_framework.routedeck_core import validate_manifest
+from routedeck_core import build_runtime_snapshot as build_core_runtime_snapshot
+from routedeck_core import reachable_nodes as core_reachable_nodes
+from routedeck_core import validate_manifest
 
 from .models import (
     RouteDeckActionSpec,
@@ -23,6 +23,14 @@ if TYPE_CHECKING:
 ROUTE_DECK_VERSION = "route_deck_entry_v1"
 ANY_ENTRY_NODE = [RouteDeckNodeIds.BOOTSTRAP, RouteDeckNodeIds.INTENT, RouteDeckNodeIds.OPERATOR_READY]
 AUTH_NODES = [RouteDeckNodeIds.DISPLAY_NAME, RouteDeckNodeIds.EMAIL, RouteDeckNodeIds.PASSWORD]
+SETUP_NODES = [RouteDeckNodeIds.SETUP_INTRO, RouteDeckNodeIds.CONNECTION_CONFIRM]
+NAVIGABLE_NODES = [
+    RouteDeckNodeIds.DISPLAY_NAME,
+    RouteDeckNodeIds.EMAIL,
+    RouteDeckNodeIds.PASSWORD,
+    RouteDeckNodeIds.SETUP_INTRO,
+    RouteDeckNodeIds.CONNECTION_CONFIRM,
+]
 MASKED_PAYLOAD_KEYS = ["credential_value", "password", "token", "api_key"]
 
 
@@ -116,29 +124,49 @@ NODE_SPECS: dict[str, RouteDeckNodeSpec] = {
         id=RouteDeckNodeIds.DISPLAY_NAME,
         label="Display Name",
         lane="auth",
+        parent="auth",
         description="Collect an optional display name for account creation.",
         prompt_placeholder="Display name, or skip",
-        allowed_actions=[RouteDeckActionIds.DISPLAY_NAME_SKIP],
-        expected_input="Display name text, skip, or sign in to switch auth mode.",
-        recovery_prompt="Provide a display name, choose Skip For Now, or say sign in.",
+        allowed_actions=[
+            RouteDeckActionIds.DISPLAY_NAME_SKIP,
+            RouteDeckActionIds.INTENT_SIGN_IN,
+            RouteDeckActionIds.NAV_BACK,
+            RouteDeckActionIds.NAV_CANCEL,
+        ],
+        expected_input="Display name text, skip, sign in to switch auth mode, back, or cancel.",
+        recovery_prompt="Provide a display name, choose Skip For Now, switch to Sign In, go back, or cancel.",
     ),
     RouteDeckNodeIds.EMAIL: RouteDeckNodeSpec(
         id=RouteDeckNodeIds.EMAIL,
         label="Email",
         lane="auth",
+        parent="auth",
         description="Collect the account email for login or registration.",
         prompt_placeholder="you@example.com",
-        expected_input="Valid email address.",
-        recovery_prompt="Enter an email address like you@example.com.",
+        allowed_actions=[
+            RouteDeckActionIds.INTENT_SIGN_IN,
+            RouteDeckActionIds.INTENT_REGISTER,
+            RouteDeckActionIds.NAV_BACK,
+            RouteDeckActionIds.NAV_CANCEL,
+        ],
+        expected_input="Valid email address, auth-mode switch, back, or cancel.",
+        recovery_prompt="Enter an email, switch sign-in/signup mode, go back, or cancel.",
     ),
     RouteDeckNodeIds.PASSWORD: RouteDeckNodeSpec(
         id=RouteDeckNodeIds.PASSWORD,
         label="Password",
         lane="auth",
+        parent="auth",
         description="Collect and verify the password; password values are masked in logs and UI echoes.",
         prompt_placeholder="Password",
-        expected_input="Password text. Registration requires at least 8 characters.",
-        recovery_prompt="Send the password again. Registration passwords need at least 8 characters.",
+        allowed_actions=[
+            RouteDeckActionIds.INTENT_SIGN_IN,
+            RouteDeckActionIds.INTENT_REGISTER,
+            RouteDeckActionIds.NAV_BACK,
+            RouteDeckActionIds.NAV_CANCEL,
+        ],
+        expected_input="Password text, auth-mode switch, back, or cancel. Registration requires at least 8 characters.",
+        recovery_prompt="Send the password again, switch sign-in/signup mode, go back, or cancel.",
     ),
     RouteDeckNodeIds.WORKSPACE_SELECT: RouteDeckNodeSpec(
         id=RouteDeckNodeIds.WORKSPACE_SELECT,
@@ -179,6 +207,8 @@ NODE_SPECS: dict[str, RouteDeckNodeSpec] = {
             RouteDeckActionIds.SETUP_REST_START,
             RouteDeckActionIds.SETUP_REST_CONFIGURE,
             RouteDeckActionIds.SETUP_OPEN_CHAT,
+            RouteDeckActionIds.NAV_BACK,
+            RouteDeckActionIds.NAV_CANCEL,
         ],
         expected_input="API setup details, Add API Details, or Skip API Setup.",
         recovery_prompt="Add API details, describe the REST API in chat, or skip setup.",
@@ -194,6 +224,8 @@ NODE_SPECS: dict[str, RouteDeckNodeSpec] = {
             RouteDeckActionIds.SETUP_REST_CONFIGURE,
             RouteDeckActionIds.SETUP_OPEN_CHAT,
             RouteDeckActionIds.SETUP_REST_START,
+            RouteDeckActionIds.NAV_BACK,
+            RouteDeckActionIds.NAV_CANCEL,
         ],
         expected_input="Activate, edit the setup form, or skip API setup.",
         recovery_prompt="Activate the API, edit details, or skip setup for now.",
@@ -216,6 +248,28 @@ NODE_SPECS: dict[str, RouteDeckNodeSpec] = {
 
 
 ACTION_SPECS: dict[str, RouteDeckActionSpec] = {
+    RouteDeckActionIds.NAV_BACK: RouteDeckActionSpec(
+        id=RouteDeckActionIds.NAV_BACK,
+        label="Back",
+        description="Move to the prior safe RouteDeck step.",
+        kind="nav",
+        category="navigation",
+        placement="inline",
+        allowed_nodes=NAVIGABLE_NODES,
+        visibility="persistent",
+        recovery_prompt="Go back one step in the current flow.",
+    ),
+    RouteDeckActionIds.NAV_CANCEL: RouteDeckActionSpec(
+        id=RouteDeckActionIds.NAV_CANCEL,
+        label="Cancel",
+        description="Exit the current flow and return to a safe entry or workspace state.",
+        kind="nav",
+        category="navigation",
+        placement="inline",
+        allowed_nodes=NAVIGABLE_NODES,
+        visibility="persistent",
+        recovery_prompt="Cancel the current flow and choose another action.",
+    ),
     RouteDeckActionIds.ENTRY_LEARN_PLATFORM: RouteDeckActionSpec(
         id=RouteDeckActionIds.ENTRY_LEARN_PLATFORM,
         label="What is SaaStoAgent?",
@@ -258,7 +312,7 @@ ACTION_SPECS: dict[str, RouteDeckActionSpec] = {
         emphasis="primary",
         category="auth",
         placement="next_best",
-        allowed_nodes=ANY_ENTRY_NODE,
+        allowed_nodes=[*ANY_ENTRY_NODE, *AUTH_NODES],
         visibility="persistent",
     ),
     RouteDeckActionIds.INTENT_REGISTER: RouteDeckActionSpec(
@@ -268,7 +322,7 @@ ACTION_SPECS: dict[str, RouteDeckActionSpec] = {
         description="Set up a new operator account conversationally.",
         category="auth",
         placement="rail",
-        allowed_nodes=ANY_ENTRY_NODE,
+        allowed_nodes=[*ANY_ENTRY_NODE, *AUTH_NODES],
         visibility="persistent",
     ),
     RouteDeckActionIds.DISPLAY_NAME_SKIP: RouteDeckActionSpec(
@@ -352,8 +406,14 @@ EDGE_SPECS = [
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.BOOTSTRAP, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="authenticated_single_workspace", explanation="Authenticated users with one workspace open it directly."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.INTENT, to_stage=RouteDeckNodeIds.DISPLAY_NAME, type="conditional", condition="register", action_id=RouteDeckActionIds.INTENT_REGISTER, explanation="Registration intent moves to display-name collection."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.INTENT, to_stage=RouteDeckNodeIds.EMAIL, type="conditional", condition="login", action_id=RouteDeckActionIds.INTENT_SIGN_IN, explanation="Login intent moves to email collection."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.DISPLAY_NAME, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="cancel_or_back", action_id=RouteDeckActionIds.NAV_CANCEL, explanation="Registration can be canceled back to public intent."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.DISPLAY_NAME, to_stage=RouteDeckNodeIds.EMAIL, type="conditional", condition="switch_to_login", action_id=RouteDeckActionIds.INTENT_SIGN_IN, explanation="Registration can switch into sign-in email collection."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.DISPLAY_NAME, to_stage=RouteDeckNodeIds.EMAIL, type="sequence", condition="display_name_collected", action_id=RouteDeckActionIds.DISPLAY_NAME_SKIP, explanation="Display name or skip moves to email."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.EMAIL, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="cancel_or_login_back", action_id=RouteDeckActionIds.NAV_CANCEL, explanation="Email collection can cancel back to intent."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.EMAIL, to_stage=RouteDeckNodeIds.DISPLAY_NAME, type="conditional", condition="switch_to_register", action_id=RouteDeckActionIds.INTENT_REGISTER, explanation="Email collection can switch into registration display-name collection."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.EMAIL, to_stage=RouteDeckNodeIds.PASSWORD, type="sequence", condition="valid_email", explanation="Valid email moves to password collection."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.EMAIL, type="conditional", condition="back_to_email", action_id=RouteDeckActionIds.NAV_BACK, explanation="Password collection can return to email collection."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="cancel_auth", action_id=RouteDeckActionIds.NAV_CANCEL, explanation="Password collection can cancel auth and return to intent."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.WORKSPACE_SELECT, type="conditional", condition="authenticated_many_workspaces", explanation="Authenticated users with multiple workspaces choose one."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.WORKSPACE_JOB, type="conditional", condition="authenticated_no_workspaces", explanation="Authenticated users without workspaces draft the first workspace."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="authenticated_single_workspace", explanation="Authenticated users with one workspace enter operator mode."),
@@ -362,8 +422,10 @@ EDGE_SPECS = [
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_JOB, to_stage=RouteDeckNodeIds.WORKSPACE_CONFIRM, type="sequence", condition="workspace_job_collected", explanation="A valid job description creates a workspace draft."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_CONFIRM, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="workspace_created", action_id=RouteDeckActionIds.WORKSPACE_CONFIRM_LAUNCH, explanation="Launch creates the workspace and opens operator mode."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.OPERATOR_READY, to_stage=RouteDeckNodeIds.SETUP_INTRO, type="conditional", condition="setup_requested", action_id=RouteDeckActionIds.SETUP_REST_START, explanation="Setup can be reopened from a ready workspace."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SETUP_INTRO, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="setup_canceled", action_id=RouteDeckActionIds.NAV_CANCEL, explanation="Setup can be canceled back to operator mode."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SETUP_INTRO, to_stage=RouteDeckNodeIds.CONNECTION_CONFIRM, type="conditional", condition="rest_details_ready", action_id=RouteDeckActionIds.SETUP_REST_CONFIGURE, explanation="Complete REST details move to connection confirmation."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SETUP_INTRO, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="setup_skipped", action_id=RouteDeckActionIds.SETUP_OPEN_CHAT, explanation="Skipping setup returns to operator mode."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.CONNECTION_CONFIRM, to_stage=RouteDeckNodeIds.SETUP_INTRO, type="conditional", condition="back_to_setup", action_id=RouteDeckActionIds.NAV_BACK, explanation="Connection confirmation can return to setup details."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.CONNECTION_CONFIRM, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="connection_activated", action_id=RouteDeckActionIds.SETUP_CONNECTION_ACTIVATE, explanation="Activation opens operator mode."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.CONNECTION_CONFIRM, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="setup_skipped", action_id=RouteDeckActionIds.SETUP_OPEN_CHAT, explanation="Skipping setup returns to operator mode."),
 ]
@@ -475,6 +537,16 @@ def contextual_actions_for_node(node: str | None) -> list[EntryActionCard]:
     return actions
 
 
+def navigation_actions_for_node(node: str | None) -> list[EntryActionCard]:
+    if node is None or node not in NODE_SPECS:
+        return []
+    actions: list[EntryActionCard] = []
+    for action_id in (RouteDeckActionIds.NAV_BACK, RouteDeckActionIds.NAV_CANCEL):
+        if is_action_allowed_for_node(node, action_id):
+            actions.append(action_card(action_id))
+    return actions
+
+
 def persistent_actions_for_context(
     *,
     node: str | None,
@@ -482,17 +554,24 @@ def persistent_actions_for_context(
     active_workspace_id: Any | None = None,
 ) -> list[EntryActionCard]:
     if current_user is None:
-        if node in AUTH_NODES:
-            return []
-        return [
+        actions = [
             action_card(RouteDeckActionIds.ENTRY_LEARN_PLATFORM),
             action_card(RouteDeckActionIds.ENTRY_LEARN_SETUP),
             action_card(RouteDeckActionIds.INTENT_SIGN_IN),
             action_card(RouteDeckActionIds.INTENT_REGISTER),
         ]
+        if node in AUTH_NODES:
+            return [
+                action_card(RouteDeckActionIds.INTENT_SIGN_IN),
+                action_card(RouteDeckActionIds.INTENT_REGISTER),
+                *navigation_actions_for_node(node),
+            ]
+        return actions
 
     if active_workspace_id and node == RouteDeckNodeIds.OPERATOR_READY:
         return [action_card(RouteDeckActionIds.SETUP_REST_START)]
+    if active_workspace_id and node in SETUP_NODES:
+        return navigation_actions_for_node(node)
 
     return []
 

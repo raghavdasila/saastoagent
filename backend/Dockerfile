@@ -1,6 +1,6 @@
 FROM python:3.13-slim
 
-WORKDIR /app
+WORKDIR /app/saastoagent-v0.1/backend
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         gcc \
@@ -12,13 +12,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
+COPY --from=routedeck . /app/routedeck/
 COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+WORKDIR /app/saastoagent-v0.1
 COPY backend/ ./backend/
-COPY routedeck_framework/ ./routedeck_framework/
 
-RUN mkdir -p /app/uploads
+RUN mkdir -p /app/saastoagent-v0.1/uploads
 
 EXPOSE 8000
 

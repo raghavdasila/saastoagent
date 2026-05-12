@@ -20,4 +20,4 @@ Architectural Decision Records for SaaStoAgent v0.1.
 - `ADR-004-backend-owned-persistent-actions.md` - separate contextual graph actions from backend-owned persistent quick actions
 - `ADR-005-widget-canvas-artifact-contract.md` - define backend-emitted widgets, markup, and optional canvas artifacts
 - `ADR-006-operator-workbench-extensibility-contract.md` - define the user-facing workbench zones, capability registry, evidence drawer, and autonomy ladder contract
-- `ADR-007-routedeck-framework-contract.md` - define RouteDeck as the reusable graph-navigation contract and debugger framework
+- `ADR-007-routedeck-framework-contract.md` - define RouteDeck as the reusable sibling graph-navigation contract, package boundary, and debugger framework

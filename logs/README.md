@@ -16,6 +16,8 @@ Session activity records.
 
 ## Log Index
 
+- `20260512_1447_routedeck_sibling_framework_closeout.md` - RouteDeck sibling framework extraction, SaaStoAgent package/Docker rewiring, UI cleanup handoff, and REST/OpenAPI next step
+- `20260510_1853_routedeck_contract_framework_and_debugger.md` - RouteDeck graph-navigation contract, framework packaging, debugger UI, and Docker/browser validation
 - `20260509_2125_ux_research_and_closeout.md` - UX research knowledgebase note, final SaaStoAgent/Corpus naming cleanup, and session closeout
 - `20260509_2005_operator_workbench_baseline.md` - Operator workbench baseline, ADR-006 implementation, and follow-up copy/height fixes
 - `20260509_1852_persistent_quick_actions_and_anonymous_chat.md` - Persistent quick actions, anonymous workspace chat, responsive panel fixes, and session closeout

@@ -1,4 +1,4 @@
-from routedeck_framework.routedeck_core.models import (
+from routedeck_core.models import (
     RouteDeckActionSpec,
     RouteDeckEdgeSpec,
     RouteDeckFieldSpec,

@@ -2,7 +2,7 @@ import { GitBranch, Maximize2, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { RouteDeckDebugger } from '@routedeck/react'
 
-import type { EntryGraphManifest, GatewayNode, RouteDeckRuntimeSnapshot } from '@/types/entry'
+import type { EntryActionCard, EntryGraphManifest, GatewayNode, RouteDeckRuntimeSnapshot } from '@/types/entry'
 
 interface RouteDeckNavWidgetProps {
   graphNode?: GatewayNode | null
@@ -10,6 +10,7 @@ interface RouteDeckNavWidgetProps {
   routeDeckSnapshot?: RouteDeckRuntimeSnapshot | null
   selectedDebugNode?: string | null
   onSelectedDebugNodeChange: (nodeId: string | null) => void
+  onActionSelect?: (action: EntryActionCard) => void
   runId?: string | null
   sessionId?: string | null
 }
@@ -20,6 +21,7 @@ export function RouteDeckNavWidget({
   routeDeckSnapshot,
   selectedDebugNode,
   onSelectedDebugNodeChange,
+  onActionSelect,
   runId,
   sessionId,
 }: RouteDeckNavWidgetProps) {
@@ -108,6 +110,7 @@ export function RouteDeckNavWidget({
                 snapshot={routeDeckSnapshot}
                 selectedNodeId={currentNode}
                 onSelectedNodeChange={onSelectedDebugNodeChange}
+                onActionSelect={onActionSelect}
                 runId={runId}
                 sessionId={sessionId}
                 className="h-full"

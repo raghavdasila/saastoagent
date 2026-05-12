@@ -1,6 +1,6 @@
 # System Flow Index - SaaStoAgent v0.1
 
-Last Updated: May 10, 2026 6:53 PM
+Last Updated: May 12, 2026
 
 This file is the source of truth for the currently implemented runtime and UX flows.
 
@@ -13,8 +13,8 @@ This file is the source of truth for the currently implemented runtime and UX fl
 5. Persistent quick actions and next best action dock for global entry/auth/setup actions
 6. Anonymous direct workspace chat with IP rate limiting
 7. RouteDeck contract and debugger for entry/auth/setup/workspace handoff visibility
-8. Later: generated REST tool discovery in chat
-9. Later: REST execution, QA, tuning, and governed learnings
+8. Next: REST/OpenAPI upload, inspection, generated tool binding, and workspace agent execution
+9. Later: REST execution approvals, QA, tuning, and governed learnings
 
 ## Unified Operator Shell
 
@@ -48,17 +48,18 @@ This file is the source of truth for the currently implemented runtime and UX fl
 ## RouteDeck Contract
 
 1. `backend/services/route_deck/catalog.py` is the source for visible entry graph nodes, edges, action specs, REST form fields, sensitive-field policy, and test paths.
-2. `routedeck_framework/routedeck_core` is the reusable Python framework layer for manifest models, validation, and runtime snapshot helpers.
-3. `routedeck_framework/react` is the reusable frontend layer for RouteDeck TypeScript contracts and the debugger component.
-4. `routedeck_framework/examples/minimal-fastapi-react` is the minimal reference showing how FastAPI and React consume the framework without SaaStoAgent product code.
+2. `../routedeck/routedeck_core` is the reusable Python framework layer for manifest models, validation, and runtime snapshot helpers.
+3. `../routedeck/react` is the reusable frontend layer for RouteDeck TypeScript contracts and the debugger component.
+4. `../routedeck/examples/minimal-fastapi-react` is the minimal reference showing how FastAPI and React consume the framework without SaaStoAgent product code.
 5. `graph_spec.py` delegates `build_graph_manifest()` to RouteDeck while retaining the LangGraph compatibility enums used by the executor.
 6. `ui_actions.py` adapts RouteDeck action specs into the existing `EntryActionCard` response shape.
 7. `stage_io.py` validates submitted `selected_action_id` values against the current RouteDeck node before running a stage handler.
 8. Invalid actions return a recoverable assistant message plus valid visible actions instead of falling into node-specific dead-end copy.
 9. `EntryGraphTurnResponse.route_deck_snapshot` exposes current node, reachable nodes, valid actions, blocked actions, executed nodes, recovery prompts, and diagnostics.
 10. `python -m backend.services.route_deck.validate` validates the manifest contract.
-11. Docker images copy or build against `routedeck_framework/`; frontend Docker serves the built Vite preview to avoid host-only alias and HMR websocket failures.
-12. Docs live under `docs/route-deck/` and framework docs live under `routedeck_framework/docs/`.
+11. Docker images use named sibling build contexts so they can install RouteDeck without sending unrelated projects into the build context.
+12. SaaStoAgent docs live under `docs/route-deck/`; framework docs live under `../routedeck/docs/`.
+13. RouteDeck should extend next into REST/OpenAPI upload, generated tool execution, approval gates, QA, and learning surfaces.
 
 ## Workbench Extensibility Contract
 
@@ -167,6 +168,7 @@ This file is the source of truth for the currently implemented runtime and UX fl
    - generated tool schema creation
 10. Successful activation returns `operator_ready`.
 11. Selecting `setup.open_chat` also returns `operator_ready` when a workspace is active.
+12. Next work should expose OpenAPI upload/inspection and bind generated tools into the workspace agent execution loop.
 
 ## Runtime Bridge And Handoff
 

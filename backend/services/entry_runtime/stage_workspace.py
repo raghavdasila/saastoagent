@@ -537,6 +537,12 @@ async def setup_intro_node(state: EntryRuntimeState) -> dict[str, Any]:
     selected_action_id = _selected_action_id(state)
     entry_draft = state.get("entry_draft") or {}
     current_connection_draft = state.get("connection_draft") or entry_draft.get("api_draft") or {}
+    if selected_action_id in (RouteDeckActionIds.NAV_BACK, RouteDeckActionIds.NAV_CANCEL):
+        return {
+            "node": "operator_ready",
+            "messages": merge_messages(state, "Canceled API setup. You can continue in chat or reopen setup from Connections."),
+            "available_actions": standard_workspace_actions(),
+        }
     if selected_action_id == RouteDeckActionIds.SETUP_OPEN_CHAT:
         return {
             "node": "operator_ready",
@@ -626,6 +632,18 @@ async def connection_confirm_node(state: EntryRuntimeState) -> dict[str, Any]:
         }
 
     selected_action_id = _selected_action_id(state)
+    if selected_action_id == RouteDeckActionIds.NAV_CANCEL:
+        return {
+            "node": "operator_ready",
+            "messages": merge_messages(state, "Canceled API setup. You can continue in chat or reopen setup from Connections."),
+            "available_actions": standard_workspace_actions(),
+        }
+    if selected_action_id == RouteDeckActionIds.NAV_BACK:
+        return {
+            "node": "setup_intro",
+            "messages": merge_messages(state, "Back to API setup details. Edit the connection or skip setup."),
+            "available_actions": setup_intro_actions(state.get("connection_draft") or {}),
+        }
     if selected_action_id == RouteDeckActionIds.SETUP_OPEN_CHAT:
         return {
             "node": "operator_ready",

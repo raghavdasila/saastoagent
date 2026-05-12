@@ -1,6 +1,6 @@
 # RouteDeck Manifest Reference
 
-Framework source package: `routedeck_framework/routedeck_core`.
+Framework source package: `../routedeck/routedeck_core`.
 
 SaaStoAgent adapter/catalog package: `backend/services/route_deck`.
 

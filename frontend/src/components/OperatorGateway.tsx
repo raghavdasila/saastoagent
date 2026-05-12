@@ -588,7 +588,8 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   const showPanel = activeSidebarItem !== 'chat'
   const showEntryThinking = !showOperatorMode && busy
   const userHasInteracted = allMessages.some((message) => message.role === 'user')
-  const showActionDock = showOperatorMode || userHasInteracted
+  const graphNeedsControls = entryGraphActive && gs?.node !== 'bootstrap' && gs?.node !== 'intent'
+  const showActionDock = showOperatorMode || userHasInteracted || graphNeedsControls
   const workbenchGridClass = showCanvas
     ? canvasCollapsed
       ? 'max-w-7xl lg:grid-cols-[minmax(0,1fr)_3.5rem]'
@@ -652,6 +653,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
                 routeDeckSnapshot={routeDeckSnapshot}
                 selectedDebugNode={selectedDebugNode}
                 onSelectedDebugNodeChange={setSelectedDebugNode}
+                onActionSelect={(action) => { void handleActionSelect(action) }}
                 runId={runId}
                 sessionId={showOperatorMode ? agentSessionId : entrySessionId}
               />

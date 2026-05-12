@@ -13,7 +13,6 @@
     "jsx": "react-jsx",
     "paths": {
       "@/*": ["./src/*"],
-      "@routedeck/react": ["../routedeck_framework/react/src/index.ts"],
       "react": ["./node_modules/@types/react/index.d.ts"],
       "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime.d.ts"],
       "@xyflow/react": ["./node_modules/@xyflow/react/dist/esm/index.d.ts"]
@@ -24,5 +23,5 @@
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src", "../routedeck_framework/react/src"]
+  "include": ["src"]
 }

@@ -21,4 +21,4 @@ Test documentation and coverage tracking for SaaStoAgent v0.1.
 - `conversational-entry-canvas.md` - validation for public entry assistant, chips, UI artifacts, and setup draft carry-over
 - `unified-operator-shell.md` - validation for unified main-layout routing, runtime bridging, and handoff context
 - `operator-workbench-baseline.md` - validation for ADR-006 status strip, capability rail, action dock, context lens, evidence drawer, and autonomy ladder
-- `route-deck-contract.md` - validation for RouteDeck manifest/runtime contract, action validation, framework packaging, and graph debugger rendering
+- `route-deck-contract.md` - validation for RouteDeck manifest/runtime contract, sibling framework packaging, Docker dependency wiring, action validation, and graph debugger rendering

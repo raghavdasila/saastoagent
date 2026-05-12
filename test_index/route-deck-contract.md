@@ -1,10 +1,10 @@
 # RouteDeck Contract And Debugger Validation
 
-Date: 2026-05-10
+Date: 2026-05-12
 
 ## Scope
 
-Validation for the RouteDeck contract layer, framework packaging path, backend adapter, action validation, and frontend navigation/debugger widget.
+Validation for the RouteDeck contract layer, sibling framework packaging path, backend adapter, action validation, Docker dependency wiring, and frontend navigation/debugger widget.
 
 ## What To Validate
 
@@ -20,6 +20,10 @@ Validation for the RouteDeck contract layer, framework packaging path, backend a
 - Focus graph highlights current, incoming, and outgoing nodes.
 - Full graph renders a top-to-bottom lane layout, uses a manifest-sized scrollable canvas, avoids node/title/badge overlap, and lists allowed actions below.
 - Docker frontend serves the preview build without Vite HMR websocket or host `@fs` path failures.
+- SaaStoAgent imports framework primitives from sibling package `routedeck_core`, not an in-project framework folder.
+- SaaStoAgent frontend consumes sibling local package `@routedeck/react`.
+- Docker builds use named sibling RouteDeck contexts and avoid sending unrelated projects into the build context.
+- Standalone RouteDeck minimal example builds and runs outside SaaStoAgent on ports `5190` and `8096`.
 
 ## Current Evidence
 
@@ -27,8 +31,14 @@ Validation for the RouteDeck contract layer, framework packaging path, backend a
 - `python -m compileall backend`: passed.
 - `npm run type-check`: passed.
 - `npm run build`: passed.
-- Docker rebuild: `docker compose up -d --build frontend`: passed.
-- Playwright against `http://localhost:3007`: opened `Map`, switched to `Full graph`, confirmed vertical lane order, 11 node groups, 24 SVG path elements, drawer width 1152px, no same-row node overlap, no title/badge overlap, and no console errors.
+- RouteDeck sibling import check: `from routedeck_core import RouteDeckManifest` passed.
+- RouteDeck sibling tests: `python -m pytest tests` passed.
+- RouteDeck minimal example `npm run type-check`: passed.
+- RouteDeck minimal example `npm run build`: passed.
+- RouteDeck minimal example Docker build/up: passed.
+- Docker rebuild: `docker compose up -d --build backend frontend`: passed.
+- Playwright against `http://localhost:3007`: clean default entry, opened `Map`, switched to `Full graph`, confirmed 11 node groups and no console errors.
+- Playwright against `http://127.0.0.1:5190`: standalone RouteDeck minimal example rendered the styled debugger.
 
 ## How To Run Current Checks
 
@@ -39,7 +49,14 @@ cd frontend
 npm run type-check
 npm run build
 cd ..
-docker compose up -d --build frontend
+docker compose up -d --build backend frontend
+cd ..\routedeck
+python -m pytest tests
+cd examples\minimal-fastapi-react\frontend
+npm run type-check
+npm run build
+cd ..
+docker compose up -d --build
 ```
 
 Add repo-native browser tests for sign in, signup, invalid action recovery, direct workspace auth actions, and RouteDeck map rendering before treating this as automated end-to-end coverage.

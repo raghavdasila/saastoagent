@@ -59,6 +59,73 @@ def _selected_action_id(state: EntryRuntimeState) -> str | None:
     return value.strip() if isinstance(value, str) and value.strip() else None
 
 
+def _clear_auth_fields(state: EntryRuntimeState, message: str) -> dict[str, Any]:
+    return {
+        "node": "intent",
+        "intent": None,
+        "display_name": "",
+        "email": "",
+        "messages": merge_messages(state, message),
+        "available_actions": entry_assistant_actions(),
+    }
+
+
+def _start_login(state: EntryRuntimeState, message: str = "Signing you in. Give me the email for your account.") -> dict[str, Any]:
+    return {
+        "node": "email",
+        "intent": "login",
+        "display_name": "",
+        "email": "",
+        "messages": merge_messages(state, message),
+    }
+
+
+def _start_register(
+    state: EntryRuntimeState,
+    message: str = "Creating your account. What display name should I use? Type `skip` to leave it blank.",
+) -> dict[str, Any]:
+    return {
+        "node": "display_name",
+        "intent": "register",
+        "display_name": "",
+        "email": "",
+        "messages": merge_messages(state, message),
+        "available_actions": display_name_actions(),
+    }
+
+
+def _auth_navigation(state: EntryRuntimeState, stage_id: str) -> dict[str, Any] | None:
+    selected_action_id = _selected_action_id(state)
+    if selected_action_id == RouteDeckActionIds.NAV_CANCEL:
+        return _clear_auth_fields(state, "Canceled auth. You can ask a question, sign in, or create an account.")
+    if selected_action_id == RouteDeckActionIds.INTENT_SIGN_IN:
+        return _start_login(state, "Switching to sign-in mode. Give me the email for your account.")
+    if selected_action_id == RouteDeckActionIds.INTENT_REGISTER:
+        return _start_register(
+            state,
+            "Switching to account creation. What display name should I use? Type `skip` to leave it blank.",
+        )
+    if selected_action_id == RouteDeckActionIds.NAV_BACK:
+        if stage_id == "password":
+            return {
+                "node": "email",
+                "email": "",
+                "messages": merge_messages(state, "Back to email. Give me the email address to use."),
+            }
+        if stage_id == "email" and state.get("intent") == "register":
+            return {
+                "node": "display_name",
+                "email": "",
+                "messages": merge_messages(
+                    state,
+                    "Back to display name. Send a display name, or choose Skip For Now.",
+                ),
+                "available_actions": display_name_actions(),
+            }
+        return _clear_auth_fields(state, "Back to the entry step. Ask a question, sign in, or create an account.")
+    return None
+
+
 def _assistant_actions(follow_up_prompts: list[str]) -> list:
     if not follow_up_prompts:
         return []
@@ -112,22 +179,9 @@ async def bootstrap_node(state: EntryRuntimeState) -> dict[str, Any]:
     # honour it directly rather than looping back to the intent prompt.
     selected_action_id = _selected_action_id(state)
     if selected_action_id == RouteDeckActionIds.INTENT_SIGN_IN:
-        return {
-            "node": "email",
-            "intent": "login",
-            "display_name": "",
-            "messages": merge_messages(state, "Signing you in. Give me the email for your account."),
-        }
+        return _start_login(state)
     if selected_action_id == RouteDeckActionIds.INTENT_REGISTER:
-        return {
-            "node": "display_name",
-            "intent": "register",
-            "messages": merge_messages(
-                state,
-                "Creating your account. What display name should I use? Type `skip` to leave it blank.",
-            ),
-            "available_actions": display_name_actions(),
-        }
+        return _start_register(state)
 
     initial_intent = state.get("initial_intent")
     if initial_intent == "login":
@@ -251,6 +305,10 @@ async def intent_node(state: EntryRuntimeState) -> dict[str, Any]:
 
 
 async def display_name_node(state: EntryRuntimeState) -> dict[str, Any]:
+    navigation = _auth_navigation(state, "display_name")
+    if navigation is not None:
+        return navigation
+
     selected_action_id = _selected_action_id(state)
     if selected_action_id == RouteDeckActionIds.DISPLAY_NAME_SKIP:
         display_name = ""
@@ -287,6 +345,10 @@ async def display_name_node(state: EntryRuntimeState) -> dict[str, Any]:
 
 
 async def email_node(state: EntryRuntimeState) -> dict[str, Any]:
+    navigation = _auth_navigation(state, "email")
+    if navigation is not None:
+        return navigation
+
     value = (state.get("user_input") or "").strip()
     if not _is_valid_email(value):
         return {
@@ -304,6 +366,10 @@ async def email_node(state: EntryRuntimeState) -> dict[str, Any]:
 
 
 async def password_node(state: EntryRuntimeState) -> dict[str, Any]:
+    navigation = _auth_navigation(state, "password")
+    if navigation is not None:
+        return navigation
+
     value = (state.get("user_input") or "").strip()
     if state.get("intent") == "register" and len(value) < 8:
         return {

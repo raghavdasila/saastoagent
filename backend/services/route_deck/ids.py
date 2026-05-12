@@ -16,6 +16,8 @@ class RouteDeckNodeIds:
 
 
 class RouteDeckActionIds:
+    NAV_BACK = "nav.back"
+    NAV_CANCEL = "nav.cancel"
     ENTRY_LEARN_PLATFORM = "entry.learn.platform"
     ENTRY_LEARN_SETUP = "entry.learn.setup"
     ENTRY_FOLLOW_UP_PATTERN = "entry.follow_up:*"

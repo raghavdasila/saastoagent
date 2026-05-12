@@ -3,8 +3,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 const frontendRoot = __dirname
-const routeDeckFrameworkRoot = path.resolve(frontendRoot, '../routedeck_framework')
-const routeDeckReactEntry = path.resolve(routeDeckFrameworkRoot, 'react/src/index.ts')
+const routeDeckRoot = path.resolve(frontendRoot, '../../routedeck')
 const hmrClientPort = process.env.VITE_HMR_CLIENT_PORT
   ? Number(process.env.VITE_HMR_CLIENT_PORT)
   : undefined
@@ -22,7 +21,6 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: '@', replacement: path.resolve(frontendRoot, './src') },
-      { find: '@routedeck/react', replacement: routeDeckReactEntry },
       { find: /^react$/, replacement: path.resolve(frontendRoot, './node_modules/react') },
       { find: 'react/jsx-runtime', replacement: path.resolve(frontendRoot, './node_modules/react/jsx-runtime.js') },
       { find: /^@xyflow\/react$/, replacement: path.resolve(frontendRoot, './node_modules/@xyflow/react/dist/esm/index.js') },
@@ -32,7 +30,7 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 3000,
     fs: {
-      allow: [frontendRoot, routeDeckFrameworkRoot],
+      allow: [frontendRoot, routeDeckRoot],
     },
     hmr: hmrDisabled
       ? false

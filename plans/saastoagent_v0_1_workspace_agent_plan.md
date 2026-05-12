@@ -88,7 +88,7 @@ Implemented:
 - Existing entry response shapes are preserved through adapters while richer RouteDeck metadata is emitted.
 - Stage input validates submitted `selected_action_id` values before handlers run.
 - Invalid selected actions recover with visible alternatives instead of falling into dead-end copy.
-- Reusable framework code lives under `routedeck_framework/` with Python core contracts, React types/debugger, docs, packaging notes, and a minimal FastAPI/React example.
+- Reusable framework code lives in sibling project `../routedeck/` with Python core contracts, React types/debugger, docs, packaging notes, and a minimal FastAPI/React example.
 - The standalone RouteDeck nav widget shows a compact status strip and a side map with focused graph, full-site graph, allowed actions, blocked actions, and JSON export.
 - The full-site graph uses a vertical lane layout on a manifest-sized scrollable canvas so the widget can ship with RouteDeck rather than only fit this app.
 - `ADR-007` records RouteDeck as the reusable framework contract.

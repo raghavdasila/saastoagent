@@ -1,5 +1,8 @@
 # SaaStoAgent v0.1 Context
 
+Previous: `20260509_2125_context_before_ux_research_closeout.md`
+Next: `20260512_1447_context_before_routedeck_sibling_closeout.md`
+
 Last Updated: May 9, 2026 9:25 PM
 Project: SaaStoAgent v0.1
 Status: Unified operator workbench, conversational entry, anonymous workspace chat, responsive context lens, RouteDeck status strip plus side map, evidence drawer, autonomy ladder, backend-owned next actions, and the first RouteDeck contract/debugger slice are implemented. Product/operator naming is corrected: the product is `SaaStoAgent`, and the operator is exactly `Corpus`. Entry/setup remains graph-owned; workspace chat remains a bridged agent runtime. The current focus is browser QA and wiring generated REST tools into chat execution.

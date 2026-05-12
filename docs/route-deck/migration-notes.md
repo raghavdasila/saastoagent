@@ -2,8 +2,8 @@
 
 ## Moved Into RouteDeck
 
-- Reusable framework contracts moved into `routedeck_framework/routedeck_core`.
-- Reusable React debugger moved into `routedeck_framework/react`.
+- Reusable framework contracts moved into the sibling `../routedeck/routedeck_core` package.
+- Reusable React debugger moved into the sibling `../routedeck/react` package.
 - Node labels, descriptions, lanes, placeholders, expected inputs, and recovery prompts moved into `backend/services/route_deck/catalog.py`.
 - Static action metadata moved into the central action catalog.
 - Backend action and node ids are exposed through `backend/services/route_deck/ids.py`.
@@ -16,7 +16,7 @@
 
 - `entry_runtime/graph_spec.py` still provides the LangGraph enum compatibility layer and delegates manifest building to RouteDeck.
 - `entry_runtime/ui_actions.py` remains the adapter that creates `EntryActionCard` instances for the current API shape.
-- `backend/services/route_deck/` remains SaaStoAgent-specific and imports framework-level models/helpers from `routedeck_framework/`.
+- `backend/services/route_deck/` remains SaaStoAgent-specific and imports framework-level models/helpers from `routedeck_core`.
 - `stage_auth.py` and `stage_workspace.py` still own dynamic auth/workspace/setup behavior.
 - `OperatorGateway.tsx` still owns streaming, workbench layout, and shell state.
 

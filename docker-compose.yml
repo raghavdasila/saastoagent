@@ -20,6 +20,8 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+      additional_contexts:
+        routedeck: ../routedeck
     environment:
       STA_DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/saastoagent_v0_1
       STA_AUTH_SECRET: ${STA_AUTH_SECRET:-dev-secret-change-in-prod}
@@ -28,33 +30,35 @@ services:
       STA_OPENAI_API_KEY: ${STA_OPENAI_API_KEY:-}
       STA_DEFAULT_MODEL: ${STA_DEFAULT_MODEL:-gpt-5-mini}
       STA_EMBEDDING_MODEL: ${STA_EMBEDDING_MODEL:-text-embedding-3-small}
-      STA_UPLOAD_DIR: /app/uploads
+      STA_UPLOAD_DIR: /app/saastoagent-v0.1/uploads
     ports:
       - "8085:8000"
     depends_on:
       db:
         condition: service_healthy
-    working_dir: /app
+    working_dir: /app/saastoagent-v0.1
     command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
-      - ./backend:/app/backend
-      - ./routedeck_framework:/app/routedeck_framework
-      - sta_v01_uploads:/app/uploads
+      - ./backend:/app/saastoagent-v0.1/backend
+      - ../routedeck:/app/routedeck
+      - sta_v01_uploads:/app/saastoagent-v0.1/uploads
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      additional_contexts:
+        routedeck_react: ../routedeck/react
     environment:
       VITE_API_PROXY_TARGET: http://backend:8000
-    command: sh -c "npm install && npm run build && npm run preview"
+    command: sh -c "npm install --no-package-lock && npm run build && npm run preview"
     ports:
       - "3007:3000"
     depends_on:
       - backend
     volumes:
       - ./frontend:/app
-      - ./routedeck_framework:/routedeck_framework
+      - ../routedeck:/routedeck
       - /app/node_modules
 
 volumes:

@@ -13,6 +13,8 @@ End-of-session handoff snapshots live here.
 
 ## Checkpoints
 
+- `context_checkpoint_12-05-2026-2-47PM.md` - RouteDeck sibling framework extraction, package/Docker rewiring, clean default UI, and REST/OpenAPI handoff
+- `context_checkpoint_10-05-2026-06-53PM.md` - RouteDeck contract, framework package shape, and graph debugger validation
 - `context_checkpoint_09-05-2026-09-25PM.md` - UX research knowledgebase note, final SaaStoAgent/Corpus naming cleanup, and closeout
 - `context_checkpoint_09-05-2026-08-05PM.md` - Operator workbench baseline and ADR-006 implementation
 - `context_checkpoint_09-05-2026-06-52PM.md` - Persistent quick actions, anonymous workspace chat, and responsive unified shell fixes
