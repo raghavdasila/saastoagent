@@ -120,19 +120,37 @@ Done when:
 - Signin/signup cancel/back/switch, typed-node recovery, invalid input recovery, workspace/setup recovery, RouteDeck map controls, public Q&A, and first-load greeting behavior are covered by backend tests plus UI-driven QA smoke.
 - Future REST execution/approvals/QA/learnings have a proven RouteDeck-plus-LangGraph pattern to extend.
 
-### 🔲 Slice 2B — REST tool inspection and chat binding  ← ACTIVE NEXT
+### ✅ Slice 2B — REST tool inspection and chat binding
 
-Status note (2026-05-13):
+Status: **IMPLEMENTED FIRST PASS** (as of 2026-05-13)
 
 - Unified shell, conversational entry, persistent quick actions, anonymous direct workspace chat, setup handoff, RouteDeck graph-navigation/debugging, central LangGraph entry runtime, optional RouteDeck LangGraph adapter, UI-driven QA harness, and live entry streaming are now in place.
-- The next slice should start from generated REST tool inspection/binding rather than more entry/auth shell work.
-- Direct `/w/:id` now supports anonymous chat and backend-provided auth quick actions, but still needs graph-owned setup redirection when no ready REST connection exists.
+- Actions and Entities canvases now expose generated REST tools and inferred API groups after OpenAPI activation.
+- Operator chat checks generated REST tools first, emits normal tool trace cards for read-safe calls, and returns approval-required copy for write/destructive/financial calls.
+- Embedded QA scenarios now cover connection preview/activation, Actions/Entities evidence, read-safe execution, and write approval behavior.
+- Workspace creation now asks for a workspace name/configuration, not a SaaS job description.
 
 Done when:
 
-- A generated REST action/tool can be inspected from the workspace
-- Operator chat can find relevant generated REST tools for a request
-- The setup path is enforced or clearly redirected for `/w/:id` deep links with no ready connection
+- A generated REST action/tool can be inspected from the workspace.
+- Operator chat can find relevant generated REST tools for a request.
+- Read-safe generated calls produce visible tool traces.
+- Write/destructive/financial calls request approval and do not execute silently.
+
+### 🔲 Slice 2C — Workspace execution states and approval resume  ← ACTIVE NEXT
+
+Status note (2026-05-13):
+
+- REST execution is currently first-pass and intentionally conservative.
+- The next slice should make workspace RouteDeck execution snapshots authoritative for setup redirection, generated tool execution state, approval resume/cancel actions, and learning/refinement capture.
+- Direct `/w/:id` supports anonymous chat and backend-provided auth quick actions, but still needs graph-owned setup redirection when no ready REST connection exists.
+
+Done when:
+
+- Direct `/w/:id` with no ready connection routes through graph-owned setup guidance.
+- Approval-required generated REST actions expose concrete approve/cancel/resume controls.
+- Executed generated tools write structured traces that can feed future RAG refinement.
+- Workspace execution state is visible in RouteDeck and the evidence drawer.
 
 ### Slice 3 — Simplified entity explorer
 

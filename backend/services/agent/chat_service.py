@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.config import settings
 from backend.core.models import AgentMessage, AgentSession, Workspace
 from backend.core.protocol import (
+    SSEEvent,
     agent_end,
     agent_start,
     error,
@@ -31,6 +32,7 @@ from backend.core.protocol import (
 from backend.services.agent.graph_builder import build_agent_graph
 from backend.services.agent.memory_service import memory_service
 from backend.services.agent.rag_service import rag_service
+from backend.services.agent.rest_operator import run_rest_operator_turn
 
 logger = structlog.get_logger()
 
@@ -159,6 +161,50 @@ class ChatService:
             full_thinking = ""
             tool_calls_data: list[dict] = []
             sources_data: list[dict] = []
+
+            async def emit_runtime_event(event_name: str, payload: dict[str, Any]) -> None:
+                if event_name == "tool_start":
+                    await queue.put(tool_start(payload["tool_name"], payload["call_id"], payload.get("inputs") or {}))
+                    tool_calls_data.append(
+                        {
+                            "tool_name": payload["tool_name"],
+                            "call_id": payload["call_id"],
+                            "inputs": payload.get("inputs") or {},
+                        }
+                    )
+                    return
+                if event_name == "tool_end":
+                    await queue.put(tool_end(payload["call_id"], str(payload.get("output") or "")[:5000]))
+                    return
+                await queue.put(SSEEvent(event=event_name, data=payload).encode())
+
+            rest_content = await run_rest_operator_turn(
+                message=messages[-1].content if messages else "",
+                workspace_id=workspace_id,
+                db=db,
+                emit=emit_runtime_event,
+            )
+            if rest_content is not None:
+                full_content = rest_content
+                await queue.put(message_delta(full_content))
+                db.add(
+                    AgentMessage(
+                        session_id=session_id,
+                        workspace_id=workspace_id,
+                        role="assistant",
+                        content=full_content,
+                        thinking=None,
+                        tool_calls=tool_calls_data or None,
+                        sources=None,
+                        follow_ups=[
+                            "Inspect the generated actions",
+                            "Connect or activate another API",
+                            "Ask me to run a read-only API action",
+                        ],
+                    )
+                )
+                await db.commit()
+                return
 
             async for event in graph.astream_events({"messages": messages}, version="v2"):
                 kind = event.get("event", "")
@@ -301,9 +347,9 @@ def _handoff_summary(metadata: dict[str, Any]) -> str:
     connection_draft = handoff.get("connection_draft") if isinstance(handoff.get("connection_draft"), dict) else {}
     recent_messages = handoff.get("recent_entry_messages") if isinstance(handoff.get("recent_entry_messages"), list) else []
     parts = [f"Entry handoff: user reached operator chat from the setup flow for {workspace_name}."]
-    workspace_job = entry_draft.get("workspace_job")
-    if workspace_job:
-        parts.append(f"Intended workspace job: {workspace_job}.")
+    draft_workspace_name = entry_draft.get("workspace_name")
+    if draft_workspace_name:
+        parts.append(f"Draft workspace name: {draft_workspace_name}.")
     api_draft = entry_draft.get("api_draft") if isinstance(entry_draft.get("api_draft"), dict) else {}
     base_url = connection_draft.get("base_url") or api_draft.get("base_url")
     spec_url = connection_draft.get("spec_url") or api_draft.get("spec_url")

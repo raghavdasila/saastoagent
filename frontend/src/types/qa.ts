@@ -10,6 +10,13 @@ export type QAMilestoneActionName =
   | 'fill_action_field'
   | 'submit_action_form'
   | 'open_panel'
+  | 'open_workspace_view'
+  | 'fill_connection_form'
+  | 'click_button'
+  | 'wait_for_catalog'
+  | 'collect_workspace_catalog'
+  | 'send_operator_chat'
+  | 'ensure_petstore_connection'
   | 'open_route_deck'
   | 'pan_graph'
   | 'zoom_graph'
@@ -107,6 +114,12 @@ export interface QAEvidenceSnapshot {
   visible_text: string
   console_errors: string[]
   route_deck_snapshot?: RouteDeckRuntimeSnapshot | null
+  workspace_view?: string | null
+  active_view?: string | null
+  catalog_totals?: Record<string, number>
+  tool_calls?: Array<Record<string, unknown>>
+  api_statuses?: Record<string, number>
+  api_responses?: Record<string, unknown>
 }
 
 export interface QAExportData {

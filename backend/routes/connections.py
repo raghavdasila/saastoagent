@@ -23,11 +23,22 @@ from backend.core.models import (
     WorkspaceMember,
 )
 from backend.core.schemas import (
+    ActionCatalogRead,
     ActionNodeRead,
     ActivationStateRead,
     ConnectionCreate,
+    ConnectionPreviewRead,
+    ConnectionPreviewRequest,
     ConnectionRead,
+    EntityRead,
     ToolRead,
+)
+from backend.services.catalog import (
+    infer_entities,
+    list_workspace_actions,
+    list_workspace_tools,
+    preview_openapi_spec,
+    workspace_catalog,
 )
 from backend.services.discovery.activation import ActivationService
 from backend.providers import AdapterRegistry
@@ -54,6 +65,61 @@ async def list_workspace_providers(
 ):
     await _require_member(workspace_id, user, db)
     return AdapterRegistry.get_provider_catalog()
+
+
+@router.post("/connections/preview", response_model=ConnectionPreviewRead)
+async def preview_connection(
+    workspace_id: uuid.UUID,
+    body: ConnectionPreviewRequest,
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    await _require_member(workspace_id, user, db)
+    try:
+        return await preview_openapi_spec(spec_url=body.spec_url, raw_spec=body.raw_spec)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/catalog", response_model=ActionCatalogRead)
+async def get_workspace_catalog(
+    workspace_id: uuid.UUID,
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    await _require_member(workspace_id, user, db)
+    return await workspace_catalog(db, workspace_id)
+
+
+@router.get("/actions", response_model=list[ActionNodeRead])
+async def list_workspace_actions_route(
+    workspace_id: uuid.UUID,
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    await _require_member(workspace_id, user, db)
+    return await list_workspace_actions(db, workspace_id)
+
+
+@router.get("/tools", response_model=list[ToolRead])
+async def list_workspace_tools_route(
+    workspace_id: uuid.UUID,
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    await _require_member(workspace_id, user, db)
+    return await list_workspace_tools(db, workspace_id)
+
+
+@router.get("/entities", response_model=list[EntityRead])
+async def list_workspace_entities(
+    workspace_id: uuid.UUID,
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    await _require_member(workspace_id, user, db)
+    actions = await list_workspace_actions(db, workspace_id)
+    return infer_entities(actions)
 
 
 def _activation_steps(state: ConnectionActivationState | None) -> dict | None:

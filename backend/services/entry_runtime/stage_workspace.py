@@ -264,7 +264,7 @@ async def advance_authenticated_user(
                 {**state, "messages": messages},
                 "Which operator workspace do you want to open?\n\n"
                 f"{_workspace_list_text(workspaces)}\n\n"
-                "Type the number to open one, or describe a new SaaS job to create another.",
+                "Type the number to open one, or enter a new workspace name.",
             ),
             "workspaces": workspaces,
             "available_actions": workspace_select_actions(workspaces),
@@ -272,8 +272,9 @@ async def advance_authenticated_user(
         }
 
     entry_draft = state.get("entry_draft") or {}
-    if entry_draft.get("workspace_job"):
-        workspace_name = _normalize_workspace_name(str(entry_draft["workspace_job"]))
+    draft_workspace_name = entry_draft.get("workspace_name") or entry_draft.get("workspace_job")
+    if draft_workspace_name:
+        workspace_name = _normalize_workspace_name(str(draft_workspace_name))
         workspace_slug = _to_slug(workspace_name)
         return {
             "node": "workspace_confirm",
@@ -294,7 +295,7 @@ async def advance_authenticated_user(
         "active_workspace_id": None,
         "messages": merge_messages(
             {**state, "messages": messages},
-            "No operator workspaces yet. Describe the SaaS job this first operator should own.",
+            "No workspaces yet. What should this workspace be called?",
         ),
         "workspaces": workspaces,
         "replace_path": None,
@@ -310,7 +311,7 @@ async def workspace_select_node(state: EntryRuntimeState) -> dict[str, Any]:
     if selected_action_id in (RouteDeckActionIds.NAV_BACK, RouteDeckActionIds.NAV_CANCEL):
         return _clear_workspace_draft(
             state,
-            "Canceled workspace selection. You can ask a question or describe the operator you want to build.",
+            "Canceled workspace selection. You can ask a question, create a workspace, or connect an API later.",
         )
 
     workspaces = await list_workspaces(state, current_user.id)
@@ -342,7 +343,7 @@ async def workspace_select_node(state: EntryRuntimeState) -> dict[str, Any]:
         return {
             "messages": merge_messages(
                 state,
-                f"Pick a number between 1 and {len(workspaces)}, or describe a new SaaS job to create another workspace.",
+                f"Pick a number between 1 and {len(workspaces)}, or enter a new workspace name.",
             ),
             "workspaces": workspaces,
             "available_actions": workspace_select_actions(workspaces),
@@ -353,7 +354,7 @@ async def workspace_select_node(state: EntryRuntimeState) -> dict[str, Any]:
         return {
             "messages": merge_messages(
                 state,
-                "Type a number from the list to open an existing workspace, or describe a new SaaS job to create one.",
+                "Type a number from the list to open an existing workspace, or enter a new workspace name.",
             ),
             "workspaces": workspaces,
             "available_actions": workspace_select_actions(workspaces),
@@ -382,15 +383,13 @@ async def workspace_job_node(state: EntryRuntimeState) -> dict[str, Any]:
     if selected_action_id in (RouteDeckActionIds.NAV_BACK, RouteDeckActionIds.NAV_CANCEL):
         return _clear_workspace_draft(
             state,
-            "Canceled workspace drafting. You can ask a question or describe the operator you want to build.",
+            "Canceled workspace creation. You can ask a question or start workspace setup again.",
         )
 
     value = (state.get("user_input") or "").strip()
     workspace_name = _normalize_workspace_name(value)
     if not workspace_name:
-        return {
-            "messages": merge_messages(state, "I need at least a short job description.")
-        }
+        return {"messages": merge_messages(state, "I need a workspace name before I can create it.")}
 
     workspace_slug = _to_slug(workspace_name)
     return {
@@ -414,7 +413,7 @@ async def workspace_confirm_node(state: EntryRuntimeState) -> dict[str, Any]:
     if selected_action_id == RouteDeckActionIds.NAV_CANCEL:
         return _clear_workspace_draft(
             state,
-            "Canceled workspace creation. You can ask a question or describe a different operator.",
+            "Canceled workspace creation. You can ask a question or create a different workspace.",
         )
     if selected_action_id == RouteDeckActionIds.NAV_BACK:
         workspaces = await list_workspaces(state, current_user.id)
@@ -425,7 +424,7 @@ async def workspace_confirm_node(state: EntryRuntimeState) -> dict[str, Any]:
                 "workspace_slug": "",
                 "messages": merge_messages(
                     state,
-                    "Back to workspace selection. Pick a workspace number or describe a new SaaS job.",
+                    "Back to workspace selection. Pick a workspace number or enter a new workspace name.",
                 ),
                 "workspaces": workspaces,
                 "available_actions": workspace_select_actions(workspaces),
@@ -436,7 +435,7 @@ async def workspace_confirm_node(state: EntryRuntimeState) -> dict[str, Any]:
             "workspace_slug": "",
             "messages": merge_messages(
                 state,
-                "Back to workspace drafting. Describe the SaaS job this first operator should own.",
+                "Back to workspace setup. Enter the workspace name.",
             ),
         }
 
@@ -449,7 +448,7 @@ async def workspace_confirm_node(state: EntryRuntimeState) -> dict[str, Any]:
                 "node": "workspace_job",
                 "messages": merge_messages(
                     state,
-                    "I lost the workspace draft. Describe the SaaS job again.",
+                    "I lost the workspace name. Enter it again.",
                 ),
             }
 
@@ -585,7 +584,7 @@ async def setup_intro_node(state: EntryRuntimeState) -> dict[str, Any]:
     if not state.get("active_workspace_id"):
         return {
             "node": "workspace_job",
-            "messages": merge_messages(state, "I lost the workspace context. Describe the SaaS job again."),
+            "messages": merge_messages(state, "I lost the workspace context. Enter the workspace name again."),
         }
 
     selected_action_id = _selected_action_id(state)
@@ -682,7 +681,7 @@ async def connection_confirm_node(state: EntryRuntimeState) -> dict[str, Any]:
     if not workspace_id:
         return {
             "node": "workspace_job",
-            "messages": merge_messages(state, "I lost the workspace context. Describe the SaaS job again."),
+            "messages": merge_messages(state, "I lost the workspace context. Enter the workspace name again."),
         }
 
     selected_action_id = _selected_action_id(state)

@@ -52,7 +52,7 @@ export function buildShellAgentReply(input: string, workspace?: Workspace, stats
 
     return lineBreaks([
       `To get ${text ? `"${text}"` : 'that work'} done in ${workspaceName}, I need the REST API for the product you want me to operate.`,
-      'Tell me which SaaS product this agent should connect to first, and I will frame the setup around the actual job to be done rather than around generic configuration.',
+      'Tell me which SaaS product or OpenAPI schema this workspace should connect to first, and I will frame setup around that API surface.',
     ])
   }
 

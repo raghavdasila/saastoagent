@@ -216,7 +216,8 @@ async def plan_setup_turn(
             "base URL, OpenAPI or Swagger spec URL, and auth type. Auth type must be one of: none, bearer, "
             "api_key_header, api_key_query, basic, custom_header, oauth_client_credentials. If details are missing, "
             "ask only for the missing details. If all required details are present, set next_step to confirm. "
-            "Use show_form only when the user explicitly asks for a form or says they want to edit details."
+            "Use show_form only when the user explicitly asks for a form or says they want to edit details. "
+            "When returning a sectioned reply, use valid Markdown with ## headings and bullets."
         )
     )
     human = HumanMessage(

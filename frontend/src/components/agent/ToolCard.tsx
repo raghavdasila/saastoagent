@@ -15,7 +15,11 @@ export function ToolCard({ toolCall }: Props) {
     .join(', ')
 
   return (
-    <div className="rounded-lg border border-border bg-background/50 text-xs">
+    <div
+      className="rounded-lg border border-border bg-background/50 text-xs"
+      data-testid="tool-call-card"
+      data-tool-name={toolCall.toolName}
+    >
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}

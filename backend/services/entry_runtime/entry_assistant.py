@@ -83,8 +83,9 @@ async def run_entry_assistant(
     entry_draft = dict(existing)
     if _looks_like_setup_request(prompt, setup_draft):
         entry_draft["api_draft"] = setup_draft
-        if not entry_draft.get("workspace_job"):
-            entry_draft["workspace_job"] = _infer_workspace_job(prompt)
+        workspace_name = _infer_workspace_name(prompt)
+        if workspace_name and not entry_draft.get("workspace_name"):
+            entry_draft["workspace_name"] = workspace_name
 
     kb_results = await platform_kb.search(prompt or "SaaStoAgent overview")
     fallback = _fallback_result(prompt=prompt, draft=entry_draft, kb_results=kb_results)
@@ -118,11 +119,19 @@ def _looks_like_setup_request(prompt: str, setup_draft: dict[str, str]) -> bool:
     return bool(re.search(r"\b(api|openapi|swagger|workspace|operator|connect|setup)\b", prompt, re.I))
 
 
-def _infer_workspace_job(prompt: str) -> str:
-    value = re.sub(r"https?://\S+", "", prompt)
-    value = re.sub(r"\b(connect|setup|create|build|api|openapi|swagger|workspace|operator)\b", "", value, flags=re.I)
-    value = re.sub(r"\s+", " ", value).strip(" .,-")
-    return value[:120] or "SaaS operations"
+def _infer_workspace_name(prompt: str) -> str | None:
+    patterns = [
+        r"\bworkspace\s+(?:named|called)\s+([A-Za-z0-9][A-Za-z0-9 _.-]{1,80})",
+        r"\b(?:named|called)\s+([A-Za-z0-9][A-Za-z0-9 _.-]{1,80})\s+workspace\b",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, prompt, flags=re.I)
+        if match:
+            value = re.sub(r"https?://\S+", "", match.group(1))
+            value = re.split(r"\b(?:using|with|and|that|which)\b", value, maxsplit=1, flags=re.I)[0]
+            value = re.sub(r"\s+", " ", value).strip(" .,-")
+            return value[:80] or None
+    return None
 
 
 def _fallback_result(
@@ -140,7 +149,7 @@ def _fallback_result(
             follow_up_prompts=[],
         )
 
-    if draft.get("api_draft") or draft.get("workspace_job"):
+    if draft.get("api_draft") or draft.get("workspace_name") or draft.get("workspace_job"):
         return EntryAssistantResult(
             message=(
                 "I saved that as a setup draft. To actually create the workspace or activate the API, sign in or create an account; "
@@ -202,7 +211,9 @@ async def _llm_result(
                         "You are the public entry assistant for SaaStoAgent. Conversation is primary. "
                         "Answer platform questions from the supplied knowledge context, help draft workspace/API setup before auth, "
                         "and only route to login/register when the user explicitly asks. Do not claim actions are completed before auth. "
-                        "Keep responses concise and useful. Preserve any draft values provided."
+                        "Keep responses concise and useful. Preserve any draft values provided. "
+                        "When the answer has sections, emit valid Markdown with explicit ## headings, bullet lists, and fenced code blocks for JSON. "
+                        "Do not use plain heading-like paragraphs for sections."
                     )
                 ),
                 HumanMessage(
@@ -280,7 +291,9 @@ def _assistant_messages(
                 "You are the public entry assistant for SaaStoAgent. Conversation is primary. "
                 "Answer platform questions from the supplied knowledge context, help draft workspace/API setup before auth, "
                 "and only route to login/register when the user explicitly asks. Do not claim actions are completed before auth. "
-                "Keep responses concise and useful. Preserve any draft values provided."
+                "Keep responses concise and useful. Preserve any draft values provided. "
+                "When the answer has sections, emit valid Markdown with explicit ## headings, bullet lists, and fenced code blocks for JSON. "
+                "Do not use plain heading-like paragraphs for sections."
             )
         ),
         HumanMessage(

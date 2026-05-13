@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 from backend.services.qa.schemas import QAEvalRequest, QAEvidenceGate
 from backend.services.qa.service import evaluate_turn, is_reset_allowed, list_scenarios
 
@@ -15,6 +18,10 @@ def test_qa_scenarios_cover_navigation_permutations():
         "invalid_email_recovery",
         "signup_workspace_path",
         "routedeck_smoke",
+        "connection_catalog_preview",
+        "actions_entities_surfaces",
+        "read_safe_rest_execution_trace",
+        "write_rest_execution_requires_approval",
     } <= set(scenarios)
     assert any(
         action.params.get("action_id") == "nav.cancel"
@@ -62,7 +69,64 @@ def test_qa_evaluator_fails_missing_recovery_action():
     assert "action_enabled" in result.failures
 
 
+def test_qa_evaluator_checks_workspace_catalog_and_api_evidence():
+    result = evaluate_turn(
+        QAEvalRequest(
+            evidence={
+                "workspace_view": "actions",
+                "visible_text": "Generated REST actions",
+                "catalog_totals": {"actions": 3, "tools": 3, "entities": 2},
+                "api_responses": {"connection_preview": {"status": 200}},
+                "console_errors": [],
+            },
+            evidence_gates=[
+                QAEvidenceGate(gate="workspace_view", params={"view": "actions"}),
+                QAEvidenceGate(gate="catalog_count_at_least", params={"key": "actions", "min": 1}),
+                QAEvidenceGate(gate="api_response_ok", params={"key": "connection_preview"}),
+                QAEvidenceGate(gate="no_console_errors", params={}),
+            ],
+        )
+    )
+
+    assert result.verdict == "pass"
+    assert result.failures == []
+
+
+def test_qa_evaluator_checks_generated_tool_trace():
+    result = evaluate_turn(
+        QAEvalRequest(
+            evidence={
+                "assistant_messages": ["I found pets from the API."],
+                "tool_calls": [{"toolName": "list_pets"}],
+                "visible_text": "Tool trace list_pets completed",
+            },
+            evidence_gates=[
+                QAEvidenceGate(gate="assistant_response", params={}),
+                QAEvidenceGate(gate="tool_called", params={"tool_name_contains": "pet"}),
+                QAEvidenceGate(gate="message_not_contains", params={"text": "No REST catalog is active"}),
+            ],
+        )
+    )
+
+    assert result.verdict == "pass"
+    assert result.failures == []
+
+
 def test_qa_reset_guard_defaults_to_local_dev_secret_only():
     assert is_reset_allowed("CHANGE-ME-IN-PRODUCTION")
     assert is_reset_allowed("dev-secret-change-in-prod")
     assert not is_reset_allowed("production-secret")
+
+
+def test_frontend_qa_runner_supports_all_scenario_actions():
+    repo_root = Path(__file__).resolve().parents[2]
+    hook_source = (repo_root / "frontend" / "src" / "hooks" / "useSaaStoAgentQA.ts").read_text()
+    supported_actions = set(re.findall(r"case '([^']+)'", hook_source))
+    scenario_actions = {
+        action.action
+        for scenario in list_scenarios()
+        for milestone in scenario.milestones
+        for action in milestone.actions
+    }
+
+    assert scenario_actions - supported_actions == set()

@@ -26,8 +26,9 @@ import {
 import { RouteDeckNavWidget } from '@/components/operator/RouteDeckNavWidget'
 import { QAAgentPanel } from '@/components/qa/QAAgentPanel'
 import { ThemeToggleButton } from '@/components/theme/ThemeToggleButton'
+import { ActionsCanvas } from '@/components/workspace/ActionsCanvas'
 import { ConnectSetupView } from '@/components/workspace/ConnectSetupView'
-import { LockedCanvasView } from '@/components/workspace/LockedCanvasView'
+import { EntitiesCanvas } from '@/components/workspace/EntitiesCanvas'
 import { useAuth } from '@/context/AuthContext'
 import { useSSEChat } from '@/hooks/useSSEChat'
 import { api, ApiError } from '@/lib/api'
@@ -309,11 +310,12 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   }, [liveAgentSessionId, setAgentSessionId])
 
   const finishStream = useCallback(() => {
+    appendAssistantDelta('', true)
     setBusy(false)
     xhrRef.current = null
     streamCursorRef.current = 0
     streamBufferRef.current = ''
-  }, [setBusy])
+  }, [appendAssistantDelta, setBusy])
 
   const applyTurnResult = useCallback(
     (payload: EntryTurnResponse) => {
@@ -606,8 +608,8 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
     display_name: 'Display name, or skip',
     email: 'you@example.com',
     password: 'Password',
-    workspace_select: 'Number or new job description',
-    workspace_job: 'What SaaS job should this workspace handle?',
+    workspace_select: 'Number or new workspace name',
+    workspace_job: 'Workspace name',
     workspace_confirm: 'launch or rename',
     setup_intro: 'Connect an API or choose an action',
     connection_confirm: 'activate or edit setup',
@@ -844,15 +846,22 @@ function UnifiedSidePanel({
   onClose: () => void
   onQaResetRuntime: () => Promise<void>
 }) {
+  const qaHostedView = useWorkspaceStore((state) => state.activeView)
   let content: JSX.Element
   if (item === 'qa') {
-    content = <QAAgentPanel onResetRuntime={onQaResetRuntime} />
+    const hostedContent = mode === 'operator' ? renderWorkspacePanel(qaHostedView, workspace, stats) : null
+    content = (
+      <div className="space-y-4">
+        <QAAgentPanel onResetRuntime={onQaResetRuntime} />
+        {hostedContent && (
+          <div data-testid="qa-workspace-view-host">
+            {hostedContent}
+          </div>
+        )}
+      </div>
+    )
   } else if (mode === 'operator') {
-    if (item === 'connect') content = <ConnectSetupView workspace={workspace} stats={stats} />
-    else if (item === 'attachments') content = <AttachmentsPanel />
-    else if (item === 'admin') content = <AdminPanel workspace={workspace} />
-    else if (item === 'entities' || item === 'actions') content = <LockedCanvasView view={item as WorkspaceView} />
-    else content = <PanelEmpty title="Workspace panel" body="Select a workspace surface from the rail." />
+    content = renderWorkspacePanel(item, workspace, stats)
   } else {
     const artifact = item === 'learn'
       ? uiArtifacts.find((candidate) => candidate.widget_type === 'platform_overview')
@@ -875,6 +884,16 @@ function UnifiedSidePanel({
       {content}
     </ContextLens>
   )
+}
+
+function renderWorkspacePanel(item: OperatorSidebarItem | WorkspaceView, workspace?: Workspace, stats?: WorkspaceStats): JSX.Element {
+  if (item === 'connect') return <ConnectSetupView workspace={workspace} stats={stats} />
+  if (item === 'attachments') return <AttachmentsPanel />
+  if (item === 'admin') return <AdminPanel workspace={workspace} />
+  if (item === 'entities') return <EntitiesCanvas />
+  if (item === 'actions') return <ActionsCanvas />
+  if (item === 'chat' || item === 'qa') return <></>
+  return <PanelEmpty title="Workspace panel" body="Select a workspace surface from the rail." />
 }
 
 function PanelEmpty({ title, body }: { title: string; body: string }) {

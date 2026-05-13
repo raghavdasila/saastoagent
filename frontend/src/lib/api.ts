@@ -61,4 +61,59 @@ export const api = {
     fd.append(fieldName, file)
     return request<T>(path, { method: 'POST', body: fd })
   },
+  postStream: (
+    path: string,
+    onEvent: (eventType: string, data: Record<string, unknown>) => void,
+  ) =>
+    new Promise<void>((resolve, reject) => {
+      const token = storage.getToken()
+      const workspaceId = storage.getWorkspaceId()
+      const xhr = new XMLHttpRequest()
+      let cursor = 0
+      let buffer = ''
+      xhr.open('POST', `/api${path}`)
+      xhr.setRequestHeader('Content-Type', 'application/json')
+      if (token && token !== 'undefined' && token !== 'null') {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+      }
+      if (workspaceId) {
+        xhr.setRequestHeader('X-Workspace-ID', workspaceId)
+      }
+      xhr.onprogress = () => {
+        const chunk = xhr.responseText.slice(cursor)
+        cursor = xhr.responseText.length
+        buffer += chunk
+        const events = buffer.split('\n\n')
+        buffer = events.pop() || ''
+        for (const eventText of events) {
+          const lines = eventText.split('\n')
+          const eventLine = lines.find((line) => line.startsWith('event: '))
+          const dataLine = lines.find((line) => line.startsWith('data: '))
+          if (!eventLine || !dataLine) continue
+          try {
+            onEvent(eventLine.slice(7).trim(), JSON.parse(dataLine.slice(6)))
+          } catch {
+            // Wait for the next progress chunk if JSON is incomplete.
+          }
+        }
+      }
+      xhr.onloadend = () => {
+        if (buffer.trim()) {
+          const lines = buffer.split('\n')
+          const eventLine = lines.find((line) => line.startsWith('event: '))
+          const dataLine = lines.find((line) => line.startsWith('data: '))
+          if (eventLine && dataLine) {
+            try {
+              onEvent(eventLine.slice(7).trim(), JSON.parse(dataLine.slice(6)))
+            } catch {
+              // Ignore an incomplete final event.
+            }
+          }
+        }
+        if (xhr.status >= 400) reject(new ApiError(`Request failed (${xhr.status})`, xhr.status))
+        else resolve()
+      }
+      xhr.onerror = () => reject(new ApiError('Connection failed', 0))
+      xhr.send()
+    }),
 }

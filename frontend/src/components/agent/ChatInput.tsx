@@ -103,6 +103,7 @@ export function ChatInput({
           'disabled:cursor-not-allowed disabled:opacity-50',
           'max-h-[200px] min-h-[44px]',
         )}
+        data-testid="agent-chat-input"
       />
 
       <button
@@ -111,6 +112,7 @@ export function ChatInput({
         disabled={disabled || !value.trim()}
         title="Send message"
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        data-testid="agent-chat-send"
       >
         <Send className="h-4 w-4" />
       </button>

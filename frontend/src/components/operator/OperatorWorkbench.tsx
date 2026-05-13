@@ -30,7 +30,7 @@ const graphNodeLabels: Record<GatewayNode, string> = {
   email: 'Email',
   password: 'Password',
   workspace_select: 'Workspace select',
-  workspace_job: 'Workspace draft',
+  workspace_job: 'Workspace setup',
   workspace_confirm: 'Workspace confirm',
   setup_intro: 'REST setup',
   connection_confirm: 'Connection confirm',
@@ -64,7 +64,7 @@ export function buildReadiness({
   if (mode === 'entry') {
     return {
       label: isAuthenticated ? 'Account ready' : 'Anonymous entry',
-      detail: 'Describe the job, ask about the platform, or prepare REST setup.',
+      detail: 'Ask about the platform, name a workspace, or prepare REST setup.',
       tone: 'neutral',
     }
   }

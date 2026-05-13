@@ -19,6 +19,22 @@ class ConnectionCreate(BaseModel):
     )
 
 
+class ConnectionPreviewRequest(BaseModel):
+    spec_url: str | None = Field(default=None, max_length=2000)
+    raw_spec: str | None = Field(default=None, max_length=2_000_000)
+
+
+class ConnectionPreviewRead(BaseModel):
+    title: str
+    version: str | None = None
+    servers: list[str] = Field(default_factory=list)
+    endpoint_count: int = 0
+    methods: dict[str, int] = Field(default_factory=dict)
+    tags: dict[str, int] = Field(default_factory=dict)
+    sample_actions: list[dict[str, Any]] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class ConnectionRead(BaseModel):
     id: uuid.UUID
     workspace_id: uuid.UUID
@@ -52,6 +68,24 @@ class ActionNodeRead(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class EntityRead(BaseModel):
+    id: str
+    label: str
+    description: str
+    action_count: int
+    read_count: int = 0
+    write_count: int = 0
+    risky_count: int = 0
+    sample_paths: list[str] = Field(default_factory=list)
+
+
+class ActionCatalogRead(BaseModel):
+    actions: list[ActionNodeRead]
+    tools: list["ToolRead"]
+    entities: list[EntityRead]
+    totals: dict[str, int]
 
 
 class ToolRead(BaseModel):

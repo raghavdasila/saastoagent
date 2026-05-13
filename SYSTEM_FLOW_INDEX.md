@@ -15,8 +15,8 @@ This file is the source of truth for the currently implemented runtime and UX fl
 7. RouteDeck contract and debugger for entry/auth/setup/workspace handoff visibility
 8. LangGraph-owned entry/auth/setup runtime with RouteDeck-to-runtime parity enforcement
 9. Embedded UI-driven QA panel for real-UI scenario execution and evidence capture
-10. Next: REST/OpenAPI upload, inspection, generated tool binding, and workspace agent execution
-11. Later: REST execution approvals, QA, tuning, and governed learnings
+10. REST/OpenAPI preview, activation, catalog inspection, lightweight Entities/Actions canvases, and first-pass read-safe generated tool execution
+11. Next: workspace RouteDeck execution snapshots, approval resume controls, repo-native browser QA automation, tuning, and governed learnings
 
 ## Unified Operator Shell
 
@@ -110,8 +110,8 @@ This file is the source of truth for the currently implemented runtime and UX fl
 | `display_name` | Collects optional display name for registration |
 | `email` | Collects email |
 | `password` | Authenticates or creates user |
-| `workspace_select` | Opens an existing workspace or starts a new workspace draft |
-| `workspace_job` | Collects the job the operator workspace should own |
+| `workspace_select` | Opens an existing workspace or starts new workspace creation |
+| `workspace_job` | Legacy internal draft field; collects the workspace name before creation |
 | `workspace_confirm` | Creates the workspace |
 | `setup_intro` | Prompts for REST API setup after a workspace is selected/created and no ready REST connection exists |
 | `connection_confirm` | Confirms REST details, creates the connection, runs activation, and hands off to chat |
@@ -138,13 +138,14 @@ This file is the source of truth for the currently implemented runtime and UX fl
 17. `entry_turn_result.graph_manifest`, `graph_version`, `run_id`, and `session_id` are retained for the status strip and evidence drawer.
 18. Workbench widget renderer accepts readiness, tool candidate, execution plan, approval request, trace summary, and learning candidate artifacts.
 19. The action dock stays visible whenever backend/RouteDeck actions exist, even before the first user message.
+20. Assistant message rendering parses markdown sections while streaming; two or more sections render as native `details` panels with test hooks for section counts and summaries.
 
 ## Public Platform Assistant
 
 1. `entry_assistant.py` receives the current anonymous/authenticated entry turn.
 2. It resolves action prompt payloads or free-text input.
 3. Explicit login/register language routes into deterministic auth nodes.
-4. Setup language populates `entry_draft.workspace_job` and `entry_draft.api_draft`.
+4. Setup language populates the workspace-name draft field and `entry_draft.api_draft`.
 5. Platform questions search `platform_kb.py`.
 6. Retrieval uses OpenAI embeddings when configured and keyword fallback otherwise.
 7. The assistant uses live `ChatOpenAI(..., streaming=True)` deltas for public conversational output, and keeps structured-output fallback for non-streamed paths.
@@ -155,6 +156,7 @@ This file is the source of truth for the currently implemented runtime and UX fl
    - optional display-only markup
    - canvas-capable artifacts
 9. Authenticated executor stages carry `entry_draft` into workspace creation and setup intro.
+10. Sectioned assistant answers are prompted to use explicit Markdown `##` headings, bullet lists, and fenced JSON blocks instead of plain heading-like paragraphs.
 
 ## REST Setup Flow
 
@@ -210,19 +212,35 @@ All routes are workspace-scoped and require workspace membership.
 7. Live views:
    - Operator Chat
    - Connections panel
+   - Entities
+   - Actions
    - Knowledge Base
    - Sessions & Memory
 8. Locked views:
-   - Entities
-   - Actions
    - QA
+
+## REST Catalog And Execution
+
+1. Connections exposes OpenAPI URL preview, connection creation, activation progress, ready connection summaries, and direct navigation to Actions.
+2. `POST /api/workspaces/{workspace_id}/connections/preview` summarizes OpenAPI title/version, servers, method counts, tag counts, warnings, and sample actions before activation.
+3. `GET /api/workspaces/{workspace_id}/catalog` returns generated action nodes, generated tools, lightweight inferred entities, and catalog totals.
+4. `GET /api/workspaces/{workspace_id}/actions`, `/tools`, and `/entities` expose focused workspace catalog slices for canvases.
+5. Entities are inferred from OpenAPI tags first, then path groups; this is intentionally lighter than the old resource graph canvas.
+6. Actions shows generated tools, parameters, risk, approval requirement, action details, and a path back to chat.
+7. Workspace chat checks generated REST tools before falling back to the generic document/memory/chat graph.
+8. Matched read-safe generated tools can execute directly when required inputs are present or can be inferred from the user message.
+9. Write, destructive, and financial tools produce an approval-required response and do not execute automatically in this pass.
+10. Execution emits normal `tool_start` and `tool_end` SSE events so existing message tool cards remain the trace surface.
 
 ## Embedded QA
 
 1. The unified shell includes an embedded QA panel for scenario selection, run controls, live logs, verdicts, and export.
 2. QA drives the real UI through the composer, action buttons, forms, RouteDeck drawer, and graph controls rather than direct node jumps.
 3. Dev-only backend QA endpoints provide scenario catalog, domain model, runtime reset, and deterministic evaluation support.
-4. Current scenario coverage targets greeting/intent behavior, public questions, signin/signup cancel and mode switch flows, invalid input recovery, workspace/setup recovery, and RouteDeck map smoke.
+4. Current scenario coverage targets greeting/intent behavior, public questions, signin/signup cancel and mode switch flows, invalid input recovery, workspace/setup recovery, RouteDeck map smoke, REST connection preview/activation, generated Actions/Entities canvases, read-safe generated REST execution, and approval-required write behavior.
+5. Evaluation gates now cover workspace view evidence, API response status, catalog totals, generated tool calls, console errors, visible copy, assistant output, RouteDeck node state, and action availability.
+6. Frontend QA action support includes `open_workspace_view`, `fill_connection_form`, `click_button`, `wait_for_catalog`, `collect_workspace_catalog`, `send_operator_chat`, and a Petstore setup helper for catalog/operator scenarios.
+7. Backend tests fail if a QA scenario references an action that the frontend runner does not implement.
 
 ## Verification
 
@@ -245,14 +263,16 @@ All routes are workspace-scoped and require workspace membership.
 - Conversational entry smoke: anonymous platform Q&A returns chips and artifacts; pre-auth setup draft survives register, invalid password retry, signup, workspace launch, and setup intro.
 - In-container assistant harness: platform question, setup draft, and explicit auth routing assertions passed.
 - LangGraph runtime tests: RouteDeck node/handler parity, edge/resolver parity, auth/workspace recovery navigation, public assistant streaming, and no fake token chunking regression passed in backend pytest.
+- REST catalog tests: OpenAPI preview summarizes methods/tags/sample actions, and lightweight entity inference groups actions by tag/path with risk counts.
+- QA service tests: UI scenario catalog includes connection/catalog/execution flows and evaluator gates cover workspace view, API status, catalog totals, and generated tool traces.
 - Unified shell build validation: `/`, `/login`, `/register`, and `/w/:workspaceId` route through `OperatorGateway`.
 - Bridged handoff smoke: anonymous setup draft -> register -> workspace launch -> `setup.open_chat` -> first workspace agent stream with `handoff_context`; agent session metadata persisted in Postgres.
 
 ## Known Flow Gaps
 
 - Direct `/w/:id` deep links can still bypass graph-owned REST setup until the user explicitly enters setup/auth.
-- Generated REST tools are persisted but not yet bound into the chat agent execution loop.
-- Autonomy ladder is visible as an execution-policy surface, but it is advisory until REST execution approval gates are wired.
-- Entity/action browsing remains locked.
+- Workspace REST execution is first-pass: read-safe generated tools can run, but approval resume controls for write/destructive/financial tools are still pending.
+- Autonomy ladder is visible as an execution-policy surface, but it is advisory until REST execution approval gates are fully wired.
+- Entity/action browsing is lightweight and OpenAPI-derived, not yet a full resource/workflow graph.
 - Full browser QA for the responsive unified shell and entry canvas/artifact UX is still pending beyond smoke checks.
 - Frontend artifact renderer tests are not yet automated.

@@ -15,7 +15,7 @@ SaaStoAgent should present an operating workbench, not a generic chatbot with si
 
 The practical product loop remains:
 
-`Describe the job -> See readiness -> Approve or adjust plan -> Let Corpus act -> Inspect evidence -> Give feedback or save learning`
+`Create workspace -> Connect API schema -> See readiness -> Approve or adjust plan -> Let Corpus act -> Inspect evidence -> Give feedback or save learning`
 
 ## Patterns To Preserve
 
@@ -25,7 +25,7 @@ Microsoft's agent UX guidance distinguishes agents from typical chatbots because
 
 For SaaStoAgent:
 
-- Keep the central thread as the place where the user describes the job and directs Corpus.
+- Keep the central thread as the place where the user names/configures the workspace, connects API schemas, and directs Corpus.
 - Put readiness, capability state, action approvals, traces, and evidence into structured UI around the thread.
 - Do not turn every future slice into another chat prompt or another full-page route.
 

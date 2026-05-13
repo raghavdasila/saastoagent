@@ -106,7 +106,7 @@ export function DashboardPage() {
           </h1>
           <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-400">
             {workspacesList.length === 0
-              ? 'Start with a focused SaaS operating job. The launch flow stays in the sidebar and the workspace list stays clean.'
+              ? 'Start by naming a workspace. API schema connections are configured after the workspace exists.'
               : primaryWorkspace
                 ? `Current workspace: ${formatWorkspaceDisplayName(primaryWorkspace.name) || primaryWorkspace.name}. Pick a workspace from the list or launch another one here.`
                 : 'Pick a workspace from the list or launch another one here.'}
@@ -128,8 +128,8 @@ export function DashboardPage() {
           title={workspacesList.length === 0 ? 'Launch a SaaS workspace' : 'Launch another SaaS workspace'}
           description={
             workspacesList.length === 0
-              ? 'Describe the first SaaS job this workspace should handle.'
-              : 'Describe the next SaaS job when a separate workspace should handle it.'
+              ? 'Name the first workspace, then add API schema connections from the workspace.'
+              : 'Name the new workspace, then configure its API schema connections.'
           }
           error={error}
           isPending={createWorkspace.isPending}

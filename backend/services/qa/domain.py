@@ -28,6 +28,39 @@ QA_DOMAIN_MODEL = {
             "expected_user_behaviors": ["open map", "pan graph", "zoom graph", "inspect nodes"],
             "evidence_gates": ["route_deck_snapshot_present", "visible_text", "no_console_errors"],
         },
+        {
+            "id": "connection_setup",
+            "name": "REST connection setup",
+            "expected_user_behaviors": [
+                "open Connections",
+                "preview OpenAPI schema",
+                "activate catalog",
+                "recover from validation feedback",
+            ],
+            "evidence_gates": [
+                "workspace_view",
+                "visible_text",
+                "api_response_ok",
+                "catalog_count_at_least",
+                "no_console_errors",
+            ],
+        },
+        {
+            "id": "catalog_inspection",
+            "name": "Generated catalog inspection",
+            "expected_user_behaviors": ["open Actions", "open Entities", "inspect generated tools"],
+            "evidence_gates": ["workspace_view", "visible_text", "catalog_count_at_least", "no_console_errors"],
+        },
+        {
+            "id": "rest_execution",
+            "name": "REST operator execution",
+            "expected_user_behaviors": [
+                "ask for a read-safe API task",
+                "inspect tool trace",
+                "hit approval guard for writes",
+            ],
+            "evidence_gates": ["assistant_response", "tool_called", "visible_text", "message_not_contains"],
+        },
     ],
 }
 
@@ -192,7 +225,7 @@ QA_SCENARIOS = [
         "persona": "New user creating a workspace.",
         "opening_message": "",
         "context": "Signup should continue into workspace creation without dead ends.",
-        "pass_criteria": "The flow reaches workspace job, workspace confirm, or operator ready.",
+        "pass_criteria": "The flow reaches workspace setup, workspace confirm, or operator ready.",
         "max_turns": 14,
         "milestones": [
             {
@@ -241,6 +274,144 @@ QA_SCENARIOS = [
                     {"gate": "visible_text", "required": True, "params": {"text": "RouteDeck map"}},
                     {"gate": "route_deck_snapshot_present", "required": True, "params": {}},
                     {"gate": "no_console_errors", "required": True, "params": {}},
+                ],
+            }
+        ],
+    },
+    {
+        "id": "connection_catalog_preview",
+        "name": "Preview and activate an OpenAPI connection",
+        "persona": "Workspace owner connecting a SaaS API schema.",
+        "opening_message": "",
+        "context": "The workspace should expose a real Connections workbench, schema preview, and activation result.",
+        "pass_criteria": "Connection preview succeeds and activation produces at least one generated action.",
+        "max_turns": 8,
+        "milestones": [
+            {
+                "id": "preview-openapi",
+                "capability": "connection_setup",
+                "goal": "Open Connections and preview a reachable OpenAPI URL.",
+                "actions": [
+                    {"action": "open_workspace_view", "params": {"view": "connect"}},
+                    {"action": "fill_connection_form", "params": {"fixture": "petstore_openapi"}},
+                    {"action": "click_button", "params": {"label": "Preview API"}},
+                    {"action": "collect_evidence", "params": {"include_api_status": True}},
+                ],
+                "evidence_gates": [
+                    {"gate": "workspace_view", "required": True, "params": {"view": "connect"}},
+                    {"gate": "visible_text", "required": True, "params": {"text": "Catalog preview"}},
+                    {"gate": "api_response_ok", "required": True, "params": {"key": "connection_preview"}},
+                    {"gate": "no_console_errors", "required": True, "params": {}},
+                ],
+            },
+            {
+                "id": "activate-catalog",
+                "capability": "connection_setup",
+                "goal": "Activate the connection and verify generated catalog output.",
+                "actions": [
+                    {"action": "click_button", "params": {"label": "Save and activate"}},
+                    {"action": "wait_for_catalog", "params": {}},
+                    {"action": "collect_evidence", "params": {"include_catalog": True}},
+                ],
+                "evidence_gates": [
+                    {"gate": "catalog_count_at_least", "required": True, "params": {"key": "actions", "min": 1}},
+                    {"gate": "catalog_count_at_least", "required": True, "params": {"key": "tools", "min": 1}},
+                    {"gate": "visible_text", "required": True, "params": {"text": "ready"}},
+                ],
+            },
+        ],
+    },
+    {
+        "id": "actions_entities_surfaces",
+        "name": "Generated Actions and Entities canvases are inspectable",
+        "persona": "Operator validating what the API schema created.",
+        "opening_message": "",
+        "context": "After activation, operators need focused canvases for generated actions and inferred entities.",
+        "pass_criteria": "Actions and Entities views show generated catalog evidence without console errors.",
+        "max_turns": 6,
+        "milestones": [
+            {
+                "id": "actions-canvas",
+                "capability": "catalog_inspection",
+                "goal": "Open the generated Actions surface.",
+                "actions": [
+                    {"action": "ensure_petstore_connection", "params": {}},
+                    {"action": "open_workspace_view", "params": {"view": "actions"}},
+                    {"action": "collect_workspace_catalog", "params": {}},
+                ],
+                "evidence_gates": [
+                    {"gate": "workspace_view", "required": True, "params": {"view": "actions"}},
+                    {"gate": "visible_text", "required": True, "params": {"text": "Generated REST actions"}},
+                    {"gate": "catalog_count_at_least", "required": True, "params": {"key": "actions", "min": 1}},
+                ],
+            },
+            {
+                "id": "entities-canvas",
+                "capability": "catalog_inspection",
+                "goal": "Open the inferred Entities surface.",
+                "actions": [
+                    {"action": "open_workspace_view", "params": {"view": "entities"}},
+                    {"action": "collect_workspace_catalog", "params": {}},
+                ],
+                "evidence_gates": [
+                    {"gate": "workspace_view", "required": True, "params": {"view": "entities"}},
+                    {"gate": "visible_text", "required": True, "params": {"text": "API groups"}},
+                    {"gate": "catalog_count_at_least", "required": True, "params": {"key": "entities", "min": 1}},
+                    {"gate": "no_console_errors", "required": True, "params": {}},
+                ],
+            },
+        ],
+    },
+    {
+        "id": "read_safe_rest_execution_trace",
+        "name": "Read-safe REST task emits a tool trace",
+        "persona": "Operator asking the agent to inspect API data.",
+        "opening_message": "List available pets from the connected API.",
+        "context": "Read-only REST operations should execute through the generated tool surface and show trace evidence.",
+        "pass_criteria": "The assistant responds and a generated REST tool call is recorded.",
+        "max_turns": 8,
+        "milestones": [
+            {
+                "id": "read-tool-call",
+                "capability": "rest_execution",
+                "goal": "Ask for a read-safe API operation in chat.",
+                "actions": [
+                    {"action": "ensure_petstore_connection", "params": {}},
+                    {"action": "open_workspace_view", "params": {"view": "chat"}},
+                    {"action": "send_operator_chat", "params": {"text": "List available pets from the connected API."}},
+                    {"action": "collect_evidence", "params": {"include_tool_calls": True}},
+                ],
+                "evidence_gates": [
+                    {"gate": "assistant_response", "required": True, "params": {}},
+                    {"gate": "tool_called", "required": True, "params": {"tool_name_contains": "pet"}},
+                    {"gate": "message_not_contains", "required": True, "params": {"text": "No REST catalog is active"}},
+                ],
+            }
+        ],
+    },
+    {
+        "id": "write_rest_execution_requires_approval",
+        "name": "Write REST task stops at approval",
+        "persona": "Operator asking the agent to mutate API data.",
+        "opening_message": "Create a new pet named QA Approval Test.",
+        "context": "Unsafe generated REST operations should not execute silently.",
+        "pass_criteria": "The assistant surfaces approval-required state rather than running a write automatically.",
+        "max_turns": 8,
+        "milestones": [
+            {
+                "id": "write-approval",
+                "capability": "rest_execution",
+                "goal": "Ask for a write API operation and verify the approval guard.",
+                "actions": [
+                    {"action": "ensure_petstore_connection", "params": {}},
+                    {"action": "open_workspace_view", "params": {"view": "chat"}},
+                    {"action": "send_operator_chat", "params": {"text": "Create a new pet named QA Approval Test."}},
+                    {"action": "collect_evidence", "params": {"include_tool_calls": True}},
+                ],
+                "evidence_gates": [
+                    {"gate": "assistant_response", "required": True, "params": {}},
+                    {"gate": "visible_text", "required": True, "params": {"text": "approval"}},
+                    {"gate": "message_not_contains", "required": True, "params": {"text": "Executed POST"}},
                 ],
             }
         ],

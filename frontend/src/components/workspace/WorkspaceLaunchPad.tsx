@@ -24,7 +24,7 @@ function makeMessage(role: 'user' | 'assistant', content: string): ChatUIMessage
 
 export function WorkspaceLaunchPad({
   title = 'Launch a SaaS workspace',
-  description = 'Describe the SaaS job this workspace should handle, then confirm the generated workspace name.',
+  description = 'Name the workspace, then confirm it before adding API schema connections.',
   error,
   isPending,
   onCreate,
@@ -35,7 +35,7 @@ export function WorkspaceLaunchPad({
   const [messages, setMessages] = useState<ChatUIMessage[]>([
     makeMessage(
       'assistant',
-      'Tell me what SaaS job this workspace should handle. For example: `support escalations`, `renewal recovery`, or `billing exceptions`.',
+      'What should this workspace be called? You can rename it before launch.',
     ),
   ])
   const lastError = useRef('')
@@ -67,7 +67,7 @@ export function WorkspaceLaunchPad({
     if (step === 'ask_job') {
       const nextName = normalizeWorkspaceName(value)
       if (!nextName) {
-        appendAssistant('I need at least a short operating job before I can suggest a workspace name.')
+        appendAssistant('I need a workspace name before I can create it.')
         return
       }
       const slug = toSlug(nextName)
@@ -115,7 +115,7 @@ export function WorkspaceLaunchPad({
           value={draft}
           onChange={setDraft}
           onSend={handleSend}
-          placeholder={step === 'ask_job' ? 'What job should this workspace handle?' : 'launch or rename'}
+          placeholder={step === 'ask_job' ? 'Workspace name' : 'launch or rename'}
           disabled={isPending}
         />
       </div>

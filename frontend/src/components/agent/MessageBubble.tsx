@@ -1,10 +1,9 @@
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import { Bot, User } from 'lucide-react'
 
 import { cn } from '@/lib/cn'
 import type { ChatUIMessage } from '@/types/agent'
 
+import { CollapsibleMarkdown } from './CollapsibleMarkdown'
 import { FollowUpChips } from './FollowUpChips'
 import { SourceCitations } from './SourceCitations'
 import { ThinkingIndicator } from './ThinkingIndicator'
@@ -19,7 +18,11 @@ export function MessageBubble({ message, onFollowUp }: Props) {
   const isUser = message.role === 'user'
 
   return (
-    <div className={cn('flex gap-3 px-4 py-3', isUser && 'flex-row-reverse')}>
+    <div
+      className={cn('flex gap-3 px-4 py-3', isUser && 'flex-row-reverse')}
+      data-testid="message-bubble"
+      data-message-role={message.role}
+    >
       <div
         className={cn(
           'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
@@ -57,9 +60,7 @@ export function MessageBubble({ message, onFollowUp }: Props) {
               )}
 
               {message.content && (
-                <div className="prose dark:prose-invert max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
-                </div>
+                <CollapsibleMarkdown content={message.content} forcePlain={message.isStreaming} />
               )}
             </>
           )}

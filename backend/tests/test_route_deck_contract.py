@@ -38,6 +38,28 @@ def test_ROUTE_DECK_manifest_is_valid_and_complete():
     assert manifest.policies["sensitive"]["masked_payload_keys"]
 
 
+def test_ROUTE_DECK_workspace_creation_copy_matches_product_contract():
+    manifest = build_route_deck_manifest()
+    text = " ".join(
+        str(value)
+        for node in manifest.nodes
+        for value in (
+            node.label,
+            node.description,
+            node.prompt_placeholder,
+            node.expected_input,
+            node.recovery_prompt,
+        )
+        if value
+    )
+    text += " " + " ".join(edge.explanation or "" for edge in manifest.edges)
+
+    assert "saas job" not in text.lower()
+    assert "operator should own" not in text.lower()
+    assert "workspace job" not in text.lower()
+    assert "workspace name" in text.lower()
+
+
 def test_ROUTE_DECK_manifest_matches_executable_entry_runtime():
     manifest = build_route_deck_manifest()
     runtime_nodes = set(NODE_HANDLERS.keys())

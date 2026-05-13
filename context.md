@@ -1,88 +1,71 @@
 # SaaStoAgent v0.1 Context
 
-Last Updated: May 13, 2026
+Last Updated: May 13, 2026 21:18
 Project: SaaStoAgent v0.1
-Status: Unified operator shell, RouteDeck sibling framework, LangGraph-owned entry runtime, embedded UI-driven QA panel, and live public entry streaming are implemented. Active next work is REST/OpenAPI upload, inspection, generated tool binding, execution approval surfaces, and learning-loop integration.
+Status: Unified operator shell, RouteDeck sibling framework, LangGraph-owned entry runtime, live entry streaming, stream-aware collapsible assistant sections, REST/OpenAPI connection activation, Actions/Entities catalog canvases, first-pass generated REST tool execution, and embedded UI-driven QA are implemented. Workspace creation is now corrected to workspace naming/configuration, not a "SaaS job" prompt.
 Repository: `agent-lab-powered-projects/saastoagent-v0.1`
 
 ## Live State
 
 - SaaStoAgent frontend: `http://localhost:3007`
 - SaaStoAgent backend health: `http://localhost:8085/api/health`
-- Standalone RouteDeck example frontend: `http://127.0.0.1:5190`
-- Standalone RouteDeck example backend: `http://127.0.0.1:8096`
 - RouteDeck framework project: `../routedeck/`
 - SaaStoAgent RouteDeck product adapter/catalog: `backend/services/route_deck/`
-- REST/OpenAPI setup remains the active integration path; DB connectors remain out of immediate scope
+- REST/OpenAPI setup is the active integration path; DB connectors remain out of scope for the current pass.
 
-## Current Product Shape
+## Current Product Flow
 
-- `/`, `/login`, `/register`, and `/w/:workspaceId` mount the unified `OperatorGateway` workbench.
-- Anonymous users can ask product questions, draft setup, sign in, create an account, or use backend-provided quick actions on direct workspace routes.
-- Auth/login/signup remain deterministic executable LangGraph stages for sensitive work.
-- Workspace creation and REST setup remain graph-owned after auth.
-- Workspace operator chat remains bridged through `/api/workspaces/{workspaceId}/agent/chat`.
-- The workbench zones are capability rail, operator status strip, RouteDeck nav/debug surface, central intent spine, action dock, context lens, evidence drawer, optional canvas, and shared composer.
-- Product/operator naming remains `SaaStoAgent` / `Corpus`.
+1. User signs in or creates an account.
+2. User creates/selects a workspace by name.
+3. User configures API schema connections from the workspace.
+4. Connection setup previews a reachable OpenAPI schema, creates the connection, activates the catalog, and generates REST actions/tools.
+5. Actions and Entities canvases expose generated REST action and inferred API group surfaces.
+6. Operator chat can match generated REST tools, execute read-safe calls when required inputs are available, and stop writes behind approval-required copy.
+7. QA panel can drive entry/auth/setup/recovery/connection/catalog/operator scenarios through the visible UI.
 
-## Runtime State
+## Runtime Shape
 
-- Entry/auth/setup/workspace handoff now executes through a central LangGraph topology built by `backend/services/entry_runtime/graph_executor.py`.
-- The executable shape is `turn_start -> route_action -> group boundary -> concrete stage -> finalize_turn -> END`.
-- RouteDeck remains the visible navigation contract and validates submitted actions before business logic.
-- Runtime finalization asserts handler-produced transitions against RouteDeck edges.
-- Public entry LLM text now streams live via SSE `message_delta`; completed text is no longer replayed as fake delayed chunks.
-- Entry thinking stays inside the streaming assistant bubble.
-- The action dock remains visible whenever backend/RouteDeck actions exist, even before a first user message.
+- `/`, `/login`, `/register`, and `/w/:workspaceId` mount `OperatorGateway`.
+- Entry/auth/workspace/setup handoff executes through `backend/services/entry_runtime/graph_executor.py`.
+- Runtime topology remains `turn_start -> route_action -> group boundary -> concrete stage -> finalize_turn -> END`.
+- RouteDeck validates submitted actions and provides visible navigation/debug snapshots.
+- `workspace_job` remains a legacy internal node id for compatibility, but user-facing copy and tests now treat it as workspace setup/name collection.
+- Assistant responses with two or more parsed sections render as collapsible `details`; during streaming, the newest section stays open and previous completed sections collapse.
+- Backend entry/setup prompts now prefer explicit Markdown `##` sections, bullets, and fenced JSON.
 
-## RouteDeck State
+## QA And Tests
 
-- RouteDeck is the sibling framework for agentic navigation UX under `../routedeck/`.
-- RouteDeck owns reusable contracts and debugging UI:
-  - `routedeck_core`
-  - `routedeck_langgraph`
-  - `@routedeck/react`
-  - framework docs and examples
-- SaaStoAgent owns product behavior:
-  - node/action ids
-  - auth/workspace/setup branching
-  - REST setup fields and copy
-  - recovery prompts and test paths
-- Backend imports framework primitives from `routedeck_core` and `routedeck_langgraph`.
-- Frontend imports reusable debugger UI from `@routedeck/react`.
+- Embedded QA supports: `open_workspace_view`, `fill_connection_form`, `click_button`, `wait_for_catalog`, `collect_workspace_catalog`, `send_operator_chat`, and `ensure_petstore_connection`.
+- QA evidence captures workspace view, catalog totals, Actions/Entities visible text, tool call cards, API status hints, and assistant DOM messages.
+- QA panel stays mounted while it hosts the workspace surface under test.
+- Regression tests now fail if backend QA scenarios reference unsupported frontend QA actions.
+- RouteDeck contract tests now fail if workspace creation copy reintroduces "SaaS job", "operator should own", or "workspace job".
 
-## QA State
+## Verification This Session
 
-- An embedded UI-driven QA panel now exists in the unified shell.
-- QA drives the real UI through the composer, visible actions, forms, RouteDeck map, and graph controls rather than direct node jumps.
-- Dev-only backend QA endpoints support scenario catalog, domain model, runtime reset, and deterministic evaluation.
-- Current test coverage includes backend RouteDeck/runtime parity, auth/workspace recovery, public assistant streaming, and QA service scenarios.
+- `python -m pytest backend/tests`: passed, 28 tests.
+- `python -m compileall backend`: passed.
+- `python -m backend.services.route_deck.validate`: passed.
+- `npm run type-check`: passed.
+- `npm run build`: passed, with existing Vite chunk-size warning.
+- Docker backend/frontend rebuilt and healthy.
+- Browser smoke verified streaming collapsible behavior, entry auth recovery, positive workspace/API activation, setup back/cancel/edit recovery, Actions/Entities surfaces, read-safe generated tool trace, write approval-required behavior, embedded QA scenarios, and corrected workspace-name flow.
 
 ## Known Gaps
 
-- Generated REST tools are persisted but not yet bound into workspace agent selection/execution.
-- Direct `/w/:id` deep links can still bypass graph-owned REST setup until the user explicitly enters setup/auth.
-- Autonomy ladder is visible but advisory until REST execution and approval gates are wired.
-- Browser/runtime QA is stronger than before but still not a full repo-native automated browser suite.
-- Some RouteDeck edge resolvers are still shallow state checks and should become richer semantic predicates as REST execution flows are added.
-- Product copy in stage handlers is still centralized but not fully moved into RouteDeck metadata; keep only true contract-level copy in the framework boundary.
-
-## Verification
-
-- SaaStoAgent `python -m pytest backend/tests`: passed
-- SaaStoAgent `python -m compileall backend`: passed
-- SaaStoAgent `python -m backend.services.route_deck.validate`: passed
-- SaaStoAgent frontend `npm run type-check`: passed
-- SaaStoAgent frontend `npm run build`: passed
-- RouteDeck `python -m pytest tests`: passed
-- Previous Docker/browser smoke remains valid for the unified shell and RouteDeck map
+- Approval/resume controls for write/destructive/financial generated REST actions are still advisory copy only.
+- Workspace-mode RouteDeck snapshots do not yet model REST tool search, execution plans, approval required, executing, result review, or learning review.
+- Learning-loop persistence is not yet wired into retrieval/execution refinement.
+- The Playwright smokes are still temporary harnesses; promote them into repo-native browser tests.
+- `workspace_job` should be renamed internally in a later compatibility/refactor pass if it remains confusing, but it is no longer visible as product copy.
 
 ## Immediate Next Steps
 
-1. Implement REST/OpenAPI upload and inspection for workspace setup.
-2. Bind generated REST tools into workspace agent selection/execution.
-3. Extend RouteDeck plus LangGraph into REST execution, approval gates, QA results, and learning candidates.
-4. Deepen QA from smoke coverage into repo-native browser automation using the embedded QA panel semantics.
+1. Add workspace-mode RouteDeck snapshots for generated REST tool search, execution plans, approval required, executing, result review, and learning review.
+2. Add approval resume controls and state for write/destructive/financial REST tools.
+3. Persist governed learning candidates and feed approved learnings into tool retrieval/execution hints.
+4. Promote the temporary Playwright smoke coverage into repo-native browser automation.
+5. Consider an internal `workspace_job` -> `workspace_setup` node-id migration once compatibility cost is acceptable.
 
 ## References
 
@@ -91,7 +74,7 @@ Repository: `agent-lab-powered-projects/saastoagent-v0.1`
 - Flow index: `SYSTEM_FLOW_INDEX.md`
 - Active plan: `plans/saastoagent_v0_1_workspace_agent_plan.md`
 - Latest audit: `audits/2026-05-13-langgraph-routedeck-runtime-audit.md`
-- Latest log: `logs/20260513_1301_langgraph_routedeck_runtime_closeout.md`
-- Latest checkpoint: `context_checkpoints/context_checkpoint_13-05-2026-1-01PM.md`
-- Context archive: `context_history/20260513_1301_context_before_langgraph_routedeck_closeout.md`
+- Latest log: `logs/20260513_2118_flow_qa_workspace_contract_closeout.md`
+- Latest checkpoint: `context_checkpoints/context_checkpoint_13-05-2026-9-18PM.md`
+- Latest context archive: `context_history/20260513_2118_context_before_flow_qa_workspace_contract_closeout.md`
 - RouteDeck ADRs: `decisions/ADR-007-routedeck-framework-contract.md`, `decisions/ADR-008-live-entry-streaming-contract.md`, `decisions/ADR-009-langgraph-owned-entry-runtime.md`

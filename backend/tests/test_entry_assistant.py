@@ -35,7 +35,7 @@ def test_setup_request_creates_pre_auth_draft_without_activation(monkeypatch):
 
     result, artifacts, _ = _run_assistant(
         user_input=(
-            "Create a billing operator workspace using API https://api.example.com "
+            "Create a workspace using API https://api.example.com "
             "and OpenAPI spec https://api.example.com/openapi.json with bearer auth"
         ),
         selected_action_id=None,
@@ -45,11 +45,30 @@ def test_setup_request_creates_pre_auth_draft_without_activation(monkeypatch):
     )
 
     assert result.next_step == "ask"
-    assert result.entry_draft["workspace_job"]
+    assert "workspace_job" not in result.entry_draft
+    assert "workspace_name" not in result.entry_draft
     assert result.entry_draft["api_draft"]["base_url"] == "https://api.example.com"
     assert result.entry_draft["api_draft"]["spec_url"] == "https://api.example.com/openapi.json"
     assert "sign in or create an account" in result.message.lower()
     assert any(artifact.widget_type == "setup_draft_summary" for artifact in artifacts)
+
+
+def test_setup_request_preserves_explicit_workspace_name_only(monkeypatch):
+    monkeypatch.setattr(settings, "openai_api_key", "", raising=False)
+
+    result, _, _ = _run_assistant(
+        user_input=(
+            "Create a workspace named Support Ops using API https://api.example.com "
+            "and OpenAPI spec https://api.example.com/openapi.json"
+        ),
+        selected_action_id=None,
+        action_payload=None,
+        existing_draft={},
+        platform_question_context=[],
+    )
+
+    assert result.entry_draft["workspace_name"] == "Support Ops"
+    assert "workspace_job" not in result.entry_draft
 
 
 def test_explicit_auth_intent_routes_deterministically(monkeypatch):
@@ -59,12 +78,12 @@ def test_explicit_auth_intent_routes_deterministically(monkeypatch):
         user_input="sign in",
         selected_action_id=None,
         action_payload=None,
-        existing_draft={"workspace_job": "billing ops"},
+        existing_draft={"workspace_name": "Billing"},
         platform_question_context=[],
     )
 
     assert result.next_step == "login"
-    assert result.entry_draft == {"workspace_job": "billing ops"}
+    assert result.entry_draft == {"workspace_name": "Billing"}
     assert artifacts == []
     assert context == []
 

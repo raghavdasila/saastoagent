@@ -28,9 +28,13 @@ from .agent import (
 )
 from .connection import (
     ActionNodeRead,
+    ActionCatalogRead,
     ActivationStateRead,
     ConnectionCreate,
+    ConnectionPreviewRead,
+    ConnectionPreviewRequest,
     ConnectionRead,
+    EntityRead,
     ToolRead,
 )
 
@@ -64,7 +68,11 @@ __all__ = [
     "AgentAdminStats",
     "ConnectionCreate",
     "ConnectionRead",
+    "ConnectionPreviewRequest",
+    "ConnectionPreviewRead",
     "ActionNodeRead",
+    "ActionCatalogRead",
+    "EntityRead",
     "ToolRead",
     "ActivationStateRead",
 ]

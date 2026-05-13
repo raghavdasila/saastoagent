@@ -18,4 +18,5 @@ Archived full snapshots of prior `context.md` files live here.
 - `20260509_1852_context_before_persistent_quick_actions_closeout.md`
 - `20260509_2125_context_before_ux_research_closeout.md`
 - `20260510_1853_context_before_routedeck_closeout.md`
-- `20260512_1447_context_before_routedeck_sibling_closeout.md` -> `../context.md`
+- `20260512_1447_context_before_routedeck_sibling_closeout.md`
+- `20260513_2118_context_before_flow_qa_workspace_contract_closeout.md` -> `../context.md`

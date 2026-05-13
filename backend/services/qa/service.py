@@ -57,6 +57,54 @@ def _action_ids(evidence: dict[str, Any], key: str) -> set[str]:
     return ids
 
 
+def _catalog_count(evidence: dict[str, Any], key: str) -> int | None:
+    totals = evidence.get("catalog_totals")
+    if isinstance(totals, dict) and isinstance(totals.get(key), int):
+        return int(totals[key])
+    value = evidence.get(key)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, list):
+        return len(value)
+    return None
+
+
+def _tool_names(evidence: dict[str, Any]) -> list[str]:
+    value = evidence.get("tool_calls")
+    if not isinstance(value, list):
+        return []
+    names: list[str] = []
+    for item in value:
+        if isinstance(item, str):
+            names.append(item)
+        elif isinstance(item, dict):
+            for key in ("tool_name", "toolName", "name", "id"):
+                name = item.get(key)
+                if isinstance(name, str) and name:
+                    names.append(name)
+                    break
+    return names
+
+
+def _status_from_evidence(evidence: dict[str, Any], key: str) -> int | None:
+    value = evidence.get("api_status")
+    if isinstance(value, int):
+        return value
+
+    statuses = evidence.get("api_statuses")
+    if isinstance(statuses, dict) and isinstance(statuses.get(key), int):
+        return int(statuses[key])
+
+    responses = evidence.get("api_responses")
+    if isinstance(responses, dict):
+        response = responses.get(key)
+        if isinstance(response, int):
+            return response
+        if isinstance(response, dict) and isinstance(response.get("status"), int):
+            return int(response["status"])
+    return None
+
+
 def _gate_passes(gate: str, params: dict[str, Any], evidence: dict[str, Any]) -> bool:
     text = _visible_text(evidence)
     if gate == "assistant_response":
@@ -80,6 +128,27 @@ def _gate_passes(gate: str, params: dict[str, Any], evidence: dict[str, Any]) ->
         return action_id in _action_ids(evidence, "enabled_action_ids")
     if gate == "no_console_errors":
         return len(_strings_from_evidence(evidence, "console_errors")) == 0
+    if gate == "workspace_view":
+        aliases = {"connections": "connect"}
+        expected = aliases.get(str(params.get("view") or ""), str(params.get("view") or ""))
+        current = evidence.get("workspace_view") or evidence.get("active_view") or evidence.get("current_view")
+        current_text = aliases.get(str(current or ""), str(current or ""))
+        return bool(expected) and current_text == expected
+    if gate == "catalog_count_at_least":
+        key = str(params.get("key") or "")
+        minimum = int(params.get("min") or 1)
+        count = _catalog_count(evidence, key)
+        return count is not None and count >= minimum
+    if gate == "tool_called":
+        expected = str(params.get("tool_name_contains") or params.get("tool_name") or "").lower()
+        names = [name.lower() for name in _tool_names(evidence)]
+        if not expected:
+            return bool(names)
+        return any(expected in name for name in names)
+    if gate == "api_response_ok":
+        key = str(params.get("key") or "")
+        status = _status_from_evidence(evidence, key)
+        return status is not None and 200 <= status < 300
     return False
 
 

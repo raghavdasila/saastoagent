@@ -23,3 +23,4 @@ Test documentation and coverage tracking for SaaStoAgent v0.1.
 - `operator-workbench-baseline.md` - validation for ADR-006 status strip, capability rail, action dock, context lens, evidence drawer, and autonomy ladder
 - `route-deck-contract.md` - validation for RouteDeck manifest/runtime contract, sibling framework packaging, Docker dependency wiring, action validation, and graph debugger rendering
 - `langgraph-entry-runtime.md` - validation for LangGraph-owned entry execution, RouteDeck parity, live streaming, and embedded UI-driven QA coverage
+- `flow-qa-and-workspace-contract.md` - validation for stream-aware collapsible assistant sections, embedded QA flow execution, REST catalog/operator smoke, and the corrected workspace-name creation contract

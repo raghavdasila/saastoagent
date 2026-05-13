@@ -79,7 +79,7 @@ ENTRY_NODE_SPECS = {
     ),
     EntryStageId.workspace_job: EntryNodeSpec(
         id=EntryStageId.workspace_job,
-        label="Workspace Draft",
+        label="Workspace Setup",
         lane=EntryLane.workspace,
     ),
     EntryStageId.workspace_confirm: EntryNodeSpec(
