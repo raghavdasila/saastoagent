@@ -22,3 +22,4 @@ Test documentation and coverage tracking for SaaStoAgent v0.1.
 - `unified-operator-shell.md` - validation for unified main-layout routing, runtime bridging, and handoff context
 - `operator-workbench-baseline.md` - validation for ADR-006 status strip, capability rail, action dock, context lens, evidence drawer, and autonomy ladder
 - `route-deck-contract.md` - validation for RouteDeck manifest/runtime contract, sibling framework packaging, Docker dependency wiring, action validation, and graph debugger rendering
+- `langgraph-entry-runtime.md` - validation for LangGraph-owned entry execution, RouteDeck parity, live streaming, and embedded UI-driven QA coverage

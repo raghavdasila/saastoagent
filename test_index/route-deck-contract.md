@@ -4,12 +4,13 @@ Date: 2026-05-12
 
 ## Scope
 
-Validation for the RouteDeck contract layer, sibling framework packaging path, backend adapter, action validation, Docker dependency wiring, and frontend navigation/debugger widget.
+Validation for the RouteDeck contract layer, sibling framework packaging path, LangGraph adapter boundary, action validation, Docker dependency wiring, and frontend navigation/debugger widget.
 
 ## What To Validate
 
 - RouteDeck manifest validates every node, edge, action, field, policy, and test path.
 - Existing entry API response shapes remain compatible while `graph_manifest` and `route_deck_snapshot` are populated from RouteDeck.
+- The optional `routedeck_langgraph` adapter validates handler parity, condition resolver parity, and allowed transition assertions for LangGraph apps.
 - Submitted `selected_action_id` values are validated against the current node before stage handlers run.
 - Invalid actions return a recoverable assistant response with visible valid alternatives.
 - Sensitive auth/API credential fields are marked sensitive and masked in stage artifacts.
@@ -33,6 +34,7 @@ Validation for the RouteDeck contract layer, sibling framework packaging path, b
 - `npm run build`: passed.
 - RouteDeck sibling import check: `from routedeck_core import RouteDeckManifest` passed.
 - RouteDeck sibling tests: `python -m pytest tests` passed.
+- RouteDeck LangGraph adapter tests: `python -m pytest tests` passed.
 - RouteDeck minimal example `npm run type-check`: passed.
 - RouteDeck minimal example `npm run build`: passed.
 - RouteDeck minimal example Docker build/up: passed.

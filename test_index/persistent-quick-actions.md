@@ -12,6 +12,7 @@ Persistent quick actions are backend-owned and distinct from contextual graph ac
   - `entry.learn.platform`
   - `entry.learn.setup`
 - Contextual `available_actions` can be empty while persistent auth actions still render.
+- Action dock remains visible whenever backend/RouteDeck actions exist, even before a user sends the first message.
 - During deterministic auth nodes (`display_name`, `email`, `password`), persistent auth actions are suppressed to avoid conflicting action loops.
 - Direct anonymous `/w/:workspaceId` fetches `/api/entry/persistent-actions?workspace_id=...` and renders Sign In/Create Account while leaving workspace chat usable.
 - Sidebar Sign In/Create Account dispatches backend action ids even when the current contextual action list is empty.
@@ -23,6 +24,7 @@ Persistent quick actions are backend-owned and distinct from contextual graph ac
 - `python -m compileall backend`: passed.
 - `npm run type-check`: passed.
 - `npm run build`: passed.
+- Entry quick-action visibility regression fix validated by frontend type-check/build after streaming bubble changes.
 - Temporary Playwright smoke passed for anonymous landing, direct workspace quick actions, Sign In -> email transition, and mobile side panel fit.
 
 ## How To Run Current Checks

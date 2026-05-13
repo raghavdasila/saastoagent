@@ -117,6 +117,9 @@ export const useEntryStore = create<EntryState>((set) => ({
       }
       return { messages }
     }
+    if (!content && done) {
+      return { messages }
+    }
     return {
       messages: [
         ...messages,

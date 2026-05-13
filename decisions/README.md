@@ -22,3 +22,4 @@ Architectural Decision Records for SaaStoAgent v0.1.
 - `ADR-006-operator-workbench-extensibility-contract.md` - define the user-facing workbench zones, capability registry, evidence drawer, and autonomy ladder contract
 - `ADR-007-routedeck-framework-contract.md` - define RouteDeck as the reusable sibling graph-navigation contract, package boundary, and debugger framework
 - `ADR-008-live-entry-streaming-contract.md` - require live model/graph streaming for entry assistant text and prohibit fake delayed chunk replay
+- `ADR-009-langgraph-owned-entry-runtime.md` - make LangGraph the executable topology while RouteDeck remains the visible navigation contract

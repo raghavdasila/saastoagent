@@ -442,6 +442,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
 
       setBusy(true)
       clearAvailableActions()
+      appendAssistantDelta('', false)
       streamCursorRef.current = 0
       streamBufferRef.current = ''
 
@@ -461,16 +462,16 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
         if (xhr.status >= 400 && !xhr.responseText.includes('event:')) {
           try {
             const body = JSON.parse(xhr.responseText) as { detail?: string }
-            appendAssistant(body.detail || 'Entry flow failed.')
+            appendAssistantDelta(body.detail || 'Entry flow failed.', true)
           } catch {
-            appendAssistant('Entry flow failed.')
+            appendAssistantDelta('Entry flow failed.', true)
           }
         }
 
         finishStream()
       }
       xhr.onerror = () => {
-        appendAssistant('Connection failed')
+        appendAssistantDelta('Connection failed', true)
         finishStream()
       }
       const fallbackWorkspaceState = !forceFresh && !gs && workspaceId
@@ -496,7 +497,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
         }),
       )
     },
-    [appendAssistant, clearAvailableActions, finishStream, gs, initialIntent, parseSSEChunk, setBusy, workspaceId],
+    [appendAssistantDelta, clearAvailableActions, finishStream, gs, initialIntent, parseSSEChunk, setBusy, workspaceId],
   )
 
   useEffect(() => {
@@ -616,10 +617,12 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   const showCanvas = canvasOpen && Boolean(canvasArtifact)
   const mobileCanvasArtifact = canvasArtifact?.surface === 'canvas' ? canvasArtifact : null
   const showPanel = activeSidebarItem !== 'chat'
-  const showEntryThinking = !showOperatorMode && busy
+  const hasEntryStreamingBubble = allMessages.some((message) => message.role === 'assistant' && message.isStreaming)
+  const showEntryThinking = !showOperatorMode && busy && !hasEntryStreamingBubble
   const userHasInteracted = allMessages.some((message) => message.role === 'user')
   const graphNeedsControls = entryGraphActive && gs?.node !== 'bootstrap' && gs?.node !== 'intent'
-  const showActionDock = showOperatorMode || userHasInteracted || graphNeedsControls || activeSidebarItem === 'qa'
+  const hasVisibleActions = actionLookup.length > 0
+  const showActionDock = hasVisibleActions || showOperatorMode || userHasInteracted || graphNeedsControls || activeSidebarItem === 'qa'
   const workbenchGridClass = showCanvas
     ? canvasCollapsed
       ? 'max-w-7xl lg:grid-cols-[minmax(0,1fr)_3.5rem]'

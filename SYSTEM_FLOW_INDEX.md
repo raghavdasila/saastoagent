@@ -1,6 +1,6 @@
 # System Flow Index - SaaStoAgent v0.1
 
-Last Updated: May 12, 2026
+Last Updated: May 13, 2026
 
 This file is the source of truth for the currently implemented runtime and UX flows.
 
@@ -13,8 +13,10 @@ This file is the source of truth for the currently implemented runtime and UX fl
 5. Persistent quick actions and next best action dock for global entry/auth/setup actions
 6. Anonymous direct workspace chat with IP rate limiting
 7. RouteDeck contract and debugger for entry/auth/setup/workspace handoff visibility
-8. Next: REST/OpenAPI upload, inspection, generated tool binding, and workspace agent execution
-9. Later: REST execution approvals, QA, tuning, and governed learnings
+8. LangGraph-owned entry/auth/setup runtime with RouteDeck-to-runtime parity enforcement
+9. Embedded UI-driven QA panel for real-UI scenario execution and evidence capture
+10. Next: REST/OpenAPI upload, inspection, generated tool binding, and workspace agent execution
+11. Later: REST execution approvals, QA, tuning, and governed learnings
 
 ## Unified Operator Shell
 
@@ -51,15 +53,16 @@ This file is the source of truth for the currently implemented runtime and UX fl
 2. `../routedeck/routedeck_core` is the reusable Python framework layer for manifest models, validation, and runtime snapshot helpers.
 3. `../routedeck/react` is the reusable frontend layer for RouteDeck TypeScript contracts and the debugger component.
 4. `../routedeck/examples/minimal-fastapi-react` is the minimal reference showing how FastAPI and React consume the framework without SaaStoAgent product code.
-5. `graph_spec.py` delegates `build_graph_manifest()` to RouteDeck while retaining the LangGraph compatibility enums used by the executor.
-6. `ui_actions.py` adapts RouteDeck action specs into the existing `EntryActionCard` response shape.
-7. `stage_io.py` validates submitted `selected_action_id` values against the current RouteDeck node before running a stage handler.
-8. Invalid actions return a recoverable assistant message plus valid visible actions instead of falling into node-specific dead-end copy.
-9. `EntryGraphTurnResponse.route_deck_snapshot` exposes current node, reachable nodes, valid actions, blocked actions, executed nodes, recovery prompts, and diagnostics.
-10. `python -m backend.services.route_deck.validate` validates the manifest contract.
-11. Docker images use named sibling build contexts so they can install RouteDeck without sending unrelated projects into the build context.
-12. SaaStoAgent docs live under `docs/route-deck/`; framework docs live under `../routedeck/docs/`.
-13. RouteDeck should extend next into REST/OpenAPI upload, generated tool execution, approval gates, QA, and learning surfaces.
+5. `../routedeck/routedeck_langgraph` is the optional LangGraph adapter for manifest/handler parity, condition resolver parity, transition assertions, and common grouped graph wiring.
+6. `graph_spec.py` delegates `build_graph_manifest()` to RouteDeck while retaining compatibility enums used by the entry runtime.
+7. `ui_actions.py` adapts RouteDeck action specs into the existing `EntryActionCard` response shape.
+8. `stage_io.py` validates submitted `selected_action_id` values against the current RouteDeck node before running a stage handler.
+9. Invalid actions return a recoverable assistant message plus valid visible actions instead of falling into node-specific dead-end copy.
+10. `EntryGraphTurnResponse.route_deck_snapshot` exposes current node, reachable nodes, valid actions, blocked actions, executed nodes, recovery prompts, and diagnostics.
+11. `python -m backend.services.route_deck.validate` validates the manifest contract.
+12. Docker images use named sibling build contexts so they can install RouteDeck without sending unrelated projects into the build context.
+13. SaaStoAgent docs live under `docs/route-deck/`; framework docs live under `../routedeck/docs/`.
+14. RouteDeck should extend next into REST/OpenAPI upload, generated tool execution, approval gates, QA, and learning surfaces.
 
 ## Workbench Extensibility Contract
 
@@ -76,12 +79,14 @@ This file is the source of truth for the currently implemented runtime and UX fl
 
 1. `POST /api/entry/stream` starts or resumes an `EntrySession` using cookie `sta_v01_entry_session`.
 2. `run_entry_turn()` resolves persisted graph state before request state.
-3. `graph_executor.py` dispatches one current node per turn through LangGraph.
-4. `execute_stage()` persists each stage, output, selected action, masked action payload, and SSE events.
-5. Node handlers return assistant messages plus backend-owned contextual `available_actions`.
-6. `entry_turn_result` carries final graph state, contextual actions, persistent actions, UI artifacts, JWT session payload when issued, and optional path replacement.
-7. Anonymous users may ask platform questions and draft setup details, but deterministic executor nodes still own auth, workspace creation, connection creation, and activation.
-8. `GET /api/entry/persistent-actions` returns stable backend-owned actions for startup/direct-route surfaces.
+3. `graph_executor.py` builds the executable runtime through `routedeck_langgraph.build_route_deck_state_graph(...)`.
+4. The entry topology is `turn_start -> route_action -> group boundary -> concrete stage -> finalize_turn -> END`.
+5. `execute_stage()` persists each stage, output, selected action, masked action payload, and SSE events.
+6. Node handlers return assistant messages plus backend-owned contextual `available_actions`.
+7. `finalize_turn` asserts that handler-produced transitions remain executable RouteDeck edges.
+8. `entry_turn_result` carries final graph state, contextual actions, persistent actions, UI artifacts, JWT session payload when issued, and optional path replacement.
+9. Anonymous users may ask platform questions and draft setup details, but deterministic executor nodes still own auth, workspace creation, connection creation, and activation.
+10. `GET /api/entry/persistent-actions` returns stable backend-owned actions for startup/direct-route surfaces.
 
 ### Action Contract
 
@@ -116,7 +121,7 @@ This file is the source of truth for the currently implemented runtime and UX fl
 
 1. `OperatorGateway.tsx` boots the unified shell and sends the first graph turn.
 2. `stream_start` returns the entry `session_id`; `OperatorGateway.tsx` stores it and sends it in later turn bodies.
-3. `message_delta` events append assistant messages.
+3. `message_delta` events append assistant messages; public entry LLM output now streams live rather than replaying delayed chunks after completion.
 4. `stage_completed.output.available_actions` renders contextual action components inline in the thread.
 5. `persistent_actions` render through the next action dock near the composer and are not cleared during streaming.
 6. Chip actions submit lightweight follow-up prompts from backend payloads.
@@ -126,11 +131,13 @@ This file is the source of truth for the currently implemented runtime and UX fl
 10. Inline artifacts render in the chat thread.
 11. Canvas-capable artifacts are offered through `EntryCanvasLauncher`; the canvas is closed by default and only mounts after the user opens an artifact.
 12. Display-only markup artifacts are sanitized before rendering and reject scripts, handlers, forms, iframes, external loading elements, and unsafe links.
-13. `setup_step` events append activation progress messages.
-14. `operator_ready` with `active_workspace_id` switches the unified store to `operator` mode and keeps existing entry messages visible.
-15. Direct workspace Sign In/Create Account can temporarily switch the same shell into entry/auth composer mode without replacing the page.
-16. `entry_turn_result.graph_manifest`, `graph_version`, `run_id`, and `session_id` are retained for the status strip and evidence drawer.
-17. Workbench widget renderer accepts readiness, tool candidate, execution plan, approval request, trace summary, and learning candidate artifacts.
+13. Entry thinking stays inside the active streaming assistant bubble rather than showing as a separate transient message bubble.
+14. `setup_step` events append activation progress messages.
+15. `operator_ready` with `active_workspace_id` switches the unified store to `operator` mode and keeps existing entry messages visible.
+16. Direct workspace Sign In/Create Account can temporarily switch the same shell into entry/auth composer mode without replacing the page.
+17. `entry_turn_result.graph_manifest`, `graph_version`, `run_id`, and `session_id` are retained for the status strip and evidence drawer.
+18. Workbench widget renderer accepts readiness, tool candidate, execution plan, approval request, trace summary, and learning candidate artifacts.
+19. The action dock stays visible whenever backend/RouteDeck actions exist, even before the first user message.
 
 ## Public Platform Assistant
 
@@ -140,7 +147,7 @@ This file is the source of truth for the currently implemented runtime and UX fl
 4. Setup language populates `entry_draft.workspace_job` and `entry_draft.api_draft`.
 5. Platform questions search `platform_kb.py`.
 6. Retrieval uses OpenAI embeddings when configured and keyword fallback otherwise.
-7. The assistant uses `ChatOpenAI.with_structured_output` when configured, with deterministic fallback/guardrails.
+7. The assistant uses live `ChatOpenAI(..., streaming=True)` deltas for public conversational output, and keeps structured-output fallback for non-streamed paths.
 8. The assistant emits:
    - assistant message
    - follow-up chips
@@ -210,6 +217,13 @@ All routes are workspace-scoped and require workspace membership.
    - Actions
    - QA
 
+## Embedded QA
+
+1. The unified shell includes an embedded QA panel for scenario selection, run controls, live logs, verdicts, and export.
+2. QA drives the real UI through the composer, action buttons, forms, RouteDeck drawer, and graph controls rather than direct node jumps.
+3. Dev-only backend QA endpoints provide scenario catalog, domain model, runtime reset, and deterministic evaluation support.
+4. Current scenario coverage targets greeting/intent behavior, public questions, signin/signup cancel and mode switch flows, invalid input recovery, workspace/setup recovery, and RouteDeck map smoke.
+
 ## Verification
 
 - Backend compile: `python -m compileall backend`
@@ -220,6 +234,8 @@ All routes are workspace-scoped and require workspace membership.
 - Frontend type-check: `npm run type-check`
 - Frontend build: `npm run build`
 - RouteDeck manifest validation: `python -m backend.services.route_deck.validate`
+- Backend tests: `python -m pytest backend/tests`
+- RouteDeck adapter tests: `cd ../routedeck && python -m pytest tests`
 - RouteDeck Docker/browser validation: `docker compose up -d --build frontend`, then Playwright against `http://localhost:3007` opening `Map` -> `Full graph`, confirming vertical lane order, 11 nodes, 24 paths, no same-row node overlap, no title/badge overlap, and no console errors.
 - Persistent quick actions smoke: anonymous landing and direct workspace route show backend-provided Sign In/Create Account, and Sign In enters email collection.
 - Anonymous workspace smoke: direct workspace chat remains visible without auth.
@@ -228,6 +244,7 @@ All routes are workspace-scoped and require workspace membership.
 - Entry setup smoke: workspace launch returns no immediate form, and natural-language REST details progress to `connection_confirm`
 - Conversational entry smoke: anonymous platform Q&A returns chips and artifacts; pre-auth setup draft survives register, invalid password retry, signup, workspace launch, and setup intro.
 - In-container assistant harness: platform question, setup draft, and explicit auth routing assertions passed.
+- LangGraph runtime tests: RouteDeck node/handler parity, edge/resolver parity, auth/workspace recovery navigation, public assistant streaming, and no fake token chunking regression passed in backend pytest.
 - Unified shell build validation: `/`, `/login`, `/register`, and `/w/:workspaceId` route through `OperatorGateway`.
 - Bridged handoff smoke: anonymous setup draft -> register -> workspace launch -> `setup.open_chat` -> first workspace agent stream with `handoff_context`; agent session metadata persisted in Postgres.
 

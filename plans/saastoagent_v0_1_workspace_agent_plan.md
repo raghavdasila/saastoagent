@@ -99,11 +99,32 @@ Done when:
 - Docker/browser QA can open the RouteDeck map from the product shell without Vite alias/HMR failures.
 - Future REST execution, approvals, QA, and learnings can adopt RouteDeck instead of inventing separate frontend/backend action contracts.
 
+### ✅ LangGraph Runtime And UI-Driven QA Gate
+
+Status: **IMPLEMENTED** (as of 2026-05-13)
+
+Implemented:
+
+- Entry/auth/setup/workspace handoff now executes through a central LangGraph topology rather than a dispatch-only wrapper.
+- The runtime uses `turn_start`, `route_action`, RouteDeck group routing, concrete executable stage nodes, and `finalize_turn`.
+- RouteDeck remains the visible navigation contract and validates actions before business handlers run.
+- Runtime finalization asserts handler-produced transitions against RouteDeck edges.
+- The sibling `routedeck_langgraph` adapter now owns optional LangGraph parity checks, transition diagnostics, and common graph wiring.
+- SaaStoAgent consumes the adapter while keeping auth/workspace/setup product behavior in SaaStoAgent.
+- The embedded QA panel drives the real UI through composer/action/form/RouteDeck interactions instead of bypassing the frontend.
+- Public entry text streams through live model deltas; fake delayed chunk replay is explicitly disallowed.
+
+Done when:
+
+- `python -m backend.services.route_deck.validate`, backend tests, backend compile, frontend type-check, frontend build, and RouteDeck adapter tests pass.
+- Signin/signup cancel/back/switch, typed-node recovery, invalid input recovery, workspace/setup recovery, RouteDeck map controls, public Q&A, and first-load greeting behavior are covered by backend tests plus UI-driven QA smoke.
+- Future REST execution/approvals/QA/learnings have a proven RouteDeck-plus-LangGraph pattern to extend.
+
 ### 🔲 Slice 2B — REST tool inspection and chat binding  ← ACTIVE NEXT
 
-Status note (2026-05-10):
+Status note (2026-05-13):
 
-- Unified shell, conversational entry, persistent quick actions, anonymous direct workspace chat, setup handoff, and RouteDeck graph-navigation/debugging are now in place.
+- Unified shell, conversational entry, persistent quick actions, anonymous direct workspace chat, setup handoff, RouteDeck graph-navigation/debugging, central LangGraph entry runtime, optional RouteDeck LangGraph adapter, UI-driven QA harness, and live entry streaming are now in place.
 - The next slice should start from generated REST tool inspection/binding rather than more entry/auth shell work.
 - Direct `/w/:id` now supports anonymous chat and backend-provided auth quick actions, but still needs graph-owned setup redirection when no ready REST connection exists.
 

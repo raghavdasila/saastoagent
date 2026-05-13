@@ -23,3 +23,13 @@
 - Added action validation before stage execution so invalid selected actions recover with visible alternatives.
 - Added the RouteDeck status strip plus side map with focused graph and scrollable full-site graph visualization.
 - Recorded the RouteDeck framework contract in `ADR-007`.
+
+## 2026-05-13
+
+- Refactored the entry/auth/setup runtime from a dispatch wrapper into a central LangGraph topology with `turn_start`, `route_action`, grouped stage routing, concrete executable stages, and `finalize_turn`.
+- Added the optional sibling `routedeck_langgraph` adapter for RouteDeck manifest/handler parity, condition resolver validation, transition diagnostics, and common LangGraph wiring.
+- Converted SaaStoAgent runtime validation to prove RouteDeck manifest nodes, edges, action scopes, and condition resolvers match executable handlers.
+- Added a UI-driven QA agent surface plus dev-only QA endpoints for scenario catalog/reset/evaluation, with scenarios covering public questions, signin/signup cancellation/switching, typed-node recovery, invalid input, setup, and RouteDeck map smoke.
+- Fixed public entry assistant streaming so LLM text emits live `message_delta` events instead of delayed post-hoc chunks; recorded the streaming contract in `ADR-008`.
+- Fixed entry streaming UI regressions so thinking stays inside the streaming assistant bubble and backend quick actions remain visible whenever RouteDeck/backend actions exist.
+- Recorded the LangGraph-owned entry runtime decision in `ADR-009`.

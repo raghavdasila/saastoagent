@@ -15,6 +15,8 @@
 ## Still In Existing Runtime Files
 
 - `entry_runtime/graph_spec.py` still provides the LangGraph enum compatibility layer and delegates manifest building to RouteDeck.
+- `entry_runtime/graph_executor.py` now owns the product-specific LangGraph topology and consumes `routedeck_langgraph` for shared graph wiring.
+- `entry_runtime/route_conditions.py` remains the product condition registry that maps RouteDeck edge condition ids onto executable SaaStoAgent checks.
 - `entry_runtime/ui_actions.py` remains the adapter that creates `EntryActionCard` instances for the current API shape.
 - `backend/services/route_deck/` remains SaaStoAgent-specific and imports framework-level models/helpers from `routedeck_core`.
 - `stage_auth.py` and `stage_workspace.py` still own dynamic auth/workspace/setup behavior.
@@ -22,6 +24,7 @@
 
 ## Follow-Up Refactors
 
-- Move more static auth/setup messages from stage handlers into RouteDeck node or action copy.
+- Move more static auth/setup messages from stage handlers into RouteDeck node or action copy when the copy is truly contract-level rather than domain-specific.
+- Replace placeholder-style RouteDeck condition resolvers with richer product checks where edge semantics require more than `state.node == edge.to_stage`.
 - Generate TypeScript manifest types or fixtures from the backend contract.
 - Extend RouteDeck beyond entry/setup into REST execution, approval gates, QA, and learnings.
