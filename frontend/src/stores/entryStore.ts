@@ -45,6 +45,7 @@ interface EntryState {
   setPersistentActions: (actions: EntryActionCard[]) => void
   clearAvailableActions: () => void
   appendAssistant: (content: string) => void
+  appendAssistantDelta: (content: string, done?: boolean) => void
   appendUser: (content: string) => void
   applyArtifacts: (artifacts: EntryUIArtifact[]) => void
   applyTurnPayload: (payload: EntryTurnResponse) => void
@@ -52,6 +53,7 @@ interface EntryState {
   closeCanvas: () => void
   toggleCanvasCollapsed: () => void
   resetEntry: () => void
+  resetEntryForQA: () => void
 }
 
 function makeMsg(role: 'user' | 'assistant', content: string): UnifiedOperatorMessage {
@@ -103,6 +105,25 @@ export const useEntryStore = create<EntryState>((set) => ({
   setPersistentActions: (persistentActions) => set({ persistentActions }),
   clearAvailableActions: () => set({ availableActions: [] }),
   appendAssistant: (content) => set((state) => ({ messages: [...state.messages, makeMsg('assistant', content)] })),
+  appendAssistantDelta: (content, done = false) => set((state) => {
+    const messages = [...state.messages]
+    const last = messages[messages.length - 1]
+    if (last?.role === 'assistant' && last.isStreaming) {
+      messages[messages.length - 1] = {
+        ...last,
+        content: `${last.content}${content}`,
+        isStreaming: !done,
+        timestamp: Date.now(),
+      }
+      return { messages }
+    }
+    return {
+      messages: [
+        ...messages,
+        { ...makeMsg('assistant', content), isStreaming: !done },
+      ],
+    }
+  }),
   appendUser: (content) => set((state) => ({ messages: [...state.messages, makeMsg('user', content)] })),
 
   applyArtifacts: (uiArtifacts) => set((state) => {
@@ -156,4 +177,5 @@ export const useEntryStore = create<EntryState>((set) => ({
   closeCanvas: () => set({ canvasOpen: false, canvasCollapsed: false, canvasArtifactId: null }),
   toggleCanvasCollapsed: () => set((state) => ({ canvasCollapsed: !state.canvasCollapsed })),
   resetEntry: () => set(initialState),
+  resetEntryForQA: () => set({ ...initialState, activeSidebarItem: 'qa' }),
 }))

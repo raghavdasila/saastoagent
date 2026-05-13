@@ -176,6 +176,7 @@ export function CapabilityRail({
               disabled={!enabled}
               onClick={() => onSelect(item.id)}
               title={`${item.label}: ${stateLabel(state)}. ${enabled ? item.description : item.emptyState}`}
+              data-capability-id={item.id}
               className={cn(
                 'group relative flex min-w-16 shrink-0 flex-col items-center gap-1 rounded-2xl border px-2 py-2 text-[10px] font-medium transition md:h-16 md:w-16 md:min-w-0',
                 selected
@@ -208,44 +209,39 @@ export function ActionDock({
 }) {
   const railActions = actions.filter((action) => action.kind !== 'form')
   const secondary = primaryAction ? railActions.filter((action) => action.id !== primaryAction.id) : railActions
-  if (!primaryAction && secondary.length === 0) return null
+  const orderedActions = primaryAction ? [primaryAction, ...secondary] : secondary
+  if (orderedActions.length === 0) return null
 
   return (
     <section className="mb-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.03]">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Next best action</div>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-            {primaryAction ? primaryAction.description || 'Use this backend-owned action to continue the flow.' : 'No backend action is currently required.'}
-          </p>
-        </div>
-        {primaryAction && (
-          <button
-            type="button"
-            disabled={busy || Boolean(primaryAction.disabled_reason)}
-            onClick={() => onSelect(primaryAction)}
-            className="inline-flex shrink-0 items-center justify-center rounded-full border border-sky-300 bg-sky-50 px-4 py-2 text-xs font-semibold text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-300"
-          >
-            {primaryAction.label}
-          </button>
-        )}
+      <div>
+        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Actions</div>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          {primaryAction ? primaryAction.description || 'Use this backend-owned action to continue the flow.' : 'Choose one of the available backend-owned actions.'}
+        </p>
       </div>
-      {secondary.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {secondary.map((action) => (
-            <button
-              key={action.id}
-              type="button"
-              disabled={busy || Boolean(action.disabled_reason)}
-              title={action.description ?? undefined}
-              onClick={() => onSelect(action)}
-              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.05] dark:text-slate-300 dark:hover:border-sky-500/40 dark:hover:bg-sky-500/10"
-            >
-              {action.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {orderedActions.map((action) => {
+          const isPrimary = primaryAction?.id === action.id
+          return (
+          <button
+            key={action.id}
+            type="button"
+            disabled={busy || Boolean(action.disabled_reason)}
+            title={action.description ?? undefined}
+            onClick={() => onSelect(action)}
+            className={cn(
+              'rounded-full border px-3 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50',
+              isPrimary
+                ? 'border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-300'
+                : 'border-slate-200 bg-white text-slate-600 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 dark:border-white/10 dark:bg-white/[0.05] dark:text-slate-300 dark:hover:border-sky-500/40 dark:hover:bg-sky-500/10',
+            )}
+            data-entry-action-id={action.id}
+          >
+            {action.label}
+          </button>
+        )})}
+      </div>
     </section>
   )
 }

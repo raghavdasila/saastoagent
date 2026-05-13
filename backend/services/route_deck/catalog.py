@@ -28,6 +28,9 @@ NAVIGABLE_NODES = [
     RouteDeckNodeIds.DISPLAY_NAME,
     RouteDeckNodeIds.EMAIL,
     RouteDeckNodeIds.PASSWORD,
+    RouteDeckNodeIds.WORKSPACE_SELECT,
+    RouteDeckNodeIds.WORKSPACE_JOB,
+    RouteDeckNodeIds.WORKSPACE_CONFIRM,
     RouteDeckNodeIds.SETUP_INTRO,
     RouteDeckNodeIds.CONNECTION_CONFIRM,
 ]
@@ -174,9 +177,13 @@ NODE_SPECS: dict[str, RouteDeckNodeSpec] = {
         lane="workspace",
         description="Open an existing workspace or describe a new SaaS job.",
         prompt_placeholder="Number or new job description",
-        allowed_actions=[RouteDeckActionIds.WORKSPACE_SELECT_OPEN_PATTERN],
-        expected_input="Existing workspace number or a new workspace job description.",
-        recovery_prompt="Pick a workspace number or describe a new SaaS job.",
+        allowed_actions=[
+            RouteDeckActionIds.WORKSPACE_SELECT_OPEN_PATTERN,
+            RouteDeckActionIds.NAV_BACK,
+            RouteDeckActionIds.NAV_CANCEL,
+        ],
+        expected_input="Existing workspace number, a new workspace job description, back, or cancel.",
+        recovery_prompt="Pick a workspace number, describe a new SaaS job, go back, or cancel.",
     ),
     RouteDeckNodeIds.WORKSPACE_JOB: RouteDeckNodeSpec(
         id=RouteDeckNodeIds.WORKSPACE_JOB,
@@ -184,8 +191,12 @@ NODE_SPECS: dict[str, RouteDeckNodeSpec] = {
         lane="workspace",
         description="Collect the job the first operator workspace should own.",
         prompt_placeholder="What SaaS job should this workspace handle?",
-        expected_input="Short description of the SaaS job this operator should own.",
-        recovery_prompt="Describe the SaaS job, for example billing support or CRM account updates.",
+        allowed_actions=[
+            RouteDeckActionIds.NAV_BACK,
+            RouteDeckActionIds.NAV_CANCEL,
+        ],
+        expected_input="Short description of the SaaS job this operator should own, back, or cancel.",
+        recovery_prompt="Describe the SaaS job, go back, or cancel.",
     ),
     RouteDeckNodeIds.WORKSPACE_CONFIRM: RouteDeckNodeSpec(
         id=RouteDeckNodeIds.WORKSPACE_CONFIRM,
@@ -193,9 +204,13 @@ NODE_SPECS: dict[str, RouteDeckNodeSpec] = {
         lane="workspace",
         description="Confirm the workspace name and create it.",
         prompt_placeholder="launch or rename",
-        allowed_actions=[RouteDeckActionIds.WORKSPACE_CONFIRM_LAUNCH],
-        expected_input="Launch confirmation or replacement workspace name.",
-        recovery_prompt="Confirm launch or reply with a different workspace name.",
+        allowed_actions=[
+            RouteDeckActionIds.WORKSPACE_CONFIRM_LAUNCH,
+            RouteDeckActionIds.NAV_BACK,
+            RouteDeckActionIds.NAV_CANCEL,
+        ],
+        expected_input="Launch confirmation, replacement workspace name, back, or cancel.",
+        recovery_prompt="Confirm launch, reply with a different workspace name, go back, or cancel.",
     ),
     RouteDeckNodeIds.SETUP_INTRO: RouteDeckNodeSpec(
         id=RouteDeckNodeIds.SETUP_INTRO,
@@ -403,6 +418,7 @@ EDGE_SPECS = [
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.BOOTSTRAP, to_stage=RouteDeckNodeIds.DISPLAY_NAME, type="conditional", condition="register_initial_intent", action_id=RouteDeckActionIds.INTENT_REGISTER, explanation="Create Account starts registration display-name collection."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.BOOTSTRAP, to_stage=RouteDeckNodeIds.WORKSPACE_SELECT, type="conditional", condition="authenticated_many_workspaces", explanation="Authenticated users with multiple workspaces choose one."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.BOOTSTRAP, to_stage=RouteDeckNodeIds.WORKSPACE_JOB, type="conditional", condition="authenticated_no_workspaces", explanation="Authenticated users without workspaces draft the first workspace."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.BOOTSTRAP, to_stage=RouteDeckNodeIds.WORKSPACE_CONFIRM, type="conditional", condition="authenticated_no_workspaces_with_draft", explanation="Authenticated users without workspaces can confirm a drafted workspace from entry intent."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.BOOTSTRAP, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="authenticated_single_workspace", explanation="Authenticated users with one workspace open it directly."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.INTENT, to_stage=RouteDeckNodeIds.DISPLAY_NAME, type="conditional", condition="register", action_id=RouteDeckActionIds.INTENT_REGISTER, explanation="Registration intent moves to display-name collection."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.INTENT, to_stage=RouteDeckNodeIds.EMAIL, type="conditional", condition="login", action_id=RouteDeckActionIds.INTENT_SIGN_IN, explanation="Login intent moves to email collection."),
@@ -414,18 +430,31 @@ EDGE_SPECS = [
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.EMAIL, to_stage=RouteDeckNodeIds.PASSWORD, type="sequence", condition="valid_email", explanation="Valid email moves to password collection."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.EMAIL, type="conditional", condition="back_to_email", action_id=RouteDeckActionIds.NAV_BACK, explanation="Password collection can return to email collection."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="cancel_auth", action_id=RouteDeckActionIds.NAV_CANCEL, explanation="Password collection can cancel auth and return to intent."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.EMAIL, type="conditional", condition="auth_retry", explanation="Authentication or registration errors return to email collection."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.WORKSPACE_SELECT, type="conditional", condition="authenticated_many_workspaces", explanation="Authenticated users with multiple workspaces choose one."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.WORKSPACE_JOB, type="conditional", condition="authenticated_no_workspaces", explanation="Authenticated users without workspaces draft the first workspace."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.WORKSPACE_CONFIRM, type="conditional", condition="authenticated_no_workspaces_with_draft", explanation="Authenticated users without workspaces can confirm a drafted workspace from entry intent."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="authenticated_single_workspace", explanation="Authenticated users with one workspace enter operator mode."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_SELECT, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="workspace_select_canceled", action_id=RouteDeckActionIds.NAV_CANCEL, explanation="Workspace selection can be canceled back to general intent."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_SELECT, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="workspace_select_back", action_id=RouteDeckActionIds.NAV_BACK, explanation="Workspace selection can return to general intent."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_SELECT, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="existing_workspace_selected", action_id=RouteDeckActionIds.WORKSPACE_SELECT_OPEN_PATTERN, explanation="Selecting a workspace opens operator mode."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_SELECT, to_stage=RouteDeckNodeIds.WORKSPACE_CONFIRM, type="conditional", condition="new_workspace_requested", explanation="A new job description moves to workspace confirmation."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_JOB, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="workspace_job_canceled", action_id=RouteDeckActionIds.NAV_CANCEL, explanation="Workspace drafting can be canceled back to general intent."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_JOB, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="workspace_job_back", action_id=RouteDeckActionIds.NAV_BACK, explanation="Workspace drafting can return to general intent."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_JOB, to_stage=RouteDeckNodeIds.WORKSPACE_CONFIRM, type="sequence", condition="workspace_job_collected", explanation="A valid job description creates a workspace draft."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_CONFIRM, to_stage=RouteDeckNodeIds.WORKSPACE_SELECT, type="conditional", condition="back_to_workspace_select", action_id=RouteDeckActionIds.NAV_BACK, explanation="Workspace confirmation can return to workspace selection when existing workspaces are available."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_CONFIRM, to_stage=RouteDeckNodeIds.WORKSPACE_JOB, type="conditional", condition="back_to_workspace_job", action_id=RouteDeckActionIds.NAV_BACK, explanation="Workspace confirmation can return to workspace drafting."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_CONFIRM, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="workspace_creation_canceled", action_id=RouteDeckActionIds.NAV_CANCEL, explanation="Workspace creation can be canceled back to general intent."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_CONFIRM, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="workspace_created", action_id=RouteDeckActionIds.WORKSPACE_CONFIRM_LAUNCH, explanation="Launch creates the workspace and opens operator mode."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.OPERATOR_READY, to_stage=RouteDeckNodeIds.EMAIL, type="conditional", condition="auth_requested_from_operator", action_id=RouteDeckActionIds.INTENT_SIGN_IN, explanation="A visible sign-in action can restart auth from operator mode."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.OPERATOR_READY, to_stage=RouteDeckNodeIds.DISPLAY_NAME, type="conditional", condition="auth_requested_from_operator", action_id=RouteDeckActionIds.INTENT_REGISTER, explanation="A visible create-account action can restart auth from operator mode."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.OPERATOR_READY, to_stage=RouteDeckNodeIds.SETUP_INTRO, type="conditional", condition="setup_requested", action_id=RouteDeckActionIds.SETUP_REST_START, explanation="Setup can be reopened from a ready workspace."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SETUP_INTRO, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="setup_canceled", action_id=RouteDeckActionIds.NAV_CANCEL, explanation="Setup can be canceled back to operator mode."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SETUP_INTRO, to_stage=RouteDeckNodeIds.WORKSPACE_JOB, type="conditional", condition="workspace_context_lost", explanation="Setup falls back to workspace drafting if workspace context is missing."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SETUP_INTRO, to_stage=RouteDeckNodeIds.CONNECTION_CONFIRM, type="conditional", condition="rest_details_ready", action_id=RouteDeckActionIds.SETUP_REST_CONFIGURE, explanation="Complete REST details move to connection confirmation."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SETUP_INTRO, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="setup_skipped", action_id=RouteDeckActionIds.SETUP_OPEN_CHAT, explanation="Skipping setup returns to operator mode."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.CONNECTION_CONFIRM, to_stage=RouteDeckNodeIds.SETUP_INTRO, type="conditional", condition="back_to_setup", action_id=RouteDeckActionIds.NAV_BACK, explanation="Connection confirmation can return to setup details."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.CONNECTION_CONFIRM, to_stage=RouteDeckNodeIds.WORKSPACE_JOB, type="conditional", condition="workspace_context_lost", explanation="Connection confirmation falls back to workspace drafting if workspace context is missing."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.CONNECTION_CONFIRM, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="connection_activated", action_id=RouteDeckActionIds.SETUP_CONNECTION_ACTIVATE, explanation="Activation opens operator mode."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.CONNECTION_CONFIRM, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="setup_skipped", action_id=RouteDeckActionIds.SETUP_OPEN_CHAT, explanation="Skipping setup returns to operator mode."),
 ]
@@ -571,6 +600,8 @@ def persistent_actions_for_context(
     if active_workspace_id and node == RouteDeckNodeIds.OPERATOR_READY:
         return [action_card(RouteDeckActionIds.SETUP_REST_START)]
     if active_workspace_id and node in SETUP_NODES:
+        return navigation_actions_for_node(node)
+    if node in (RouteDeckNodeIds.WORKSPACE_SELECT, RouteDeckNodeIds.WORKSPACE_JOB, RouteDeckNodeIds.WORKSPACE_CONFIRM):
         return navigation_actions_for_node(node)
 
     return []

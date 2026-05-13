@@ -24,6 +24,7 @@ import {
   type AutonomyLevel,
 } from '@/components/operator/OperatorWorkbench'
 import { RouteDeckNavWidget } from '@/components/operator/RouteDeckNavWidget'
+import { QAAgentPanel } from '@/components/qa/QAAgentPanel'
 import { ThemeToggleButton } from '@/components/theme/ThemeToggleButton'
 import { ConnectSetupView } from '@/components/workspace/ConnectSetupView'
 import { LockedCanvasView } from '@/components/workspace/LockedCanvasView'
@@ -142,6 +143,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   const setPersistentActions = useEntryStore((state) => state.setPersistentActions)
   const clearAvailableActions = useEntryStore((state) => state.clearAvailableActions)
   const appendAssistant = useEntryStore((state) => state.appendAssistant)
+  const appendAssistantDelta = useEntryStore((state) => state.appendAssistantDelta)
   const appendUser = useEntryStore((state) => state.appendUser)
   const applyArtifacts = useEntryStore((state) => state.applyArtifacts)
   const applyTurnPayload = useEntryStore((state) => state.applyTurnPayload)
@@ -153,6 +155,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   const enterOperatorMode = useEntryStore((state) => state.enterOperatorMode)
   const setActiveSidebarItem = useEntryStore((state) => state.setActiveSidebarItem)
   const setSelectedDebugNode = useEntryStore((state) => state.setSelectedDebugNode)
+  const resetEntryForQA = useEntryStore((state) => state.resetEntryForQA)
 
   const setWorkspaceId = useWorkspaceStore((state) => state.setWorkspaceId)
   const setWorkspaceActiveView = useWorkspaceStore((state) => state.setActiveView)
@@ -354,7 +357,9 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
         }
         case 'message_delta': {
           const content = data.content
-          if (typeof content === 'string' && content.length > 0) appendAssistant(content)
+          if (typeof content === 'string' && (content.length > 0 || data.is_final === true)) {
+            appendAssistantDelta(content, data.is_final === true)
+          }
           break
         }
         case 'stage_completed': {
@@ -392,7 +397,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
         }
       }
     },
-    [appendAssistant, applyArtifacts, applyTurnResult, enterOperatorMode, setAvailableActions, setEntrySessionId, setPersistentActions],
+    [appendAssistant, appendAssistantDelta, applyArtifacts, applyTurnResult, enterOperatorMode, setAvailableActions, setEntrySessionId, setPersistentActions],
   )
 
   const parseSSEChunk = useCallback(
@@ -427,8 +432,13 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   )
 
   const runTurn = useCallback(
-    async ({ userInput, selectedActionId, actionPayload }: { userInput?: string; selectedActionId?: string; actionPayload?: Record<string, unknown> } = {}) => {
-      if (busy) return
+    async ({
+      userInput,
+      selectedActionId,
+      actionPayload,
+      forceFresh,
+    }: { userInput?: string; selectedActionId?: string; actionPayload?: Record<string, unknown>; forceFresh?: boolean } = {}) => {
+      if (useEntryStore.getState().busy) return
 
       setBusy(true)
       clearAvailableActions()
@@ -463,7 +473,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
         appendAssistant('Connection failed')
         finishStream()
       }
-      const fallbackWorkspaceState = !gs && workspaceId
+      const fallbackWorkspaceState = !forceFresh && !gs && workspaceId
         ? {
             node: 'operator_ready',
             intent: null,
@@ -486,7 +496,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
         }),
       )
     },
-    [appendAssistant, busy, clearAvailableActions, finishStream, gs, initialIntent, parseSSEChunk, setBusy, workspaceId],
+    [appendAssistant, clearAvailableActions, finishStream, gs, initialIntent, parseSSEChunk, setBusy, workspaceId],
   )
 
   useEffect(() => {
@@ -542,6 +552,26 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
     sendAgentMessage(value, agentSessionId, 'balanced', handoffContext)
   }, [agentSessionId, agentStreaming, handoffContext, sendAgentMessage, workspaceId])
 
+  const handleQaResetRuntime = useCallback(async () => {
+    if (xhrRef.current) {
+      xhrRef.current.abort()
+      xhrRef.current = null
+    }
+    finishStream()
+    logout()
+    resetEntryForQA()
+    entrySessionIdRef.current = null
+    setEntrySessionId(null)
+    setAgentSessionId(null)
+    setHandoffWorkspaceId(null)
+    setWorkspaceId(null)
+    setOperatorError(null)
+    window.history.replaceState(null, '', '/')
+    bootstrapped.current = true
+    await new Promise((resolve) => window.setTimeout(resolve, 0))
+    await runTurn({ forceFresh: true })
+  }, [finishStream, logout, resetEntryForQA, runTurn, setAgentSessionId, setEntrySessionId, setWorkspaceId])
+
   const handleSidebarAction = useCallback((item: OperatorSidebarItem) => {
     setActiveSidebarItem(item)
     const definition = [...entryCapabilities, ...workspaceCapabilities].find((candidate) => candidate.id === item)
@@ -589,7 +619,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   const showEntryThinking = !showOperatorMode && busy
   const userHasInteracted = allMessages.some((message) => message.role === 'user')
   const graphNeedsControls = entryGraphActive && gs?.node !== 'bootstrap' && gs?.node !== 'intent'
-  const showActionDock = showOperatorMode || userHasInteracted || graphNeedsControls
+  const showActionDock = showOperatorMode || userHasInteracted || graphNeedsControls || activeSidebarItem === 'qa'
   const workbenchGridClass = showCanvas
     ? canvasCollapsed
       ? 'max-w-7xl lg:grid-cols-[minmax(0,1fr)_3.5rem]'
@@ -779,6 +809,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
                   capability={activeCapability}
                   onOpenCanvas={openCanvasArtifact}
                   onClose={() => setActiveSidebarItem('chat')}
+                  onQaResetRuntime={handleQaResetRuntime}
                 />
               )
             )}
@@ -798,6 +829,7 @@ function UnifiedSidePanel({
   capability,
   onOpenCanvas,
   onClose,
+  onQaResetRuntime,
 }: {
   item: OperatorSidebarItem
   mode: OperatorExperienceMode
@@ -807,13 +839,16 @@ function UnifiedSidePanel({
   capability?: OperatorCapabilityDefinition
   onOpenCanvas: (artifactId: string) => void
   onClose: () => void
+  onQaResetRuntime: () => Promise<void>
 }) {
   let content: JSX.Element
-  if (mode === 'operator') {
+  if (item === 'qa') {
+    content = <QAAgentPanel onResetRuntime={onQaResetRuntime} />
+  } else if (mode === 'operator') {
     if (item === 'connect') content = <ConnectSetupView workspace={workspace} stats={stats} />
     else if (item === 'attachments') content = <AttachmentsPanel />
     else if (item === 'admin') content = <AdminPanel workspace={workspace} />
-    else if (item === 'entities' || item === 'actions' || item === 'qa') content = <LockedCanvasView view={item as WorkspaceView} />
+    else if (item === 'entities' || item === 'actions') content = <LockedCanvasView view={item as WorkspaceView} />
     else content = <PanelEmpty title="Workspace panel" body="Select a workspace surface from the rail." />
   } else {
     const artifact = item === 'learn'

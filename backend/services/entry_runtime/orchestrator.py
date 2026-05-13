@@ -12,6 +12,7 @@ from .graph_executor import entry_graph_executor
 from .graph_runtime import EntryEventSink, EntryRuntimeState, EntryTurnRuntime, state_dump, state_payload
 from .graph_spec import GRAPH_VERSION, build_graph_manifest
 from .runtime_store import EntryRuntimeStore
+from .stage_security import mask_action_payload, mask_input
 from .ui_actions import persistent_entry_actions
 
 
@@ -22,25 +23,12 @@ class EntryTurnResult:
 
 
 def _request_input_payload(stage_id: str, body: EntryGraphTurnRequest) -> dict[str, Any]:
-    user_input = body.user_input
-    if stage_id == "password" and user_input:
-        user_input = "********"
     return {
         "initial_intent": body.initial_intent,
         "selected_action_id": body.selected_action_id,
-        "action_payload": _masked_action_payload(body.action_payload),
-        "user_input": user_input,
+        "action_payload": mask_action_payload(body.action_payload),
+        "user_input": mask_input(stage_id, body.user_input),
     }
-
-
-def _masked_action_payload(payload: dict[str, Any] | None) -> dict[str, Any] | None:
-    if not payload:
-        return payload
-    masked = dict(payload)
-    for key in ("credential_value", "password", "token", "api_key"):
-        if masked.get(key):
-            masked[key] = "********"
-    return masked
 
 
 def _resolved_state(
@@ -156,6 +144,7 @@ async def run_entry_turn(
                 "run_id": str(run_record.id),
                 "session_id": str(session_record.id),
                 "graph_version": GRAPH_VERSION,
+                "transition": result.get("transition_diagnostics", {}),
             },
         )
 

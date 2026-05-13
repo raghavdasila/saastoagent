@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Awaitable, Callable
 from typing import Any, Literal
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -11,11 +12,12 @@ from backend.core.config import settings
 from backend.core.schemas import EntryUIArtifact
 from backend.services.route_deck import RouteDeckActionIds
 
-from .platform_kb import PlatformKBResult, citation_payload, platform_kb
+from .platform_kb import PlatformKBResult, platform_kb
 from .setup_planner import _infer_from_text
 
 
 EntryAssistantNextStep = Literal["ask", "login", "register"]
+EntryAssistantDeltaSink = Callable[[str, bool], Awaitable[None]]
 
 
 class EntryAssistantResult(BaseModel):
@@ -23,6 +25,7 @@ class EntryAssistantResult(BaseModel):
     next_step: EntryAssistantNextStep = "ask"
     entry_draft: dict[str, Any] = Field(default_factory=dict)
     follow_up_prompts: list[str] = Field(default_factory=list)
+    message_live_streamed: bool = False
 
 
 def _detect_auth_intent(value: str) -> EntryAssistantNextStep | None:
@@ -56,6 +59,7 @@ async def run_entry_assistant(
     action_payload: dict[str, Any] | None,
     existing_draft: dict[str, Any] | None,
     platform_question_context: list[dict[str, Any]] | None,
+    on_delta: EntryAssistantDeltaSink | None = None,
 ) -> tuple[EntryAssistantResult, list[EntryUIArtifact], list[dict[str, Any]]]:
     prompt = action_prompt(selected_action_id, action_payload) or (user_input or "").strip()
     existing = dict(existing_draft or {})
@@ -85,12 +89,13 @@ async def run_entry_assistant(
     kb_results = await platform_kb.search(prompt or "SaaStoAgent overview")
     fallback = _fallback_result(prompt=prompt, draft=entry_draft, kb_results=kb_results)
     result = fallback
-    if prompt and settings.openai_api_key:
+    if settings.openai_api_key:
         result = await _llm_result(
             prompt=prompt,
             draft=entry_draft,
             kb_results=kb_results,
             fallback=fallback,
+            on_delta=on_delta,
         )
 
     context = list(platform_question_context or [])
@@ -170,7 +175,17 @@ async def _llm_result(
     draft: dict[str, Any],
     kb_results: list[PlatformKBResult],
     fallback: EntryAssistantResult,
+    on_delta: EntryAssistantDeltaSink | None = None,
 ) -> EntryAssistantResult:
+    if on_delta is not None:
+        return await _streaming_llm_result(
+            prompt=prompt,
+            draft=draft,
+            kb_results=kb_results,
+            fallback=fallback,
+            on_delta=on_delta,
+        )
+
     llm = ChatOpenAI(
         model=settings.default_model,
         api_key=settings.openai_api_key,
@@ -211,43 +226,94 @@ async def _llm_result(
     )
 
 
+async def _streaming_llm_result(
+    *,
+    prompt: str,
+    draft: dict[str, Any],
+    kb_results: list[PlatformKBResult],
+    fallback: EntryAssistantResult,
+    on_delta: EntryAssistantDeltaSink,
+) -> EntryAssistantResult:
+    llm = ChatOpenAI(
+        model=settings.default_model,
+        api_key=settings.openai_api_key,
+        streaming=True,
+    )
+    messages = _assistant_messages(prompt=prompt, draft=draft, kb_results=kb_results)
+    chunks: list[str] = []
+    try:
+        async for chunk in llm.astream(messages):
+            text = _content_text(getattr(chunk, "content", ""))
+            if not text:
+                continue
+            chunks.append(text)
+            await on_delta(text, False)
+    except Exception:
+        return fallback
+
+    message = "".join(chunks).strip()
+    if not message:
+        return fallback
+    await on_delta("", True)
+    return EntryAssistantResult(
+        message=message,
+        next_step="ask",
+        entry_draft=draft,
+        follow_up_prompts=fallback.follow_up_prompts,
+        message_live_streamed=True,
+    )
+
+
+def _assistant_messages(
+    *,
+    prompt: str,
+    draft: dict[str, Any],
+    kb_results: list[PlatformKBResult],
+) -> list[SystemMessage | HumanMessage]:
+    kb_context = "\n".join(
+        f"- {result.chunk.title} ({result.chunk.source_path}): {result.chunk.content}"
+        for result in kb_results
+    )
+    return [
+        SystemMessage(
+            content=(
+                "You are the public entry assistant for SaaStoAgent. Conversation is primary. "
+                "Answer platform questions from the supplied knowledge context, help draft workspace/API setup before auth, "
+                "and only route to login/register when the user explicitly asks. Do not claim actions are completed before auth. "
+                "Keep responses concise and useful. Preserve any draft values provided."
+            )
+        ),
+        HumanMessage(
+            content=(
+                f"Knowledge context:\n{kb_context}\n\n"
+                f"Existing/detected draft:\n{draft}\n\n"
+                f"User message:\n{prompt or '(initial empty turn)'}"
+            )
+        ),
+    ]
+
+
+def _content_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                value = item.get("text") or item.get("content")
+                if isinstance(value, str):
+                    parts.append(value)
+        return "".join(parts)
+    return ""
+
+
 def _build_artifacts(
     draft: dict[str, Any],
     kb_results: list[PlatformKBResult],
 ) -> list[EntryUIArtifact]:
-    artifacts = [
-        EntryUIArtifact(
-            id="platform-overview",
-            kind="widget",
-            surface="inline",
-            title="Platform Overview",
-            widget_type="platform_overview",
-            payload={
-                "cards": [
-                    {
-                        "title": "Workspace-owned operator",
-                        "body": "One workspace owns the REST sources, inferred actions, chat runtime, QA, and learnings.",
-                    },
-                    {
-                        "title": "REST-first setup",
-                        "body": "Connect an OpenAPI or Swagger spec, generate action nodes, then activate callable tools.",
-                    },
-                    {
-                        "title": "Closed improvement loop",
-                        "body": "Capture weak outcomes, inspect traces, tune behavior, and persist validated learnings.",
-                    },
-                ]
-            },
-        ),
-        EntryUIArtifact(
-            id="knowledge-citations",
-            kind="widget",
-            surface="inline",
-            title="Knowledge Sources",
-            widget_type="knowledge_citations",
-            payload={"sources": citation_payload(kb_results)},
-        ),
-    ]
+    artifacts: list[EntryUIArtifact] = []
     if draft:
         artifacts.append(
             EntryUIArtifact(
@@ -259,25 +325,4 @@ def _build_artifacts(
                 payload={"draft": draft},
             )
         )
-    artifacts.append(
-        EntryUIArtifact(
-            id="platform-loop",
-            kind="markup",
-            surface="canvas",
-            title="SaaStoAgent Loop",
-            markup=(
-                '<svg viewBox="0 0 640 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SaaStoAgent loop">'
-                '<rect width="640" height="220" rx="18" fill="#061018"/>'
-                '<g fill="#0ea5e9" font-family="Inter,Arial" font-size="17" font-weight="700">'
-                '<text x="58" y="70">Workspace</text><text x="230" y="70">REST Actions</text>'
-                '<text x="430" y="70">Operator Chat</text><text x="245" y="172">QA + Learnings</text></g>'
-                '<g stroke="#38bdf8" stroke-width="3" fill="none" stroke-linecap="round">'
-                '<path d="M145 64 H220"/><path d="M356 64 H424"/><path d="M506 84 C500 162 396 172 350 172"/>'
-                '<path d="M234 172 C148 166 92 125 98 83"/></g>'
-                '<g fill="#082f49" stroke="#38bdf8" stroke-width="2">'
-                '<circle cx="112" cy="64" r="34"/><circle cx="290" cy="64" r="42"/><circle cx="494" cy="64" r="42"/><circle cx="312" cy="172" r="42"/></g>'
-                '</svg>'
-            ),
-        )
-    )
     return artifacts

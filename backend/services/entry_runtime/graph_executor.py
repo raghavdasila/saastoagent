@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from langgraph.graph import END, StateGraph
+from routedeck_langgraph import build_route_deck_state_graph
 
+from .action_gate import route_action_error
 from .graph_runtime import EntryRuntimeState
-from .graph_spec import ENTRY_NODE_SPECS
+from .route_conditions import EDGE_CONDITION_RESOLVERS, assert_route_deck_transition
 from .stage_auth import bootstrap_node, display_name_node, email_node, intent_node, password_node
-from .stage_io import execute_stage
+from .stage_io import StageHandler, execute_stage
 from .stage_workspace import (
     connection_confirm_node,
     operator_ready_node,
@@ -16,6 +17,7 @@ from .stage_workspace import (
     workspace_job_node,
     workspace_select_node,
 )
+from backend.services.route_deck import build_route_deck_manifest
 
 NODE_HANDLERS = {
     "bootstrap": bootstrap_node,
@@ -31,36 +33,91 @@ NODE_HANDLERS = {
     "operator_ready": operator_ready_node,
 }
 
+ENTRY_GRAPH_GROUPS = {
+    "public_entry": {"bootstrap", "intent"},
+    "auth": {"display_name", "email", "password"},
+    "workspace": {"workspace_select", "workspace_job", "workspace_confirm"},
+    "setup": {"setup_intro", "connection_confirm"},
+    "terminal": {"operator_ready"},
+}
+
+NODE_TO_GROUP = {
+    stage_id: group_id
+    for group_id, stage_ids in ENTRY_GRAPH_GROUPS.items()
+    for stage_id in stage_ids
+}
+
 
 def _resolve_graph_node(state: EntryRuntimeState) -> str:
-    return state.get("node") or "bootstrap"
+    stage_id = state.get("active_stage_id") or state.get("node") or "bootstrap"
+    if stage_id not in NODE_HANDLERS:
+        return "bootstrap"
+    return stage_id
 
 
-def _dispatch_node(_: EntryRuntimeState) -> dict[str, Any]:
-    return {}
+def _turn_start_node(state: EntryRuntimeState) -> dict[str, Any]:
+    stage_id = state.get("node") or "bootstrap"
+    if stage_id not in NODE_HANDLERS:
+        stage_id = "bootstrap"
+    return {
+        "active_stage_id": stage_id,
+        "route_group": NODE_TO_GROUP[stage_id],
+        "route_error": None,
+        "transition_diagnostics": {
+            "phase": "turn_start",
+            "active_stage_id": stage_id,
+            "route_group": NODE_TO_GROUP[stage_id],
+        },
+    }
+
+
+def _route_action_node(state: EntryRuntimeState) -> dict[str, Any]:
+    stage_id = _resolve_graph_node(state)
+    return {
+        "active_stage_id": stage_id,
+        "route_group": NODE_TO_GROUP[stage_id],
+        "route_error": route_action_error(stage_id, state),
+    }
+
+
+def _finalize_turn_node(state: EntryRuntimeState) -> dict[str, Any]:
+    from_stage = state.get("active_stage_id") or "bootstrap"
+    to_stage = state.get("node") or from_stage
+    transition = assert_route_deck_transition(
+        from_stage=from_stage,
+        to_stage=to_stage,
+        state=state,
+    )
+    return {
+        "transition_diagnostics": {
+            **(state.get("transition_diagnostics") or {}),
+            **transition,
+            "phase": "finalize_turn",
+        }
+    }
 
 
 def build_entry_graph():
-    graph = StateGraph(EntryRuntimeState)
-    graph.add_node("dispatch", _dispatch_node)
-
+    stage_nodes = {}
     for stage_id, handler in NODE_HANDLERS.items():
         def _async_stage_node(stage_id: str, handler: StageHandler) -> StageHandler:
             async def node(state: EntryRuntimeState) -> dict[str, Any]:
                 return await execute_stage(stage_id, handler, state)
 
             return node
-        graph.add_node(stage_id, _async_stage_node(stage_id, handler))
+        stage_nodes[stage_id] = _async_stage_node(stage_id, handler)
 
-    graph.set_entry_point("dispatch")
-    graph.add_conditional_edges(
-        "dispatch",
-        _resolve_graph_node,
-        {stage_id.value: stage_id.value for stage_id in ENTRY_NODE_SPECS.keys()},
+    graph = build_route_deck_state_graph(
+        manifest=build_route_deck_manifest(),
+        state_schema=EntryRuntimeState,
+        handlers=stage_nodes,
+        condition_resolvers=EDGE_CONDITION_RESOLVERS,
+        groups=ENTRY_GRAPH_GROUPS,
+        active_node_resolver=_resolve_graph_node,
+        turn_start_node=_turn_start_node,
+        route_action_node=_route_action_node,
+        finalize_node=_finalize_turn_node,
     )
-
-    for stage_id in ENTRY_NODE_SPECS.keys():
-        graph.add_edge(stage_id.value, END)
 
     return graph.compile()
 

@@ -26,6 +26,10 @@ EntryEventSink = Callable[[str, dict[str, Any]], Awaitable[None]]
 
 class EntryRuntimeState(TypedDict, total=False):
     node: str
+    active_stage_id: str
+    route_group: str
+    route_error: dict[str, Any] | None
+    transition_diagnostics: dict[str, Any]
     intent: str | None
     display_name: str
     email: str
@@ -51,6 +55,7 @@ class EntryRuntimeState(TypedDict, total=False):
     persistent_actions: list[EntryActionCard]
     ui_artifacts: list[EntryUIArtifact]
     replace_path: str | None
+    messages_already_streamed: bool
 
 
 @dataclass

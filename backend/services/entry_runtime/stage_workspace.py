@@ -28,6 +28,7 @@ from .graph_runtime import EntryRuntimeState, merge_messages
 from .ui_actions import (
     connection_confirm_actions,
     display_name_actions,
+    entry_assistant_actions,
     setup_chat_actions,
     setup_intro_actions,
     standard_workspace_actions,
@@ -109,6 +110,17 @@ def _auth_required(state: EntryRuntimeState) -> dict[str, Any]:
             state,
             "Your authentication context is missing. Say `sign in` or `create account` to continue.",
         ),
+    }
+
+
+def _clear_workspace_draft(state: EntryRuntimeState, message: str) -> dict[str, Any]:
+    return {
+        "node": "intent",
+        "workspace_name": "",
+        "workspace_slug": "",
+        "active_workspace_id": None,
+        "messages": merge_messages(state, message),
+        "available_actions": entry_assistant_actions(),
     }
 
 
@@ -294,8 +306,14 @@ async def workspace_select_node(state: EntryRuntimeState) -> dict[str, Any]:
     if current_user is None:
         return _auth_required(state)
 
+    selected_action_id = _selected_action_id(state)
+    if selected_action_id in (RouteDeckActionIds.NAV_BACK, RouteDeckActionIds.NAV_CANCEL):
+        return _clear_workspace_draft(
+            state,
+            "Canceled workspace selection. You can ask a question or describe the operator you want to build.",
+        )
+
     workspaces = await list_workspaces(state, current_user.id)
-    selected_action_id = state.get("selected_action_id") or ""
     if is_workspace_select_open_action(selected_action_id):
         raw_index = selected_action_id.split(":", 1)[1]
         try:
@@ -360,6 +378,13 @@ async def workspace_job_node(state: EntryRuntimeState) -> dict[str, Any]:
     if current_user is None:
         return _auth_required(state)
 
+    selected_action_id = _selected_action_id(state)
+    if selected_action_id in (RouteDeckActionIds.NAV_BACK, RouteDeckActionIds.NAV_CANCEL):
+        return _clear_workspace_draft(
+            state,
+            "Canceled workspace drafting. You can ask a question or describe the operator you want to build.",
+        )
+
     value = (state.get("user_input") or "").strip()
     workspace_name = _normalize_workspace_name(value)
     if not workspace_name:
@@ -385,7 +410,36 @@ async def workspace_confirm_node(state: EntryRuntimeState) -> dict[str, Any]:
     if current_user is None:
         return _auth_required(state)
 
-    selected_action_id = state.get("selected_action_id") or ""
+    selected_action_id = _selected_action_id(state)
+    if selected_action_id == RouteDeckActionIds.NAV_CANCEL:
+        return _clear_workspace_draft(
+            state,
+            "Canceled workspace creation. You can ask a question or describe a different operator.",
+        )
+    if selected_action_id == RouteDeckActionIds.NAV_BACK:
+        workspaces = await list_workspaces(state, current_user.id)
+        if workspaces:
+            return {
+                "node": "workspace_select",
+                "workspace_name": "",
+                "workspace_slug": "",
+                "messages": merge_messages(
+                    state,
+                    "Back to workspace selection. Pick a workspace number or describe a new SaaS job.",
+                ),
+                "workspaces": workspaces,
+                "available_actions": workspace_select_actions(workspaces),
+            }
+        return {
+            "node": "workspace_job",
+            "workspace_name": "",
+            "workspace_slug": "",
+            "messages": merge_messages(
+                state,
+                "Back to workspace drafting. Describe the SaaS job this first operator should own.",
+            ),
+        }
+
     value = (state.get("user_input") or "").strip()
     if selected_action_id == RouteDeckActionIds.WORKSPACE_CONFIRM_LAUNCH or _wants_confirm(value):
         workspace_name = _normalize_workspace_name(state.get("workspace_name", ""))

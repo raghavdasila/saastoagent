@@ -104,77 +104,21 @@ ENTRY_NODE_SPECS = {
     ),
 }
 
-ENTRY_EDGE_SPECS = (
-    EntryEdgeSpec(EntryStageId.bootstrap, EntryStageId.intent, "conditional", "anonymous_start"),
-    EntryEdgeSpec(EntryStageId.bootstrap, EntryStageId.email, "conditional", "login_initial_intent"),
-    EntryEdgeSpec(
-        EntryStageId.bootstrap,
-        EntryStageId.display_name,
-        "conditional",
-        "register_initial_intent",
-    ),
-    EntryEdgeSpec(
-        EntryStageId.bootstrap,
-        EntryStageId.workspace_select,
-        "conditional",
-        "authenticated_many_workspaces",
-    ),
-    EntryEdgeSpec(
-        EntryStageId.bootstrap,
-        EntryStageId.workspace_job,
-        "conditional",
-        "authenticated_no_workspaces",
-    ),
-    EntryEdgeSpec(
-        EntryStageId.bootstrap,
-        EntryStageId.operator_ready,
-        "conditional",
-        "authenticated_single_workspace",
-    ),
-    EntryEdgeSpec(EntryStageId.intent, EntryStageId.display_name, "conditional", "register"),
-    EntryEdgeSpec(EntryStageId.intent, EntryStageId.email, "conditional", "login"),
-    EntryEdgeSpec(EntryStageId.display_name, EntryStageId.email, "sequence"),
-    EntryEdgeSpec(EntryStageId.email, EntryStageId.password, "sequence"),
-    EntryEdgeSpec(
-        EntryStageId.password,
-        EntryStageId.workspace_select,
-        "conditional",
-        "authenticated_many_workspaces",
-    ),
-    EntryEdgeSpec(
-        EntryStageId.password,
-        EntryStageId.workspace_job,
-        "conditional",
-        "authenticated_no_workspaces",
-    ),
-    EntryEdgeSpec(
-        EntryStageId.password,
-        EntryStageId.operator_ready,
-        "conditional",
-        "authenticated_single_workspace",
-    ),
-    EntryEdgeSpec(
-        EntryStageId.workspace_select,
-        EntryStageId.operator_ready,
-        "conditional",
-        "existing_workspace_selected",
-    ),
-    EntryEdgeSpec(
-        EntryStageId.workspace_select,
-        EntryStageId.workspace_confirm,
-        "conditional",
-        "new_workspace_requested",
-    ),
-    EntryEdgeSpec(EntryStageId.workspace_job, EntryStageId.workspace_confirm, "sequence"),
-    EntryEdgeSpec(
-        EntryStageId.workspace_confirm,
-        EntryStageId.operator_ready,
-        "conditional",
-        "workspace_created",
-    ),
-    EntryEdgeSpec(EntryStageId.setup_intro, EntryStageId.connection_confirm, "conditional", "rest_details_ready"),
-    EntryEdgeSpec(EntryStageId.connection_confirm, EntryStageId.operator_ready, "conditional", "connection_activated"),
-)
+def _entry_edge_specs_from_route_deck() -> tuple[EntryEdgeSpec, ...]:
+    specs: list[EntryEdgeSpec] = []
+    for edge in build_route_deck_manifest().edges:
+        specs.append(
+            EntryEdgeSpec(
+                from_stage=EntryStageId(edge.from_stage),
+                to_stage=EntryStageId(edge.to_stage),
+                edge_type=edge.edge_type,
+                condition=edge.condition,
+            )
+        )
+    return tuple(specs)
+
+
+ENTRY_EDGE_SPECS = _entry_edge_specs_from_route_deck()
 
 
 def get_node_spec(stage_id: str) -> EntryNodeSpec:

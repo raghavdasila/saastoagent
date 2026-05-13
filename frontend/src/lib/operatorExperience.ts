@@ -81,6 +81,18 @@ export const entryCapabilities: OperatorCapabilityDefinition[] = [
     evidenceSurface: 'Draft workspace job, API fields, and setup checklist.',
   },
   {
+    id: 'qa',
+    mode: 'entry',
+    label: 'QA Agent',
+    shortLabel: 'QA',
+    description: 'Run UI-driven behavior checks against entry, auth, setup, and RouteDeck.',
+    icon: FlaskConical,
+    enabled: true,
+    emptyState: 'Run a QA scenario to exercise visible controls and RouteDeck evidence.',
+    failureState: 'QA could not drive the visible UI or a required evidence gate failed.',
+    evidenceSurface: 'Rendered controls, messages, RouteDeck snapshot, and console errors.',
+  },
+  {
     id: 'signin',
     mode: 'entry',
     label: 'Sign In',
@@ -191,14 +203,14 @@ export const workspaceCapabilities: OperatorCapabilityDefinition[] = [
     id: 'qa',
     mode: 'operator',
     workspaceView: 'qa',
-    label: 'QA & Learnings',
+    label: 'QA Agent',
     shortLabel: 'QA',
-    description: 'Failure capture, evaluation, tuning, and governed learnings.',
+    description: 'Run UI-driven behavior checks against the operator shell and RouteDeck evidence.',
     icon: FlaskConical,
-    enabled: false,
-    emptyState: 'QA unlocks after execution is available.',
-    failureState: 'QA cannot run until the operator can execute REST workflows.',
-    evidenceSurface: 'Runs, failures, tuning candidates, approvals, and saved learnings.',
+    enabled: true,
+    emptyState: 'Run a QA scenario to test visible flows and recovery paths.',
+    failureState: 'QA could not drive the visible UI or a required evidence gate failed.',
+    evidenceSurface: 'Rendered controls, messages, RouteDeck snapshot, and console errors.',
   },
 ]
 
@@ -215,7 +227,7 @@ export function capabilityStateFor(definition: OperatorCapabilityDefinition, con
     return (context.stats?.tools_count ?? 0) > 0 ? 'ready' : 'locked'
   }
   if (definition.id === 'qa') {
-    return (context.stats?.tools_count ?? 0) > 0 ? 'needs_setup' : 'locked'
+    return 'ready'
   }
   return 'ready'
 }
@@ -225,6 +237,7 @@ export function isCapabilitySelectable(definition: OperatorCapabilityDefinition,
   if (!definition.enabled) return false
   if (!context.hasWorkspace) return false
   if (definition.authRequired && !context.isAuthenticated) return false
+  if (definition.id === 'qa') return true
   return definition.id === 'chat' || context.isAuthenticated || definition.id === 'connect'
 }
 

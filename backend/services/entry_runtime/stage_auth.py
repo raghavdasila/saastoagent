@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, Awaitable, Callable, cast
 
 from fastapi_users import exceptions as fastapi_users_exceptions
 from fastapi_users.db import SQLAlchemyUserDatabase
@@ -14,6 +14,7 @@ from backend.services.route_deck import RouteDeckActionIds
 from backend.services.route_deck.ids import follow_up_action_id, is_follow_up_action
 
 from .entry_assistant import run_entry_assistant
+from .graph_spec import get_node_spec
 from .graph_runtime import EntryRuntimeState, merge_messages, user_read
 from .stage_workspace import advance_authenticated_user
 from .ui_actions import display_name_actions, entry_action, entry_assistant_actions
@@ -57,6 +58,15 @@ def _user_manager(state: EntryRuntimeState) -> UserManager:
 def _selected_action_id(state: EntryRuntimeState) -> str | None:
     value = state.get("selected_action_id")
     return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _is_passive_resume(state: EntryRuntimeState) -> bool:
+    """A bootstrap/resume turn should not validate an empty submission."""
+    return (
+        _selected_action_id(state) is None
+        and not (state.get("user_input") or "").strip()
+        and not state.get("action_payload")
+    )
 
 
 def _clear_auth_fields(state: EntryRuntimeState, message: str) -> dict[str, Any]:
@@ -158,8 +168,14 @@ def _assistant_actions(follow_up_prompts: list[str]) -> list:
     return actions
 
 
-def _assistant_state_updates(assistant_result: Any, artifacts: list[Any], question_context: list[dict[str, Any]]) -> dict[str, Any]:
-    return {
+def _assistant_state_updates(
+    assistant_result: Any,
+    artifacts: list[Any],
+    question_context: list[dict[str, Any]],
+    *,
+    message_live_streamed: bool = False,
+) -> dict[str, Any]:
+    updates = {
         "entry_draft": assistant_result.entry_draft,
         "platform_question_context": question_context,
         "canvas_artifacts": [
@@ -167,6 +183,62 @@ def _assistant_state_updates(assistant_result: Any, artifacts: list[Any], questi
         ],
         "follow_up_context": {"prompts": assistant_result.follow_up_prompts},
         "ui_artifacts": artifacts,
+    }
+    if message_live_streamed:
+        updates["messages_already_streamed"] = True
+    return updates
+
+
+def _assistant_delta_sink(state: EntryRuntimeState) -> Callable[[str, bool], Awaitable[None]] | None:
+    runtime = state.get("runtime")
+    if runtime is None:
+        return None
+    stage_id = state.get("active_stage_id") or state.get("node") or "intent"
+    node_spec = get_node_spec(stage_id)
+    chunk_index = -1
+
+    async def on_delta(content: str, is_final: bool) -> None:
+        nonlocal chunk_index
+        chunk_index += 1
+        await runtime.emit(
+            "message_delta",
+            {
+                "content": content,
+                "stage_id": stage_id,
+                "lane": node_spec.lane.value,
+                "sequence": runtime.output_sequence + 1,
+                "chunk_index": chunk_index,
+                "is_final": is_final,
+                "source": "live_llm",
+            },
+        )
+
+    return on_delta
+
+
+async def _assisted_entry_resume(state: EntryRuntimeState) -> dict[str, Any]:
+    on_delta = _assistant_delta_sink(state)
+    assistant_result, artifacts, question_context = await run_entry_assistant(
+        user_input=None,
+        selected_action_id=None,
+        action_payload=None,
+        existing_draft=state.get("entry_draft") or {},
+        platform_question_context=state.get("platform_question_context") or [],
+        on_delta=on_delta,
+    )
+    return {
+        **_assistant_state_updates(
+            assistant_result,
+            artifacts,
+            question_context,
+            message_live_streamed=assistant_result.message_live_streamed,
+        ),
+        "node": "intent",
+        "intent": None,
+        "display_name": "",
+        "email": "",
+        "messages": merge_messages(state, assistant_result.message),
+        "available_actions": _assistant_actions(assistant_result.follow_up_prompts),
     }
 
 
@@ -203,14 +275,21 @@ async def bootstrap_node(state: EntryRuntimeState) -> dict[str, Any]:
             ),
         }
 
+    on_delta = _assistant_delta_sink(state)
     assistant_result, artifacts, question_context = await run_entry_assistant(
         user_input=state.get("user_input"),
         selected_action_id=selected_action_id,
         action_payload=state.get("action_payload"),
         existing_draft=state.get("entry_draft") or {},
         platform_question_context=state.get("platform_question_context") or [],
+        on_delta=on_delta,
     )
-    assistant_updates = _assistant_state_updates(assistant_result, artifacts, question_context)
+    assistant_updates = _assistant_state_updates(
+        assistant_result,
+        artifacts,
+        question_context,
+        message_live_streamed=assistant_result.message_live_streamed,
+    )
     if assistant_result.next_step == "login":
         return {
             **assistant_updates,
@@ -254,14 +333,21 @@ async def intent_node(state: EntryRuntimeState) -> dict[str, Any]:
     )
     assistant_updates: dict[str, Any] = {}
     if not intent and should_call_assistant:
+        on_delta = _assistant_delta_sink(state)
         assistant_result, artifacts, question_context = await run_entry_assistant(
             user_input=state.get("user_input"),
             selected_action_id=selected_action_id,
             action_payload=state.get("action_payload"),
             existing_draft=state.get("entry_draft") or {},
             platform_question_context=state.get("platform_question_context") or [],
+            on_delta=on_delta,
         )
-        assistant_updates = _assistant_state_updates(assistant_result, artifacts, question_context)
+        assistant_updates = _assistant_state_updates(
+            assistant_result,
+            artifacts,
+            question_context,
+            message_live_streamed=assistant_result.message_live_streamed,
+        )
         if assistant_result.next_step in ("login", "register"):
             intent = assistant_result.next_step
         else:
@@ -309,6 +395,9 @@ async def display_name_node(state: EntryRuntimeState) -> dict[str, Any]:
     if navigation is not None:
         return navigation
 
+    if _is_passive_resume(state):
+        return await _assisted_entry_resume(state)
+
     selected_action_id = _selected_action_id(state)
     if selected_action_id == RouteDeckActionIds.DISPLAY_NAME_SKIP:
         display_name = ""
@@ -349,6 +438,9 @@ async def email_node(state: EntryRuntimeState) -> dict[str, Any]:
     if navigation is not None:
         return navigation
 
+    if _is_passive_resume(state):
+        return await _assisted_entry_resume(state)
+
     value = (state.get("user_input") or "").strip()
     if not _is_valid_email(value):
         return {
@@ -369,6 +461,9 @@ async def password_node(state: EntryRuntimeState) -> dict[str, Any]:
     navigation = _auth_navigation(state, "password")
     if navigation is not None:
         return navigation
+
+    if _is_passive_resume(state):
+        return await _assisted_entry_resume(state)
 
     value = (state.get("user_input") or "").strip()
     if state.get("intent") == "register" and len(value) < 8:

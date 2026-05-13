@@ -14,6 +14,7 @@ from backend.routes.health import router as health_router
 from backend.routes.workspaces import router as workspaces_router
 from backend.routes.agent import router as agent_router
 from backend.routes.connections import router as connections_router
+from backend.routes.qa import router as qa_router
 
 structlog.configure(
     processors=[
@@ -66,3 +67,4 @@ app.include_router(entry_router)
 app.include_router(workspaces_router)
 app.include_router(agent_router)
 app.include_router(connections_router)
+app.include_router(qa_router)

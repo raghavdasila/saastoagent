@@ -36,6 +36,7 @@ export function EntryActionCards({ actions, busy = false, onSelect }: EntryActio
             disabled={busy || !!action.disabled_reason}
             title={action.description ?? undefined}
             onClick={() => onSelect(action)}
+            data-entry-action-id={action.id}
             className={[
               'inline-flex items-center rounded-full border text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
               isChip ? 'px-3 py-1' : 'px-3.5 py-1.5',
@@ -77,6 +78,7 @@ function EntryActionForm({
   return (
     <form
       className="max-w-2xl rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#0b0b0d]"
+      data-entry-action-form-id={action.id}
       onSubmit={(event) => {
         event.preventDefault()
         onSubmit(values)
@@ -97,6 +99,7 @@ function EntryActionForm({
                 value={String(values[field.key] ?? '')}
                 onChange={(event) => setValues((prev) => ({ ...prev, [field.key]: event.target.value }))}
                 className="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-950 outline-none focus:border-sky-400 dark:border-white/10 dark:bg-[#050506] dark:text-white"
+                data-entry-action-field={field.key}
               >
                 {(field.options || []).map((option) => (
                   <option key={option.value} value={option.value}>
@@ -112,6 +115,7 @@ function EntryActionForm({
                 placeholder={field.placeholder ?? undefined}
                 onChange={(event) => setValues((prev) => ({ ...prev, [field.key]: event.target.value }))}
                 className="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-950 outline-none focus:border-sky-400 dark:border-white/10 dark:bg-[#050506] dark:text-white"
+                data-entry-action-field={field.key}
               />
             )}
             {field.help_text && <span className="block text-[11px] font-normal text-slate-400">{field.help_text}</span>}
@@ -123,6 +127,8 @@ function EntryActionForm({
         type="submit"
         disabled={busy}
         className="mt-3 inline-flex rounded-full border border-sky-300 bg-sky-50 px-3.5 py-1.5 text-xs font-medium text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-300"
+        data-entry-action-id={action.id}
+        data-entry-action-submit-id={action.id}
       >
         {action.label}
       </button>
