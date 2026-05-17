@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { PRODUCT_NAME } from '@/lib/entryGraph'
 import { ThemeToggleButton } from '@/components/theme/ThemeToggleButton'
-import { useWorkspace } from '@/context/WorkspaceContext'
+import { useSaaSAgent } from '@/context/SaaSAgentContext'
 
 export function Header() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
-  const { workspaceId } = useWorkspace()
+  const { saasAgentId } = useSaaSAgent()
 
   return (
     <header className="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-white/10 dark:bg-[#050506]/90">
@@ -21,13 +21,13 @@ export function Header() {
           >
             {PRODUCT_NAME}
           </button>
-          {workspaceId && (
+          {saasAgentId && (
             <button
               className="text-sm font-medium text-muted-foreground transition hover:text-foreground"
               onClick={() => navigate('/')}
               type="button"
             >
-              Workspaces
+              SaaSAgents
             </button>
           )}
         </div>

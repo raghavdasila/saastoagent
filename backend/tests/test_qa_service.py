@@ -16,12 +16,13 @@ def test_qa_scenarios_cover_navigation_permutations():
         "signin_cancel_signup",
         "auth_mode_switches",
         "invalid_email_recovery",
-        "signup_workspace_path",
+        "signup_SaaSAgent_path",
         "routedeck_smoke",
         "connection_catalog_preview",
         "actions_entities_surfaces",
         "read_safe_rest_execution_trace",
         "write_rest_execution_requires_approval",
+        "rag_memory_learning_surfaces",
     } <= set(scenarios)
     assert any(
         action.params.get("action_id") == "nav.cancel"
@@ -69,18 +70,18 @@ def test_qa_evaluator_fails_missing_recovery_action():
     assert "action_enabled" in result.failures
 
 
-def test_qa_evaluator_checks_workspace_catalog_and_api_evidence():
+def test_qa_evaluator_checks_SaaSAgent_catalog_and_api_evidence():
     result = evaluate_turn(
         QAEvalRequest(
             evidence={
-                "workspace_view": "actions",
+                "saas_agent_view": "actions",
                 "visible_text": "Generated REST actions",
                 "catalog_totals": {"actions": 3, "tools": 3, "entities": 2},
                 "api_responses": {"connection_preview": {"status": 200}},
                 "console_errors": [],
             },
             evidence_gates=[
-                QAEvidenceGate(gate="workspace_view", params={"view": "actions"}),
+                QAEvidenceGate(gate="saas_agent_view", params={"view": "actions"}),
                 QAEvidenceGate(gate="catalog_count_at_least", params={"key": "actions", "min": 1}),
                 QAEvidenceGate(gate="api_response_ok", params={"key": "connection_preview"}),
                 QAEvidenceGate(gate="no_console_errors", params={}),

@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import Any
 
 from backend.core.models import User
-from backend.core.schemas import EntryActionCard, EntryActionField, WorkspaceRead
+from backend.core.schemas import EntryActionCard, EntryActionField, SaaSAgentRead
 from backend.services.route_deck import RouteDeckActionIds
 from backend.services.route_deck.catalog import action_card as graph_action_card
 from backend.services.route_deck.catalog import persistent_actions_for_context
-from backend.services.route_deck.ids import workspace_select_open_action_id
+from backend.services.route_deck.ids import saas_agent_select_open_action_id
 
 
 def _short_description(value: str | None) -> str | None:
@@ -77,9 +77,9 @@ def entry_assistant_actions() -> list[EntryActionCard]:
         entry_action(
             RouteDeckActionIds.ENTRY_LEARN_SETUP,
             "How setup works",
-            description="Ask how workspace and API setup works.",
+            description="Ask how SaaS Agent and API setup works.",
             kind="chip",
-            payload={"prompt": "How do I set up a workspace and connect an API?"},
+            payload={"prompt": "How do I set up a SaaS Agent and connect an API?"},
         ),
         entry_action(
             RouteDeckActionIds.INTENT_SIGN_IN,
@@ -99,12 +99,12 @@ def persistent_entry_actions(
     *,
     node: str | None,
     current_user: User | None,
-    active_workspace_id: Any | None = None,
+    active_saas_agent_id: Any | None = None,
 ) -> list[EntryActionCard]:
     return persistent_actions_for_context(
         node=node,
         current_user=current_user,
-        active_workspace_id=active_workspace_id,
+        active_saas_agent_id=active_saas_agent_id,
     )
 
 
@@ -118,35 +118,35 @@ def display_name_actions() -> list[EntryActionCard]:
     ]
 
 
-def workspace_confirm_actions(workspace_name: str, workspace_slug: str) -> list[EntryActionCard]:
+def saas_agent_confirm_actions(saas_agent_name: str, saas_agent_slug: str) -> list[EntryActionCard]:
     return [
-        entry_action(
-            RouteDeckActionIds.WORKSPACE_CONFIRM_LAUNCH,
-            "Launch Workspace",
-            description=f"Create {workspace_name} at /{workspace_slug}.",
-            emphasis="primary",
+        graph_action_card(
+            RouteDeckActionIds.SAAS_AGENT_CONFIRM_LAUNCH,
+            label="Launch SaaS Agent",
+            description=f"Create {saas_agent_name} at /{saas_agent_slug}.",
+            draft={"name": saas_agent_name, "slug": saas_agent_slug},
         )
     ]
 
 
-def workspace_select_actions(workspaces: list[WorkspaceRead]) -> list[EntryActionCard]:
-    if len(workspaces) > 3:
+def saas_agent_select_actions(saas_agents: list[SaaSAgentRead]) -> list[EntryActionCard]:
+    if len(saas_agents) > 3:
         return []
 
     actions: list[EntryActionCard] = []
-    for index, workspace in enumerate(workspaces, 1):
+    for index, saas_agent in enumerate(saas_agents, 1):
         actions.append(
             entry_action(
-                workspace_select_open_action_id(index),
-                workspace.name,
-                description=f"Open /{workspace.slug}",
+                saas_agent_select_open_action_id(index),
+                saas_agent.name,
+                description=f"Open /{saas_agent.slug}",
                 emphasis="primary" if index == 1 else "secondary",
             )
         )
     return actions
 
 
-def standard_workspace_actions() -> list[EntryActionCard]:
+def standard_saas_agent_actions() -> list[EntryActionCard]:
     return [
         entry_action(
             RouteDeckActionIds.SETUP_REST_START,
@@ -203,7 +203,7 @@ def connection_confirm_actions(draft: dict[str, Any]) -> list[EntryActionCard]:
             description="Continue without connecting an API right now. API setup remains available in Connections.",
             kind="nav",
         ),
-        *standard_workspace_actions(),
+        *standard_saas_agent_actions(),
     ]
 
 
@@ -216,5 +216,5 @@ def setup_intro_actions(draft: dict[str, Any] | None = None) -> list[EntryAction
             description="Continue without connecting an API right now. API setup remains available in Connections.",
             kind="nav",
         ),
-        *standard_workspace_actions(),
+        *standard_saas_agent_actions(),
     ]

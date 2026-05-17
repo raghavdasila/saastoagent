@@ -1,28 +1,39 @@
 import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 
-import { OperatorGateway } from '@/components/OperatorGateway'
+import { AppGraphShell } from '@/components/appGraph/AppGraphShell'
 
-function WorkspaceOperatorRoute() {
-  const { workspaceId } = useParams<{ workspaceId: string }>()
-  return <OperatorGateway initialWorkspaceId={workspaceId} />
+function SaaSAgentOperatorRoute() {
+  const { saasAgentId } = useParams<{ saasAgentId: string }>()
+  return <AppGraphShell saasAgentId={saasAgentId} />
+}
+
+function GraphNodeRoute() {
+  const { nodeId } = useParams<{ nodeId: string }>()
+  return <AppGraphShell nodeId={nodeId} />
+}
+
+function SaaSAgentGraphNodeRoute() {
+  const { saasAgentId, nodeId } = useParams<{ saasAgentId: string; nodeId: string }>()
+  return <AppGraphShell saasAgentId={saasAgentId} nodeId={nodeId} />
 }
 
 export function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
       <Routes>
-        {/* Entry graph: backend owns the login -> workspace -> operator flow. */}
-        <Route path="/login" element={<OperatorGateway initialIntent="login" />} />
-        <Route path="/register" element={<OperatorGateway initialIntent="register" />} />
-        <Route index element={<OperatorGateway />} />
+        {/* Backend app state owns navigation and visible actions. */}
+        <Route path="/app/home" element={<AppGraphShell nodeId="home" />} />
+        <Route path="/app/:nodeId" element={<GraphNodeRoute />} />
+        <Route path="/app/agents/:saasAgentId" element={<SaaSAgentOperatorRoute />} />
+        <Route path="/app/agents/:saasAgentId/:nodeId" element={<SaaSAgentGraphNodeRoute />} />
 
-        {/* Direct workspace links use the same unified operator shell. */}
-        <Route
-          path="/w/:workspaceId"
-          element={<WorkspaceOperatorRoute />}
-        />
+        {/* Compatibility links hydrate graph context; they do not switch UI directly. */}
+        <Route path="/login" element={<Navigate to="/app/auth_sign_in" replace />} />
+        <Route path="/register" element={<Navigate to="/app/auth_register" replace />} />
+        <Route path="/agents/:saasAgentId" element={<SaaSAgentOperatorRoute />} />
+        <Route index element={<Navigate to="/app/home" replace />} />
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/app/home" replace />} />
       </Routes>
     </BrowserRouter>
   )

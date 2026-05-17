@@ -15,7 +15,7 @@ import type {
 interface EntryState {
   graphState: GatewayState | null
   mode: OperatorExperienceMode
-  activeWorkspaceId: string | null
+  activeSaaSAgentId: string | null
   activeSidebarItem: OperatorSidebarItem
   entrySessionId: string | null
   agentSessionId: string | null
@@ -36,7 +36,7 @@ interface EntryState {
   setGraphState: (graphState: GatewayState | null) => void
   setEntrySessionId: (sessionId: string | null) => void
   setAgentSessionId: (sessionId: string | null) => void
-  enterOperatorMode: (workspaceId: string) => void
+  enterOperatorMode: (saasAgentId: string) => void
   setActiveSidebarItem: (item: OperatorSidebarItem) => void
   setSelectedDebugNode: (nodeId: string | null) => void
   setDraft: (draft: string) => void
@@ -70,7 +70,7 @@ function isCanvasCapable(artifact: EntryUIArtifact): boolean {
 const initialState = {
   graphState: null,
   mode: 'entry' as OperatorExperienceMode,
-  activeWorkspaceId: null,
+  activeSaaSAgentId: null,
   activeSidebarItem: 'chat' as OperatorSidebarItem,
   entrySessionId: null,
   agentSessionId: null,
@@ -96,7 +96,7 @@ export const useEntryStore = create<EntryState>((set) => ({
   setGraphState: (graphState) => set({ graphState }),
   setEntrySessionId: (entrySessionId) => set({ entrySessionId }),
   setAgentSessionId: (agentSessionId) => set({ agentSessionId }),
-  enterOperatorMode: (activeWorkspaceId) => set({ mode: 'operator', activeWorkspaceId, activeSidebarItem: 'chat' }),
+  enterOperatorMode: (activeSaaSAgentId) => set({ mode: 'operator', activeSaaSAgentId, activeSidebarItem: 'chat' }),
   setActiveSidebarItem: (activeSidebarItem) => set({ activeSidebarItem }),
   setSelectedDebugNode: (selectedDebugNode) => set({ selectedDebugNode }),
   setDraft: (draft) => set({ draft }),
@@ -146,8 +146,8 @@ export const useEntryStore = create<EntryState>((set) => ({
     const selectedStillExists = state.canvasArtifactId
       ? uiArtifacts.some((artifact) => artifact.id === state.canvasArtifactId && isCanvasCapable(artifact))
       : false
-    const activeWorkspaceId = payload.state.active_workspace_id || state.activeWorkspaceId
-    const hasWorkspace = Boolean(activeWorkspaceId)
+    const activeSaaSAgentId = payload.state.active_saas_agent_id || state.activeSaaSAgentId
+    const hasSaaSAgent = Boolean(activeSaaSAgentId)
     return {
       graphState: payload.state,
       runId: payload.run_id || state.runId,
@@ -155,9 +155,9 @@ export const useEntryStore = create<EntryState>((set) => ({
       graphManifest: payload.graph_manifest || state.graphManifest,
       routeDeckSnapshot: payload.route_deck_snapshot || state.routeDeckSnapshot,
       selectedDebugNode: state.selectedDebugNode || payload.route_deck_snapshot?.current_node || payload.state.node,
-      mode: hasWorkspace ? 'operator' : state.mode,
-      activeWorkspaceId,
-      activeSidebarItem: hasWorkspace && state.mode !== 'operator' ? 'chat' : state.activeSidebarItem,
+      mode: hasSaaSAgent ? 'operator' : state.mode,
+      activeSaaSAgentId,
+      activeSidebarItem: hasSaaSAgent && state.mode !== 'operator' ? 'chat' : state.activeSidebarItem,
       availableActions: Array.isArray(payload.available_actions) ? payload.available_actions : state.availableActions,
       persistentActions: Array.isArray(payload.persistent_actions) ? payload.persistent_actions : state.persistentActions,
       uiArtifacts,

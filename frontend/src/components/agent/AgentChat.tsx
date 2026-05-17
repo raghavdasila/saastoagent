@@ -6,29 +6,29 @@ import { ChatInput } from '@/components/agent/ChatInput'
 import { MessageBubble } from '@/components/agent/MessageBubble'
 import { useSSEChat } from '@/hooks/useSSEChat'
 import { api, ApiError } from '@/lib/api'
-import { formatWorkspaceDisplayName, OPERATOR_NAME } from '@/lib/entryGraph'
-import { useWorkspaceStore } from '@/stores/workspaceStore'
+import { formatSaaSAgentDisplayName, OPERATOR_NAME } from '@/lib/entryGraph'
+import { useSaaSAgentStore } from '@/stores/saasAgentStore'
 import type {
   AgentDocument,
   AgentMessageRow,
   AgentSession,
   ChatUIMessage,
 } from '@/types/agent'
-import type { Workspace } from '@/types/domain'
+import type { SaaSAgent } from '@/types/domain'
 
 const STARTER_PROMPTS = [
-  'Map the SaaS operating workflow you should own in this workspace.',
+  'Map the SaaS operating workflow you should own in this saasAgent.',
   'Summarise the documents I uploaded and turn them into operator guidance.',
-  'What can this workspace do right now, and what is still missing?',
+  'What can this saasAgent do right now, and what is still missing?',
 ]
 
 interface AgentChatProps {
-  workspace?: Workspace
+  saasAgent?: SaaSAgent
 }
 
-export function AgentChat({ workspace }: AgentChatProps) {
-  const workspaceId = useWorkspaceStore((state) => state.workspaceId)
-  const setActiveView = useWorkspaceStore((state) => state.setActiveView)
+export function AgentChat({ saasAgent }: AgentChatProps) {
+  const saasAgentId = useSaaSAgentStore((state) => state.saasAgentId)
+  const setActiveView = useSaaSAgentStore((state) => state.setActiveView)
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const [injectText, setInjectText] = useState('')
@@ -42,34 +42,34 @@ export function AgentChat({ workspace }: AgentChatProps) {
     setMessages,
     setSessionId,
   } = useSSEChat({
-    workspaceId,
+    saasAgentId,
     onError: setError,
   })
 
   // Sessions list (sidebar)
   const { data: sessionsData } = useQuery({
-    queryKey: ['agent-sessions', workspaceId],
+    queryKey: ['agent-sessions', saasAgentId],
     queryFn: () =>
       api.get<{ sessions: AgentSession[]; total: number }>(
-        `/workspaces/${workspaceId}/agent/sessions`,
+        `/saas-agents/${saasAgentId}/agent/sessions`,
       ),
-    enabled: !!workspaceId,
+    enabled: !!saasAgentId,
   })
 
   // Refetch when stream finishes (new session may have been created)
   useEffect(() => {
     if (!isStreaming && sessionId) {
-      queryClient.invalidateQueries({ queryKey: ['agent-sessions', workspaceId] })
+      queryClient.invalidateQueries({ queryKey: ['agent-sessions', saasAgentId] })
     }
-  }, [isStreaming, sessionId, workspaceId, queryClient])
+  }, [isStreaming, sessionId, saasAgentId, queryClient])
 
   // Load history when picking an existing session
   const loadSession = useCallback(
     async (sid: string) => {
-      if (!workspaceId) return
+      if (!saasAgentId) return
       try {
         const rows = await api.get<AgentMessageRow[]>(
-          `/workspaces/${workspaceId}/agent/sessions/${sid}/messages`,
+          `/saas-agents/${saasAgentId}/agent/sessions/${sid}/messages`,
         )
         const ui: ChatUIMessage[] = rows.map((r) => ({
           id: r.id,
@@ -92,14 +92,14 @@ export function AgentChat({ workspace }: AgentChatProps) {
         setError(e instanceof Error ? e.message : 'Failed to load session')
       }
     },
-    [workspaceId, setMessages, setSessionId],
+    [saasAgentId, setMessages, setSessionId],
   )
 
   const deleteSession = useMutation({
     mutationFn: (sid: string) =>
-      api.delete<{ status: string }>(`/workspaces/${workspaceId}/agent/sessions/${sid}`),
+      api.delete<{ status: string }>(`/saas-agents/${saasAgentId}/agent/sessions/${sid}`),
     onSuccess: (_, sid) => {
-      queryClient.invalidateQueries({ queryKey: ['agent-sessions', workspaceId] })
+      queryClient.invalidateQueries({ queryKey: ['agent-sessions', saasAgentId] })
       if (sid === sessionId) {
         clearMessages()
       }
@@ -108,9 +108,9 @@ export function AgentChat({ workspace }: AgentChatProps) {
 
   const uploadFile = useMutation({
     mutationFn: (file: File) =>
-      api.upload<AgentDocument>(`/workspaces/${workspaceId}/agent/documents`, file),
+      api.upload<AgentDocument>(`/saas-agents/${saasAgentId}/agent/documents`, file),
     onSuccess: (doc) => {
-      queryClient.invalidateQueries({ queryKey: ['agent-documents', workspaceId] })
+      queryClient.invalidateQueries({ queryKey: ['agent-documents', saasAgentId] })
       setInjectText(`Tell me what's in ${doc.original_name}`)
     },
     onError: (e) => {
@@ -119,7 +119,7 @@ export function AgentChat({ workspace }: AgentChatProps) {
   })
 
   const sessions = sessionsData?.sessions ?? []
-  const workspaceName = formatWorkspaceDisplayName(workspace?.name) || 'this workspace'
+  const saasAgentName = formatSaaSAgentDisplayName(saasAgent?.name) || 'this saasAgent'
   const operatorTitle = OPERATOR_NAME
 
   const handleSend = (text: string) => {
@@ -202,7 +202,7 @@ export function AgentChat({ workspace }: AgentChatProps) {
               <Bot className="h-5 w-5 text-sky-600" />
               <div>
                 <h1 className="text-lg font-semibold text-slate-900 dark:text-white">{operatorTitle}</h1>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{workspaceName}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{saasAgentName}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -232,7 +232,7 @@ export function AgentChat({ workspace }: AgentChatProps) {
             <div className="mx-auto flex max-w-3xl flex-col items-center justify-center px-6 py-16 text-center">
               <Bot className="h-10 w-10 text-sky-500" />
               <h2 className="mt-4 text-2xl font-semibold text-slate-900 dark:text-white">
-                Direct the operator in {workspaceName}
+                Direct the operator in {saasAgentName}
               </h2>
               <p className="mt-2 max-w-lg text-sm text-slate-600 dark:text-slate-400">
                 The operator can reason over uploaded documents, persistent memory, and bound tools. Try one of these to start:
@@ -273,7 +273,7 @@ export function AgentChat({ workspace }: AgentChatProps) {
             <ChatInput
               onSend={handleSend}
               onFileUpload={(file) => uploadFile.mutate(file)}
-              disabled={isStreaming || !workspaceId}
+              disabled={isStreaming || !saasAgentId}
               placeholder="Describe what you need done"
               injectText={injectText}
             />

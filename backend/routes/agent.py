@@ -1,7 +1,7 @@
-"""Workspace-scoped agent endpoints.
+"""SaaS Agent-scoped agent endpoints.
 
-All routes live under `/api/workspaces/{workspace_id}/agent/...` and require
-that the requesting user is a member of the workspace. Admin endpoints
+All routes live under `/api/saas-agents/{saas_agent_id}/agent/...` and require
+that the requesting user is a member of the SaaS Agent. Admin endpoints
 additionally require `owner` or `admin` role.
 """
 
@@ -20,18 +20,21 @@ from backend.core.database import get_async_session
 from backend.core.models import (
     AgentDocument,
     AgentDocumentChunk,
+    AgentLearningCandidate,
     AgentMemory,
     AgentMessage,
     AgentSession,
     User,
-    Workspace,
-    WorkspaceMember,
-    WorkspaceRole,
+    SaaSAgent,
+    SaaSAgentMember,
+    SaaSAgentRole,
 )
 from backend.core.schemas import (
     AgentAdminStats,
     AgentDocumentChunkRead,
     AgentDocumentRead,
+    AgentLearningCandidateRead,
+    AgentMemoryCreate,
     AgentMemoryRead,
     AgentMessageRead,
     AgentSessionList,
@@ -40,9 +43,11 @@ from backend.core.schemas import (
 )
 from backend.services.agent.chat_service import chat_service
 from backend.services.agent.anonymous_rate_limit import anonymous_chat_rate_limiter
+from backend.services.agent.learning_service import learning_service
+from backend.services.agent.memory_service import memory_service
 from backend.services.agent.rag_service import rag_service
 
-router = APIRouter(prefix="/api/workspaces/{workspace_id}/agent", tags=["agent"])
+router = APIRouter(prefix="/api/saas-agents/{saas_agent_id}/agent", tags=["agent"])
 
 ALLOWED_TYPES = {
     "application/pdf",
@@ -69,35 +74,35 @@ def _client_ip(request: Request) -> str:
 
 
 async def _require_member(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     user: User,
     db: AsyncSession,
-) -> WorkspaceMember:
+) -> SaaSAgentMember:
     res = await db.execute(
-        select(WorkspaceMember).where(
-            WorkspaceMember.workspace_id == workspace_id,
-            WorkspaceMember.user_id == user.id,
+        select(SaaSAgentMember).where(
+            SaaSAgentMember.saas_agent_id == saas_agent_id,
+            SaaSAgentMember.user_id == user.id,
         )
     )
     member = res.scalar_one_or_none()
     if member is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not a member of this workspace",
+            detail="Not a member of this SaaS Agent",
         )
     return member
 
 
 async def _require_admin(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     user: User,
     db: AsyncSession,
-) -> WorkspaceMember:
-    member = await _require_member(workspace_id, user, db)
-    if member.role not in (WorkspaceRole.owner, WorkspaceRole.admin):
+) -> SaaSAgentMember:
+    member = await _require_member(saas_agent_id, user, db)
+    if member.role not in (SaaSAgentRole.owner, SaaSAgentRole.admin):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Workspace admin role required",
+            detail="SaaS Agent admin role required",
         )
     return member
 
@@ -107,18 +112,18 @@ async def _require_admin(
 
 @router.post("/chat")
 async def agent_chat(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     body: ChatRequest,
     request: Request,
     user: User | None = Depends(current_optional_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
     if user is not None:
-        await _require_member(workspace_id, user, db)
+        await _require_member(saas_agent_id, user, db)
     else:
-        workspace = await db.get(Workspace, workspace_id)
-        if workspace is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace not found")
+        saas_agent = await db.get(SaaSAgent, saas_agent_id)
+        if saas_agent is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SaaS Agent not found")
         rate = anonymous_chat_rate_limiter.check(
             _client_ip(request),
             limit=settings.anonymous_chat_messages_per_hour,
@@ -134,7 +139,7 @@ async def agent_chat(
     async def generate():
         async for event in chat_service.run(
             message=body.message,
-            workspace_id=workspace_id,
+            saas_agent_id=saas_agent_id,
             user_id=user.id if user else None,
             session_id=body.session_id,
             reasoning_mode=body.reasoning_mode,
@@ -159,15 +164,15 @@ async def agent_chat(
 
 @router.get("/sessions", response_model=AgentSessionList)
 async def list_sessions(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_member(workspace_id, user, db)
+    await _require_member(saas_agent_id, user, db)
     stmt = (
         select(AgentSession, func.count(AgentMessage.id).label("message_count"))
         .outerjoin(AgentMessage, AgentMessage.session_id == AgentSession.id)
-        .where(AgentSession.workspace_id == workspace_id)
+        .where(AgentSession.saas_agent_id == saas_agent_id)
         .group_by(AgentSession.id)
         .order_by(AgentSession.updated_at.desc())
     )
@@ -175,7 +180,7 @@ async def list_sessions(
     sessions = [
         AgentSessionRead(
             id=s.id,
-            workspace_id=s.workspace_id,
+            saas_agent_id=s.saas_agent_id,
             user_id=s.user_id,
             title=s.title,
             created_at=s.created_at,
@@ -189,14 +194,14 @@ async def list_sessions(
 
 @router.get("/sessions/{session_id}/messages", response_model=list[AgentMessageRead])
 async def get_session_messages(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     session_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_member(workspace_id, user, db)
+    await _require_member(saas_agent_id, user, db)
     session = await db.get(AgentSession, session_id)
-    if not session or session.workspace_id != workspace_id:
+    if not session or session.saas_agent_id != saas_agent_id:
         raise HTTPException(status_code=404, detail="Session not found")
     res = await db.execute(
         select(AgentMessage)
@@ -208,14 +213,14 @@ async def get_session_messages(
 
 @router.delete("/sessions/{session_id}")
 async def delete_session(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     session_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_member(workspace_id, user, db)
+    await _require_member(saas_agent_id, user, db)
     session = await db.get(AgentSession, session_id)
-    if not session or session.workspace_id != workspace_id:
+    if not session or session.saas_agent_id != saas_agent_id:
         raise HTTPException(status_code=404, detail="Session not found")
     await db.delete(session)
     await db.commit()
@@ -227,12 +232,12 @@ async def delete_session(
 
 @router.post("/documents", response_model=AgentDocumentRead)
 async def upload_document(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     file: UploadFile,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_member(workspace_id, user, db)
+    await _require_member(saas_agent_id, user, db)
 
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided")
@@ -248,7 +253,7 @@ async def upload_document(
         )
 
     doc = await rag_service.ingest_document(
-        workspace_id=workspace_id,
+        saas_agent_id=saas_agent_id,
         uploaded_by=user.id,
         file_content=content,
         original_name=file.filename,
@@ -260,28 +265,38 @@ async def upload_document(
 
 @router.get("/documents", response_model=list[AgentDocumentRead])
 async def list_documents(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_member(workspace_id, user, db)
+    await _require_member(saas_agent_id, user, db)
     res = await db.execute(
         select(AgentDocument)
-        .where(AgentDocument.workspace_id == workspace_id)
+        .where(AgentDocument.saas_agent_id == saas_agent_id)
         .order_by(AgentDocument.created_at.desc())
     )
     return [AgentDocumentRead.model_validate(d) for d in res.scalars().all()]
 
 
+@router.post("/rag/generate")
+async def generate_agent_rag(
+    saas_agent_id: uuid.UUID,
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    await _require_member(saas_agent_id, user, db)
+    return await rag_service.ingest_generated_knowledge(saas_agent_id=saas_agent_id, db=db)
+
+
 @router.delete("/documents/{document_id}")
 async def delete_document(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     document_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_member(workspace_id, user, db)
-    deleted = await rag_service.delete_document(document_id, workspace_id, db)
+    await _require_member(saas_agent_id, user, db)
+    deleted = await rag_service.delete_document(document_id, saas_agent_id, db)
     if not deleted:
         raise HTTPException(status_code=404, detail="Document not found")
     return {"status": "deleted"}
@@ -292,70 +307,143 @@ async def delete_document(
 
 @router.get("/memories", response_model=list[AgentMemoryRead])
 async def list_memories(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_member(workspace_id, user, db)
+    await _require_member(saas_agent_id, user, db)
     res = await db.execute(
         select(AgentMemory)
-        .where(AgentMemory.workspace_id == workspace_id)
+        .where(AgentMemory.saas_agent_id == saas_agent_id)
         .order_by(AgentMemory.created_at.desc())
     )
     return [AgentMemoryRead.model_validate(m) for m in res.scalars().all()]
 
 
+@router.post("/memories", response_model=AgentMemoryRead, status_code=status.HTTP_201_CREATED)
+async def create_memory(
+    saas_agent_id: uuid.UUID,
+    body: AgentMemoryCreate,
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    await _require_member(saas_agent_id, user, db)
+    mem = await memory_service.save(
+        body.content,
+        saas_agent_id=saas_agent_id,
+        category=body.category,
+        user_id=user.id,
+        db=db,
+    )
+    return AgentMemoryRead.model_validate(mem)
+
+
 @router.delete("/memories/{memory_id}")
 async def delete_memory(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     memory_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_admin(workspace_id, user, db)
+    await _require_admin(saas_agent_id, user, db)
     mem = await db.get(AgentMemory, memory_id)
-    if not mem or mem.workspace_id != workspace_id:
+    if not mem or mem.saas_agent_id != saas_agent_id:
         raise HTTPException(status_code=404, detail="Memory not found")
     await db.delete(mem)
     await db.commit()
     return {"status": "deleted"}
 
 
-# ── Workspace admin (owner/admin only) ─────────────────────────────
+@router.get("/learnings", response_model=list[AgentLearningCandidateRead])
+async def list_learnings(
+    saas_agent_id: uuid.UUID,
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    await _require_member(saas_agent_id, user, db)
+    result = await db.execute(
+        select(AgentLearningCandidate)
+        .where(AgentLearningCandidate.saas_agent_id == saas_agent_id)
+        .order_by(AgentLearningCandidate.created_at.desc())
+    )
+    return [AgentLearningCandidateRead.model_validate(candidate) for candidate in result.scalars().all()]
+
+
+@router.post("/learnings/{candidate_id}/approve", response_model=AgentLearningCandidateRead)
+async def approve_learning(
+    saas_agent_id: uuid.UUID,
+    candidate_id: uuid.UUID,
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    await _require_member(saas_agent_id, user, db)
+    candidate = await learning_service.review(
+        candidate_id=candidate_id,
+        saas_agent_id=saas_agent_id,
+        status="approved",
+        reviewed_by=user.id,
+        db=db,
+    )
+    if candidate is None:
+        raise HTTPException(status_code=404, detail="Learning candidate not found")
+    return AgentLearningCandidateRead.model_validate(candidate)
+
+
+@router.post("/learnings/{candidate_id}/reject", response_model=AgentLearningCandidateRead)
+async def reject_learning(
+    saas_agent_id: uuid.UUID,
+    candidate_id: uuid.UUID,
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    await _require_member(saas_agent_id, user, db)
+    candidate = await learning_service.review(
+        candidate_id=candidate_id,
+        saas_agent_id=saas_agent_id,
+        status="rejected",
+        reviewed_by=user.id,
+        db=db,
+    )
+    if candidate is None:
+        raise HTTPException(status_code=404, detail="Learning candidate not found")
+    return AgentLearningCandidateRead.model_validate(candidate)
+
+
+# ── SaaSAgent admin (owner/admin only) ─────────────────────────────
 
 
 @router.get("/admin/stats", response_model=AgentAdminStats)
 async def admin_stats(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_admin(workspace_id, user, db)
+    await _require_admin(saas_agent_id, user, db)
     sessions = (
         await db.execute(
             select(func.count(AgentSession.id)).where(
-                AgentSession.workspace_id == workspace_id
+                AgentSession.saas_agent_id == saas_agent_id
             )
         )
     ).scalar() or 0
     messages = (
         await db.execute(
             select(func.count(AgentMessage.id)).where(
-                AgentMessage.workspace_id == workspace_id
+                AgentMessage.saas_agent_id == saas_agent_id
             )
         )
     ).scalar() or 0
     documents = (
         await db.execute(
             select(func.count(AgentDocument.id)).where(
-                AgentDocument.workspace_id == workspace_id
+                AgentDocument.saas_agent_id == saas_agent_id
             )
         )
     ).scalar() or 0
     memories = (
         await db.execute(
             select(func.count(AgentMemory.id)).where(
-                AgentMemory.workspace_id == workspace_id
+                AgentMemory.saas_agent_id == saas_agent_id
             )
         )
     ).scalar() or 0
@@ -372,14 +460,14 @@ async def admin_stats(
     response_model=list[AgentDocumentChunkRead],
 )
 async def admin_get_document_chunks(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     document_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_admin(workspace_id, user, db)
+    await _require_admin(saas_agent_id, user, db)
     doc = await db.get(AgentDocument, document_id)
-    if not doc or doc.workspace_id != workspace_id:
+    if not doc or doc.saas_agent_id != saas_agent_id:
         raise HTTPException(status_code=404, detail="Document not found")
     res = await db.execute(
         select(AgentDocumentChunk)
@@ -400,14 +488,14 @@ async def admin_get_document_chunks(
 
 @router.delete("/admin/sessions/{session_id}")
 async def admin_delete_session(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     session_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_admin(workspace_id, user, db)
+    await _require_admin(saas_agent_id, user, db)
     session = await db.get(AgentSession, session_id)
-    if not session or session.workspace_id != workspace_id:
+    if not session or session.saas_agent_id != saas_agent_id:
         raise HTTPException(status_code=404, detail="Session not found")
     await db.delete(session)
     await db.commit()
@@ -416,14 +504,14 @@ async def admin_delete_session(
 
 @router.delete("/admin/sessions")
 async def admin_clear_sessions(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    """Wipe all chat sessions for this workspace."""
-    await _require_admin(workspace_id, user, db)
+    """Wipe all chat sessions for this SaaS Agent."""
+    await _require_admin(saas_agent_id, user, db)
     await db.execute(
-        delete(AgentSession).where(AgentSession.workspace_id == workspace_id)
+        delete(AgentSession).where(AgentSession.saas_agent_id == saas_agent_id)
     )
     await db.commit()
     return {"status": "cleared"}

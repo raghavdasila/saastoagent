@@ -27,9 +27,9 @@ export type GatewayNode =
   | 'display_name'
   | 'email'
   | 'password'
-  | 'workspace_select'
-  | 'workspace_job'
-  | 'workspace_confirm'
+  | 'saas_agent_select'
+  | 'saas_agent_job'
+  | 'saas_agent_confirm'
   | 'setup_intro'
   | 'connection_confirm'
   | 'operator_ready'
@@ -39,9 +39,9 @@ export interface GatewayState {
   intent: AuthIntent | null
   display_name: string
   email: string
-  workspace_name: string
-  workspace_slug: string
-  active_workspace_id: string | null
+  saas_agent_name: string
+  saas_agent_slug: string
+  active_saas_agent_id: string | null
   active_connection_id?: string | null
   connection_draft?: Record<string, unknown>
   entry_draft?: Record<string, unknown>
@@ -129,6 +129,36 @@ export interface RouteDeckRuntimeSnapshot {
   diagnostics?: Record<string, unknown>
 }
 
+export interface SaaSAgentRouteDeckContext {
+  saas_agent_id: string
+  saas_agent_name?: string | null
+  saas_agent_slug?: string | null
+  current_node?: string | null
+  current_label?: string | null
+  working_on?: string | null
+  connection_count?: number
+  ready_connection_count?: number
+  action_count?: number
+  tool_count?: number
+  latest_connection_id?: string | null
+  latest_connection_name?: string | null
+  latest_activation_status?: string | null
+  latest_activation_step?: string | null
+  blocked_reason?: string | null
+  latest_execution_id?: string | null
+  latest_execution_status?: string | null
+  latest_execution_approval_state?: string | null
+  latest_execution_tool_name?: string | null
+  latest_execution_risk?: string | null
+  reachable_nodes?: string[]
+}
+
+export interface SaaSAgentRouteDeckResponse {
+  manifest: EntryGraphManifest
+  snapshot: RouteDeckRuntimeSnapshot
+  context: SaaSAgentRouteDeckContext
+}
+
 export interface EntryGraphManifest {
   version: string
   nodes: EntryGraphManifestNode[]
@@ -141,7 +171,7 @@ export interface EntryGraphManifest {
 export interface StageCompletedEvent {
   output?: {
     next_node?: GatewayNode
-    active_workspace_id?: string | null
+    active_saas_agent_id?: string | null
     active_connection_id?: string | null
     replace_path?: string | null
     available_actions?: EntryActionCard[]

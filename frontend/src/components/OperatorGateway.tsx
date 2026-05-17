@@ -8,6 +8,7 @@ import { AdminPanel } from '@/components/agent/AdminPanel'
 import { AttachmentsPanel } from '@/components/agent/AttachmentsPanel'
 import { ChatInput } from '@/components/agent/ChatInput'
 import { CommandComposer } from '@/components/agent/CommandComposer'
+import { LearningPanel } from '@/components/agent/LearningPanel'
 import { MessageBubble } from '@/components/agent/MessageBubble'
 import { ThinkingIndicator } from '@/components/agent/ThinkingIndicator'
 import { EntryActionCards } from '@/components/entry/EntryActionCards'
@@ -26,21 +27,21 @@ import {
 import { RouteDeckNavWidget } from '@/components/operator/RouteDeckNavWidget'
 import { QAAgentPanel } from '@/components/qa/QAAgentPanel'
 import { ThemeToggleButton } from '@/components/theme/ThemeToggleButton'
-import { ActionsCanvas } from '@/components/workspace/ActionsCanvas'
-import { ConnectSetupView } from '@/components/workspace/ConnectSetupView'
-import { EntitiesCanvas } from '@/components/workspace/EntitiesCanvas'
+import { ActionsCanvas } from '@/components/saasAgent/ActionsCanvas'
+import { ConnectSetupView } from '@/components/saasAgent/ConnectSetupView'
+import { EntitiesCanvas } from '@/components/saasAgent/EntitiesCanvas'
 import { useAuth } from '@/context/AuthContext'
 import { useSSEChat } from '@/hooks/useSSEChat'
 import { api, ApiError } from '@/lib/api'
 import { cn } from '@/lib/cn'
-import { formatWorkspaceDisplayName, OPERATOR_NAME, PRODUCT_NAME } from '@/lib/entryGraph'
-import { entryCapabilities, findCapabilityAction, pickNextBestAction, workspaceCapabilities, type OperatorCapabilityDefinition } from '@/lib/operatorExperience'
+import { formatSaaSAgentDisplayName, OPERATOR_NAME, PRODUCT_NAME } from '@/lib/entryGraph'
+import { entryCapabilities, findCapabilityAction, pickNextBestAction, saasAgentCapabilities, type OperatorCapabilityDefinition } from '@/lib/operatorExperience'
 import { storage } from '@/lib/storage'
 import { useAuthStore } from '@/stores/authStore'
 import { useEntryStore } from '@/stores/entryStore'
-import { useWorkspaceStore, type WorkspaceView } from '@/stores/workspaceStore'
+import { useSaaSAgentStore, type SaaSAgentView } from '@/stores/saasAgentStore'
 import type { AgentDocument, AgentHandoffContext } from '@/types/agent'
-import type { Workspace, WorkspaceStats } from '@/types/domain'
+import type { SaaSAgent, SaaSAgentStats } from '@/types/domain'
 import type {
   AuthIntent,
   EntryActionCard,
@@ -50,6 +51,8 @@ import type {
   GatewayNode,
   OperatorExperienceMode,
   OperatorSidebarItem,
+  SaaSAgentRouteDeckContext,
+  SaaSAgentRouteDeckResponse,
   StageCompletedEvent,
 } from '@/types/entry'
 
@@ -67,7 +70,7 @@ type EntryStreamEvent =
 
 export interface OperatorGatewayProps {
   initialIntent?: AuthIntent
-  initialWorkspaceId?: string | null
+  initialSaaSAgentId?: string | null
 }
 
 const agentStarterPrompts = [
@@ -93,9 +96,9 @@ function isCanvasCapableArtifact(artifact: EntryUIArtifact): boolean {
   return artifact.surface === 'canvas' || artifact.surface === 'both'
 }
 
-function workspaceIdFromPath(path?: string | null): string | null {
+function saasAgentIdFromPath(path?: string | null): string | null {
   if (!path) return null
-  const match = /^\/w\/([^/?#]+)/.exec(path)
+  const match = /^\/agents\/([^/?#]+)/.exec(path)
   return match ? decodeURIComponent(match[1]) : null
 }
 
@@ -114,13 +117,13 @@ function dedupeActions(actions: EntryActionCard[]): EntryActionCard[] {
   return deduped
 }
 
-export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorGatewayProps) {
+export function OperatorGateway({ initialIntent, initialSaaSAgentId }: OperatorGatewayProps) {
   const { isLoading: authLoading, user, logout } = useAuth()
   const applySession = useAuthStore((state) => state.applySession)
 
   const gs = useEntryStore((state) => state.graphState)
   const mode = useEntryStore((state) => state.mode)
-  const activeWorkspaceId = useEntryStore((state) => state.activeWorkspaceId)
+  const activeSaaSAgentId = useEntryStore((state) => state.activeSaaSAgentId)
   const activeSidebarItem = useEntryStore((state) => state.activeSidebarItem)
   const entrySessionId = useEntryStore((state) => state.entrySessionId)
   const agentSessionId = useEntryStore((state) => state.agentSessionId)
@@ -158,13 +161,13 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   const setSelectedDebugNode = useEntryStore((state) => state.setSelectedDebugNode)
   const resetEntryForQA = useEntryStore((state) => state.resetEntryForQA)
 
-  const setWorkspaceId = useWorkspaceStore((state) => state.setWorkspaceId)
-  const setWorkspaceActiveView = useWorkspaceStore((state) => state.setActiveView)
+  const setSaaSAgentId = useSaaSAgentStore((state) => state.setSaaSAgentId)
+  const setSaaSAgentActiveView = useSaaSAgentStore((state) => state.setActiveView)
 
   const queryClient = useQueryClient()
   const [operatorError, setOperatorError] = useState<string | null>(null)
   const [injectText, setInjectText] = useState('')
-  const [handoffWorkspaceId, setHandoffWorkspaceId] = useState<string | null>(initialWorkspaceId ?? null)
+  const [handoffSaaSAgentId, setHandoffSaaSAgentId] = useState<string | null>(initialSaaSAgentId ?? null)
   const [evidenceOpen, setEvidenceOpen] = useState(false)
   const [autonomyLevel, setAutonomyLevel] = useState<AutonomyLevel>('ask')
 
@@ -174,15 +177,15 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   const streamCursorRef = useRef(0)
   const streamBufferRef = useRef('')
   const entrySessionIdRef = useRef<string | null>(entrySessionId)
-  const routeWorkspaceId = useMemo(
-    () => initialWorkspaceId || workspaceIdFromPath(window.location.pathname),
-    [initialWorkspaceId],
+  const routeSaaSAgentId = useMemo(
+    () => initialSaaSAgentId || saasAgentIdFromPath(window.location.pathname),
+    [initialSaaSAgentId],
   )
 
-  const graphWorkspaceId = typeof gs?.active_workspace_id === 'string' ? gs.active_workspace_id : null
-  const workspaceId = handoffWorkspaceId || activeWorkspaceId || graphWorkspaceId || routeWorkspaceId || null
+  const graphSaaSAgentId = typeof gs?.active_saas_agent_id === 'string' ? gs.active_saas_agent_id : null
+  const saasAgentId = handoffSaaSAgentId || activeSaaSAgentId || graphSaaSAgentId || routeSaaSAgentId || null
   const entryGraphActive = isEntryGraphActive(gs?.node)
-  const showOperatorMode = Boolean(workspaceId) && !entryGraphActive && (mode === 'operator' || Boolean(handoffWorkspaceId) || Boolean(graphWorkspaceId) || Boolean(routeWorkspaceId))
+  const showOperatorMode = Boolean(saasAgentId) && !entryGraphActive && (mode === 'operator' || Boolean(handoffSaaSAgentId) || Boolean(graphSaaSAgentId) || Boolean(routeSaaSAgentId))
   const canvasArtifacts = useMemo(
     () => uiArtifacts.filter(isCanvasCapableArtifact),
     [uiArtifacts],
@@ -198,26 +201,33 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
     sessionId: liveAgentSessionId,
     sendMessage: sendAgentMessage,
   } = useSSEChat({
-    workspaceId,
+    saasAgentId,
     onError: setOperatorError,
   })
 
-  const { data: workspace } = useQuery({
-    queryKey: ['workspace', workspaceId],
-    queryFn: () => api.get<Workspace>(`/workspaces/${workspaceId}`),
-    enabled: !!workspaceId && !!user,
+  const { data: saasAgent } = useQuery({
+    queryKey: ['saasAgent', saasAgentId],
+    queryFn: () => api.get<SaaSAgent>(`/saas-agents/${saasAgentId}`),
+    enabled: !!saasAgentId && !!user,
   })
 
   const { data: stats } = useQuery({
-    queryKey: ['workspace-stats', workspaceId],
-    queryFn: () => api.get<WorkspaceStats>(`/workspaces/${workspaceId}/stats`),
-    enabled: !!workspaceId && !!user,
+    queryKey: ['saasAgent-stats', saasAgentId],
+    queryFn: () => api.get<SaaSAgentStats>(`/saas-agents/${saasAgentId}/stats`),
+    enabled: !!saasAgentId && !!user,
+  })
+
+  const { data: saasAgentRouteDeck } = useQuery({
+    queryKey: ['saasAgent-route-deck', saasAgentId, stats?.connections_count, stats?.tools_count],
+    queryFn: () => api.get<SaaSAgentRouteDeckResponse>(`/saas-agents/${saasAgentId}/route-deck`),
+    enabled: showOperatorMode && !!saasAgentId && !!user,
+    refetchInterval: showOperatorMode ? 10_000 : false,
   })
 
   const uploadFile = useMutation({
-    mutationFn: (file: File) => api.upload<AgentDocument>(`/workspaces/${workspaceId}/agent/documents`, file),
+    mutationFn: (file: File) => api.upload<AgentDocument>(`/saas-agents/${saasAgentId}/agent/documents`, file),
     onSuccess: (doc) => {
-      queryClient.invalidateQueries({ queryKey: ['agent-documents', workspaceId] })
+      queryClient.invalidateQueries({ queryKey: ['agent-documents', saasAgentId] })
       setInjectText(`Tell me what's in ${doc.original_name}`)
     },
     onError: (error) => {
@@ -225,8 +235,8 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
     },
   })
   const { data: persistentActionsData } = useQuery<EntryPersistentActionsResponse>({
-    queryKey: ['entry-persistent-actions', Boolean(user), workspaceId],
-    queryFn: () => api.get(`/entry/persistent-actions${workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : ''}`),
+    queryKey: ['entry-persistent-actions', Boolean(user), saasAgentId],
+    queryFn: () => api.get(`/entry/persistent-actions${saasAgentId ? `?saas_agent_id=${encodeURIComponent(saasAgentId)}` : ''}`),
     enabled: !entryGraphActive,
     staleTime: 30_000,
   })
@@ -245,36 +255,41 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
     [availableActions, persistentActions],
   )
   const visibleMode: OperatorExperienceMode = showOperatorMode ? 'operator' : 'entry'
-  const capabilities = visibleMode === 'operator' ? workspaceCapabilities : entryCapabilities
+  const capabilities = visibleMode === 'operator' ? saasAgentCapabilities : entryCapabilities
   const activeCapability = capabilities.find((candidate) => candidate.id === activeSidebarItem)
   const capabilityRuntime = useMemo(
     () => ({
       busy: showOperatorMode ? agentStreaming : busy,
-      hasWorkspace: Boolean(workspaceId),
+      hasSaaSAgent: Boolean(saasAgentId),
       isAuthenticated: Boolean(user),
       stats,
       operatorError,
     }),
-    [agentStreaming, busy, operatorError, stats, user, workspaceId, showOperatorMode],
+    [agentStreaming, busy, operatorError, stats, user, saasAgentId, showOperatorMode],
   )
   const readiness = useMemo(
     () => buildReadiness({
       mode: visibleMode,
-      workspaceId,
+      saasAgentId,
       stats,
       isAuthenticated: Boolean(user),
       operatorError,
     }),
-    [operatorError, stats, user, visibleMode, workspaceId],
+    [operatorError, stats, user, visibleMode, saasAgentId],
   )
   const nextBestAction = useMemo(
     () => pickNextBestAction(actionLookup, visibleMode),
     [actionLookup, visibleMode],
   )
-  const workspaceDisplayName = useMemo(
-    () => formatWorkspaceDisplayName(workspace?.name),
-    [workspace?.name],
+  const saasAgentDisplayName = useMemo(
+    () => formatSaaSAgentDisplayName(saasAgent?.name),
+    [saasAgent?.name],
   )
+  const activeGraphManifest = showOperatorMode && saasAgentRouteDeck?.manifest ? saasAgentRouteDeck.manifest : graphManifest
+  const activeRouteDeckSnapshot = showOperatorMode && saasAgentRouteDeck?.snapshot ? saasAgentRouteDeck.snapshot : routeDeckSnapshot
+  const activeGraphNode = showOperatorMode
+    ? saasAgentRouteDeck?.snapshot?.current_node || null
+    : gs?.node || null
 
   useEffect(() => {
     if (persistentActionsData) {
@@ -293,15 +308,15 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   }, [allMessages])
 
   useEffect(() => {
-    if (routeWorkspaceId) {
-      setHandoffWorkspaceId(routeWorkspaceId)
-      enterOperatorMode(routeWorkspaceId)
+    if (routeSaaSAgentId) {
+      setHandoffSaaSAgentId(routeSaaSAgentId)
+      enterOperatorMode(routeSaaSAgentId)
     }
-  }, [enterOperatorMode, routeWorkspaceId])
+  }, [enterOperatorMode, routeSaaSAgentId])
 
   useEffect(() => {
-    setWorkspaceId(workspaceId)
-  }, [setWorkspaceId, workspaceId])
+    setSaaSAgentId(saasAgentId)
+  }, [setSaaSAgentId, saasAgentId])
 
   useEffect(() => {
     if (liveAgentSessionId) {
@@ -323,17 +338,17 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
         applySession(payload.session.user, payload.session.access_token)
       }
 
-      const pathWorkspaceId = workspaceIdFromPath(payload.replace_path)
-      const resultWorkspaceId = payload.state.active_workspace_id || pathWorkspaceId
-      if (resultWorkspaceId) {
-        setHandoffWorkspaceId(resultWorkspaceId)
-        enterOperatorMode(resultWorkspaceId)
+      const pathSaaSAgentId = saasAgentIdFromPath(payload.replace_path)
+      const resultSaaSAgentId = payload.state.active_saas_agent_id || pathSaaSAgentId
+      if (resultSaaSAgentId) {
+        setHandoffSaaSAgentId(resultSaaSAgentId)
+        enterOperatorMode(resultSaaSAgentId)
       }
 
       if (payload.replace_path) {
         window.history.replaceState(null, '', payload.replace_path)
-      } else if (payload.state.node === 'operator_ready' && payload.state.active_workspace_id) {
-        window.history.replaceState(null, '', `/w/${payload.state.active_workspace_id}`)
+      } else if (payload.state.node === 'operator_ready' && payload.state.active_saas_agent_id) {
+        window.history.replaceState(null, '', `/agents/${payload.state.active_saas_agent_id}`)
       }
 
       if (Array.isArray(payload.available_actions)) {
@@ -369,11 +384,11 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
           if (output && Array.isArray(output.available_actions)) setAvailableActions(output.available_actions)
           if (output && Array.isArray(output.persistent_actions)) setPersistentActions(output.persistent_actions)
           if (output && Array.isArray(output.ui_artifacts)) applyArtifacts(output.ui_artifacts)
-          const pathWorkspaceId = output && typeof output.replace_path === 'string' ? workspaceIdFromPath(output.replace_path) : null
-          const stageWorkspaceId = output && typeof output.active_workspace_id === 'string' ? output.active_workspace_id : pathWorkspaceId
-          if (stageWorkspaceId) {
-            setHandoffWorkspaceId(stageWorkspaceId)
-            enterOperatorMode(stageWorkspaceId)
+          const pathSaaSAgentId = output && typeof output.replace_path === 'string' ? saasAgentIdFromPath(output.replace_path) : null
+          const stageSaaSAgentId = output && typeof output.active_saas_agent_id === 'string' ? output.active_saas_agent_id : pathSaaSAgentId
+          if (stageSaaSAgentId) {
+            setHandoffSaaSAgentId(stageSaaSAgentId)
+            enterOperatorMode(stageSaaSAgentId)
           }
           if (output && typeof output.replace_path === 'string') {
             window.history.replaceState(null, '', output.replace_path)
@@ -476,22 +491,22 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
         appendAssistantDelta('Connection failed', true)
         finishStream()
       }
-      const fallbackWorkspaceState = !forceFresh && !gs && workspaceId
+      const fallbackSaaSAgentState = !forceFresh && !gs && saasAgentId
         ? {
             node: 'operator_ready',
             intent: null,
             display_name: '',
             email: '',
-            workspace_name: '',
-            workspace_slug: '',
-            active_workspace_id: workspaceId,
+            saas_agent_name: '',
+            saas_agent_slug: '',
+            active_saas_agent_id: saasAgentId,
           }
         : undefined
 
       xhr.send(
         JSON.stringify({
           session_id: entrySessionIdRef.current,
-          state: fallbackWorkspaceState,
+          state: fallbackSaaSAgentState,
           user_input: userInput,
           selected_action_id: selectedActionId,
           action_payload: actionPayload,
@@ -499,7 +514,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
         }),
       )
     },
-    [appendAssistantDelta, clearAvailableActions, finishStream, gs, initialIntent, parseSSEChunk, setBusy, workspaceId],
+    [appendAssistantDelta, clearAvailableActions, finishStream, gs, initialIntent, parseSSEChunk, setBusy, saasAgentId],
   )
 
   useEffect(() => {
@@ -512,10 +527,10 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   }, [])
 
   useEffect(() => {
-    if (authLoading || bootstrapped.current || routeWorkspaceId) return
+    if (authLoading || bootstrapped.current || routeSaaSAgentId) return
     bootstrapped.current = true
     void runTurn({})
-  }, [authLoading, routeWorkspaceId, runTurn])
+  }, [authLoading, routeSaaSAgentId, runTurn])
 
   const handleEntrySend = useCallback(async () => {
     const value = draft.trim()
@@ -536,24 +551,46 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
     await runTurn({ selectedActionId: action.id, actionPayload: payload })
   }, [appendUser, busy, runTurn])
 
+  const handleRouteDeckActionSelect = useCallback((action: EntryActionCard) => {
+    if (!showOperatorMode) {
+      void handleActionSelect(action)
+      return
+    }
+    const targetSurface = typeof action.payload?.target_surface === 'string' ? action.payload.target_surface : null
+    if (targetSurface === 'connect') {
+      setActiveSidebarItem('connect')
+      return
+    }
+    if (targetSurface === 'actions') {
+      setActiveSidebarItem('actions')
+      setSaaSAgentActiveView('actions')
+      return
+    }
+    if (targetSurface === 'learn') {
+      setActiveSidebarItem('learn')
+      return
+    }
+    setActiveSidebarItem('chat')
+  }, [handleActionSelect, setActiveSidebarItem, setSaaSAgentActiveView, showOperatorMode])
+
   const handoffContext: AgentHandoffContext | null = useMemo(() => {
-    if (!workspaceId) return null
+    if (!saasAgentId) return null
     return {
       entry_session_id: entrySessionId,
-      workspace_id: workspaceId,
-      workspace_name: workspace?.name ?? null,
+      saas_agent_id: saasAgentId,
+      saas_agent_name: saasAgent?.name ?? null,
       entry_draft: gs?.entry_draft || {},
       connection_draft: gs?.connection_draft || {},
       active_connection_id: gs?.active_connection_id || null,
       recent_entry_messages: messages.slice(-8).map((message) => `${message.role}: ${message.content}`),
     }
-  }, [entrySessionId, gs?.active_connection_id, gs?.connection_draft, gs?.entry_draft, messages, workspace?.name, workspaceId])
+  }, [entrySessionId, gs?.active_connection_id, gs?.connection_draft, gs?.entry_draft, messages, saasAgent?.name, saasAgentId])
 
   const handleAgentSend = useCallback((value: string) => {
-    if (!workspaceId || agentStreaming) return
+    if (!saasAgentId || agentStreaming) return
     setOperatorError(null)
     sendAgentMessage(value, agentSessionId, 'balanced', handoffContext)
-  }, [agentSessionId, agentStreaming, handoffContext, sendAgentMessage, workspaceId])
+  }, [agentSessionId, agentStreaming, handoffContext, sendAgentMessage, saasAgentId])
 
   const handleQaResetRuntime = useCallback(async () => {
     if (xhrRef.current) {
@@ -566,25 +603,25 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
     entrySessionIdRef.current = null
     setEntrySessionId(null)
     setAgentSessionId(null)
-    setHandoffWorkspaceId(null)
-    setWorkspaceId(null)
+    setHandoffSaaSAgentId(null)
+    setSaaSAgentId(null)
     setOperatorError(null)
     window.history.replaceState(null, '', '/')
     bootstrapped.current = true
     await new Promise((resolve) => window.setTimeout(resolve, 0))
     await runTurn({ forceFresh: true })
-  }, [finishStream, logout, resetEntryForQA, runTurn, setAgentSessionId, setEntrySessionId, setWorkspaceId])
+  }, [finishStream, logout, resetEntryForQA, runTurn, setAgentSessionId, setEntrySessionId, setSaaSAgentId])
 
   const handleSidebarAction = useCallback((item: OperatorSidebarItem) => {
     setActiveSidebarItem(item)
-    const definition = [...entryCapabilities, ...workspaceCapabilities].find((candidate) => candidate.id === item)
+    const definition = [...entryCapabilities, ...saasAgentCapabilities].find((candidate) => candidate.id === item)
     const action = findCapabilityAction(definition, actionLookup, graphManifest)
     if (action) {
       void handleActionSelect(action)
       return
     }
-    if (definition?.workspaceView) setWorkspaceActiveView(definition.workspaceView)
-  }, [actionLookup, graphManifest, handleActionSelect, setActiveSidebarItem, setWorkspaceActiveView])
+    if (definition?.saasAgentView) setSaaSAgentActiveView(definition.saasAgentView)
+  }, [actionLookup, graphManifest, handleActionSelect, setActiveSidebarItem, setSaaSAgentActiveView])
 
   const inlineArtifacts = useMemo(
     () => uiArtifacts.filter((artifact) => artifact.surface !== 'canvas'),
@@ -603,14 +640,14 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
   const inputType: 'text' | 'email' | 'password' = gs?.node === 'password' ? 'password' : gs?.node === 'email' ? 'email' : 'text'
   const manifestNode = gs ? graphManifest?.nodes.find((node) => node.id === gs.node) : null
   const placeholder: Record<GatewayNode, string> = {
-    bootstrap: 'Starting workspace setup...',
+    bootstrap: 'Starting SaaS Agent setup...',
     intent: 'Ask about SaaStoAgent, draft setup, or sign in',
     display_name: 'Display name, or skip',
     email: 'you@example.com',
     password: 'Password',
-    workspace_select: 'Number or new workspace name',
-    workspace_job: 'Workspace name',
-    workspace_confirm: 'launch or rename',
+    saas_agent_select: 'Number or new SaaS Agent name',
+    saas_agent_job: 'SaaS Agent name',
+    saas_agent_confirm: 'launch or rename',
     setup_intro: 'Connect an API or choose an action',
     connection_confirm: 'activate or edit setup',
     operator_ready: '',
@@ -641,10 +678,10 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
             <div className="text-sm font-semibold tracking-tight text-foreground">{PRODUCT_NAME}</div>
             <div className="hidden text-xs text-muted-foreground sm:block">
               {showOperatorMode
-                ? workspaceDisplayName
-                  ? `${OPERATOR_NAME} - ${workspaceDisplayName}`
+                ? saasAgentDisplayName
+                  ? `${OPERATOR_NAME} - ${saasAgentDisplayName}`
                   : OPERATOR_NAME
-                : `${OPERATOR_NAME} - entry, setup, and workspace chat`}
+                : `${OPERATOR_NAME} - entry, setup, and SaaS Agent chat`}
             </div>
           </div>
           <div className="flex items-center gap-3 text-sm">
@@ -672,23 +709,24 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
             <div className={cn((showCanvas || showPanel) && 'lg:col-span-2')}>
               <OperatorStatusStrip
                 mode={visibleMode}
-                workspace={workspace}
-                workspaceId={workspaceId}
+                saasAgent={saasAgent}
+                saasAgentId={saasAgentId}
                 stats={stats}
-                graphNode={gs?.node}
-                graphManifest={graphManifest}
+                graphNode={activeGraphNode}
+                graphManifest={activeGraphManifest}
+                agentContext={showOperatorMode ? saasAgentRouteDeck?.context : null}
                 readiness={readiness}
                 busy={showOperatorMode ? agentStreaming : busy}
               />
             </div>
             <div className={cn((showCanvas || showPanel) && 'lg:col-span-2')}>
               <RouteDeckNavWidget
-                graphNode={gs?.node}
-                graphManifest={graphManifest}
-                routeDeckSnapshot={routeDeckSnapshot}
+                graphNode={activeGraphNode}
+                graphManifest={activeGraphManifest}
+                routeDeckSnapshot={activeRouteDeckSnapshot}
                 selectedDebugNode={selectedDebugNode}
                 onSelectedDebugNodeChange={setSelectedDebugNode}
-                onActionSelect={(action) => { void handleActionSelect(action) }}
+                onActionSelect={handleRouteDeckActionSelect}
                 runId={runId}
                 sessionId={showOperatorMode ? agentSessionId : entrySessionId}
               />
@@ -771,7 +809,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
                     <ChatInput
                       onSend={handleAgentSend}
                       onFileUpload={user ? (file) => uploadFile.mutate(file) : undefined}
-                      disabled={agentStreaming || !workspaceId}
+                      disabled={agentStreaming || !saasAgentId}
                       placeholder="Describe what you need done"
                       injectText={injectText}
                     />
@@ -781,7 +819,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
                     value={draft}
                     onChange={setDraft}
                     onSend={() => { void handleEntrySend() }}
-                    placeholder={manifestNode?.prompt_placeholder || (gs ? placeholder[gs.node] : 'Starting workspace setup...')}
+                    placeholder={manifestNode?.prompt_placeholder || (gs ? placeholder[gs.node] : 'Starting SaaS Agent setup...')}
                     disabled={inputDisabled}
                     inputType={inputType}
                   />
@@ -791,7 +829,7 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
                 open={evidenceOpen}
                 onToggle={() => setEvidenceOpen((value) => !value)}
                 mode={visibleMode}
-                graphNode={gs?.node}
+                graphNode={activeGraphNode}
                 runId={runId}
                 sessionId={showOperatorMode ? agentSessionId : entrySessionId}
                 readiness={readiness}
@@ -808,10 +846,11 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
                 <UnifiedSidePanel
                   item={activeSidebarItem}
                   mode={showOperatorMode ? 'operator' : 'entry'}
-                  workspace={workspace}
+                  saasAgent={saasAgent}
                   stats={stats}
                   uiArtifacts={uiArtifacts}
                   capability={activeCapability}
+                  agentContext={showOperatorMode ? saasAgentRouteDeck?.context : null}
                   onOpenCanvas={openCanvasArtifact}
                   onClose={() => setActiveSidebarItem('chat')}
                   onQaResetRuntime={handleQaResetRuntime}
@@ -828,40 +867,42 @@ export function OperatorGateway({ initialIntent, initialWorkspaceId }: OperatorG
 function UnifiedSidePanel({
   item,
   mode,
-  workspace,
+  saasAgent,
   stats,
   uiArtifacts,
   capability,
+  agentContext,
   onOpenCanvas,
   onClose,
   onQaResetRuntime,
 }: {
   item: OperatorSidebarItem
   mode: OperatorExperienceMode
-  workspace?: Workspace
-  stats?: WorkspaceStats
+  saasAgent?: SaaSAgent
+  stats?: SaaSAgentStats
   uiArtifacts: EntryUIArtifact[]
   capability?: OperatorCapabilityDefinition
+  agentContext?: SaaSAgentRouteDeckContext | null
   onOpenCanvas: (artifactId: string) => void
   onClose: () => void
   onQaResetRuntime: () => Promise<void>
 }) {
-  const qaHostedView = useWorkspaceStore((state) => state.activeView)
+  const qaHostedView = useSaaSAgentStore((state) => state.activeView)
   let content: JSX.Element
   if (item === 'qa') {
-    const hostedContent = mode === 'operator' ? renderWorkspacePanel(qaHostedView, workspace, stats) : null
+    const hostedContent = mode === 'operator' ? renderSaaSAgentPanel(qaHostedView, saasAgent, stats) : null
     content = (
       <div className="space-y-4">
         <QAAgentPanel onResetRuntime={onQaResetRuntime} />
         {hostedContent && (
-          <div data-testid="qa-workspace-view-host">
+            <div data-testid="qa-saas-agent-view-host">
             {hostedContent}
           </div>
         )}
       </div>
     )
   } else if (mode === 'operator') {
-    content = renderWorkspacePanel(item, workspace, stats)
+    content = renderSaaSAgentPanel(item, saasAgent, stats)
   } else {
     const artifact = item === 'learn'
       ? uiArtifacts.find((candidate) => candidate.widget_type === 'platform_overview')
@@ -870,14 +911,15 @@ function UnifiedSidePanel({
         : null
     content = artifact
       ? <EntryArtifactRenderer artifact={artifact} />
-      : <PanelEmpty title={capability?.label || 'Workspace context'} body={capability?.emptyState || 'Ask in chat or choose an action to populate this panel.'} />
+      : <PanelEmpty title={capability?.label || 'SaaS Agent context'} body={capability?.emptyState || 'Ask in chat or choose an action to populate this panel.'} />
   }
 
   return (
     <ContextLens
-      title={capability?.label || 'Workspace context'}
+      title={capability?.label || 'SaaS Agent context'}
       capability={capability}
       uiArtifacts={uiArtifacts}
+      agentContext={agentContext}
       onOpenCanvas={onOpenCanvas}
       onClose={onClose}
     >
@@ -886,14 +928,15 @@ function UnifiedSidePanel({
   )
 }
 
-function renderWorkspacePanel(item: OperatorSidebarItem | WorkspaceView, workspace?: Workspace, stats?: WorkspaceStats): JSX.Element {
-  if (item === 'connect') return <ConnectSetupView workspace={workspace} stats={stats} />
+function renderSaaSAgentPanel(item: OperatorSidebarItem | SaaSAgentView, saasAgent?: SaaSAgent, stats?: SaaSAgentStats): JSX.Element {
+  if (item === 'connect') return <ConnectSetupView saasAgent={saasAgent} stats={stats} />
+  if (item === 'learn') return <LearningPanel />
   if (item === 'attachments') return <AttachmentsPanel />
-  if (item === 'admin') return <AdminPanel workspace={workspace} />
+  if (item === 'admin') return <AdminPanel saasAgent={saasAgent} />
   if (item === 'entities') return <EntitiesCanvas />
   if (item === 'actions') return <ActionsCanvas />
   if (item === 'chat' || item === 'qa') return <></>
-  return <PanelEmpty title="Workspace panel" body="Select a workspace surface from the rail." />
+  return <PanelEmpty title="SaaS Agent panel" body="Select a SaaS Agent surface from the rail." />
 }
 
 function PanelEmpty({ title, body }: { title: string; body: string }) {

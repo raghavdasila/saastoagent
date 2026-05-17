@@ -30,8 +30,8 @@ PLATFORM_KB_CHUNKS: tuple[PlatformKBChunk, ...] = (
         title="SaaStoAgent v0.1 Vision",
         source_path="saastoagent-v0.1/critical_prompt.md",
         content=(
-            "SaaStoAgent v0.1 is a REST-only workspace agent product. One workspace owns one SaaS operator. "
-            "The workspace contains connected REST sources, inferred entities, generated actions/tools, chat runtime, "
+            "SaaStoAgent v0.1 is a REST-only SaaSAgent agent product. One SaaSAgent owns one SaaS operator. "
+            "The SaaSAgent contains connected REST sources, inferred entities, generated actions/tools, chat runtime, "
             "QA, failure capture, tuning, and governed learnings."
         ),
     ),
@@ -40,7 +40,7 @@ PLATFORM_KB_CHUNKS: tuple[PlatformKBChunk, ...] = (
         title="End-to-end success path",
         source_path="saastoagent-v0.1/critical_prompt.md",
         content=(
-            "A user should be able to create a workspace, connect a REST API, inspect inferred entities and actions, "
+            "A user should be able to create a SaaSAgent, connect a REST API, inspect inferred entities and actions, "
             "ask which actions are relevant, execute real REST workflows, run QA, and persist validated learnings."
         ),
     ),
@@ -65,10 +65,10 @@ PLATFORM_KB_CHUNKS: tuple[PlatformKBChunk, ...] = (
     ),
     PlatformKBChunk(
         id="onboarding",
-        title="Workspace and API setup",
+        title="SaaSAgent and API setup",
         source_path="saastoagent-v0.1/context.md",
         content=(
-            "The current v0.1 entry path is backend-owned over SSE. It covers sign in or create account, workspace "
+            "The current v0.1 entry path is backend-owned over SSE. It covers sign in or create account, SaaSAgent "
             "select/create, REST API setup, connection confirmation, activation progress, and operator chat handoff."
         ),
     ),

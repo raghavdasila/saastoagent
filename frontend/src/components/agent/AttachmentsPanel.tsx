@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FileText, Trash2, Upload } from 'lucide-react'
+import { DatabaseZap, FileText, Trash2, Upload } from 'lucide-react'
 
 import { api, ApiError } from '@/lib/api'
-import { useWorkspaceStore } from '@/stores/workspaceStore'
+import { useSaaSAgentStore } from '@/stores/saasAgentStore'
 import type { AgentDocument } from '@/types/agent'
 
 function formatBytes(n: number) {
@@ -13,24 +13,24 @@ function formatBytes(n: number) {
 }
 
 export function AttachmentsPanel() {
-  const workspaceId = useWorkspaceStore((state) => state.workspaceId)
+  const saasAgentId = useSaaSAgentStore((state) => state.saasAgentId)
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState(false)
 
   const { data: documents = [], isLoading } = useQuery({
-    queryKey: ['agent-documents', workspaceId],
+    queryKey: ['agent-documents', saasAgentId],
     queryFn: () =>
-      api.get<AgentDocument[]>(`/workspaces/${workspaceId}/agent/documents`),
-    enabled: !!workspaceId,
+      api.get<AgentDocument[]>(`/saas-agents/${saasAgentId}/agent/documents`),
+    enabled: !!saasAgentId,
   })
 
   const upload = useMutation({
     mutationFn: (file: File) =>
-      api.upload<AgentDocument>(`/workspaces/${workspaceId}/agent/documents`, file),
+      api.upload<AgentDocument>(`/saas-agents/${saasAgentId}/agent/documents`, file),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['agent-documents', workspaceId] })
+      queryClient.invalidateQueries({ queryKey: ['agent-documents', saasAgentId] })
       setError(null)
     },
     onError: (e) => {
@@ -38,11 +38,23 @@ export function AttachmentsPanel() {
     },
   })
 
+  const generateKnowledge = useMutation({
+    mutationFn: () =>
+      api.post<{ documents: number; chunks: number }>(`/saas-agents/${saasAgentId}/agent/rag/generate`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['agent-documents', saasAgentId] })
+      setError(null)
+    },
+    onError: (e) => {
+      setError(e instanceof ApiError ? e.message : 'Knowledge generation failed')
+    },
+  })
+
   const remove = useMutation({
     mutationFn: (docId: string) =>
-      api.delete<{ status: string }>(`/workspaces/${workspaceId}/agent/documents/${docId}`),
+      api.delete<{ status: string }>(`/saas-agents/${saasAgentId}/agent/documents/${docId}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['agent-documents', workspaceId] })
+      queryClient.invalidateQueries({ queryKey: ['agent-documents', saasAgentId] })
     },
   })
 
@@ -110,9 +122,20 @@ export function AttachmentsPanel() {
         </div>
 
         <section className="surface-card mt-6 rounded-lg p-4 sm:p-5">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
-            Workspace documents
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+              SaaS Agent knowledge
+            </h2>
+            <button
+              type="button"
+              onClick={() => generateKnowledge.mutate()}
+              disabled={!saasAgentId || generateKnowledge.isPending}
+              className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
+            >
+              <DatabaseZap className="h-3.5 w-3.5" />
+              {generateKnowledge.isPending ? 'Generating...' : 'Generate catalog RAG'}
+            </button>
+          </div>
           {isLoading ? (
             <p className="mt-3 text-sm text-slate-500">Loading…</p>
           ) : documents.length === 0 ? (

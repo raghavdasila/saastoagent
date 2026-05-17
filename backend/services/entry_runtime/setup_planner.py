@@ -189,7 +189,7 @@ def _fallback_plan(
 
 async def plan_setup_turn(
     *,
-    workspace_name: str | None,
+    saas_agent_name: str | None,
     user_input: str | None,
     existing_draft: dict[str, Any] | None,
     force_form: bool = False,
@@ -211,7 +211,7 @@ async def plan_setup_turn(
     system = SystemMessage(
         content=(
             "You are the onboarding operator for SaaStoAgent. Your job is to help the user connect the REST API "
-            "their workspace operator should use. Be conversational and concise. Do not open a form by default. "
+            "their SaaSAgent operator should use. Be conversational and concise. Do not open a form by default. "
             "Infer connection details from the user's message when possible. Required details are connection name, "
             "base URL, OpenAPI or Swagger spec URL, and auth type. Auth type must be one of: none, bearer, "
             "api_key_header, api_key_query, basic, custom_header, oauth_client_credentials. If details are missing, "
@@ -222,7 +222,7 @@ async def plan_setup_turn(
     )
     human = HumanMessage(
         content=(
-            f"Workspace: {workspace_name or 'current workspace'}\n"
+            f"SaaSAgent: {saas_agent_name or 'current SaaSAgent'}\n"
             f"Existing draft: {_clean_draft(existing_draft)}\n"
             f"Heuristic draft from latest message: {fallback.draft}\n"
             f"Latest user message: {value or '(no latest user message; start the setup conversation)'}"

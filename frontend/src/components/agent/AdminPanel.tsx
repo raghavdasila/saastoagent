@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FileText, MessageSquare, Shield, Sparkles, Trash2, Users } from 'lucide-react'
+import { FileText, MessageSquare, Plus, Shield, Sparkles, Trash2, Users } from 'lucide-react'
 
 import { api } from '@/lib/api'
-import { useWorkspaceStore } from '@/stores/workspaceStore'
+import { useSaaSAgentStore } from '@/stores/saasAgentStore'
 import type {
   AgentAdminStats,
   AgentDocument,
@@ -12,89 +12,104 @@ import type {
   AgentMessageRow,
   AgentSession,
 } from '@/types/agent'
-import type { Workspace } from '@/types/domain'
+import type { SaaSAgent } from '@/types/domain'
 
 interface AdminPanelProps {
-  workspace?: Workspace
+  saasAgent?: SaaSAgent
 }
 
 type Tab = 'sessions' | 'documents' | 'memories'
 
-export function AdminPanel({ workspace }: AdminPanelProps) {
-  const workspaceId = useWorkspaceStore((state) => state.workspaceId)
+export function AdminPanel({ saasAgent }: AdminPanelProps) {
+  const saasAgentId = useSaaSAgentStore((state) => state.saasAgentId)
   const queryClient = useQueryClient()
   const [tab, setTab] = useState<Tab>('sessions')
   const [openSessionId, setOpenSessionId] = useState<string | null>(null)
   const [openDocumentId, setOpenDocumentId] = useState<string | null>(null)
-  const role = workspace?.role
+  const [memoryContent, setMemoryContent] = useState('')
+  const [memoryCategory, setMemoryCategory] = useState<'fact' | 'preference' | 'instruction'>('fact')
+  const role = saasAgent?.role
   const isAdmin = role === 'owner' || role === 'admin'
 
   const { data: stats } = useQuery({
-    queryKey: ['agent-admin-stats', workspaceId],
+    queryKey: ['agent-admin-stats', saasAgentId],
     queryFn: () =>
-      api.get<AgentAdminStats>(`/workspaces/${workspaceId}/agent/admin/stats`),
-    enabled: !!workspaceId && isAdmin,
+      api.get<AgentAdminStats>(`/saas-agents/${saasAgentId}/agent/admin/stats`),
+    enabled: !!saasAgentId && isAdmin,
   })
 
   const { data: sessionsData } = useQuery({
-    queryKey: ['agent-sessions', workspaceId],
+    queryKey: ['agent-sessions', saasAgentId],
     queryFn: () =>
       api.get<{ sessions: AgentSession[]; total: number }>(
-        `/workspaces/${workspaceId}/agent/sessions`,
+        `/saas-agents/${saasAgentId}/agent/sessions`,
       ),
-    enabled: !!workspaceId && isAdmin && tab === 'sessions',
+    enabled: !!saasAgentId && isAdmin && tab === 'sessions',
   })
 
   const { data: documents } = useQuery({
-    queryKey: ['agent-documents', workspaceId],
+    queryKey: ['agent-documents', saasAgentId],
     queryFn: () =>
-      api.get<AgentDocument[]>(`/workspaces/${workspaceId}/agent/documents`),
-    enabled: !!workspaceId && isAdmin && tab === 'documents',
+      api.get<AgentDocument[]>(`/saas-agents/${saasAgentId}/agent/documents`),
+    enabled: !!saasAgentId && isAdmin && tab === 'documents',
   })
 
   const { data: memories } = useQuery({
-    queryKey: ['agent-memories', workspaceId],
+    queryKey: ['agent-memories', saasAgentId],
     queryFn: () =>
-      api.get<AgentMemoryRow[]>(`/workspaces/${workspaceId}/agent/memories`),
-    enabled: !!workspaceId && isAdmin && tab === 'memories',
+      api.get<AgentMemoryRow[]>(`/saas-agents/${saasAgentId}/agent/memories`),
+    enabled: !!saasAgentId && isAdmin && tab === 'memories',
   })
 
   const { data: openMessages } = useQuery({
-    queryKey: ['agent-session-messages', workspaceId, openSessionId],
+    queryKey: ['agent-session-messages', saasAgentId, openSessionId],
     queryFn: () =>
       api.get<AgentMessageRow[]>(
-        `/workspaces/${workspaceId}/agent/sessions/${openSessionId}/messages`,
+        `/saas-agents/${saasAgentId}/agent/sessions/${openSessionId}/messages`,
       ),
-    enabled: !!workspaceId && !!openSessionId,
+    enabled: !!saasAgentId && !!openSessionId,
   })
 
   const { data: openChunks } = useQuery({
-    queryKey: ['agent-document-chunks', workspaceId, openDocumentId],
+    queryKey: ['agent-document-chunks', saasAgentId, openDocumentId],
     queryFn: () =>
       api.get<AgentDocumentChunk[]>(
-        `/workspaces/${workspaceId}/agent/admin/documents/${openDocumentId}/chunks`,
+        `/saas-agents/${saasAgentId}/agent/admin/documents/${openDocumentId}/chunks`,
       ),
-    enabled: !!workspaceId && !!openDocumentId,
+    enabled: !!saasAgentId && !!openDocumentId,
   })
 
   const deleteSession = useMutation({
     mutationFn: (sid: string) =>
       api.delete<{ status: string }>(
-        `/workspaces/${workspaceId}/agent/admin/sessions/${sid}`,
+        `/saas-agents/${saasAgentId}/agent/admin/sessions/${sid}`,
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['agent-sessions', workspaceId] })
-      queryClient.invalidateQueries({ queryKey: ['agent-admin-stats', workspaceId] })
+      queryClient.invalidateQueries({ queryKey: ['agent-sessions', saasAgentId] })
+      queryClient.invalidateQueries({ queryKey: ['agent-admin-stats', saasAgentId] })
       setOpenSessionId(null)
     },
   })
 
   const deleteMemory = useMutation({
     mutationFn: (mid: string) =>
-      api.delete<{ status: string }>(`/workspaces/${workspaceId}/agent/memories/${mid}`),
+      api.delete<{ status: string }>(`/saas-agents/${saasAgentId}/agent/memories/${mid}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['agent-memories', workspaceId] })
-      queryClient.invalidateQueries({ queryKey: ['agent-admin-stats', workspaceId] })
+      queryClient.invalidateQueries({ queryKey: ['agent-memories', saasAgentId] })
+      queryClient.invalidateQueries({ queryKey: ['agent-admin-stats', saasAgentId] })
+    },
+  })
+
+  const createMemory = useMutation({
+    mutationFn: () =>
+      api.post<AgentMemoryRow>(`/saas-agents/${saasAgentId}/agent/memories`, {
+        content: memoryContent,
+        category: memoryCategory,
+      }),
+    onSuccess: () => {
+      setMemoryContent('')
+      queryClient.invalidateQueries({ queryKey: ['agent-memories', saasAgentId] })
+      queryClient.invalidateQueries({ queryKey: ['agent-admin-stats', saasAgentId] })
     },
   })
 
@@ -107,7 +122,7 @@ export function AdminPanel({ workspace }: AdminPanelProps) {
             Admin access required
           </h2>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            Only workspace owners and admins can view this dashboard. Your role: {role || 'member'}.
+            Only saasAgent owners and admins can view this dashboard. Your role: {role || 'member'}.
           </p>
         </div>
       </div>
@@ -119,10 +134,10 @@ export function AdminPanel({ workspace }: AdminPanelProps) {
       <div className="mx-auto max-w-6xl">
         <header className="mb-6">
           <h1 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
-            Workspace admin
+            SaaSAgent admin
           </h1>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-            Inspect agent activity, documents, and persistent memory in this workspace.
+            Inspect agent activity, documents, and persistent memory in this saasAgent.
           </p>
         </header>
 
@@ -263,7 +278,42 @@ export function AdminPanel({ workspace }: AdminPanelProps) {
           )}
 
           {tab === 'memories' && (
-            <div className="surface-card overflow-hidden rounded-lg">
+            <div className="space-y-3">
+              <form
+                className="surface-card rounded-lg p-4"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  if (memoryContent.trim()) createMemory.mutate()
+                }}
+              >
+                <div className="text-sm font-semibold text-slate-900 dark:text-white">Save memory</div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_10rem_auto]">
+                  <input
+                    value={memoryContent}
+                    onChange={(event) => setMemoryContent(event.target.value)}
+                    placeholder="Fact, preference, or instruction this SaaS Agent should remember"
+                    className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 dark:border-white/10 dark:bg-black/20 dark:text-white"
+                  />
+                  <select
+                    value={memoryCategory}
+                    onChange={(event) => setMemoryCategory(event.target.value as 'fact' | 'preference' | 'instruction')}
+                    className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 dark:border-white/10 dark:bg-black/20 dark:text-white"
+                  >
+                    <option value="fact">Fact</option>
+                    <option value="preference">Preference</option>
+                    <option value="instruction">Instruction</option>
+                  </select>
+                  <button
+                    type="submit"
+                    disabled={!memoryContent.trim() || createMemory.isPending}
+                    className="inline-flex items-center justify-center gap-2 rounded-md bg-slate-950 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Save
+                  </button>
+                </div>
+              </form>
+              <div className="surface-card overflow-hidden rounded-lg">
               {!memories?.length ? (
                 <p className="p-6 text-sm text-slate-500">No memories saved yet.</p>
               ) : (
@@ -293,6 +343,7 @@ export function AdminPanel({ workspace }: AdminPanelProps) {
                   ))}
                 </ul>
               )}
+              </div>
             </div>
           )}
         </div>

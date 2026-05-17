@@ -37,7 +37,7 @@ class ConnectionPreviewRead(BaseModel):
 
 class ConnectionRead(BaseModel):
     id: uuid.UUID
-    workspace_id: uuid.UUID
+    saas_agent_id: uuid.UUID
     name: str
     type: str
     provider: str
@@ -55,7 +55,7 @@ class ConnectionRead(BaseModel):
 class ActionNodeRead(BaseModel):
     id: uuid.UUID
     connection_id: uuid.UUID
-    workspace_id: uuid.UUID
+    saas_agent_id: uuid.UUID
     name: str
     path: str
     method: str
@@ -92,7 +92,7 @@ class ToolRead(BaseModel):
     id: uuid.UUID
     action_node_id: uuid.UUID
     connection_id: uuid.UUID
-    workspace_id: uuid.UUID
+    saas_agent_id: uuid.UUID
     name: str
     description: str | None = None
     function_schema: dict[str, Any]
@@ -107,7 +107,7 @@ class ToolRead(BaseModel):
 
 class ActivationStateRead(BaseModel):
     connection_id: uuid.UUID
-    workspace_id: uuid.UUID
+    saas_agent_id: uuid.UUID
     overall_status: str
     steps: dict[str, Any]
     current_step: str | None = None

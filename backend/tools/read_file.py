@@ -1,4 +1,4 @@
-"""Read uploaded document tool — workspace-scoped."""
+"""Read uploaded document tool — SaaSAgent-scoped."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from sqlalchemy import select
 
 from backend.core.database import async_session
 from backend.core.models import AgentDocument, AgentDocumentChunk
-from backend.tools.rag_search import _workspace_id  # set at graph build time
+from backend.tools.rag_search import _saas_agent_id  # set at graph build time
 
 
 @tool
@@ -23,19 +23,19 @@ async def read_file(document_id: str) -> str:
         doc_uuid = uuid.UUID(document_id)
     except ValueError:
         return f"Invalid document ID: {document_id}"
-    if _workspace_id is None:
-        return "Workspace context not initialised."
+    if _saas_agent_id is None:
+        return "SaaSAgent context not initialised."
 
     async with async_session() as db:
         result = await db.execute(
             select(AgentDocument).where(
                 AgentDocument.id == doc_uuid,
-                AgentDocument.workspace_id == _workspace_id,
+                AgentDocument.saas_agent_id == _saas_agent_id,
             )
         )
         doc = result.scalar_one_or_none()
         if not doc:
-            return f"Document not found in this workspace: {document_id}"
+            return f"Document not found in this SaaS Agent: {document_id}"
 
         chunks_q = await db.execute(
             select(AgentDocumentChunk)

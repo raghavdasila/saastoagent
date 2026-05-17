@@ -138,7 +138,7 @@ function SetupDraftSummary({ artifact, compact }: { artifact: EntryUIArtifact; c
   const rawDraft = (artifact.payload?.draft || artifact.payload || {}) as Record<string, unknown>
   const apiDraft = (rawDraft.api_draft || rawDraft) as Record<string, unknown>
   const rows: Array<[string, string]> = [
-    ['Workspace', rawDraft.workspace_name || rawDraft.workspace_job],
+    ['SaaS Agent', rawDraft.saas_agent_name || rawDraft.saas_agent_job],
     ['Connection', apiDraft.name],
     ['Base URL', apiDraft.base_url],
     ['Spec URL', apiDraft.spec_url],

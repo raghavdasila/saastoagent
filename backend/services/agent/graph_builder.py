@@ -1,6 +1,6 @@
-"""LangGraph builder for the workspace agent.
+"""LangGraph builder for the SaaSAgent agent.
 
-Each call rebinds tool-module-level singletons with the active workspace
+Each call rebinds tool-module-level singletons with the active SaaSAgent
 so that RAG search / memory writes target the right tenant.
 """
 
@@ -23,14 +23,14 @@ from backend.tools.rag_search import rag_search, set_rag_context
 from backend.tools.memory_tool import save_memory, recall_memory, set_memory_context
 
 SYSTEM_PROMPT = """\
-You are the agent that owns this workspace. The user wants real outcomes from
+You are the agent that owns this SaaS Agent. The user wants real outcomes from
 their connected systems, not just answers. You have tools for: searching the
-workspace knowledge base, browsing the web, reading uploaded documents, and
-managing per-workspace memory.
+SaaSAgent knowledge base, browsing the web, reading uploaded documents, and
+managing per-SaaSAgent memory.
 
 Guidelines:
 - Be concise and helpful. Answer directly.
-- Use rag_search when the user asks about uploaded docs or workspace knowledge.
+- Use rag_search when the user asks about uploaded docs or SaaSAgent knowledge.
 - Use web_search for current events / fresh info.
 - Use open_link when the user shares a URL.
 - Use save_memory when the user asks you to remember something important.
@@ -40,7 +40,7 @@ Guidelines:
 - After answering, suggest 2-3 follow-ups on separate lines starting with ">>>".
 
 Current date: {current_date}
-Workspace: {workspace_name}
+SaaSAgent: {saas_agent_name}
 
 {memory_context}
 """
@@ -58,8 +58,8 @@ def get_all_tools():
 
 def build_agent_graph(
     *,
-    workspace_id: uuid.UUID,
-    workspace_name: str = "this workspace",
+    saas_agent_id: uuid.UUID,
+    saas_agent_name: str = "this SaaS Agent",
     reasoning_mode: str = "balanced",
     memory_context: str = "",
     rag_svc=None,
@@ -68,11 +68,11 @@ def build_agent_graph(
     user_id: uuid.UUID | None = None,
 ):
     if rag_svc:
-        set_rag_context(rag_svc, workspace_id=workspace_id)
+        set_rag_context(rag_svc, saas_agent_id=saas_agent_id)
     if memory_svc:
         set_memory_context(
             memory_svc,
-            workspace_id=workspace_id,
+            saas_agent_id=saas_agent_id,
             session_id=session_id,
             user_id=user_id,
         )
@@ -89,7 +89,7 @@ def build_agent_graph(
 
     system_prompt = SYSTEM_PROMPT.format(
         current_date=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
-        workspace_name=workspace_name,
+        saas_agent_name=saas_agent_name,
         memory_context=memory_context,
     )
 

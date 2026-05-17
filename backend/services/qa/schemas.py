@@ -51,8 +51,8 @@ class QAResetResponse(BaseModel):
     signup_password: str
     seeded_email: str
     seeded_password: str
-    seeded_workspace_id: str | None = None
-    seeded_workspace_name: str | None = None
+    seeded_saas_agent_id: str | None = None
+    seeded_saas_agent_name: str | None = None
 
 
 class QAEvalRequest(BaseModel):

@@ -59,7 +59,7 @@ class Connection(Base):
     __tablename__ = "connections"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
-    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    saas_agent_id = Column(UUID(as_uuid=True), ForeignKey("saas_agents.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     type = Column(Enum(ConnectionType, name="sta_v01_connection_type", create_constraint=False), nullable=False)
     provider = Column(String(64), nullable=False, default="rest_api")
@@ -95,7 +95,7 @@ class ActionNode(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
     connection_id = Column(UUID(as_uuid=True), ForeignKey("connections.id", ondelete="CASCADE"), nullable=False, index=True)
-    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    saas_agent_id = Column(UUID(as_uuid=True), ForeignKey("saas_agents.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(500), nullable=False)
     path = Column(String(2000), nullable=False)
     method = Column(String(20), nullable=False)
@@ -126,7 +126,7 @@ class GeneratedTool(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
     action_node_id = Column(UUID(as_uuid=True), ForeignKey("action_nodes.id", ondelete="CASCADE"), nullable=False, index=True)
     connection_id = Column(UUID(as_uuid=True), ForeignKey("connections.id", ondelete="CASCADE"), nullable=False, index=True)
-    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    saas_agent_id = Column(UUID(as_uuid=True), ForeignKey("saas_agents.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     function_schema = Column(JSONB, nullable=False)
@@ -144,7 +144,7 @@ class ConnectionActivationState(Base):
     __tablename__ = "connection_activation_state"
 
     connection_id = Column(UUID(as_uuid=True), ForeignKey("connections.id", ondelete="CASCADE"), primary_key=True)
-    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    saas_agent_id = Column(UUID(as_uuid=True), ForeignKey("saas_agents.id", ondelete="CASCADE"), nullable=False, index=True)
     overall_status = Column(String(20), nullable=False, default=ActivationOverallStatus.blocked.value)
     generate_status = Column(String(20), nullable=False, default=ActivationStepStatus.pending.value)
     embed_status = Column(String(20), nullable=False, default=ActivationStepStatus.pending.value)

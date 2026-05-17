@@ -10,7 +10,7 @@ import type {
 } from '@/types/agent'
 
 interface UseSSEChatOptions {
-  workspaceId: string | null
+  saasAgentId: string | null
   onError?: (message: string) => void
 }
 
@@ -31,7 +31,7 @@ export interface UseSSEChatReturn {
   abort: () => void
 }
 
-export function useSSEChat({ workspaceId, onError }: UseSSEChatOptions): UseSSEChatReturn {
+export function useSSEChat({ saasAgentId, onError }: UseSSEChatOptions): UseSSEChatReturn {
   const [messages, setMessages] = useState<ChatUIMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [thinking, setThinking] = useState('')
@@ -45,7 +45,7 @@ export function useSSEChat({ workspaceId, onError }: UseSSEChatOptions): UseSSEC
   const xhrRef = useRef<XMLHttpRequest | null>(null)
   const cursorRef = useRef(0)
 
-  // Reset state when the workspace changes.
+  // Reset state when the saasAgent changes.
   useEffect(() => {
     if (xhrRef.current) {
       xhrRef.current.abort()
@@ -61,7 +61,7 @@ export function useSSEChat({ workspaceId, onError }: UseSSEChatOptions): UseSSEC
     sourcesRef.current = []
     followUpsRef.current = []
     cursorRef.current = 0
-  }, [workspaceId])
+  }, [saasAgentId])
 
   const flushAssistant = useCallback(() => {
     setMessages((prev) => {
@@ -205,7 +205,7 @@ export function useSSEChat({ workspaceId, onError }: UseSSEChatOptions): UseSSEC
       reasoningMode: string = 'balanced',
       handoffContext?: AgentHandoffContext | null,
     ) => {
-      if (isStreaming || !workspaceId) return
+      if (isStreaming || !saasAgentId) return
 
       const userMsg: ChatUIMessage = {
         id: crypto.randomUUID(),
@@ -237,7 +237,7 @@ export function useSSEChat({ workspaceId, onError }: UseSSEChatOptions): UseSSEC
       const xhr = new XMLHttpRequest()
       xhrRef.current = xhr
 
-      xhr.open('POST', `/api/workspaces/${workspaceId}/agent/chat`)
+      xhr.open('POST', `/api/saas-agents/${saasAgentId}/agent/chat`)
       xhr.setRequestHeader('Content-Type', 'application/json')
       const token = storage.getToken()
       if (token && token !== 'undefined' && token !== 'null') {
@@ -276,7 +276,7 @@ export function useSSEChat({ workspaceId, onError }: UseSSEChatOptions): UseSSEC
         }),
       )
     },
-    [isStreaming, workspaceId, sessionId, parseSSEChunk, finishStream, onError],
+    [isStreaming, saasAgentId, sessionId, parseSSEChunk, finishStream, onError],
   )
 
   const abort = useCallback(() => {

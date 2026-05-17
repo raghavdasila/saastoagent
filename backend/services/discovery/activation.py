@@ -14,6 +14,7 @@ from backend.core.models import (
     ConnectionActivationState,
 )
 from backend.services.discovery.engine import generate_action_nodes
+from backend.services.agent.rag_service import rag_service
 from backend.services.tools.generator import generate_tools_for_connection
 
 
@@ -22,10 +23,10 @@ class ActivationService:
         self,
         *,
         connection_id,
-        workspace_id,
+        saas_agent_id,
         session: AsyncSession,
     ) -> AsyncGenerator[dict, None]:
-        connection = await self._load_connection(connection_id, workspace_id, session)
+        connection = await self._load_connection(connection_id, saas_agent_id, session)
         if connection is None:
             yield {"type": "error", "message": "Connection not found"}
             return
@@ -60,13 +61,16 @@ class ActivationService:
             await session.commit()
             yield {"type": "step", "step": "tools", "status": "running", "message": "Generating callable tools"}
 
-            tool_counts = await generate_tools_for_connection(connection.id, workspace_id, session)
+            tool_counts = await generate_tools_for_connection(connection.id, saas_agent_id, session)
             state.tools_status = ActivationStepStatus.succeeded.value
             state.current_step = None
             state.overall_status = ActivationOverallStatus.ready.value
             state.completed_at = datetime.now(timezone.utc)
             await session.commit()
             yield {"type": "step", "step": "tools", "status": "done", **tool_counts}
+            yield {"type": "step", "step": "rag", "status": "running", "message": "Generating catalog retrieval knowledge"}
+            rag_counts = await rag_service.ingest_generated_knowledge(saas_agent_id=saas_agent_id, db=session)
+            yield {"type": "step", "step": "rag", "status": "done", **rag_counts}
             yield {
                 "type": "complete",
                 "status": "activated",
@@ -76,6 +80,7 @@ class ActivationService:
                 + generate_counts.get("updated", 0)
                 + generate_counts.get("unchanged", 0),
                 "tools_count": tool_counts["total"],
+                "rag_chunks_count": rag_counts["chunks"],
             }
         except Exception as exc:
             state.current_step = None
@@ -88,11 +93,11 @@ class ActivationService:
             await session.commit()
             yield {"type": "error", "message": str(exc)}
 
-    async def _load_connection(self, connection_id, workspace_id, session: AsyncSession) -> Connection | None:
+    async def _load_connection(self, connection_id, saas_agent_id, session: AsyncSession) -> Connection | None:
         result = await session.execute(
             select(Connection)
             .options(selectinload(Connection.credentials))
-            .where(Connection.id == connection_id, Connection.workspace_id == workspace_id)
+            .where(Connection.id == connection_id, Connection.saas_agent_id == saas_agent_id)
         )
         return result.scalar_one_or_none()
 
@@ -109,7 +114,7 @@ class ActivationService:
             return state
         state = ConnectionActivationState(
             connection_id=connection.id,
-            workspace_id=connection.workspace_id,
+            saas_agent_id=connection.saas_agent_id,
         )
         session.add(state)
         await session.flush()

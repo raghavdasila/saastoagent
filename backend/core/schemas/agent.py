@@ -16,7 +16,7 @@ class ChatRequest(BaseModel):
 
 class AgentSessionRead(BaseModel):
     id: uuid.UUID
-    workspace_id: uuid.UUID
+    saas_agent_id: uuid.UUID
     user_id: Optional[uuid.UUID] = None
     title: Optional[str] = None
     created_at: datetime
@@ -47,7 +47,7 @@ class AgentMessageRead(BaseModel):
 
 class AgentDocumentRead(BaseModel):
     id: uuid.UUID
-    workspace_id: uuid.UUID
+    saas_agent_id: uuid.UUID
     filename: str
     original_name: str
     content_type: str
@@ -70,7 +70,7 @@ class AgentDocumentChunkRead(BaseModel):
 
 class AgentMemoryRead(BaseModel):
     id: uuid.UUID
-    workspace_id: uuid.UUID
+    saas_agent_id: uuid.UUID
     session_id: Optional[uuid.UUID] = None
     content: str
     category: str
@@ -79,8 +79,32 @@ class AgentMemoryRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AgentMemoryCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=4000)
+    category: str = Field(default="fact", pattern="^(fact|preference|instruction)$")
+
+
 class AgentAdminStats(BaseModel):
     total_sessions: int
     total_messages: int
     total_documents: int
     total_memories: int
+
+
+class AgentLearningCandidateRead(BaseModel):
+    id: uuid.UUID
+    saas_agent_id: uuid.UUID
+    source_trace_id: Optional[uuid.UUID] = None
+    trigger_type: str
+    status: str
+    title: str
+    summary: str
+    hint_text: str
+    target_tool_name: Optional[str] = None
+    target_action_path: Optional[str] = None
+    target_risk_level: Optional[str] = None
+    evidence: dict[str, Any] | None = None
+    created_at: datetime
+    reviewed_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}

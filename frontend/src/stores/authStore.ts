@@ -2,7 +2,7 @@ import { create } from 'zustand'
 
 import { api } from '@/lib/api'
 import { storage } from '@/lib/storage'
-import { useWorkspaceStore } from '@/stores/workspaceStore'
+import { useSaaSAgentStore } from '@/stores/saasAgentStore'
 import type { AuthTokens, User } from '@/types/domain'
 
 interface AuthState {
@@ -77,7 +77,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: () => {
     storage.removeToken()
-    useWorkspaceStore.getState().clearWorkspace()
+    useSaaSAgentStore.getState().clearSaaSAgent()
     set({ user: null, token: null })
   },
 

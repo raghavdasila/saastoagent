@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
 import { useEntryStore } from '@/stores/entryStore'
-import { useWorkspaceStore, type WorkspaceView } from '@/stores/workspaceStore'
+import { useSaaSAgentStore, type SaaSAgentView } from '@/stores/saasAgentStore'
 import type { ActionCatalogRead } from '@/types/domain'
 import type { GatewayState } from '@/types/entry'
 import type {
@@ -24,17 +24,17 @@ interface UseSaaStoAgentQAOptions {
   onResetRuntime: () => Promise<void>
 }
 
-const WORKSPACE_SCENARIO_ACTIONS = new Set([
-  'open_workspace_view',
+const SAAS_AGENT_SCENARIO_ACTIONS = new Set([
+  'open_saas_agent_view',
   'fill_connection_form',
   'click_button',
   'wait_for_catalog',
-  'collect_workspace_catalog',
+  'collect_saas_agent_catalog',
   'send_operator_chat',
   'ensure_petstore_connection',
 ])
 
-const VIEW_ALIASES: Record<string, WorkspaceView> = {
+const VIEW_ALIASES: Record<string, SaaSAgentView> = {
   connections: 'connect',
   connect: 'connect',
   actions: 'actions',
@@ -43,6 +43,7 @@ const VIEW_ALIASES: Record<string, WorkspaceView> = {
   qa: 'qa',
   attachments: 'attachments',
   admin: 'admin',
+  learn: 'learn',
 }
 
 const PETSTORE_FIXTURE = {
@@ -81,16 +82,16 @@ function boolParam(action: QAMilestoneAction, key: string): boolean {
   return action.params[key] === true
 }
 
-function viewParam(action: QAMilestoneAction): WorkspaceView {
+function viewParam(action: QAMilestoneAction): SaaSAgentView {
   const raw = textParam(action, 'view')
   return VIEW_ALIASES[raw] || 'chat'
 }
 
-function scenarioNeedsWorkspace(scenario: QAScenario): boolean {
+function scenarioNeedsSaaSAgent(scenario: QAScenario): boolean {
   return scenario.milestones.some((milestone) =>
-    milestone.actions.some((action) => WORKSPACE_SCENARIO_ACTIONS.has(action.action)) ||
+    milestone.actions.some((action) => SAAS_AGENT_SCENARIO_ACTIONS.has(action.action)) ||
     milestone.evidence_gates.some((gate) =>
-      ['workspace_view', 'catalog_count_at_least', 'tool_called', 'api_response_ok'].includes(gate.gate),
+      ['saas_agent_view', 'catalog_count_at_least', 'tool_called', 'api_response_ok'].includes(gate.gate),
     ),
   )
 }
@@ -146,7 +147,7 @@ async function waitForIdle(timeoutMs = 45_000) {
 
 function collectEvidence(consoleErrors: string[], extraEvidence: Record<string, unknown> = {}): QAEvidenceSnapshot {
   const state = useEntryStore.getState()
-  const workspaceState = useWorkspaceStore.getState()
+  const saasAgentState = useSaaSAgentStore.getState()
   const routeDeckSnapshot = state.routeDeckSnapshot
   const visibleText = document.body?.innerText || ''
   const domAssistantMessages = Array.from(document.querySelectorAll<HTMLElement>('[data-message-role="assistant"]'))
@@ -178,8 +179,8 @@ function collectEvidence(consoleErrors: string[], extraEvidence: Record<string, 
     visible_text: visibleText,
     console_errors: consoleErrors,
     route_deck_snapshot: routeDeckSnapshot,
-    workspace_view: workspaceState.activeView,
-    active_view: workspaceState.activeView,
+    saas_agent_view: saasAgentState.activeView,
+    active_view: saasAgentState.activeView,
     tool_calls: toolCalls,
     ...extraEvidence,
   }
@@ -322,10 +323,10 @@ export function useSaaStoAgentQA({ onResetRuntime }: UseSaaStoAgentQAOptions) {
         await sleep(250)
         return
       }
-      case 'open_workspace_view': {
+      case 'open_saas_agent_view': {
         const view = viewParam(action)
         const keepQaMounted = useEntryStore.getState().activeSidebarItem === 'qa'
-        useWorkspaceStore.getState().setActiveView(view)
+        useSaaSAgentStore.getState().setActiveView(view)
         const button = keepQaMounted ? null : visibleEnabledButton(`[data-capability-id="${CSS.escape(view)}"]`)
         if (button) {
           button.click()
@@ -380,11 +381,11 @@ export function useSaaStoAgentQA({ onResetRuntime }: UseSaaStoAgentQAOptions) {
         return
       }
       case 'wait_for_catalog': {
-        const workspaceId = useWorkspaceStore.getState().workspaceId
-        if (!workspaceId) throw new Error('No active workspace for catalog wait.')
+        const saasAgentId = useSaaSAgentStore.getState().saasAgentId
+        if (!saasAgentId) throw new Error('No active saasAgent for catalog wait.')
         const started = Date.now()
         while (Date.now() - started < 90_000) {
-          const catalog = await api.get<ActionCatalogRead>(`/workspaces/${workspaceId}/catalog`)
+          const catalog = await api.get<ActionCatalogRead>(`/saas-agents/${saasAgentId}/catalog`)
           extraEvidenceRef.current = {
             ...extraEvidenceRef.current,
             catalog_totals: catalog.totals,
@@ -394,10 +395,10 @@ export function useSaaStoAgentQA({ onResetRuntime }: UseSaaStoAgentQAOptions) {
         }
         throw new Error('Timed out waiting for generated catalog.')
       }
-      case 'collect_workspace_catalog': {
-        const workspaceId = useWorkspaceStore.getState().workspaceId
-        if (!workspaceId) throw new Error('No active workspace for catalog evidence.')
-        const catalog = await api.get<ActionCatalogRead>(`/workspaces/${workspaceId}/catalog`)
+      case 'collect_saas_agent_catalog': {
+        const saasAgentId = useSaaSAgentStore.getState().saasAgentId
+        if (!saasAgentId) throw new Error('No active saasAgent for catalog evidence.')
+        const catalog = await api.get<ActionCatalogRead>(`/saas-agents/${saasAgentId}/catalog`)
         extraEvidenceRef.current = {
           ...extraEvidenceRef.current,
           catalog_totals: catalog.totals,
@@ -405,14 +406,14 @@ export function useSaaStoAgentQA({ onResetRuntime }: UseSaaStoAgentQAOptions) {
         return
       }
       case 'ensure_petstore_connection': {
-        const workspaceId = useWorkspaceStore.getState().workspaceId
-        if (!workspaceId) throw new Error('No active workspace for Petstore setup.')
-        const catalog = await api.get<ActionCatalogRead>(`/workspaces/${workspaceId}/catalog`)
+        const saasAgentId = useSaaSAgentStore.getState().saasAgentId
+        if (!saasAgentId) throw new Error('No active saasAgent for Petstore setup.')
+        const catalog = await api.get<ActionCatalogRead>(`/saas-agents/${saasAgentId}/catalog`)
         if ((catalog.totals.actions || 0) > 0 && (catalog.totals.tools || 0) > 0) {
           extraEvidenceRef.current = { ...extraEvidenceRef.current, catalog_totals: catalog.totals }
           return
         }
-        const connection = await api.post<{ id: string }>(`/workspaces/${workspaceId}/connections`, {
+        const connection = await api.post<{ id: string }>(`/saas-agents/${saasAgentId}/connections`, {
           name: PETSTORE_FIXTURE.name,
           type: 'rest_api',
           provider: 'rest_api',
@@ -423,8 +424,8 @@ export function useSaaStoAgentQA({ onResetRuntime }: UseSaaStoAgentQAOptions) {
             auth_type: PETSTORE_FIXTURE.authType,
           },
         })
-        await api.postStream(`/workspaces/${workspaceId}/connections/${connection.id}/activate`, () => {})
-        const activatedCatalog = await api.get<ActionCatalogRead>(`/workspaces/${workspaceId}/catalog`)
+        await api.postStream(`/saas-agents/${saasAgentId}/connections/${connection.id}/activate`, () => {})
+        const activatedCatalog = await api.get<ActionCatalogRead>(`/saas-agents/${saasAgentId}/catalog`)
         extraEvidenceRef.current = { ...extraEvidenceRef.current, catalog_totals: activatedCatalog.totals }
         return
       }
@@ -516,22 +517,22 @@ export function useSaaStoAgentQA({ onResetRuntime }: UseSaaStoAgentQAOptions) {
     extraEvidenceRef.current = {}
     await onResetRuntime()
     await waitForIdle()
-    if (scenario && scenarioNeedsWorkspace(scenario)) {
+    if (scenario && scenarioNeedsSaaSAgent(scenario)) {
       await useAuthStore.getState().login(result.seeded_email, result.seeded_password)
-      if (result.seeded_workspace_id) {
-        useWorkspaceStore.getState().setWorkspaceId(result.seeded_workspace_id)
+      if (result.seeded_saas_agent_id) {
+        useSaaSAgentStore.getState().setSaaSAgentId(result.seeded_saas_agent_id)
         const graphState: GatewayState = {
           node: 'operator_ready',
           intent: null,
           display_name: '',
           email: result.seeded_email,
-          workspace_name: result.seeded_workspace_name || 'QA Seed Workspace',
-          workspace_slug: 'qa-seed-workspace',
-          active_workspace_id: result.seeded_workspace_id,
+          saas_agent_name: result.seeded_saas_agent_name || 'QA Seed SaaSAgent',
+          saas_agent_slug: 'qa-seed-saasAgent',
+          active_saas_agent_id: result.seeded_saas_agent_id,
         }
         useEntryStore.setState({
           mode: 'operator',
-          activeWorkspaceId: result.seeded_workspace_id,
+          activeSaaSAgentId: result.seeded_saas_agent_id,
           activeSidebarItem: 'qa',
           graphState,
         })

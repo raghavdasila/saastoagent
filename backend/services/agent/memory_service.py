@@ -1,8 +1,9 @@
-"""Workspace-scoped long-term memory."""
+"""SaaSAgent-scoped long-term memory."""
 
 from __future__ import annotations
 
 import uuid
+import hashlib
 
 from openai import AsyncOpenAI
 from sqlalchemy import select, text
@@ -23,16 +24,29 @@ class MemoryService:
         return self._client
 
     async def _embed(self, content: str) -> list[float]:
+        if not settings.openai_api_key:
+            return self._deterministic_embedding(content)
         resp = await self.client.embeddings.create(
             input=[content], model=settings.embedding_model
         )
         return resp.data[0].embedding
 
+    def _deterministic_embedding(self, content: str) -> list[float]:
+        digest = hashlib.sha256(content.encode("utf-8", errors="ignore")).digest()
+        values: list[float] = []
+        while len(values) < settings.embedding_dimensions:
+            for byte in digest:
+                values.append((byte / 255.0) - 0.5)
+                if len(values) >= settings.embedding_dimensions:
+                    break
+            digest = hashlib.sha256(digest).digest()
+        return values
+
     async def save(
         self,
         content: str,
         *,
-        workspace_id: uuid.UUID,
+        saas_agent_id: uuid.UUID,
         category: str = "fact",
         session_id: uuid.UUID | None = None,
         user_id: uuid.UUID | None = None,
@@ -44,7 +58,7 @@ class MemoryService:
 
         async def _do(session: AsyncSession) -> AgentMemory:
             mem = AgentMemory(
-                workspace_id=workspace_id,
+                saas_agent_id=saas_agent_id,
                 session_id=session_id,
                 user_id=user_id,
                 content=content,
@@ -65,7 +79,7 @@ class MemoryService:
         self,
         query: str,
         *,
-        workspace_id: uuid.UUID,
+        saas_agent_id: uuid.UUID,
         limit: int = 5,
         db: AsyncSession | None = None,
     ) -> list[dict]:
@@ -74,13 +88,13 @@ class MemoryService:
         embedding = await self._embed(query)
         if db is None:
             async with session_factory() as session:
-                return await self._do_recall(session, workspace_id, embedding, limit)
-        return await self._do_recall(db, workspace_id, embedding, limit)
+                return await self._do_recall(session, saas_agent_id, embedding, limit)
+        return await self._do_recall(db, saas_agent_id, embedding, limit)
 
     async def _do_recall(
         self,
         db: AsyncSession,
-        workspace_id: uuid.UUID,
+        saas_agent_id: uuid.UUID,
         embedding: list[float],
         limit: int,
     ) -> list[dict]:
@@ -90,7 +104,7 @@ class MemoryService:
             SELECT id, content, category, created_at,
                    embedding <=> CAST(:embedding AS vector) AS distance
             FROM agent_memories
-            WHERE embedding IS NOT NULL AND workspace_id = :workspace_id
+            WHERE embedding IS NOT NULL AND saas_agent_id = :saas_agent_id
             ORDER BY embedding <=> CAST(:embedding AS vector)
             LIMIT :limit
             """
@@ -100,7 +114,7 @@ class MemoryService:
             {
                 "embedding": embedding_str,
                 "limit": limit,
-                "workspace_id": str(workspace_id),
+                "saas_agent_id": str(saas_agent_id),
             },
         )
         rows = result.fetchall()
@@ -118,7 +132,7 @@ class MemoryService:
     async def get_session_context(
         self,
         session_id: uuid.UUID,
-        workspace_id: uuid.UUID,
+        saas_agent_id: uuid.UUID,
         db: AsyncSession,
     ) -> str:
         """Return memory snippet for system-prompt injection."""
@@ -126,7 +140,7 @@ class MemoryService:
             select(AgentMemory)
             .where(
                 AgentMemory.session_id == session_id,
-                AgentMemory.workspace_id == workspace_id,
+                AgentMemory.saas_agent_id == saas_agent_id,
             )
             .order_by(AgentMemory.created_at.desc())
             .limit(10)
@@ -136,7 +150,7 @@ class MemoryService:
         ws_q = await db.execute(
             select(AgentMemory)
             .where(
-                AgentMemory.workspace_id == workspace_id,
+                AgentMemory.saas_agent_id == saas_agent_id,
                 AgentMemory.session_id.is_(None),
             )
             .order_by(AgentMemory.created_at.desc())

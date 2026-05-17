@@ -2,10 +2,10 @@ import { GitBranch, Maximize2, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { RouteDeckDebugger } from '@routedeck/react'
 
-import type { EntryActionCard, EntryGraphManifest, GatewayNode, RouteDeckRuntimeSnapshot } from '@/types/entry'
+import type { EntryActionCard, EntryGraphManifest, RouteDeckRuntimeSnapshot } from '@/types/entry'
 
 interface RouteDeckNavWidgetProps {
-  graphNode?: GatewayNode | null
+  graphNode?: string | null
   graphManifest?: EntryGraphManifest | null
   routeDeckSnapshot?: RouteDeckRuntimeSnapshot | null
   selectedDebugNode?: string | null
@@ -26,7 +26,10 @@ export function RouteDeckNavWidget({
   sessionId,
 }: RouteDeckNavWidgetProps) {
   const [mapOpen, setMapOpen] = useState(false)
-  const currentNode = selectedDebugNode || routeDeckSnapshot?.current_node || graphNode || null
+  const selectedBelongsToManifest = Boolean(
+    selectedDebugNode && graphManifest?.nodes.some((node) => node.id === selectedDebugNode),
+  )
+  const currentNode = (selectedBelongsToManifest ? selectedDebugNode : null) || routeDeckSnapshot?.current_node || graphNode || null
   const activeNode = graphManifest?.nodes.find((node) => node.id === currentNode) || null
   const validActionCount = routeDeckSnapshot?.valid_actions?.length ?? 0
   const blockedCount = routeDeckSnapshot?.blocked_actions?.length ?? 0

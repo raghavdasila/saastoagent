@@ -10,11 +10,11 @@ export type QAMilestoneActionName =
   | 'fill_action_field'
   | 'submit_action_form'
   | 'open_panel'
-  | 'open_workspace_view'
+  | 'open_saas_agent_view'
   | 'fill_connection_form'
   | 'click_button'
   | 'wait_for_catalog'
-  | 'collect_workspace_catalog'
+  | 'collect_saas_agent_catalog'
   | 'send_operator_chat'
   | 'ensure_petstore_connection'
   | 'open_route_deck'
@@ -66,8 +66,8 @@ export interface QAResetResponse {
   signup_password: string
   seeded_email: string
   seeded_password: string
-  seeded_workspace_id?: string | null
-  seeded_workspace_name?: string | null
+  seeded_saas_agent_id?: string | null
+  seeded_saas_agent_name?: string | null
 }
 
 export interface QAEvalRequest {
@@ -114,7 +114,7 @@ export interface QAEvidenceSnapshot {
   visible_text: string
   console_errors: string[]
   route_deck_snapshot?: RouteDeckRuntimeSnapshot | null
-  workspace_view?: string | null
+  saas_agent_view?: string | null
   active_view?: string | null
   catalog_totals?: Record<string, number>
   tool_calls?: Array<Record<string, unknown>>

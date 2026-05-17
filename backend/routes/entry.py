@@ -37,14 +37,14 @@ def _session_id_from_request(body: EntryGraphTurnRequest, request: Request) -> u
 
 @router.get("/persistent-actions", response_model=EntryPersistentActionsResponse)
 async def entry_persistent_actions(
-    workspace_id: uuid.UUID | None = None,
+    saas_agent_id: uuid.UUID | None = None,
     user: User | None = Depends(current_optional_active_user),
 ):
     return EntryPersistentActionsResponse(
         persistent_actions=persistent_entry_actions(
-            node="operator_ready" if workspace_id else None,
+            node="operator_ready" if saas_agent_id else None,
             current_user=user,
-            active_workspace_id=workspace_id,
+            active_saas_agent_id=saas_agent_id,
         )
     )
 

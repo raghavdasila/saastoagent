@@ -1,22 +1,23 @@
-"""Workspace-scoped RAG service.
+"""SaaSAgent-scoped RAG service.
 
-Adapted from foundation-agent — every read/write filters on workspace_id so
-documents uploaded in workspace A are invisible to workspace B.
+Adapted from foundation-agent — every read/write filters on saas_agent_id so
+documents uploaded in SaaSAgent A are invisible to SaaSAgent B.
 """
 
 from __future__ import annotations
 
 import uuid
+import hashlib
 from pathlib import Path
 
 import fitz  # PyMuPDF
 import pandas as pd
 from openai import AsyncOpenAI
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
-from backend.core.models import AgentDocument, AgentDocumentChunk
+from backend.core.models import ActionNode, AgentDocument, AgentDocumentChunk, AgentExecutionTrace, Connection, GeneratedTool
 
 CHUNK_SIZE = 500  # tokens (approximate)
 CHUNK_OVERLAP = 50
@@ -40,7 +41,7 @@ class RAGService:
     async def ingest_document(
         self,
         *,
-        workspace_id: uuid.UUID,
+        saas_agent_id: uuid.UUID,
         uploaded_by: uuid.UUID | None,
         file_content: bytes,
         original_name: str,
@@ -58,7 +59,7 @@ class RAGService:
         embeddings = await self._embed_texts(chunks) if chunks else []
 
         doc = AgentDocument(
-            workspace_id=workspace_id,
+            saas_agent_id=saas_agent_id,
             uploaded_by=uploaded_by,
             filename=filename,
             original_name=original_name,
@@ -73,7 +74,7 @@ class RAGService:
             db.add(
                 AgentDocumentChunk(
                     document_id=doc.id,
-                    workspace_id=workspace_id,
+                    saas_agent_id=saas_agent_id,
                     chunk_index=i,
                     content=chunk_text,
                     embedding=embedding,
@@ -81,6 +82,96 @@ class RAGService:
                 )
             )
 
+        await db.commit()
+        await db.refresh(doc)
+        return doc
+
+    async def ingest_generated_knowledge(
+        self,
+        *,
+        saas_agent_id: uuid.UUID,
+        db: AsyncSession,
+    ) -> dict[str, int]:
+        catalog_body = await self._build_catalog_knowledge(saas_agent_id, db)
+        trace_body = await self._build_trace_knowledge(saas_agent_id, db)
+        docs_created = 0
+        chunks_created = 0
+
+        if catalog_body.strip():
+            doc = await self.ingest_generated_text(
+                saas_agent_id=saas_agent_id,
+                original_name="Generated API Catalog",
+                body=catalog_body,
+                source_kind="generated_catalog",
+                db=db,
+            )
+            docs_created += 1
+            chunks_created += doc.chunk_count
+
+        if trace_body.strip():
+            doc = await self.ingest_generated_text(
+                saas_agent_id=saas_agent_id,
+                original_name="Generated Execution Traces",
+                body=trace_body,
+                source_kind="generated_execution_traces",
+                db=db,
+            )
+            docs_created += 1
+            chunks_created += doc.chunk_count
+
+        return {"documents": docs_created, "chunks": chunks_created}
+
+    async def ingest_generated_text(
+        self,
+        *,
+        saas_agent_id: uuid.UUID,
+        original_name: str,
+        body: str,
+        source_kind: str,
+        db: AsyncSession,
+    ) -> AgentDocument:
+        existing = await db.execute(
+            select(AgentDocument).where(
+                AgentDocument.saas_agent_id == saas_agent_id,
+                AgentDocument.original_name == original_name,
+            )
+        )
+        for doc in existing.scalars().all():
+            await db.delete(doc)
+        await db.flush()
+
+        chunks = self._chunk_text(body)
+        embeddings = await self._embed_texts(chunks) if chunks else []
+        filename = f"{uuid.uuid4()}.md"
+        filepath = self.upload_dir / filename
+        filepath.write_text(body, encoding="utf-8")
+        doc = AgentDocument(
+            saas_agent_id=saas_agent_id,
+            uploaded_by=None,
+            filename=filename,
+            original_name=original_name,
+            content_type="text/markdown",
+            size_bytes=len(body.encode("utf-8")),
+            chunk_count=len(chunks),
+        )
+        db.add(doc)
+        await db.flush()
+
+        for i, (chunk_text, embedding) in enumerate(zip(chunks, embeddings)):
+            db.add(
+                AgentDocumentChunk(
+                    document_id=doc.id,
+                    saas_agent_id=saas_agent_id,
+                    chunk_index=i,
+                    content=chunk_text,
+                    embedding=embedding,
+                    metadata_={
+                        "source": original_name,
+                        "source_kind": source_kind,
+                        "chunk_index": i,
+                    },
+                )
+            )
         await db.commit()
         await db.refresh(doc)
         return doc
@@ -140,6 +231,8 @@ class RAGService:
     async def _embed_texts(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
+        if not settings.openai_api_key:
+            return [self._deterministic_embedding(text) for text in texts]
         resp = await self.client.embeddings.create(
             input=texts, model=settings.embedding_model
         )
@@ -149,13 +242,24 @@ class RAGService:
         result = await self._embed_texts([query])
         return result[0]
 
+    def _deterministic_embedding(self, text: str) -> list[float]:
+        digest = hashlib.sha256(text.encode("utf-8", errors="ignore")).digest()
+        values: list[float] = []
+        while len(values) < settings.embedding_dimensions:
+            for byte in digest:
+                values.append((byte / 255.0) - 0.5)
+                if len(values) >= settings.embedding_dimensions:
+                    break
+            digest = hashlib.sha256(digest).digest()
+        return values
+
     # ── Search ───────────────────────────────────────────────────
 
     async def search(
         self,
         query: str,
         *,
-        workspace_id: uuid.UUID,
+        saas_agent_id: uuid.UUID,
         db: AsyncSession | None = None,
         top_k: int = 5,
     ) -> list[dict]:
@@ -164,13 +268,13 @@ class RAGService:
         embedding = await self._embed_query(query)
         if db is None:
             async with session_factory() as session:
-                return await self._do_search(session, workspace_id, embedding, top_k)
-        return await self._do_search(db, workspace_id, embedding, top_k)
+                return await self._do_search(session, saas_agent_id, embedding, top_k)
+        return await self._do_search(db, saas_agent_id, embedding, top_k)
 
     async def _do_search(
         self,
         db: AsyncSession,
-        workspace_id: uuid.UUID,
+        saas_agent_id: uuid.UUID,
         embedding: list[float],
         top_k: int,
     ) -> list[dict]:
@@ -183,7 +287,7 @@ class RAGService:
             FROM agent_document_chunks dc
             JOIN agent_documents d ON d.id = dc.document_id
             WHERE dc.embedding IS NOT NULL
-              AND dc.workspace_id = :workspace_id
+              AND dc.saas_agent_id = :saas_agent_id
             ORDER BY dc.embedding <=> CAST(:embedding AS vector)
             LIMIT :top_k
             """
@@ -193,7 +297,7 @@ class RAGService:
             {
                 "embedding": embedding_str,
                 "top_k": top_k,
-                "workspace_id": str(workspace_id),
+                "saas_agent_id": str(saas_agent_id),
             },
         )
         rows = result.fetchall()
@@ -214,13 +318,13 @@ class RAGService:
     async def delete_document(
         self,
         document_id: uuid.UUID,
-        workspace_id: uuid.UUID,
+        saas_agent_id: uuid.UUID,
         db: AsyncSession,
     ) -> bool:
         result = await db.execute(
             select(AgentDocument).where(
                 AgentDocument.id == document_id,
-                AgentDocument.workspace_id == workspace_id,
+                AgentDocument.saas_agent_id == saas_agent_id,
             )
         )
         doc = result.scalar_one_or_none()
@@ -232,6 +336,85 @@ class RAGService:
         await db.delete(doc)
         await db.commit()
         return True
+
+    async def _build_catalog_knowledge(self, saas_agent_id: uuid.UUID, db: AsyncSession) -> str:
+        rows = (
+            await db.execute(
+                select(Connection, ActionNode, GeneratedTool)
+                .join(ActionNode, ActionNode.connection_id == Connection.id)
+                .outerjoin(GeneratedTool, GeneratedTool.action_node_id == ActionNode.id)
+                .where(Connection.saas_agent_id == saas_agent_id)
+                .order_by(Connection.name, ActionNode.path, ActionNode.method)
+            )
+        ).all()
+        if not rows:
+            return ""
+        lines = [
+            "# Generated API Catalog",
+            "",
+            "This generated knowledge is scoped to one SaaS Agent and is rebuilt from the connected OpenAPI catalog and generated tools.",
+            "",
+        ]
+        for connection, action, tool in rows:
+            lines.extend(
+                [
+                    f"## {action.method} {action.path}",
+                    "",
+                    f"- Connection: {connection.name}",
+                    f"- Action: {action.name}",
+                    f"- Tool: {tool.name if tool else 'not generated'}",
+                    f"- Risk: {action.risk_level.value if hasattr(action.risk_level, 'value') else action.risk_level}",
+                    f"- Description: {(action.description or tool.description if tool else action.description) or 'No description'}",
+                    f"- Tags: {', '.join(str(tag) for tag in (action.tags or [])) or 'none'}",
+                    f"- Requires approval: {bool(tool.requires_approval) if tool else False}",
+                    "",
+                    "Parameters:",
+                ]
+            )
+            parameters = action.parameters or []
+            if parameters:
+                for parameter in parameters[:20]:
+                    if isinstance(parameter, dict):
+                        required = "required" if parameter.get("required") else "optional"
+                        lines.append(f"- {parameter.get('name')} ({parameter.get('in', 'param')}, {required})")
+            else:
+                lines.append("- none")
+            lines.append("")
+        return "\n".join(lines)
+
+    async def _build_trace_knowledge(self, saas_agent_id: uuid.UUID, db: AsyncSession) -> str:
+        traces = (
+            await db.execute(
+                select(AgentExecutionTrace)
+                .where(AgentExecutionTrace.saas_agent_id == saas_agent_id)
+                .order_by(AgentExecutionTrace.created_at.desc())
+                .limit(50)
+            )
+        ).scalars().all()
+        if not traces:
+            return ""
+        lines = [
+            "# Generated Execution Traces",
+            "",
+            "This generated knowledge summarizes recent generated REST execution plans and outcomes for one SaaS Agent.",
+            "",
+        ]
+        for trace in traces:
+            lines.extend(
+                [
+                    f"## Trace {str(trace.id)[:8]} - {trace.tool_name}",
+                    "",
+                    f"- Status: {trace.status}",
+                    f"- Approval: {trace.approval_state}",
+                    f"- Risk: {trace.risk_level}",
+                    f"- Operation: {trace.method} {trace.path}",
+                    f"- Missing inputs: {', '.join(str(item) for item in (trace.missing_inputs or [])) or 'none'}",
+                    f"- Error: {trace.error or 'none'}",
+                    f"- Duration ms: {trace.duration_ms if trace.duration_ms is not None else 'n/a'}",
+                    "",
+                ]
+            )
+        return "\n".join(lines)
 
 
 rag_service = RAGService()

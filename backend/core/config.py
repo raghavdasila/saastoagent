@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     default_model: str = "gpt-5-mini"
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1536
+    app_graph_router_provider: str = "disabled"
+    app_graph_router_model: str = ""
+    app_graph_router_confidence_threshold: float = 0.65
+    app_graph_router_ollama_url: str = "http://localhost:11434"
 
     # Uploads (RAG attachments)
     upload_dir: str = "./uploads"

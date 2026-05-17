@@ -1,4 +1,4 @@
-"""Workspace-scoped chat service. Streams SSE events from a LangGraph agent."""
+"""SaaSAgent-scoped chat service. Streams SSE events from a LangGraph agent."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
-from backend.core.models import AgentMessage, AgentSession, Workspace
+from backend.core.models import AgentMessage, AgentSession, SaaSAgent
 from backend.core.protocol import (
     SSEEvent,
     agent_end,
@@ -45,25 +45,25 @@ class ChatService:
         self,
         *,
         message: str,
-        workspace_id: uuid.UUID,
+        saas_agent_id: uuid.UUID,
         user_id: uuid.UUID | None,
         session_id: uuid.UUID | None,
         reasoning_mode: str,
         handoff_context: dict[str, Any] | None,
         db: AsyncSession,
     ) -> AsyncGenerator[str, None]:
-        session = await self._resolve_session(session_id, workspace_id, user_id, db, handoff_context=handoff_context)
+        session = await self._resolve_session(session_id, saas_agent_id, user_id, db, handoff_context=handoff_context)
         session_id = session.id
 
-        # Resolve workspace name for prompt context
-        ws = await db.get(Workspace, workspace_id)
-        workspace_name = ws.name if ws else "this workspace"
+        # Resolve SaaSAgent name for prompt context
+        ws = await db.get(SaaSAgent, saas_agent_id)
+        saas_agent_name = ws.name if ws else "this SaaS Agent"
 
         # Persist user message
         db.add(
             AgentMessage(
                 session_id=session_id,
-                workspace_id=workspace_id,
+                saas_agent_id=saas_agent_id,
                 role="user",
                 content=message,
             )
@@ -71,7 +71,7 @@ class ChatService:
         await db.commit()
 
         memory_context = await memory_service.get_session_context(
-            session_id, workspace_id, db
+            session_id, saas_agent_id, db
         )
         handoff_summary = _handoff_summary(session.metadata_ or {})
         if handoff_summary:
@@ -100,8 +100,8 @@ class ChatService:
         task = asyncio.create_task(
             self._run_agent(
                 queue=queue,
-                workspace_id=workspace_id,
-                workspace_name=workspace_name,
+                saas_agent_id=saas_agent_id,
+                saas_agent_name=saas_agent_name,
                 user_id=user_id,
                 messages=lc_messages,
                 reasoning_mode=reasoning_mode,
@@ -136,8 +136,8 @@ class ChatService:
         self,
         *,
         queue: asyncio.Queue,
-        workspace_id: uuid.UUID,
-        workspace_name: str,
+        saas_agent_id: uuid.UUID,
+        saas_agent_name: str,
         user_id: uuid.UUID | None,
         messages: list,
         reasoning_mode: str,
@@ -147,8 +147,8 @@ class ChatService:
     ) -> None:
         try:
             graph = build_agent_graph(
-                workspace_id=workspace_id,
-                workspace_name=workspace_name,
+                saas_agent_id=saas_agent_id,
+                saas_agent_name=saas_agent_name,
                 reasoning_mode=reasoning_mode,
                 memory_context=memory_context,
                 rag_svc=rag_service,
@@ -178,25 +178,55 @@ class ChatService:
                     return
                 await queue.put(SSEEvent(event=event_name, data=payload).encode())
 
+            memory_content = await self._maybe_handle_memory_command(
+                message=messages[-1].content if messages else "",
+                saas_agent_id=saas_agent_id,
+                session_id=session_id,
+                user_id=user_id,
+                db=db,
+            )
+            if memory_content is not None:
+                full_content = memory_content
+                await queue.put(message_delta(full_content))
+                memory_follow_ups = ["Show saved memories", "Recall memory for this SaaS Agent"]
+                await queue.put(follow_ups(memory_follow_ups))
+                db.add(
+                    AgentMessage(
+                        session_id=session_id,
+                        saas_agent_id=saas_agent_id,
+                        role="assistant",
+                        content=full_content,
+                        follow_ups=memory_follow_ups,
+                    )
+                )
+                await db.commit()
+                return
+
             rest_content = await run_rest_operator_turn(
                 message=messages[-1].content if messages else "",
-                workspace_id=workspace_id,
+                saas_agent_id=saas_agent_id,
+                session_id=session_id,
+                user_id=user_id,
                 db=db,
                 emit=emit_runtime_event,
             )
             if rest_content is not None:
                 full_content = rest_content
                 await queue.put(message_delta(full_content))
+                rest_follow_ups = _rest_follow_ups(full_content)
+                if rest_follow_ups:
+                    await queue.put(follow_ups(rest_follow_ups))
                 db.add(
                     AgentMessage(
                         session_id=session_id,
-                        workspace_id=workspace_id,
+                        saas_agent_id=saas_agent_id,
                         role="assistant",
                         content=full_content,
                         thinking=None,
                         tool_calls=tool_calls_data or None,
                         sources=None,
-                        follow_ups=[
+                        follow_ups=rest_follow_ups
+                        or [
                             "Inspect the generated actions",
                             "Connect or activate another API",
                             "Ask me to run a read-only API action",
@@ -262,7 +292,7 @@ class ChatService:
             if sources_data:
                 rag_results = await rag_service.search(
                     sources_data[0].get("query", ""),
-                    workspace_id=workspace_id,
+                    saas_agent_id=saas_agent_id,
                     top_k=3,
                 )
                 if rag_results:
@@ -284,7 +314,7 @@ class ChatService:
             db.add(
                 AgentMessage(
                     session_id=session_id,
-                    workspace_id=workspace_id,
+                    saas_agent_id=saas_agent_id,
                     role="assistant",
                     content=full_content,
                     thinking=full_thinking or None,
@@ -309,14 +339,14 @@ class ChatService:
     async def _resolve_session(
         self,
         session_id: uuid.UUID | None,
-        workspace_id: uuid.UUID,
+        saas_agent_id: uuid.UUID,
         user_id: uuid.UUID | None,
         db: AsyncSession,
         handoff_context: dict[str, Any] | None = None,
     ) -> AgentSession:
         if session_id:
             session = await db.get(AgentSession, session_id)
-            if session and session.workspace_id == workspace_id:
+            if session and session.saas_agent_id == saas_agent_id:
                 if session.user_id != user_id:
                     session = None
                 else:
@@ -325,7 +355,7 @@ class ChatService:
                         await db.commit()
                     return session
         session = AgentSession(
-            workspace_id=workspace_id,
+            saas_agent_id=saas_agent_id,
             user_id=user_id,
             metadata_={"handoff_context": handoff_context} if handoff_context else None,
         )
@@ -333,6 +363,44 @@ class ChatService:
         await db.commit()
         await db.refresh(session)
         return session
+
+    async def _maybe_handle_memory_command(
+        self,
+        *,
+        message: str,
+        saas_agent_id: uuid.UUID,
+        session_id: uuid.UUID,
+        user_id: uuid.UUID | None,
+        db: AsyncSession,
+    ) -> str | None:
+        save_match = re.search(r"\bremember(?: that| this|:)?\s+(.+)$", message.strip(), re.IGNORECASE | re.DOTALL)
+        if save_match:
+            content = save_match.group(1).strip()
+            if not content:
+                return "Tell me what to remember for this SaaS Agent."
+            category = "instruction" if "always" in content.lower() or "prefer" in content.lower() else "fact"
+            memory = await memory_service.save(
+                content,
+                saas_agent_id=saas_agent_id,
+                category=category,
+                session_id=session_id,
+                user_id=user_id,
+                db=db,
+            )
+            return f"Saved memory `{str(memory.id)[:8]}` for this SaaS Agent.\n\n{content}"
+
+        lowered = message.lower()
+        if "what do you remember" in lowered or lowered.startswith("recall memory") or lowered.startswith("show saved memories"):
+            query = message
+            memories = await memory_service.recall(query, saas_agent_id=saas_agent_id, db=db, limit=8)
+            if not memories:
+                return "No saved memories found for this SaaS Agent yet."
+            lines = ["Saved memories for this SaaS Agent:"]
+            for memory in memories:
+                lines.append(f"- ({memory['category']}) {memory['content']}")
+            return "\n".join(lines)
+
+        return None
 
 
 chat_service = ChatService()
@@ -342,14 +410,14 @@ def _handoff_summary(metadata: dict[str, Any]) -> str:
     handoff = metadata.get("handoff_context")
     if not isinstance(handoff, dict):
         return ""
-    workspace_name = handoff.get("workspace_name") or "this workspace"
+    saas_agent_name = handoff.get("saas_agent_name") or "this SaaS Agent"
     entry_draft = handoff.get("entry_draft") if isinstance(handoff.get("entry_draft"), dict) else {}
     connection_draft = handoff.get("connection_draft") if isinstance(handoff.get("connection_draft"), dict) else {}
     recent_messages = handoff.get("recent_entry_messages") if isinstance(handoff.get("recent_entry_messages"), list) else []
-    parts = [f"Entry handoff: user reached operator chat from the setup flow for {workspace_name}."]
-    draft_workspace_name = entry_draft.get("workspace_name")
-    if draft_workspace_name:
-        parts.append(f"Draft workspace name: {draft_workspace_name}.")
+    parts = [f"Entry handoff: user reached operator chat from the setup flow for {saas_agent_name}."]
+    draft_saas_agent_name = entry_draft.get("saas_agent_name")
+    if draft_saas_agent_name:
+        parts.append(f"Draft SaaSAgent name: {draft_saas_agent_name}.")
     api_draft = entry_draft.get("api_draft") if isinstance(entry_draft.get("api_draft"), dict) else {}
     base_url = connection_draft.get("base_url") or api_draft.get("base_url")
     spec_url = connection_draft.get("spec_url") or api_draft.get("spec_url")
@@ -361,3 +429,15 @@ def _handoff_summary(metadata: dict[str, Any]) -> str:
         compact = " | ".join(str(message)[:160] for message in recent_messages[-4:])
         parts.append(f"Recent entry conversation: {compact}")
     return "\n".join(parts)
+
+
+def _rest_follow_ups(content: str) -> list[str]:
+    match = re.search(r"Trace:\s*`([a-f0-9]{8})`", content, re.IGNORECASE)
+    if not match:
+        return []
+    token = match.group(1)
+    if "needs approval" in content.lower():
+        return [f"approve {token}", f"cancel {token}", "Inspect the generated actions"]
+    if "needs more inputs" in content.lower():
+        return ["Inspect the generated actions", "Tell me the missing inputs"]
+    return ["Inspect the generated actions", "Ask me to run another read-only API action"]

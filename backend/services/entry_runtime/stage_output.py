@@ -14,9 +14,9 @@ def stage_output_payload(updates: dict[str, Any]) -> dict[str, Any]:
         payload["messages"] = [
             message.model_dump(mode="json") for message in updates["messages"]
         ]
-    if updates.get("workspaces"):
-        payload["workspaces"] = [
-            workspace.model_dump(mode="json") for workspace in updates["workspaces"]
+    if updates.get("saas_agents"):
+        payload["saas_agents"] = [
+            saas_agent.model_dump(mode="json") for saas_agent in updates["saas_agents"]
         ]
     if updates.get("available_actions"):
         payload["available_actions"] = [
@@ -28,8 +28,8 @@ def stage_output_payload(updates: dict[str, Any]) -> dict[str, Any]:
         ]
     if updates.get("replace_path"):
         payload["replace_path"] = updates.get("replace_path")
-    if updates.get("active_workspace_id"):
-        payload["active_workspace_id"] = str(updates.get("active_workspace_id"))
+    if updates.get("active_saas_agent_id"):
+        payload["active_saas_agent_id"] = str(updates.get("active_saas_agent_id"))
     if updates.get("active_connection_id"):
         payload["active_connection_id"] = str(updates.get("active_connection_id"))
     if updates.get("connection_draft"):

@@ -72,7 +72,7 @@ class RestApiAdapter(ConnectionAdapter):
         spec = parse_and_validate_spec(raw)
         endpoints = extract_endpoints(spec)
         return [
-            build_action_node_data(endpoint, connection.id, connection.workspace_id, spec_url)
+            build_action_node_data(endpoint, connection.id, connection.saas_agent_id, spec_url)
             for endpoint in endpoints
         ]
 

@@ -43,7 +43,7 @@ export type SSEEventType =
 
 export interface AgentSession {
   id: string
-  workspace_id: string
+  saas_agent_id: string
   user_id?: string | null
   title: string | null
   created_at: string
@@ -65,7 +65,7 @@ export interface AgentMessageRow {
 
 export interface AgentDocument {
   id: string
-  workspace_id: string
+  saas_agent_id: string
   filename: string
   original_name: string
   content_type: string
@@ -84,17 +84,34 @@ export interface AgentDocumentChunk {
 
 export interface AgentMemoryRow {
   id: string
-  workspace_id: string
+  saas_agent_id: string
   session_id: string | null
   content: string
   category: string
   created_at: string
 }
 
+export interface AgentLearningCandidate {
+  id: string
+  saas_agent_id: string
+  source_trace_id?: string | null
+  trigger_type: string
+  status: string
+  title: string
+  summary: string
+  hint_text: string
+  target_tool_name?: string | null
+  target_action_path?: string | null
+  target_risk_level?: string | null
+  evidence?: Record<string, unknown> | null
+  created_at: string
+  reviewed_at?: string | null
+}
+
 export interface AgentHandoffContext {
   entry_session_id?: string | null
-  workspace_id?: string | null
-  workspace_name?: string | null
+  saas_agent_id?: string | null
+  saas_agent_name?: string | null
   entry_draft?: Record<string, unknown>
   connection_draft?: Record<string, unknown>
   active_connection_id?: string | null

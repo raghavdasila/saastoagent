@@ -14,7 +14,7 @@ from backend.core.schemas import (
     EntryGraphState,
     EntryUIArtifact,
     UserRead,
-    WorkspaceRead,
+    SaaSAgentRead,
 )
 
 if TYPE_CHECKING:
@@ -33,9 +33,9 @@ class EntryRuntimeState(TypedDict, total=False):
     intent: str | None
     display_name: str
     email: str
-    workspace_name: str
-    workspace_slug: str
-    active_workspace_id: uuid.UUID | None
+    saas_agent_name: str
+    saas_agent_slug: str
+    active_saas_agent_id: uuid.UUID | None
     active_connection_id: uuid.UUID | None
     connection_draft: dict[str, Any]
     entry_draft: dict[str, Any]
@@ -50,7 +50,7 @@ class EntryRuntimeState(TypedDict, total=False):
     runtime: "EntryTurnRuntime"
     messages: list[EntryGraphMessage]
     session_payload: EntryGraphSession | None
-    workspaces: list[WorkspaceRead]
+    saas_agents: list[SaaSAgentRead]
     available_actions: list[EntryActionCard]
     persistent_actions: list[EntryActionCard]
     ui_artifacts: list[EntryUIArtifact]
@@ -111,9 +111,9 @@ def state_payload(state: EntryRuntimeState) -> EntryGraphState:
         intent=cast(Any, state.get("intent")),
         display_name=state.get("display_name", ""),
         email=state.get("email", ""),
-        workspace_name=state.get("workspace_name", ""),
-        workspace_slug=state.get("workspace_slug", ""),
-        active_workspace_id=state.get("active_workspace_id"),
+        saas_agent_name=state.get("saas_agent_name", ""),
+        saas_agent_slug=state.get("saas_agent_slug", ""),
+        active_saas_agent_id=state.get("active_saas_agent_id"),
         active_connection_id=state.get("active_connection_id"),
         connection_draft=state.get("connection_draft", {}),
         entry_draft=state.get("entry_draft", {}),

@@ -11,7 +11,7 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = storage.getToken()
-  const workspaceId = storage.getWorkspaceId()
+  const saasAgentId = storage.getSaaSAgentId()
 
   const isFormData = options.body instanceof FormData
 
@@ -27,8 +27,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers.Authorization = `Bearer ${token}`
   }
 
-  if (workspaceId) {
-    headers['X-Workspace-ID'] = workspaceId
+  if (saasAgentId) {
+    headers['X-SaaSAgent-ID'] = saasAgentId
   }
 
   const response = await fetch(`/api${path}`, {
@@ -67,7 +67,7 @@ export const api = {
   ) =>
     new Promise<void>((resolve, reject) => {
       const token = storage.getToken()
-      const workspaceId = storage.getWorkspaceId()
+      const saasAgentId = storage.getSaaSAgentId()
       const xhr = new XMLHttpRequest()
       let cursor = 0
       let buffer = ''
@@ -76,8 +76,8 @@ export const api = {
       if (token && token !== 'undefined' && token !== 'null') {
         xhr.setRequestHeader('Authorization', `Bearer ${token}`)
       }
-      if (workspaceId) {
-        xhr.setRequestHeader('X-Workspace-ID', workspaceId)
+      if (saasAgentId) {
+        xhr.setRequestHeader('X-SaaSAgent-ID', saasAgentId)
       }
       xhr.onprogress = () => {
         const chunk = xhr.responseText.slice(cursor)

@@ -7,7 +7,7 @@ export interface User {
   is_verified: boolean
 }
 
-export interface Workspace {
+export interface SaaSAgent {
   id: string
   name: string
   slug: string
@@ -16,7 +16,7 @@ export interface Workspace {
   role?: string
 }
 
-export interface WorkspaceStats {
+export interface SaaSAgentStats {
   connections_count: number
   tools_count: number
   learnings_count: number
@@ -35,7 +35,7 @@ export interface AuthTokens {
 
 export interface ConnectionRead {
   id: string
-  workspace_id: string
+  saas_agent_id: string
   name: string
   type: string
   provider: string
@@ -64,7 +64,7 @@ export interface ConnectionPreview {
 export interface ActionNodeRead {
   id: string
   connection_id: string
-  workspace_id: string
+  saas_agent_id: string
   name: string
   path: string
   method: string
@@ -81,7 +81,7 @@ export interface GeneratedToolRead {
   id: string
   action_node_id: string
   connection_id: string
-  workspace_id: string
+  saas_agent_id: string
   name: string
   description?: string | null
   function_schema: Record<string, unknown>

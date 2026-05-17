@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 
 import { EntryArtifactRenderer } from '@/components/entry/EntryArtifactRenderer'
 import { cn } from '@/lib/cn'
-import { formatWorkspaceDisplayName, OPERATOR_NAME, PRODUCT_MONOGRAM } from '@/lib/entryGraph'
+import { formatSaaSAgentDisplayName, OPERATOR_NAME, PRODUCT_MONOGRAM } from '@/lib/entryGraph'
 import {
   capabilityStateFor,
   isCapabilitySelectable,
@@ -12,8 +12,16 @@ import {
   type CapabilityRuntimeContext,
   type OperatorCapabilityDefinition,
 } from '@/lib/operatorExperience'
-import type { EntryActionCard, EntryGraphManifest, EntryUIArtifact, GatewayNode, OperatorExperienceMode, OperatorSidebarItem } from '@/types/entry'
-import type { Workspace, WorkspaceStats } from '@/types/domain'
+import type {
+  EntryActionCard,
+  EntryGraphManifest,
+  EntryUIArtifact,
+  GatewayNode,
+  OperatorExperienceMode,
+  OperatorSidebarItem,
+  SaaSAgentRouteDeckContext,
+} from '@/types/entry'
+import type { SaaSAgent, SaaSAgentStats } from '@/types/domain'
 
 export type AutonomyLevel = 'suggest' | 'draft' | 'ask' | 'low_risk_auto' | 'risky_approval'
 
@@ -29,12 +37,17 @@ const graphNodeLabels: Record<GatewayNode, string> = {
   display_name: 'Display name',
   email: 'Email',
   password: 'Password',
-  workspace_select: 'Workspace select',
-  workspace_job: 'Workspace setup',
-  workspace_confirm: 'Workspace confirm',
+  saas_agent_select: 'SaaS Agent select',
+  saas_agent_job: 'SaaS Agent setup',
+  saas_agent_confirm: 'SaaS Agent confirm',
   setup_intro: 'REST setup',
   connection_confirm: 'Connection confirm',
-  operator_ready: 'Workspace ready',
+  operator_ready: 'SaaSAgent ready',
+}
+
+function graphNodeLabel(graphNode?: string | null): string {
+  if (!graphNode) return 'SaaS Agent chat'
+  return graphNodeLabels[graphNode as GatewayNode] || graphNode.replace(/_/g, ' ')
 }
 
 const autonomyOptions: Array<{ id: AutonomyLevel; label: string; description: string }> = [
@@ -47,14 +60,14 @@ const autonomyOptions: Array<{ id: AutonomyLevel; label: string; description: st
 
 export function buildReadiness({
   mode,
-  workspaceId,
+  saasAgentId,
   stats,
   isAuthenticated,
   operatorError,
 }: {
   mode: OperatorExperienceMode
-  workspaceId: string | null
-  stats?: WorkspaceStats
+  saasAgentId: string | null
+  stats?: SaaSAgentStats
   isAuthenticated: boolean
   operatorError?: string | null
 }): OperatorReadiness {
@@ -64,17 +77,17 @@ export function buildReadiness({
   if (mode === 'entry') {
     return {
       label: isAuthenticated ? 'Account ready' : 'Anonymous entry',
-      detail: 'Ask about the platform, name a workspace, or prepare REST setup.',
+      detail: 'Ask about the platform, name a SaaS Agent, or prepare REST setup.',
       tone: 'neutral',
     }
   }
-  if (!workspaceId) {
-    return { label: 'No workspace', detail: `Create or select a workspace before ${OPERATOR_NAME} can continue.`, tone: 'blocked' }
+  if (!saasAgentId) {
+    return { label: 'No SaaS Agent', detail: `Create or select a SaaS Agent before ${OPERATOR_NAME} can continue.`, tone: 'blocked' }
   }
   const connections = stats?.connections_count ?? 0
   const tools = stats?.tools_count ?? 0
   if (connections === 0) {
-    return { label: 'Setup needed', detail: 'Connect a REST API before this workspace can inspect or execute actions.', tone: 'setup' }
+    return { label: 'Setup needed', detail: 'Connect a REST API before this SaaS Agent can inspect or execute actions.', tone: 'setup' }
   }
   if (tools === 0) {
     return { label: 'Catalog pending', detail: `${connections} API connected. Generated tools are not ready for chat execution yet.`, tone: 'setup' }
@@ -84,20 +97,22 @@ export function buildReadiness({
 
 export function OperatorStatusStrip({
   mode,
-  workspace,
-  workspaceId,
+  saasAgent,
+  saasAgentId,
   stats,
   graphNode,
   graphManifest,
+  agentContext,
   readiness,
   busy,
 }: {
   mode: OperatorExperienceMode
-  workspace?: Workspace
-  workspaceId: string | null
-  stats?: WorkspaceStats
-  graphNode?: GatewayNode | null
+  saasAgent?: SaaSAgent
+  saasAgentId: string | null
+  stats?: SaaSAgentStats
+  graphNode?: string | null
   graphManifest?: EntryGraphManifest | null
+  agentContext?: SaaSAgentRouteDeckContext | null
   readiness: OperatorReadiness
   busy: boolean
 }) {
@@ -124,20 +139,20 @@ export function OperatorStatusStrip({
         <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
           <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Current surface</div>
           <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
-            {mode === 'operator' ? formatWorkspaceDisplayName(workspace?.name) || 'Workspace ready' : 'Entry and setup'}
+            {mode === 'operator' ? formatSaaSAgentDisplayName(saasAgent?.name) || 'SaaS Agent ready' : 'Entry and setup'}
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            {workspaceId ? `Workspace ${workspaceId.slice(0, 8)}` : 'No workspace selected'}
+            {agentContext?.working_on || (saasAgentId ? `SaaS Agent ${saasAgentId.slice(0, 8)}` : 'No SaaS Agent selected')}
           </p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
           <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Flow state</div>
           <div className="mt-1 flex items-center gap-2 text-sm font-semibold text-slate-950 dark:text-white">
             {busy && <span className="h-2 w-2 animate-pulse rounded-full bg-sky-500" />}
-            {graphNode ? graphNodeLabels[graphNode] : mode === 'operator' ? 'Workspace chat' : 'Bootstrapping'}
+            {graphNode ? graphNodeLabel(graphNode) : mode === 'operator' ? 'SaaS Agent chat' : 'Bootstrapping'}
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            {nodeCount > 0 ? `${nodeCount} graph nodes visible to the shell` : 'Workspace chat bridge active'}
+            {nodeCount > 0 ? `${nodeCount} graph nodes visible to the shell` : 'SaaS Agent chat bridge active'}
           </p>
         </div>
       </div>
@@ -251,6 +266,7 @@ export function ContextLens({
   capability,
   children,
   uiArtifacts,
+  agentContext,
   onOpenCanvas,
   onClose,
 }: {
@@ -258,6 +274,7 @@ export function ContextLens({
   capability?: OperatorCapabilityDefinition
   children: JSX.Element
   uiArtifacts: EntryUIArtifact[]
+  agentContext?: SaaSAgentRouteDeckContext | null
   onOpenCanvas: (artifactId: string) => void
   onClose: () => void
 }) {
@@ -291,6 +308,35 @@ export function ContextLens({
           <p className="mt-1 leading-5 text-slate-500 dark:text-slate-400">{capability.evidenceSurface}</p>
         </div>
       )}
+      {agentContext && (
+        <div className="mb-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100">
+          <div className="font-semibold">Selected SaaS Agent</div>
+          <dl className="mt-2 grid gap-2 text-sky-800/85 dark:text-sky-100/80">
+            <div>
+              <dt className="font-medium text-sky-950 dark:text-white">Agent</dt>
+              <dd>{agentContext.saas_agent_name || agentContext.saas_agent_slug || agentContext.saas_agent_id.slice(0, 8)}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-sky-950 dark:text-white">Working on</dt>
+              <dd>{agentContext.working_on || agentContext.current_label || 'SaaS Agent context'}</dd>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div><dt className="font-medium text-sky-950 dark:text-white">Connections</dt><dd>{agentContext.connection_count ?? 0}</dd></div>
+              <div><dt className="font-medium text-sky-950 dark:text-white">Actions</dt><dd>{agentContext.action_count ?? 0}</dd></div>
+              <div><dt className="font-medium text-sky-950 dark:text-white">Tools</dt><dd>{agentContext.tool_count ?? 0}</dd></div>
+            </div>
+            {agentContext.latest_execution_status && (
+              <div>
+                <dt className="font-medium text-sky-950 dark:text-white">Latest execution</dt>
+                <dd>
+                  {agentContext.latest_execution_tool_name || 'Generated REST action'} - {agentContext.latest_execution_status}
+                  {agentContext.latest_execution_risk ? ` (${agentContext.latest_execution_risk})` : ''}
+                </dd>
+              </div>
+            )}
+          </dl>
+        </div>
+      )}
       <div className="min-h-0 flex-1 overflow-y-auto lg:max-h-[calc(100vh-13rem)]">{children}</div>
     </aside>
   )
@@ -311,7 +357,7 @@ export function EvidenceDrawer({
   open: boolean
   onToggle: () => void
   mode: OperatorExperienceMode
-  graphNode?: GatewayNode | null
+  graphNode?: string | null
   runId?: string | null
   sessionId?: string | null
   readiness: OperatorReadiness
@@ -343,10 +389,10 @@ export function EvidenceDrawer({
             </div>
             <dl className="mt-3 space-y-2 text-slate-500 dark:text-slate-400">
               <div><dt className="font-medium text-slate-700 dark:text-slate-200">Mode</dt><dd>{mode}</dd></div>
-              <div><dt className="font-medium text-slate-700 dark:text-slate-200">Stage</dt><dd>{graphNode ? graphNodeLabels[graphNode] : 'Workspace chat'}</dd></div>
+              <div><dt className="font-medium text-slate-700 dark:text-slate-200">Stage</dt><dd>{graphNode ? graphNodeLabel(graphNode) : 'SaaS Agent chat'}</dd></div>
               <div><dt className="font-medium text-slate-700 dark:text-slate-200">Run</dt><dd className="break-all">{runId || 'Not emitted yet'}</dd></div>
               <div><dt className="font-medium text-slate-700 dark:text-slate-200">Session</dt><dd className="break-all">{sessionId || 'Not emitted yet'}</dd></div>
-              <div><dt className="font-medium text-slate-700 dark:text-slate-200">Graph</dt><dd>{graphNode ? 'RouteDeck entry graph' : 'Workspace bridge'}</dd></div>
+              <div><dt className="font-medium text-slate-700 dark:text-slate-200">Graph</dt><dd>{graphNode ? 'RouteDeck entry graph' : 'SaaS Agent bridge'}</dd></div>
             </dl>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs dark:border-white/10 dark:bg-white/[0.03]">

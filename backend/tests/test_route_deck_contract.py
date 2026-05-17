@@ -16,14 +16,14 @@ from backend.services.entry_runtime.route_conditions import (
 )
 from routedeck_langgraph import validate_langgraph_contract
 from backend.services.entry_runtime.stage_auth import display_name_node, email_node, password_node
-from backend.services.entry_runtime import stage_workspace
+from backend.services.entry_runtime import stage_saas_agent
 from backend.core.config import settings
 from backend.services.entry_runtime.ui_actions import (
     connection_confirm_actions,
     setup_intro_actions,
-    standard_workspace_actions,
+    standard_saas_agent_actions,
 )
-from backend.core.schemas import WorkspaceRead
+from backend.core.schemas import SaaSAgentRead
 
 
 def test_ROUTE_DECK_manifest_is_valid_and_complete():
@@ -38,7 +38,7 @@ def test_ROUTE_DECK_manifest_is_valid_and_complete():
     assert manifest.policies["sensitive"]["masked_payload_keys"]
 
 
-def test_ROUTE_DECK_workspace_creation_copy_matches_product_contract():
+def test_ROUTE_DECK_saas_agent_creation_copy_matches_product_contract():
     manifest = build_route_deck_manifest()
     text = " ".join(
         str(value)
@@ -56,8 +56,8 @@ def test_ROUTE_DECK_workspace_creation_copy_matches_product_contract():
 
     assert "saas job" not in text.lower()
     assert "operator should own" not in text.lower()
-    assert "workspace job" not in text.lower()
-    assert "workspace name" in text.lower()
+    assert "saasagent job" not in text.lower()
+    assert "saas agent name" in text.lower()
 
 
 def test_ROUTE_DECK_manifest_matches_executable_entry_runtime():
@@ -76,7 +76,7 @@ def test_ROUTE_DECK_manifest_matches_executable_entry_runtime():
                 assert is_action_allowed_for_node(node.id, action_id)
 
     for node, actions in {
-        "operator_ready": standard_workspace_actions(),
+        "operator_ready": standard_saas_agent_actions(),
         "setup_intro": setup_intro_actions(),
         "connection_confirm": connection_confirm_actions({"name": "Example API"}),
     }.items():
@@ -112,12 +112,12 @@ def test_ROUTE_DECK_action_scope_blocks_invalid_auth_dead_ends():
     assert is_action_allowed_for_node("email", "intent.register")
     assert is_action_allowed_for_node("password", "nav.back")
     assert is_action_allowed_for_node("password", "nav.cancel")
-    assert is_action_allowed_for_node("workspace_select", "nav.back")
-    assert is_action_allowed_for_node("workspace_select", "nav.cancel")
-    assert is_action_allowed_for_node("workspace_job", "nav.back")
-    assert is_action_allowed_for_node("workspace_job", "nav.cancel")
-    assert is_action_allowed_for_node("workspace_confirm", "nav.back")
-    assert is_action_allowed_for_node("workspace_confirm", "nav.cancel")
+    assert is_action_allowed_for_node("saas_agent_select", "nav.back")
+    assert is_action_allowed_for_node("saas_agent_select", "nav.cancel")
+    assert is_action_allowed_for_node("saas_agent_job", "nav.back")
+    assert is_action_allowed_for_node("saas_agent_job", "nav.cancel")
+    assert is_action_allowed_for_node("saas_agent_confirm", "nav.back")
+    assert is_action_allowed_for_node("saas_agent_confirm", "nav.cancel")
 
     message, actions = recover_from_invalid_action("email", "setup.rest.configure")
     assert "not available" in message
@@ -236,70 +236,70 @@ def test_typed_non_llm_nodes_expose_recovery_navigation():
     manifest = build_route_deck_manifest()
     node_by_id = {node.id: node for node in manifest.nodes}
 
-    for node_id in ("display_name", "email", "password", "workspace_select", "workspace_job", "workspace_confirm", "setup_intro", "connection_confirm"):
+    for node_id in ("display_name", "email", "password", "saas_agent_select", "saas_agent_job", "saas_agent_confirm", "setup_intro", "connection_confirm"):
         assert RouteDeckActionIds.NAV_BACK in node_by_id[node_id].allowed_actions
         assert RouteDeckActionIds.NAV_CANCEL in node_by_id[node_id].allowed_actions
 
 
-def _workspace_state(node: str, *, action_id: str | None = None):
+def _SaaSAgent_state(node: str, *, action_id: str | None = None):
     return {
         "node": node,
         "current_user": type("UserStub", (), {"id": "user-1"})(),
         "selected_action_id": action_id,
-        "workspace_name": "Billing Workspace",
-        "workspace_slug": "billing-workspace",
+        "saas_agent_name": "Billing SaaSAgent",
+        "saas_agent_slug": "billing-SaaSAgent",
         "messages": [],
     }
 
 
-def _workspace(name: str = "Existing Workspace") -> WorkspaceRead:
+def _SaaSAgent(name: str = "Existing SaaSAgent") -> SaaSAgentRead:
     from datetime import datetime
     from uuid import uuid4
 
-    return WorkspaceRead(
+    return SaaSAgentRead(
         id=uuid4(),
         name=name,
-        slug="existing-workspace",
+        slug="existing-SaaSAgent",
         created_by=uuid4(),
         created_at=datetime.utcnow(),
         role="owner",
     )
 
 
-def test_workspace_recovery_actions_are_executable(monkeypatch):
+def test_SaaSAgent_recovery_actions_are_executable(monkeypatch):
     import asyncio
 
-    async def fake_list_workspaces(_state, _user_id):
-        return [_workspace()]
+    async def fake_list_saas_agents(_state, _user_id):
+        return [_SaaSAgent()]
 
-    monkeypatch.setattr(stage_workspace, "list_workspaces", fake_list_workspaces)
+    monkeypatch.setattr(stage_saas_agent, "list_saas_agents", fake_list_saas_agents)
 
     select_result = asyncio.run(
-        stage_workspace.workspace_select_node(
-            _workspace_state("workspace_select", action_id=RouteDeckActionIds.NAV_CANCEL)
+        stage_saas_agent.saas_agent_select_node(
+            _SaaSAgent_state("saas_agent_select", action_id=RouteDeckActionIds.NAV_CANCEL)
         )
     )
     job_result = asyncio.run(
-        stage_workspace.workspace_job_node(
-            _workspace_state("workspace_job", action_id=RouteDeckActionIds.NAV_BACK)
+        stage_saas_agent.saas_agent_job_node(
+            _SaaSAgent_state("saas_agent_job", action_id=RouteDeckActionIds.NAV_BACK)
         )
     )
     confirm_back_result = asyncio.run(
-        stage_workspace.workspace_confirm_node(
-            _workspace_state("workspace_confirm", action_id=RouteDeckActionIds.NAV_BACK)
+        stage_saas_agent.saas_agent_confirm_node(
+            _SaaSAgent_state("saas_agent_confirm", action_id=RouteDeckActionIds.NAV_BACK)
         )
     )
     confirm_cancel_result = asyncio.run(
-        stage_workspace.workspace_confirm_node(
-            _workspace_state("workspace_confirm", action_id=RouteDeckActionIds.NAV_CANCEL)
+        stage_saas_agent.saas_agent_confirm_node(
+            _SaaSAgent_state("saas_agent_confirm", action_id=RouteDeckActionIds.NAV_CANCEL)
         )
     )
 
     assert select_result["node"] == "intent"
-    assert select_result["workspace_name"] == ""
+    assert select_result["saas_agent_name"] == ""
     assert job_result["node"] == "intent"
-    assert job_result["workspace_slug"] == ""
-    assert confirm_back_result["node"] == "workspace_select"
-    assert {action.id for action in confirm_back_result["available_actions"]} >= {"workspace_select.open:1"}
+    assert job_result["saas_agent_slug"] == ""
+    assert confirm_back_result["node"] == "saas_agent_select"
+    assert {action.id for action in confirm_back_result["available_actions"]} >= {"saas_agent_select.open:1"}
     assert confirm_cancel_result["node"] == "intent"
-    assert confirm_cancel_result["workspace_name"] == ""
+    assert confirm_cancel_result["saas_agent_name"] == ""

@@ -23,3 +23,5 @@ Architectural Decision Records for SaaStoAgent v0.1.
 - `ADR-007-routedeck-framework-contract.md` - define RouteDeck as the reusable sibling graph-navigation contract, package boundary, and debugger framework
 - `ADR-008-live-entry-streaming-contract.md` - require live model/graph streaming for entry assistant text and prohibit fake delayed chunk replay
 - `ADR-009-langgraph-owned-entry-runtime.md` - make LangGraph the executable topology while RouteDeck remains the visible navigation contract
+- `ADR-010-saas-agent-domain-authority.md` - replace Workspace with SaaSAgent as the domain authority and require one RouteDeck runtime per SaaS Agent
+- `ADR-011-full-application-graph-ownership.md` - make the backend app graph the navigation/capability authority and RouteDeck the frontend bridge for all nodes

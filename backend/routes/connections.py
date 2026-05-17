@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from backend.core.auth import current_active_user
 from backend.core.credentials import encrypt_value
@@ -20,7 +21,7 @@ from backend.core.models import (
     EncryptedCredential,
     GeneratedTool,
     User,
-    WorkspaceMember,
+    SaaSAgentMember,
 )
 from backend.core.schemas import (
     ActionCatalogRead,
@@ -35,46 +36,57 @@ from backend.core.schemas import (
 )
 from backend.services.catalog import (
     infer_entities,
-    list_workspace_actions,
-    list_workspace_tools,
+    list_SaaSAgent_actions,
+    list_SaaSAgent_tools,
     preview_openapi_spec,
-    workspace_catalog,
+    SaaSAgent_catalog,
 )
 from backend.services.discovery.activation import ActivationService
+from backend.services.saas_agent_route_deck import build_saas_agent_route_deck_response
 from backend.providers import AdapterRegistry
 
-router = APIRouter(prefix="/api/workspaces/{workspace_id}", tags=["connections"])
+router = APIRouter(prefix="/api/saas-agents/{saas_agent_id}", tags=["connections"])
 
 
-async def _require_member(workspace_id: uuid.UUID, user: User, db: AsyncSession) -> None:
+async def _require_member(saas_agent_id: uuid.UUID, user: User, db: AsyncSession) -> None:
     result = await db.execute(
-        select(WorkspaceMember).where(
-            WorkspaceMember.workspace_id == workspace_id,
-            WorkspaceMember.user_id == user.id,
+        select(SaaSAgentMember).where(
+            SaaSAgentMember.saas_agent_id == saas_agent_id,
+            SaaSAgentMember.user_id == user.id,
         )
     )
     if result.scalar_one_or_none() is None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a member of this workspace")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a member of this SaaS Agent")
 
 
 @router.get("/providers")
-async def list_workspace_providers(
-    workspace_id: uuid.UUID,
+async def list_SaaSAgent_providers(
+    saas_agent_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_member(workspace_id, user, db)
+    await _require_member(saas_agent_id, user, db)
     return AdapterRegistry.get_provider_catalog()
+
+
+@router.get("/route-deck")
+async def get_saas_agent_route_deck(
+    saas_agent_id: uuid.UUID,
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    await _require_member(saas_agent_id, user, db)
+    return await build_saas_agent_route_deck_response(db, saas_agent_id)
 
 
 @router.post("/connections/preview", response_model=ConnectionPreviewRead)
 async def preview_connection(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     body: ConnectionPreviewRequest,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_member(workspace_id, user, db)
+    await _require_member(saas_agent_id, user, db)
     try:
         return await preview_openapi_spec(spec_url=body.spec_url, raw_spec=body.raw_spec)
     except Exception as exc:
@@ -82,43 +94,43 @@ async def preview_connection(
 
 
 @router.get("/catalog", response_model=ActionCatalogRead)
-async def get_workspace_catalog(
-    workspace_id: uuid.UUID,
+async def get_saas_agent_catalog(
+    saas_agent_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_member(workspace_id, user, db)
-    return await workspace_catalog(db, workspace_id)
+    await _require_member(saas_agent_id, user, db)
+    return await SaaSAgent_catalog(db, saas_agent_id)
 
 
 @router.get("/actions", response_model=list[ActionNodeRead])
-async def list_workspace_actions_route(
-    workspace_id: uuid.UUID,
+async def list_SaaSAgent_actions_route(
+    saas_agent_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_member(workspace_id, user, db)
-    return await list_workspace_actions(db, workspace_id)
+    await _require_member(saas_agent_id, user, db)
+    return await list_SaaSAgent_actions(db, saas_agent_id)
 
 
 @router.get("/tools", response_model=list[ToolRead])
-async def list_workspace_tools_route(
-    workspace_id: uuid.UUID,
+async def list_SaaSAgent_tools_route(
+    saas_agent_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_member(workspace_id, user, db)
-    return await list_workspace_tools(db, workspace_id)
+    await _require_member(saas_agent_id, user, db)
+    return await list_SaaSAgent_tools(db, saas_agent_id)
 
 
 @router.get("/entities", response_model=list[EntityRead])
-async def list_workspace_entities(
-    workspace_id: uuid.UUID,
+async def list_SaaSAgent_entities(
+    saas_agent_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_member(workspace_id, user, db)
-    actions = await list_workspace_actions(db, workspace_id)
+    await _require_member(saas_agent_id, user, db)
+    actions = await list_SaaSAgent_actions(db, saas_agent_id)
     return infer_entities(actions)
 
 
@@ -143,7 +155,7 @@ async def _to_read(db: AsyncSession, connection: Connection) -> ConnectionRead:
     state = connection.activation_state
     return ConnectionRead(
         id=connection.id,
-        workspace_id=connection.workspace_id,
+        saas_agent_id=connection.saas_agent_id,
         name=connection.name,
         type=connection.type.value if hasattr(connection.type, "value") else connection.type,
         provider=connection.provider,
@@ -161,15 +173,15 @@ async def _to_read(db: AsyncSession, connection: Connection) -> ConnectionRead:
 
 @router.post("/connections", status_code=status.HTTP_201_CREATED, response_model=ConnectionRead)
 async def create_connection(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     body: ConnectionCreate,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_member(workspace_id, user, db)
+    await _require_member(saas_agent_id, user, db)
     auth_type = body.auth_type or body.config.get("auth_type") or "none"
     connection = Connection(
-        workspace_id=workspace_id,
+        saas_agent_id=saas_agent_id,
         name=body.name,
         type=ConnectionType.rest_api,
         provider=body.provider or "rest_api",
@@ -194,7 +206,7 @@ async def create_connection(
                 },
             )
         )
-    db.add(ConnectionActivationState(connection_id=connection.id, workspace_id=workspace_id))
+    db.add(ConnectionActivationState(connection_id=connection.id, saas_agent_id=saas_agent_id))
     await db.commit()
     await db.refresh(connection, attribute_names=["credentials", "activation_state"])
     return await _to_read(db, connection)
@@ -202,29 +214,32 @@ async def create_connection(
 
 @router.get("/connections", response_model=list[ConnectionRead])
 async def list_connections(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_member(workspace_id, user, db)
+    await _require_member(saas_agent_id, user, db)
     result = await db.execute(
-        select(Connection).where(Connection.workspace_id == workspace_id).order_by(Connection.created_at.desc())
+        select(Connection)
+        .options(selectinload(Connection.activation_state), selectinload(Connection.credentials))
+        .where(Connection.saas_agent_id == saas_agent_id)
+        .order_by(Connection.created_at.desc())
     )
     return [await _to_read(db, connection) for connection in result.scalars().all()]
 
 
 @router.post("/connections/{connection_id}/activate")
 async def activate_connection(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     connection_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_member(workspace_id, user, db)
+    await _require_member(saas_agent_id, user, db)
     service = ActivationService()
 
     async def generate():
-        async for event in service.activate(connection_id=connection_id, workspace_id=workspace_id, session=db):
+        async for event in service.activate(connection_id=connection_id, saas_agent_id=saas_agent_id, session=db):
             yield f"event: {event['type']}\ndata: {json.dumps(event, default=str)}\n\n"
 
     return StreamingResponse(
@@ -236,15 +251,15 @@ async def activate_connection(
 
 @router.get("/connections/{connection_id}/activation-state", response_model=ActivationStateRead)
 async def get_activation_state(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     connection_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_member(workspace_id, user, db)
+    await _require_member(saas_agent_id, user, db)
     result = await db.execute(
         select(ConnectionActivationState).where(
-            ConnectionActivationState.workspace_id == workspace_id,
+            ConnectionActivationState.saas_agent_id == saas_agent_id,
             ConnectionActivationState.connection_id == connection_id,
         )
     )
@@ -253,7 +268,7 @@ async def get_activation_state(
         raise HTTPException(status_code=404, detail="Activation state not found")
     return ActivationStateRead(
         connection_id=state.connection_id,
-        workspace_id=state.workspace_id,
+        saas_agent_id=state.saas_agent_id,
         overall_status=state.overall_status,
         steps=_activation_steps(state) or {},
         current_step=state.current_step,
@@ -266,15 +281,15 @@ async def get_activation_state(
 
 @router.get("/connections/{connection_id}/action-nodes", response_model=list[ActionNodeRead])
 async def list_action_nodes(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     connection_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_member(workspace_id, user, db)
+    await _require_member(saas_agent_id, user, db)
     result = await db.execute(
         select(ActionNode)
-        .where(ActionNode.workspace_id == workspace_id, ActionNode.connection_id == connection_id)
+        .where(ActionNode.saas_agent_id == saas_agent_id, ActionNode.connection_id == connection_id)
         .order_by(ActionNode.source_index)
     )
     return [ActionNodeRead.model_validate(node, from_attributes=True) for node in result.scalars().all()]
@@ -282,15 +297,15 @@ async def list_action_nodes(
 
 @router.get("/connections/{connection_id}/tools", response_model=list[ToolRead])
 async def list_tools(
-    workspace_id: uuid.UUID,
+    saas_agent_id: uuid.UUID,
     connection_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    await _require_member(workspace_id, user, db)
+    await _require_member(saas_agent_id, user, db)
     result = await db.execute(
         select(GeneratedTool)
-        .where(GeneratedTool.workspace_id == workspace_id, GeneratedTool.connection_id == connection_id)
+        .where(GeneratedTool.saas_agent_id == saas_agent_id, GeneratedTool.connection_id == connection_id)
         .order_by(GeneratedTool.name)
     )
     return [ToolRead.model_validate(tool, from_attributes=True) for tool in result.scalars().all()]

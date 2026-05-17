@@ -3,19 +3,32 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-import { WorkspaceLaunchPad } from '@/components/workspace/WorkspaceLaunchPad'
+import { SaaSAgentLaunchPad } from '@/components/saasAgent/SaaSAgentLaunchPad'
 import { useAuth } from '@/context/AuthContext'
 import { api } from '@/lib/api'
-import { formatWorkspaceDisplayName, PRODUCT_NAME } from '@/lib/entryGraph'
-import { useWorkspaceStore } from '@/stores/workspaceStore'
-import type { Workspace } from '@/types/domain'
+import { formatSaaSAgentDisplayName, PRODUCT_NAME } from '@/lib/entryGraph'
+import { useSaaSAgentStore } from '@/stores/saasAgentStore'
+import type { SaaSAgent } from '@/types/domain'
 
-function WorkspaceListItem({
-  workspace,
+const medusaPresets = [
+  {
+    name: 'Medusa Storefront Agent',
+    slug: 'medusa-storefront-agent',
+    description: 'Customer-facing Store API agent. Activate this before Admin.',
+  },
+  {
+    name: 'Medusa Admin Agent',
+    slug: 'medusa-admin-agent',
+    description: 'Back-office Admin API agent. Keep admin auth separate from Storefront.',
+  },
+]
+
+function SaaSAgentListItem({
+  saasAgent,
   isCurrent,
   onOpen,
 }: {
-  workspace: Workspace
+  saasAgent: SaaSAgent
   isCurrent: boolean
   onOpen: () => void
 }) {
@@ -32,7 +45,7 @@ function WorkspaceListItem({
     >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="truncate text-base font-semibold text-slate-950 dark:text-white">{formatWorkspaceDisplayName(workspace.name) || workspace.name}</div>
+          <div className="truncate text-base font-semibold text-slate-950 dark:text-white">{formatSaaSAgentDisplayName(saasAgent.name) || saasAgent.name}</div>
           {isCurrent && (
             <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:bg-sky-500/10 dark:text-sky-300">
               Current
@@ -40,9 +53,9 @@ function WorkspaceListItem({
           )}
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-          <span>/{workspace.slug}</span>
+          <span>/{saasAgent.slug}</span>
           <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" />
-          <span className="capitalize">{workspace.role || 'member'}</span>
+          <span className="capitalize">{saasAgent.role || 'member'}</span>
         </div>
       </div>
       <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" aria-hidden="true" />
@@ -54,101 +67,102 @@ export function DashboardPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user } = useAuth()
-  const currentWorkspaceId = useWorkspaceStore((state) => state.workspaceId)
-  const setWorkspaceId = useWorkspaceStore((state) => state.setWorkspaceId)
+  const currentSaaSAgentId = useSaaSAgentStore((state) => state.saasAgentId)
+  const setSaaSAgentId = useSaaSAgentStore((state) => state.setSaaSAgentId)
   const [error, setError] = useState('')
 
-  const { data: workspaces, isLoading } = useQuery({
-    queryKey: ['workspaces'],
-    queryFn: () => api.get<Workspace[]>('/workspaces'),
+  const { data: saasAgents, isLoading } = useQuery({
+    queryKey: ['saasAgents'],
+    queryFn: () => api.get<SaaSAgent[]>('/saas-agents'),
   })
 
   useEffect(() => {
-    if (isLoading || !workspaces) {
+    if (isLoading || !saasAgents) {
       return
     }
 
-    if (workspaces.length === 1) {
-      setWorkspaceId(workspaces[0].id)
-      navigate(`/w/${workspaces[0].id}`, { replace: true })
+    if (saasAgents.length === 1) {
+      setSaaSAgentId(saasAgents[0].id)
+      navigate(`/agents/${saasAgents[0].id}`, { replace: true })
     }
-  }, [isLoading, navigate, setWorkspaceId, workspaces])
+  }, [isLoading, navigate, setSaaSAgentId, saasAgents])
 
-  const createWorkspace = useMutation({
-    mutationFn: (body: { name: string; slug: string }) => api.post<Workspace>('/workspaces', body),
-    onSuccess: async (workspace) => {
-      await queryClient.invalidateQueries({ queryKey: ['workspaces'] })
+  const createSaaSAgent = useMutation({
+    mutationFn: (body: { name: string; slug: string }) => api.post<SaaSAgent>('/saas-agents', body),
+    onSuccess: async (saasAgent) => {
+      await queryClient.invalidateQueries({ queryKey: ['saasAgents'] })
       setError('')
-      setWorkspaceId(workspace.id)
-      navigate(`/w/${workspace.id}`)
+      setSaaSAgentId(saasAgent.id)
+      navigate(`/agents/${saasAgent.id}`)
     },
     onError: (err: any) => {
-      setError(err.message || 'Failed to create workspace')
+      setError(err.message || 'Failed to create SaaS Agent')
     },
   })
 
-  const workspacesList = workspaces || []
-  const primaryWorkspace = useMemo(() => {
-    if (workspacesList.length === 0) {
+  const saasAgentsList = saasAgents || []
+  const primarySaaSAgent = useMemo(() => {
+    if (saasAgentsList.length === 0) {
       return null
     }
 
-    return workspacesList.find((workspace) => workspace.id === currentWorkspaceId) || workspacesList[0]
-  }, [currentWorkspaceId, workspacesList])
+    return saasAgentsList.find((saasAgent) => saasAgent.id === currentSaaSAgentId) || saasAgentsList[0]
+  }, [currentSaaSAgentId, saasAgentsList])
 
   return (
     <div className="grid gap-6 xl:grid-cols-[22rem_1fr]">
       <aside className="space-y-6">
         <section className="surface-card rounded-3xl p-6 sm:p-8">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">Workspace navigation</div>
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">SaaS Agent navigation</div>
           <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
-            {workspacesList.length === 0 ? 'Launch your first workspace' : PRODUCT_NAME}
+            {saasAgentsList.length === 0 ? 'Launch your first SaaS Agent' : PRODUCT_NAME}
           </h1>
           <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-400">
-            {workspacesList.length === 0
-              ? 'Start by naming a workspace. API schema connections are configured after the workspace exists.'
-              : primaryWorkspace
-                ? `Current workspace: ${formatWorkspaceDisplayName(primaryWorkspace.name) || primaryWorkspace.name}. Pick a workspace from the list or launch another one here.`
-                : 'Pick a workspace from the list or launch another one here.'}
+            {saasAgentsList.length === 0
+              ? 'Start by naming a SaaS Agent. API schema connections are configured after the SaaS Agent exists.'
+              : primarySaaSAgent
+                ? `Current SaaS Agent: ${formatSaaSAgentDisplayName(primarySaaSAgent.name) || primarySaaSAgent.name}. Pick a SaaS Agent from the list or launch another one here.`
+                : 'Pick a SaaS Agent from the list or launch another one here.'}
           </p>
 
-          {primaryWorkspace && (
+          {primarySaaSAgent && (
             <button
               className="surface-solid-button mt-6 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium"
-              onClick={() => navigate(`/w/${primaryWorkspace.id}`)}
+              onClick={() => navigate(`/agents/${primarySaaSAgent.id}`)}
               type="button"
             >
-              Open current workspace
+              Open current SaaS Agent
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
         </section>
 
-        <WorkspaceLaunchPad
-          title={workspacesList.length === 0 ? 'Launch a SaaS workspace' : 'Launch another SaaS workspace'}
+        <SaaSAgentLaunchPad
+          title={saasAgentsList.length === 0 ? 'Launch a SaaS Agent' : 'Launch another SaaS Agent'}
           description={
-            workspacesList.length === 0
-              ? 'Name the first workspace, then add API schema connections from the workspace.'
-              : 'Name the new workspace, then configure its API schema connections.'
+            saasAgentsList.length === 0
+              ? 'Name the first SaaS Agent, then add API schema connections from the SaaS Agent.'
+              : 'Name the new SaaS Agent, then configure its API schema connections.'
           }
           error={error}
-          isPending={createWorkspace.isPending}
-          onCreate={(body) => createWorkspace.mutate(body)}
+          isPending={createSaaSAgent.isPending}
+          presets={medusaPresets}
+          onCreate={(body) => createSaaSAgent.mutate(body)}
         />
       </aside>
 
       <section className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">Workspace list</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">SaaS Agent list</div>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
-              {user?.display_name ? `${user.display_name}'s workspaces` : 'SaaS workspaces'}
+              {user?.display_name ? `${user.display_name}'s SaaS Agents` : 'SaaS Agents'}
             </h2>
           </div>
 
-          {!isLoading && workspacesList.length > 0 && (
+          {!isLoading && saasAgentsList.length > 0 && (
             <div className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600 dark:bg-white/[0.06] dark:text-slate-400">
-              {workspacesList.length} workspace{workspacesList.length === 1 ? '' : 's'}
+              {saasAgentsList.length} SaaS Agent{saasAgentsList.length === 1 ? '' : 's'}
             </div>
           )}
         </div>
@@ -159,25 +173,25 @@ export function DashboardPage() {
               <div key={item} className="surface-card h-24 rounded-3xl animate-pulse" />
             ))}
           </div>
-        ) : workspacesList.length > 0 ? (
+        ) : saasAgentsList.length > 0 ? (
           <div className="space-y-3">
-            {workspacesList.map((workspace) => (
-              <WorkspaceListItem
-                key={workspace.id}
-                workspace={workspace}
-                isCurrent={workspace.id === primaryWorkspace?.id}
+            {saasAgentsList.map((saasAgent) => (
+              <SaaSAgentListItem
+                key={saasAgent.id}
+                saasAgent={saasAgent}
+                isCurrent={saasAgent.id === primarySaaSAgent?.id}
                 onOpen={() => {
-                  setWorkspaceId(workspace.id)
-                  navigate(`/w/${workspace.id}`)
+                  setSaaSAgentId(saasAgent.id)
+                  navigate(`/agents/${saasAgent.id}`)
                 }}
               />
             ))}
           </div>
         ) : (
           <section className="surface-card rounded-3xl p-6 sm:p-8">
-            <div className="text-sm font-semibold text-slate-950 dark:text-white">No workspaces launched yet</div>
+            <div className="text-sm font-semibold text-slate-950 dark:text-white">No SaaS Agents launched yet</div>
             <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
-              Once you create a workspace, it will appear here with its slug and access role.
+              Once you create a SaaS Agent, it will appear here with its slug and access role.
             </p>
           </section>
         )}

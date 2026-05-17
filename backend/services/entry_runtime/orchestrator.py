@@ -98,9 +98,9 @@ async def run_entry_turn(
         "intent": effective_state.intent if effective_state else None,
         "display_name": effective_state.display_name if effective_state else "",
         "email": effective_state.email if effective_state else "",
-        "workspace_name": effective_state.workspace_name if effective_state else "",
-        "workspace_slug": effective_state.workspace_slug if effective_state else "",
-        "active_workspace_id": effective_state.active_workspace_id if effective_state else None,
+        "saas_agent_name": effective_state.saas_agent_name if effective_state else "",
+        "saas_agent_slug": effective_state.saas_agent_slug if effective_state else "",
+        "active_saas_agent_id": effective_state.active_saas_agent_id if effective_state else None,
         "active_connection_id": effective_state.active_connection_id if effective_state else None,
         "connection_draft": effective_state.connection_draft if effective_state else {},
         "entry_draft": effective_state.entry_draft if effective_state else {},
@@ -115,7 +115,7 @@ async def run_entry_turn(
         "runtime": runtime,
         "messages": [],
         "session_payload": None,
-        "workspaces": [],
+        "saas_agents": [],
         "available_actions": [],
         "persistent_actions": [],
         "ui_artifacts": [],
@@ -128,7 +128,7 @@ async def run_entry_turn(
         persistent_actions = persistent_entry_actions(
             node=result.get("node"),
             current_user=effective_user,
-            active_workspace_id=result.get("active_workspace_id"),
+            active_saas_agent_id=result.get("active_saas_agent_id"),
         )
         result["persistent_actions"] = persistent_actions
         final_state = state_dump(result)
@@ -170,7 +170,7 @@ async def run_entry_turn(
             graph_manifest=graph_manifest,
             messages=result.get("messages", []),
             session=result.get("session_payload"),
-            workspaces=result.get("workspaces", []),
+            saas_agents=result.get("saas_agents", []),
             available_actions=result.get("available_actions", []),
             persistent_actions=persistent_actions,
             ui_artifacts=result.get("ui_artifacts", []),

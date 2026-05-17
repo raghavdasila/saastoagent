@@ -14,16 +14,16 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
-import type { WorkspaceView } from '@/stores/workspaceStore'
+import type { SaaSAgentView } from '@/stores/saasAgentStore'
 import type { EntryActionCard, EntryGraphManifest, OperatorExperienceMode, OperatorSidebarItem } from '@/types/entry'
-import type { WorkspaceStats } from '@/types/domain'
+import type { SaaSAgentStats } from '@/types/domain'
 
 export type CapabilityState = 'ready' | 'needs_setup' | 'locked' | 'running' | 'needs_approval' | 'has_findings'
 
 export interface OperatorCapabilityDefinition {
   id: OperatorSidebarItem
   mode: OperatorExperienceMode
-  workspaceView?: WorkspaceView
+  saasAgentView?: SaaSAgentView
   label: string
   shortLabel: string
   description: string
@@ -37,9 +37,9 @@ export interface OperatorCapabilityDefinition {
 
 export interface CapabilityRuntimeContext {
   busy: boolean
-  hasWorkspace: boolean
+  hasSaaSAgent: boolean
   isAuthenticated: boolean
-  stats?: WorkspaceStats
+  stats?: SaaSAgentStats
   operatorError?: string | null
 }
 
@@ -49,10 +49,10 @@ export const entryCapabilities: OperatorCapabilityDefinition[] = [
     mode: 'entry',
     label: 'Intent Spine',
     shortLabel: 'Chat',
-    description: 'Ask questions, name a workspace, or continue setup.',
+    description: 'Ask questions, name a SaaS Agent, or continue setup.',
     icon: MessageSquareText,
     enabled: true,
-    emptyState: 'Start by creating a workspace or connecting an API schema.',
+    emptyState: 'Start by creating a SaaS Agent or connecting an API schema.',
     failureState: 'Entry stream failed or is waiting for a valid graph response.',
     evidenceSurface: 'Entry graph stage, selected action, and setup draft.',
   },
@@ -73,12 +73,25 @@ export const entryCapabilities: OperatorCapabilityDefinition[] = [
     mode: 'entry',
     label: 'Setup Draft',
     shortLabel: 'Setup',
-    description: 'Capture workspace and REST API details before auth.',
+    description: 'Capture SaaS Agent and REST API details before auth.',
     icon: Database,
     enabled: true,
-    emptyState: 'Draft a workspace name and API connection details before auth.',
+    emptyState: 'Draft a SaaS Agent name and API connection details before auth.',
     failureState: 'Setup draft is incomplete or needs user correction.',
-    evidenceSurface: 'Draft workspace name, API fields, and setup checklist.',
+    evidenceSurface: 'Draft SaaS Agent name, API fields, and setup checklist.',
+  },
+  {
+    id: 'learn',
+    mode: 'operator',
+    label: 'Sandbox Learning',
+    shortLabel: 'Learn',
+    description: 'Review proposed learnings before they affect future action ranking.',
+    icon: Brain,
+    authRequired: true,
+    enabled: true,
+    emptyState: 'Learning candidates appear after failed executions, corrections, or missing-input traces.',
+    failureState: 'Learning candidates could not load.',
+    evidenceSurface: 'Learning candidates, trace evidence, approval state, and ranking hints.',
   },
   {
     id: 'qa',
@@ -100,7 +113,7 @@ export const entryCapabilities: OperatorCapabilityDefinition[] = [
     description: 'Authenticate without leaving the operator shell.',
     icon: LogIn,
     enabled: true,
-    emptyState: 'Use when an existing account should own the workspace.',
+    emptyState: 'Use when an existing account should own the SaaS Agent.',
     failureState: 'Authentication failed; deterministic auth stages own retry.',
     evidenceSurface: 'Auth stage and masked credential events.',
   },
@@ -112,30 +125,30 @@ export const entryCapabilities: OperatorCapabilityDefinition[] = [
     description: 'Create an account while preserving the setup draft.',
     icon: UserPlus,
     enabled: true,
-    emptyState: 'Use when a new workspace owner should be created.',
+    emptyState: 'Use when a new SaaS Agent owner should be created.',
     failureState: 'Registration failed; deterministic auth stages own retry.',
     evidenceSurface: 'Auth stage and preserved entry draft.',
   },
 ]
 
-export const workspaceCapabilities: OperatorCapabilityDefinition[] = [
+export const saasAgentCapabilities: OperatorCapabilityDefinition[] = [
   {
     id: 'chat',
     mode: 'operator',
-    workspaceView: 'chat',
+    saasAgentView: 'chat',
     label: 'Intent Spine',
     shortLabel: 'Chat',
     description: 'Primary work direction surface for this operator.',
     icon: MessageSquareText,
     enabled: true,
     emptyState: 'Ask what the operator can do or what should be set up next.',
-    failureState: 'Workspace chat stream failed or is waiting for recovery.',
+    failureState: 'SaaS Agent chat stream failed or is waiting for recovery.',
     evidenceSurface: 'Agent session, handoff context, tool calls, and citations.',
   },
   {
     id: 'connect',
     mode: 'operator',
-    workspaceView: 'connect',
+    saasAgentView: 'connect',
     label: 'Connections',
     shortLabel: 'Connect',
     description: 'REST setup, activation, and readiness.',
@@ -148,10 +161,10 @@ export const workspaceCapabilities: OperatorCapabilityDefinition[] = [
   {
     id: 'attachments',
     mode: 'operator',
-    workspaceView: 'attachments',
+    saasAgentView: 'attachments',
     label: 'Knowledge Base',
     shortLabel: 'Knowledge',
-    description: 'Workspace documents and searchable context.',
+    description: 'SaaS Agent documents and searchable context.',
     icon: Paperclip,
     authRequired: true,
     enabled: true,
@@ -162,7 +175,7 @@ export const workspaceCapabilities: OperatorCapabilityDefinition[] = [
   {
     id: 'admin',
     mode: 'operator',
-    workspaceView: 'admin',
+    saasAgentView: 'admin',
     label: 'Sessions & Memory',
     shortLabel: 'Sessions',
     description: 'Inspect conversations, memories, and admin evidence.',
@@ -176,7 +189,7 @@ export const workspaceCapabilities: OperatorCapabilityDefinition[] = [
   {
     id: 'entities',
     mode: 'operator',
-    workspaceView: 'entities',
+    saasAgentView: 'entities',
     label: 'Entities',
     shortLabel: 'Entities',
     description: 'REST entity understanding from activated APIs.',
@@ -189,7 +202,7 @@ export const workspaceCapabilities: OperatorCapabilityDefinition[] = [
   {
     id: 'actions',
     mode: 'operator',
-    workspaceView: 'actions',
+    saasAgentView: 'actions',
     label: 'Actions',
     shortLabel: 'Actions',
     description: 'Generated REST action tools and execution readiness.',
@@ -202,7 +215,7 @@ export const workspaceCapabilities: OperatorCapabilityDefinition[] = [
   {
     id: 'qa',
     mode: 'operator',
-    workspaceView: 'qa',
+    saasAgentView: 'qa',
     label: 'QA Agent',
     shortLabel: 'QA',
     description: 'Run UI-driven behavior checks against the operator shell and RouteDeck evidence.',
@@ -217,7 +230,7 @@ export const workspaceCapabilities: OperatorCapabilityDefinition[] = [
 export function capabilityStateFor(definition: OperatorCapabilityDefinition, context: CapabilityRuntimeContext): CapabilityState {
   if (context.busy && definition.id === 'chat') return 'running'
   if (context.operatorError && definition.id === 'chat') return 'has_findings'
-  if (definition.mode === 'operator' && !context.hasWorkspace) return 'locked'
+  if (definition.mode === 'operator' && !context.hasSaaSAgent) return 'locked'
   if (definition.authRequired && !context.isAuthenticated) return 'needs_approval'
   if (!definition.enabled) return 'locked'
   if (definition.id === 'connect') {
@@ -235,7 +248,7 @@ export function capabilityStateFor(definition: OperatorCapabilityDefinition, con
 export function isCapabilitySelectable(definition: OperatorCapabilityDefinition, context: CapabilityRuntimeContext): boolean {
   if (definition.mode === 'entry') return true
   if (!definition.enabled) return false
-  if (!context.hasWorkspace) return false
+  if (!context.hasSaaSAgent) return false
   if (definition.authRequired && !context.isAuthenticated) return false
   if (definition.id === 'qa') return true
   return definition.id === 'chat' || context.isAuthenticated || definition.id === 'connect'

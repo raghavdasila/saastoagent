@@ -9,7 +9,7 @@ from sqlalchemy.orm import relationship
 from .base import Base
 
 
-class WorkspaceRole(str, enum.Enum):
+class SaaSAgentRole(str, enum.Enum):
     owner = "owner"
     admin = "admin"
     operator = "operator"
@@ -21,11 +21,11 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
 
     display_name = Column(String(255), nullable=True)
 
-    workspaces = relationship("WorkspaceMember", back_populates="user", lazy="selectin")
+    saas_agents = relationship("SaaSAgentMember", back_populates="user", lazy="selectin")
 
 
-class Workspace(Base):
-    __tablename__ = "workspaces"
+class SaaSAgent(Base):
+    __tablename__ = "saas_agents"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
     name = Column(String(255), nullable=False)
@@ -33,17 +33,17 @@ class Workspace(Base):
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    members = relationship("WorkspaceMember", back_populates="workspace", lazy="selectin")
+    members = relationship("SaaSAgentMember", back_populates="saas_agent", lazy="selectin")
 
 
-class WorkspaceMember(Base):
-    __tablename__ = "workspace_members"
+class SaaSAgentMember(Base):
+    __tablename__ = "saas_agent_members"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False)
-    role = Column(Enum(WorkspaceRole), nullable=False, default=WorkspaceRole.viewer)
+    saas_agent_id = Column(UUID(as_uuid=True), ForeignKey("saas_agents.id"), nullable=False)
+    role = Column(Enum(SaaSAgentRole), nullable=False, default=SaaSAgentRole.viewer)
     joined_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    user = relationship("User", back_populates="workspaces")
-    workspace = relationship("Workspace", back_populates="members")
+    user = relationship("User", back_populates="saas_agents")
+    saas_agent = relationship("SaaSAgent", back_populates="members")

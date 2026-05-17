@@ -68,9 +68,9 @@ async def preview_openapi_spec(*, spec_url: str | None, raw_spec: str | None) ->
     )
 
 
-async def workspace_catalog(session: AsyncSession, workspace_id: uuid.UUID) -> dict[str, Any]:
-    actions = await list_workspace_actions(session, workspace_id)
-    tools = await list_workspace_tools(session, workspace_id)
+async def SaaSAgent_catalog(session: AsyncSession, saas_agent_id: uuid.UUID) -> dict[str, Any]:
+    actions = await list_SaaSAgent_actions(session, saas_agent_id)
+    tools = await list_SaaSAgent_tools(session, saas_agent_id)
     entities = infer_entities(actions)
     totals = {
         "actions": len(actions),
@@ -82,27 +82,27 @@ async def workspace_catalog(session: AsyncSession, workspace_id: uuid.UUID) -> d
     return {"actions": actions, "tools": tools, "entities": entities, "totals": totals}
 
 
-async def list_workspace_actions(session: AsyncSession, workspace_id: uuid.UUID) -> list[ActionNodeRead]:
+async def list_SaaSAgent_actions(session: AsyncSession, saas_agent_id: uuid.UUID) -> list[ActionNodeRead]:
     result = await session.execute(
         select(ActionNode)
-        .where(ActionNode.workspace_id == workspace_id, ActionNode.status != ActionNodeStatus.deprecated)
+        .where(ActionNode.saas_agent_id == saas_agent_id, ActionNode.status != ActionNodeStatus.deprecated)
         .order_by(ActionNode.source_index, ActionNode.method, ActionNode.path)
     )
     return [ActionNodeRead.model_validate(row, from_attributes=True) for row in result.scalars().all()]
 
 
-async def list_workspace_tools(session: AsyncSession, workspace_id: uuid.UUID) -> list[ToolRead]:
+async def list_SaaSAgent_tools(session: AsyncSession, saas_agent_id: uuid.UUID) -> list[ToolRead]:
     result = await session.execute(
         select(GeneratedTool)
-        .where(GeneratedTool.workspace_id == workspace_id)
+        .where(GeneratedTool.saas_agent_id == saas_agent_id)
         .order_by(GeneratedTool.name)
     )
     return [ToolRead.model_validate(row, from_attributes=True) for row in result.scalars().all()]
 
 
-async def ready_connection_count(session: AsyncSession, workspace_id: uuid.UUID) -> int:
+async def ready_connection_count(session: AsyncSession, saas_agent_id: uuid.UUID) -> int:
     result = await session.execute(
-        select(func.count(Connection.id)).where(Connection.workspace_id == workspace_id)
+        select(func.count(Connection.id)).where(Connection.saas_agent_id == saas_agent_id)
     )
     return int(result.scalar_one() or 0)
 

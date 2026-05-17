@@ -16,7 +16,7 @@ from backend.services.route_deck.ids import follow_up_action_id, is_follow_up_ac
 from .entry_assistant import run_entry_assistant
 from .graph_spec import get_node_spec
 from .graph_runtime import EntryRuntimeState, merge_messages, user_read
-from .stage_workspace import advance_authenticated_user
+from .stage_saas_agent import advance_authenticated_user
 from .ui_actions import display_name_actions, entry_action, entry_assistant_actions
 
 

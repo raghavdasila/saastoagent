@@ -4,7 +4,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from .auth import UserRead
-from .workspace import WorkspaceRead
+from .saas_agent import SaaSAgentRead
 
 EntryGraphNode = Literal[
     "bootstrap",
@@ -12,9 +12,9 @@ EntryGraphNode = Literal[
     "display_name",
     "email",
     "password",
-    "workspace_select",
-    "workspace_job",
-    "workspace_confirm",
+    "saas_agent_select",
+    "saas_agent_job",
+    "saas_agent_confirm",
     "setup_intro",
     "connection_confirm",
     "operator_ready",
@@ -34,9 +34,9 @@ class EntryGraphState(BaseModel):
     intent: AuthIntent | None = None
     display_name: str = ""
     email: str = ""
-    workspace_name: str = ""
-    workspace_slug: str = ""
-    active_workspace_id: uuid.UUID | None = None
+    saas_agent_name: str = ""
+    saas_agent_slug: str = ""
+    active_saas_agent_id: uuid.UUID | None = None
     active_connection_id: uuid.UUID | None = None
     connection_draft: dict[str, Any] = Field(default_factory=dict)
     entry_draft: dict[str, Any] = Field(default_factory=dict)
@@ -173,7 +173,7 @@ class EntryGraphTurnResponse(BaseModel):
     graph_manifest: EntryGraphManifest | None = None
     messages: list[EntryGraphMessage] = Field(default_factory=list)
     session: EntryGraphSession | None = None
-    workspaces: list[WorkspaceRead] = Field(default_factory=list)
+    saas_agents: list[SaaSAgentRead] = Field(default_factory=list)
     available_actions: list[EntryActionCard] = Field(default_factory=list)
     persistent_actions: list[EntryActionCard] = Field(default_factory=list)
     ui_artifacts: list[EntryUIArtifact] = Field(default_factory=list)

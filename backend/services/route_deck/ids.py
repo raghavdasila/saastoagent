@@ -7,9 +7,9 @@ class RouteDeckNodeIds:
     DISPLAY_NAME = "display_name"
     EMAIL = "email"
     PASSWORD = "password"
-    WORKSPACE_SELECT = "workspace_select"
-    WORKSPACE_JOB = "workspace_job"
-    WORKSPACE_CONFIRM = "workspace_confirm"
+    SAAS_AGENT_SELECT = "saas_agent_select"
+    SAAS_AGENT_JOB = "saas_agent_job"
+    SAAS_AGENT_CONFIRM = "saas_agent_confirm"
     SETUP_INTRO = "setup_intro"
     CONNECTION_CONFIRM = "connection_confirm"
     OPERATOR_READY = "operator_ready"
@@ -25,9 +25,9 @@ class RouteDeckActionIds:
     INTENT_SIGN_IN = "intent.sign_in"
     INTENT_REGISTER = "intent.register"
     DISPLAY_NAME_SKIP = "display_name.skip"
-    WORKSPACE_SELECT_OPEN_PATTERN = "workspace_select.open:*"
-    WORKSPACE_SELECT_OPEN_PREFIX = "workspace_select.open:"
-    WORKSPACE_CONFIRM_LAUNCH = "workspace_confirm.launch"
+    SAAS_AGENT_SELECT_OPEN_PATTERN = "saas_agent_select.open:*"
+    SAAS_AGENT_SELECT_OPEN_PREFIX = "saas_agent_select.open:"
+    SAAS_AGENT_CONFIRM_LAUNCH = "saas_agent_confirm.launch"
     SETUP_REST_START = "setup.rest.start"
     SETUP_OPEN_CHAT = "setup.open_chat"
     SETUP_REST_CONFIGURE = "setup.rest.configure"
@@ -38,13 +38,13 @@ def follow_up_action_id(index: int) -> str:
     return f"{RouteDeckActionIds.ENTRY_FOLLOW_UP_PREFIX}{index}"
 
 
-def workspace_select_open_action_id(index: int) -> str:
-    return f"{RouteDeckActionIds.WORKSPACE_SELECT_OPEN_PREFIX}{index}"
+def saas_agent_select_open_action_id(index: int) -> str:
+    return f"{RouteDeckActionIds.SAAS_AGENT_SELECT_OPEN_PREFIX}{index}"
 
 
 def is_follow_up_action(action_id: str | None) -> bool:
     return bool(action_id and action_id.startswith(RouteDeckActionIds.ENTRY_FOLLOW_UP_PREFIX))
 
 
-def is_workspace_select_open_action(action_id: str | None) -> bool:
-    return bool(action_id and action_id.startswith(RouteDeckActionIds.WORKSPACE_SELECT_OPEN_PREFIX))
+def is_saas_agent_select_open_action(action_id: str | None) -> bool:
+    return bool(action_id and action_id.startswith(RouteDeckActionIds.SAAS_AGENT_SELECT_OPEN_PREFIX))

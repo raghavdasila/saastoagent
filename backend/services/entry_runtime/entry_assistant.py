@@ -48,7 +48,7 @@ def action_prompt(action_id: str | None, payload: dict[str, Any] | None) -> str 
     if action_id == RouteDeckActionIds.ENTRY_LEARN_PLATFORM:
         return "What is SaaStoAgent and what can I build with it?"
     if action_id == RouteDeckActionIds.ENTRY_LEARN_SETUP:
-        return "How do I set up a workspace and connect an API?"
+        return "How do I set up a SaaSAgent and connect an API?"
     return None
 
 
@@ -83,9 +83,9 @@ async def run_entry_assistant(
     entry_draft = dict(existing)
     if _looks_like_setup_request(prompt, setup_draft):
         entry_draft["api_draft"] = setup_draft
-        workspace_name = _infer_workspace_name(prompt)
-        if workspace_name and not entry_draft.get("workspace_name"):
-            entry_draft["workspace_name"] = workspace_name
+        saas_agent_name = _infer_saas_agent_name(prompt)
+        if saas_agent_name and not entry_draft.get("saas_agent_name"):
+            entry_draft["saas_agent_name"] = saas_agent_name
 
     kb_results = await platform_kb.search(prompt or "SaaStoAgent overview")
     fallback = _fallback_result(prompt=prompt, draft=entry_draft, kb_results=kb_results)
@@ -116,13 +116,13 @@ async def run_entry_assistant(
 def _looks_like_setup_request(prompt: str, setup_draft: dict[str, str]) -> bool:
     if setup_draft.get("base_url") or setup_draft.get("spec_url"):
         return True
-    return bool(re.search(r"\b(api|openapi|swagger|workspace|operator|connect|setup)\b", prompt, re.I))
+    return bool(re.search(r"\b(api|openapi|swagger|SaaSAgent|operator|connect|setup)\b", prompt, re.I))
 
 
-def _infer_workspace_name(prompt: str) -> str | None:
+def _infer_saas_agent_name(prompt: str) -> str | None:
     patterns = [
-        r"\bworkspace\s+(?:named|called)\s+([A-Za-z0-9][A-Za-z0-9 _.-]{1,80})",
-        r"\b(?:named|called)\s+([A-Za-z0-9][A-Za-z0-9 _.-]{1,80})\s+workspace\b",
+        r"\bSaaSAgent\s+(?:named|called)\s+([A-Za-z0-9][A-Za-z0-9 _.-]{1,80})",
+        r"\b(?:named|called)\s+([A-Za-z0-9][A-Za-z0-9 _.-]{1,80})\s+SaaSAgent\b",
     ]
     for pattern in patterns:
         match = re.search(pattern, prompt, flags=re.I)
@@ -143,16 +143,16 @@ def _fallback_result(
     if not prompt:
         return EntryAssistantResult(
             message=(
-                "I can explain SaaStoAgent, help draft the workspace/API setup, or get you signed in when you are ready."
+                "I can explain SaaStoAgent, help draft the SaaSAgent/API setup, or get you signed in when you are ready."
             ),
             entry_draft=draft,
             follow_up_prompts=[],
         )
 
-    if draft.get("api_draft") or draft.get("workspace_name") or draft.get("workspace_job"):
+    if draft.get("api_draft") or draft.get("saas_agent_name") or draft.get("saas_agent_job"):
         return EntryAssistantResult(
             message=(
-                "I saved that as a setup draft. To actually create the workspace or activate the API, sign in or create an account; "
+                "I saved that as a setup draft. To actually create the SaaSAgent or activate the API, sign in or create an account; "
                 "I will carry these details forward."
             ),
             entry_draft=draft,
@@ -209,7 +209,7 @@ async def _llm_result(
                 SystemMessage(
                     content=(
                         "You are the public entry assistant for SaaStoAgent. Conversation is primary. "
-                        "Answer platform questions from the supplied knowledge context, help draft workspace/API setup before auth, "
+                        "Answer platform questions from the supplied knowledge context, help draft SaaSAgent/API setup before auth, "
                         "and only route to login/register when the user explicitly asks. Do not claim actions are completed before auth. "
                         "Keep responses concise and useful. Preserve any draft values provided. "
                         "When the answer has sections, emit valid Markdown with explicit ## headings, bullet lists, and fenced code blocks for JSON. "
@@ -289,7 +289,7 @@ def _assistant_messages(
         SystemMessage(
             content=(
                 "You are the public entry assistant for SaaStoAgent. Conversation is primary. "
-                "Answer platform questions from the supplied knowledge context, help draft workspace/API setup before auth, "
+                "Answer platform questions from the supplied knowledge context, help draft SaaSAgent/API setup before auth, "
                 "and only route to login/register when the user explicitly asks. Do not claim actions are completed before auth. "
                 "Keep responses concise and useful. Preserve any draft values provided. "
                 "When the answer has sections, emit valid Markdown with explicit ## headings, bullet lists, and fenced code blocks for JSON. "

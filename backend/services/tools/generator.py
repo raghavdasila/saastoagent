@@ -76,7 +76,7 @@ def _map_schema(schema: dict) -> dict:
     return {"type": raw_type if raw_type in {"string", "integer", "number", "boolean"} else "string"}
 
 
-async def generate_tools_for_connection(connection_id, workspace_id, session: AsyncSession) -> dict[str, int]:
+async def generate_tools_for_connection(connection_id, saas_agent_id, session: AsyncSession) -> dict[str, int]:
     existing_result = await session.execute(
         select(GeneratedTool).where(GeneratedTool.connection_id == connection_id)
     )
@@ -110,7 +110,7 @@ async def generate_tools_for_connection(connection_id, workspace_id, session: As
                 GeneratedTool(
                     action_node_id=node.id,
                     connection_id=connection_id,
-                    workspace_id=workspace_id,
+                    saas_agent_id=saas_agent_id,
                     name=name,
                     description=schema["description"],
                     function_schema=schema,

@@ -1,7 +1,7 @@
 import asyncio
 
 from backend.core.schemas import ActionNodeRead
-from backend.services.agent.rest_operator import _build_inputs, _tokens
+from backend.services.agent.rest_operator import _build_inputs, _parse_trace_control, _tokens
 from backend.services.catalog import infer_entities, preview_openapi_spec
 
 
@@ -52,7 +52,7 @@ def test_infer_entities_groups_by_tags_and_counts_risk():
         ActionNodeRead(
             id="00000000-0000-0000-0000-000000000001",
             connection_id="00000000-0000-0000-0000-000000000011",
-            workspace_id="00000000-0000-0000-0000-000000000111",
+            saas_agent_id="00000000-0000-0000-0000-000000000111",
             name="listCustomers",
             path="/customers",
             method="GET",
@@ -65,7 +65,7 @@ def test_infer_entities_groups_by_tags_and_counts_risk():
         ActionNodeRead(
             id="00000000-0000-0000-0000-000000000002",
             connection_id="00000000-0000-0000-0000-000000000011",
-            workspace_id="00000000-0000-0000-0000-000000000111",
+            saas_agent_id="00000000-0000-0000-0000-000000000111",
             name="createCustomer",
             path="/customers",
             method="POST",
@@ -109,3 +109,10 @@ def test_rest_operator_infers_status_from_natural_language():
 
     assert inputs == {"status": "available"}
     assert missing == []
+
+
+def test_rest_operator_parses_approval_resume_controls():
+    assert _parse_trace_control("approve abcdef12") == ("approve", "abcdef12")
+    assert _parse_trace_control("cancel abcdef12") == ("cancel", "abcdef12")
+    assert _parse_trace_control("reject abcdef12") == ("cancel", "abcdef12")
+    assert _parse_trace_control("approve this please") is None

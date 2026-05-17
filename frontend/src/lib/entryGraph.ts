@@ -1,6 +1,6 @@
 export type AuthIntent = 'login' | 'register'
 export type AuthStep = 'intent' | 'display_name' | 'email' | 'password' | 'done'
-export type WorkspaceLaunchStep = 'ask_job' | 'confirm' | 'done'
+export type SaaSAgentLaunchStep = 'ask_job' | 'confirm' | 'done'
 
 export const PRODUCT_NAME = 'SaaSToAgent'
 export const OPERATOR_NAME = 'Corpus'
@@ -45,7 +45,7 @@ export function toSlug(value: string): string {
     .replace(/-+/g, '-')
 }
 
-export function normalizeWorkspaceName(value: string): string {
+export function normalizeSaaSAgentName(value: string): string {
   const cleaned = value
     .replace(/^(create|launch|make|start|open)\s+/i, '')
     .replace(/^(i\s+(want|need)\s+)?(it|this operator|the operator)\s+(will|should|can|needs to|is going to|to)\s+/i, '')
@@ -58,7 +58,7 @@ export function normalizeWorkspaceName(value: string): string {
   }
 
   if (/^(my\s+)?(saas|app|application|platform|product)$/i.test(cleaned)) {
-    return 'SaaS Operations Workspace'
+    return 'SaaS Operations SaaS Agent'
   }
 
   const titled = cleaned
@@ -72,14 +72,14 @@ export function normalizeWorkspaceName(value: string): string {
     })
     .join(' ')
 
-  if (/(workspace|operator)$/i.test(titled)) {
+  if (/(saas agent|operator)$/i.test(titled)) {
     return titled.slice(0, 80)
   }
 
-  return `${titled} Workspace`.slice(0, 80)
+  return `${titled} SaaS Agent`.slice(0, 80)
 }
 
-export function formatWorkspaceDisplayName(value?: string | null): string {
+export function formatSaaSAgentDisplayName(value?: string | null): string {
   const trimmed = value?.trim().replace(/\s+/g, ' ') ?? ''
   if (!trimmed) {
     return ''
@@ -110,7 +110,7 @@ export function formatWorkspaceDisplayName(value?: string | null): string {
     /^(?:talk|speak|connect)\s+(?:to|with)\s+my\s+/i.test(withoutLegacyPrefix) ||
     /^(?:my\s+)?(?:saas|app|application|platform|product)$/i.test(withoutLegacyPrefix)
   ) {
-    return normalizeWorkspaceName(withoutLegacyPrefix)
+    return normalizeSaaSAgentName(withoutLegacyPrefix)
   }
 
   return withoutLegacyPrefix

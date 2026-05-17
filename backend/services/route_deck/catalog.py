@@ -28,9 +28,9 @@ NAVIGABLE_NODES = [
     RouteDeckNodeIds.DISPLAY_NAME,
     RouteDeckNodeIds.EMAIL,
     RouteDeckNodeIds.PASSWORD,
-    RouteDeckNodeIds.WORKSPACE_SELECT,
-    RouteDeckNodeIds.WORKSPACE_JOB,
-    RouteDeckNodeIds.WORKSPACE_CONFIRM,
+    RouteDeckNodeIds.SAAS_AGENT_SELECT,
+    RouteDeckNodeIds.SAAS_AGENT_JOB,
+    RouteDeckNodeIds.SAAS_AGENT_CONFIRM,
     RouteDeckNodeIds.SETUP_INTRO,
     RouteDeckNodeIds.CONNECTION_CONFIRM,
 ]
@@ -90,6 +90,23 @@ REST_CONNECTION_FIELDS = [
     ),
     _field(key="header_name", label="Header name", placeholder="X-API-Key"),
     _field(key="query_param_name", label="Query param name", placeholder="api_key"),
+]
+
+SAAS_AGENT_CONFIG_FIELDS = [
+    _field(
+        key="name",
+        label="SaaS Agent name",
+        required=True,
+        placeholder="Medusa Storefront Agent",
+        validation_hint="Human-readable name for this SaaS Agent.",
+    ),
+    _field(
+        key="slug",
+        label="Slug",
+        required=True,
+        placeholder="medusa-storefront-agent",
+        validation_hint="Lowercase letters, numbers, and hyphens only.",
+    ),
 ]
 
 
@@ -171,51 +188,51 @@ NODE_SPECS: dict[str, RouteDeckNodeSpec] = {
         expected_input="Password text, auth-mode switch, back, or cancel. Registration requires at least 8 characters.",
         recovery_prompt="Send the password again, switch sign-in/signup mode, go back, or cancel.",
     ),
-    RouteDeckNodeIds.WORKSPACE_SELECT: RouteDeckNodeSpec(
-        id=RouteDeckNodeIds.WORKSPACE_SELECT,
-        label="Workspace Select",
-        lane="workspace",
-        description="Open an existing workspace or create a new workspace.",
-        prompt_placeholder="Number or new workspace name",
+    RouteDeckNodeIds.SAAS_AGENT_SELECT: RouteDeckNodeSpec(
+        id=RouteDeckNodeIds.SAAS_AGENT_SELECT,
+        label="SaaS Agent Select",
+        lane="saas_agent",
+        description="Open an existing SaaS Agent or create a new SaaS Agent.",
+        prompt_placeholder="Number or new SaaS Agent name",
         allowed_actions=[
-            RouteDeckActionIds.WORKSPACE_SELECT_OPEN_PATTERN,
+            RouteDeckActionIds.SAAS_AGENT_SELECT_OPEN_PATTERN,
             RouteDeckActionIds.NAV_BACK,
             RouteDeckActionIds.NAV_CANCEL,
         ],
-        expected_input="Existing workspace number, new workspace name, back, or cancel.",
-        recovery_prompt="Pick a workspace number, enter a workspace name, go back, or cancel.",
+        expected_input="Existing SaaS Agent number, new SaaS Agent name, back, or cancel.",
+        recovery_prompt="Pick a SaaS Agent number, enter a SaaS Agent name, go back, or cancel.",
     ),
-    RouteDeckNodeIds.WORKSPACE_JOB: RouteDeckNodeSpec(
-        id=RouteDeckNodeIds.WORKSPACE_JOB,
-        label="Workspace Setup",
-        lane="workspace",
-        description="Collect the workspace name before creation.",
-        prompt_placeholder="Workspace name",
+    RouteDeckNodeIds.SAAS_AGENT_JOB: RouteDeckNodeSpec(
+        id=RouteDeckNodeIds.SAAS_AGENT_JOB,
+        label="SaaS Agent Setup",
+        lane="saas_agent",
+        description="Collect the SaaS Agent name before creation.",
+        prompt_placeholder="SaaS Agent name",
         allowed_actions=[
             RouteDeckActionIds.NAV_BACK,
             RouteDeckActionIds.NAV_CANCEL,
         ],
-        expected_input="Workspace name, back, or cancel.",
-        recovery_prompt="Enter a workspace name, go back, or cancel.",
+        expected_input="SaaS Agent name, back, or cancel.",
+        recovery_prompt="Enter a SaaS Agent name, go back, or cancel.",
     ),
-    RouteDeckNodeIds.WORKSPACE_CONFIRM: RouteDeckNodeSpec(
-        id=RouteDeckNodeIds.WORKSPACE_CONFIRM,
-        label="Workspace Confirm",
-        lane="workspace",
-        description="Confirm the workspace name and create it.",
+    RouteDeckNodeIds.SAAS_AGENT_CONFIRM: RouteDeckNodeSpec(
+        id=RouteDeckNodeIds.SAAS_AGENT_CONFIRM,
+        label="SaaS Agent Confirm",
+        lane="saas_agent",
+        description="Confirm the SaaS Agent name and create it.",
         prompt_placeholder="launch or rename",
         allowed_actions=[
-            RouteDeckActionIds.WORKSPACE_CONFIRM_LAUNCH,
+            RouteDeckActionIds.SAAS_AGENT_CONFIRM_LAUNCH,
             RouteDeckActionIds.NAV_BACK,
             RouteDeckActionIds.NAV_CANCEL,
         ],
-        expected_input="Launch confirmation, replacement workspace name, back, or cancel.",
-        recovery_prompt="Confirm launch, reply with a different workspace name, go back, or cancel.",
+        expected_input="Launch confirmation, replacement SaaS Agent name, back, or cancel.",
+        recovery_prompt="Confirm launch, reply with a different SaaS Agent name, go back, or cancel.",
     ),
     RouteDeckNodeIds.SETUP_INTRO: RouteDeckNodeSpec(
         id=RouteDeckNodeIds.SETUP_INTRO,
         label="REST Setup",
-        lane="workspace",
+        lane="saas_agent",
         description="Collect REST API setup details or skip setup into chat.",
         prompt_placeholder="Connect an API or choose an action",
         allowed_actions=[
@@ -231,7 +248,7 @@ NODE_SPECS: dict[str, RouteDeckNodeSpec] = {
     RouteDeckNodeIds.CONNECTION_CONFIRM: RouteDeckNodeSpec(
         id=RouteDeckNodeIds.CONNECTION_CONFIRM,
         label="Connection Confirm",
-        lane="workspace",
+        lane="saas_agent",
         description="Review, edit, or activate a REST connection draft.",
         prompt_placeholder="activate or edit setup",
         allowed_actions=[
@@ -249,7 +266,7 @@ NODE_SPECS: dict[str, RouteDeckNodeSpec] = {
         id=RouteDeckNodeIds.OPERATOR_READY,
         label="Operator Ready",
         lane="terminal",
-        description="Terminal entry state that hands the user to the workspace operator surface.",
+        description="Terminal entry state that hands the user to the SaaS Agent operator surface.",
         allowed_actions=[
             RouteDeckActionIds.SETUP_REST_START,
             RouteDeckActionIds.INTENT_SIGN_IN,
@@ -257,7 +274,7 @@ NODE_SPECS: dict[str, RouteDeckNodeSpec] = {
             RouteDeckActionIds.ENTRY_LEARN_PLATFORM,
             RouteDeckActionIds.ENTRY_LEARN_SETUP,
         ],
-        recovery_prompt="Continue in workspace chat or use setup/auth actions if they are visible.",
+        recovery_prompt="Continue in SaaS Agent chat or use setup/auth actions if they are visible.",
     ),
 }
 
@@ -277,7 +294,7 @@ ACTION_SPECS: dict[str, RouteDeckActionSpec] = {
     RouteDeckActionIds.NAV_CANCEL: RouteDeckActionSpec(
         id=RouteDeckActionIds.NAV_CANCEL,
         label="Cancel",
-        description="Exit the current flow and return to a safe entry or workspace state.",
+        description="Exit the current flow and return to a safe entry or SaaS Agent state.",
         kind="nav",
         category="navigation",
         placement="inline",
@@ -301,11 +318,11 @@ ACTION_SPECS: dict[str, RouteDeckActionSpec] = {
         id=RouteDeckActionIds.ENTRY_LEARN_SETUP,
         label="How setup works",
         capability_id="setup",
-        description="Ask how workspace and API setup works.",
+        description="Ask how SaaS Agent and API setup works.",
         kind="chip",
         category="setup",
         placement="rail",
-        payload={"prompt": "How do I set up a workspace and connect an API?"},
+        payload={"prompt": "How do I set up a SaaS Agent and connect an API?"},
         allowed_nodes=ANY_ENTRY_NODE,
         visibility="persistent",
     ),
@@ -348,24 +365,26 @@ ACTION_SPECS: dict[str, RouteDeckActionSpec] = {
         placement="inline",
         allowed_nodes=[RouteDeckNodeIds.DISPLAY_NAME],
     ),
-    RouteDeckActionIds.WORKSPACE_SELECT_OPEN_PATTERN: RouteDeckActionSpec(
-        id=RouteDeckActionIds.WORKSPACE_SELECT_OPEN_PATTERN,
-        label="Open Workspace",
-        description="Open one of the listed workspaces.",
+    RouteDeckActionIds.SAAS_AGENT_SELECT_OPEN_PATTERN: RouteDeckActionSpec(
+        id=RouteDeckActionIds.SAAS_AGENT_SELECT_OPEN_PATTERN,
+        label="Open SaaS Agent",
+        description="Open one of the listed saas_agents.",
         emphasis="primary",
         category="navigation",
         placement="inline",
-        allowed_nodes=[RouteDeckNodeIds.WORKSPACE_SELECT],
+        allowed_nodes=[RouteDeckNodeIds.SAAS_AGENT_SELECT],
         visibility="dynamic",
     ),
-    RouteDeckActionIds.WORKSPACE_CONFIRM_LAUNCH: RouteDeckActionSpec(
-        id=RouteDeckActionIds.WORKSPACE_CONFIRM_LAUNCH,
-        label="Launch Workspace",
-        description="Create the drafted workspace.",
+    RouteDeckActionIds.SAAS_AGENT_CONFIRM_LAUNCH: RouteDeckActionSpec(
+        id=RouteDeckActionIds.SAAS_AGENT_CONFIRM_LAUNCH,
+        label="Launch SaaS Agent",
+        description="Review the name and slug, then create the SaaS Agent.",
         emphasis="primary",
+        kind="form",
         category="navigation",
         placement="inline",
-        allowed_nodes=[RouteDeckNodeIds.WORKSPACE_CONFIRM],
+        fields=SAAS_AGENT_CONFIG_FIELDS,
+        allowed_nodes=[RouteDeckNodeIds.SAAS_AGENT_CONFIRM],
     ),
     RouteDeckActionIds.SETUP_REST_START: RouteDeckActionSpec(
         id=RouteDeckActionIds.SETUP_REST_START,
@@ -416,10 +435,10 @@ EDGE_SPECS = [
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.BOOTSTRAP, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="anonymous_start", explanation="Anonymous users enter the public intent stage."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.BOOTSTRAP, to_stage=RouteDeckNodeIds.EMAIL, type="conditional", condition="login_initial_intent", action_id=RouteDeckActionIds.INTENT_SIGN_IN, explanation="Explicit sign-in starts email collection."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.BOOTSTRAP, to_stage=RouteDeckNodeIds.DISPLAY_NAME, type="conditional", condition="register_initial_intent", action_id=RouteDeckActionIds.INTENT_REGISTER, explanation="Create Account starts registration display-name collection."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.BOOTSTRAP, to_stage=RouteDeckNodeIds.WORKSPACE_SELECT, type="conditional", condition="authenticated_many_workspaces", explanation="Authenticated users with multiple workspaces choose one."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.BOOTSTRAP, to_stage=RouteDeckNodeIds.WORKSPACE_JOB, type="conditional", condition="authenticated_no_workspaces", explanation="Authenticated users without workspaces name the first workspace."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.BOOTSTRAP, to_stage=RouteDeckNodeIds.WORKSPACE_CONFIRM, type="conditional", condition="authenticated_no_workspaces_with_draft", explanation="Authenticated users without workspaces can confirm a drafted workspace from entry intent."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.BOOTSTRAP, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="authenticated_single_workspace", explanation="Authenticated users with one workspace open it directly."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.BOOTSTRAP, to_stage=RouteDeckNodeIds.SAAS_AGENT_SELECT, type="conditional", condition="authenticated_many_saas_agents", explanation="Authenticated users with multiple saas_agents choose one."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.BOOTSTRAP, to_stage=RouteDeckNodeIds.SAAS_AGENT_JOB, type="conditional", condition="authenticated_no_saas_agents", explanation="Authenticated users without saas_agents name the first SaaS Agent."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.BOOTSTRAP, to_stage=RouteDeckNodeIds.SAAS_AGENT_CONFIRM, type="conditional", condition="authenticated_no_saas_agents_with_draft", explanation="Authenticated users without saas_agents can confirm a drafted SaaS Agent from entry intent."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.BOOTSTRAP, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="authenticated_single_saas_agent", explanation="Authenticated users with one SaaS Agent open it directly."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.INTENT, to_stage=RouteDeckNodeIds.DISPLAY_NAME, type="conditional", condition="register", action_id=RouteDeckActionIds.INTENT_REGISTER, explanation="Registration intent moves to display-name collection."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.INTENT, to_stage=RouteDeckNodeIds.EMAIL, type="conditional", condition="login", action_id=RouteDeckActionIds.INTENT_SIGN_IN, explanation="Login intent moves to email collection."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.DISPLAY_NAME, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="cancel_or_back", action_id=RouteDeckActionIds.NAV_CANCEL, explanation="Registration can be canceled back to public intent."),
@@ -431,30 +450,30 @@ EDGE_SPECS = [
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.EMAIL, type="conditional", condition="back_to_email", action_id=RouteDeckActionIds.NAV_BACK, explanation="Password collection can return to email collection."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="cancel_auth", action_id=RouteDeckActionIds.NAV_CANCEL, explanation="Password collection can cancel auth and return to intent."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.EMAIL, type="conditional", condition="auth_retry", explanation="Authentication or registration errors return to email collection."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.WORKSPACE_SELECT, type="conditional", condition="authenticated_many_workspaces", explanation="Authenticated users with multiple workspaces choose one."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.WORKSPACE_JOB, type="conditional", condition="authenticated_no_workspaces", explanation="Authenticated users without workspaces name the first workspace."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.WORKSPACE_CONFIRM, type="conditional", condition="authenticated_no_workspaces_with_draft", explanation="Authenticated users without workspaces can confirm a drafted workspace from entry intent."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="authenticated_single_workspace", explanation="Authenticated users with one workspace enter operator mode."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_SELECT, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="workspace_select_canceled", action_id=RouteDeckActionIds.NAV_CANCEL, explanation="Workspace selection can be canceled back to general intent."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_SELECT, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="workspace_select_back", action_id=RouteDeckActionIds.NAV_BACK, explanation="Workspace selection can return to general intent."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_SELECT, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="existing_workspace_selected", action_id=RouteDeckActionIds.WORKSPACE_SELECT_OPEN_PATTERN, explanation="Selecting a workspace opens operator mode."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_SELECT, to_stage=RouteDeckNodeIds.WORKSPACE_CONFIRM, type="conditional", condition="new_workspace_requested", explanation="A new workspace name moves to workspace confirmation."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_JOB, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="workspace_job_canceled", action_id=RouteDeckActionIds.NAV_CANCEL, explanation="Workspace creation can be canceled back to general intent."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_JOB, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="workspace_job_back", action_id=RouteDeckActionIds.NAV_BACK, explanation="Workspace creation can return to general intent."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_JOB, to_stage=RouteDeckNodeIds.WORKSPACE_CONFIRM, type="sequence", condition="workspace_job_collected", explanation="A valid workspace name moves to confirmation."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_CONFIRM, to_stage=RouteDeckNodeIds.WORKSPACE_SELECT, type="conditional", condition="back_to_workspace_select", action_id=RouteDeckActionIds.NAV_BACK, explanation="Workspace confirmation can return to workspace selection when existing workspaces are available."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_CONFIRM, to_stage=RouteDeckNodeIds.WORKSPACE_JOB, type="conditional", condition="back_to_workspace_job", action_id=RouteDeckActionIds.NAV_BACK, explanation="Workspace confirmation can return to workspace naming."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_CONFIRM, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="workspace_creation_canceled", action_id=RouteDeckActionIds.NAV_CANCEL, explanation="Workspace creation can be canceled back to general intent."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.WORKSPACE_CONFIRM, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="workspace_created", action_id=RouteDeckActionIds.WORKSPACE_CONFIRM_LAUNCH, explanation="Launch creates the workspace and opens operator mode."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.SAAS_AGENT_SELECT, type="conditional", condition="authenticated_many_saas_agents", explanation="Authenticated users with multiple saas_agents choose one."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.SAAS_AGENT_JOB, type="conditional", condition="authenticated_no_saas_agents", explanation="Authenticated users without saas_agents name the first SaaS Agent."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.SAAS_AGENT_CONFIRM, type="conditional", condition="authenticated_no_saas_agents_with_draft", explanation="Authenticated users without saas_agents can confirm a drafted SaaS Agent from entry intent."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.PASSWORD, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="authenticated_single_saas_agent", explanation="Authenticated users with one SaaS Agent enter operator mode."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SAAS_AGENT_SELECT, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="saas_agent_select_canceled", action_id=RouteDeckActionIds.NAV_CANCEL, explanation="SaaS Agent selection can be canceled back to general intent."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SAAS_AGENT_SELECT, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="saas_agent_select_back", action_id=RouteDeckActionIds.NAV_BACK, explanation="SaaS Agent selection can return to general intent."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SAAS_AGENT_SELECT, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="existing_saas_agent_selected", action_id=RouteDeckActionIds.SAAS_AGENT_SELECT_OPEN_PATTERN, explanation="Selecting a SaaS Agent opens operator mode."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SAAS_AGENT_SELECT, to_stage=RouteDeckNodeIds.SAAS_AGENT_CONFIRM, type="conditional", condition="new_saas_agent_requested", explanation="A new SaaS Agent name moves to SaaS Agent confirmation."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SAAS_AGENT_JOB, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="saas_agent_job_canceled", action_id=RouteDeckActionIds.NAV_CANCEL, explanation="SaaS Agent creation can be canceled back to general intent."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SAAS_AGENT_JOB, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="saas_agent_job_back", action_id=RouteDeckActionIds.NAV_BACK, explanation="SaaS Agent creation can return to general intent."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SAAS_AGENT_JOB, to_stage=RouteDeckNodeIds.SAAS_AGENT_CONFIRM, type="sequence", condition="saas_agent_job_collected", explanation="A valid SaaS Agent name moves to confirmation."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SAAS_AGENT_CONFIRM, to_stage=RouteDeckNodeIds.SAAS_AGENT_SELECT, type="conditional", condition="back_to_saas_agent_select", action_id=RouteDeckActionIds.NAV_BACK, explanation="SaaS Agent confirmation can return to SaaS Agent selection when existing saas_agents are available."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SAAS_AGENT_CONFIRM, to_stage=RouteDeckNodeIds.SAAS_AGENT_JOB, type="conditional", condition="back_to_saas_agent_job", action_id=RouteDeckActionIds.NAV_BACK, explanation="SaaS Agent confirmation can return to SaaS Agent naming."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SAAS_AGENT_CONFIRM, to_stage=RouteDeckNodeIds.INTENT, type="conditional", condition="saas_agent_creation_canceled", action_id=RouteDeckActionIds.NAV_CANCEL, explanation="SaaS Agent creation can be canceled back to general intent."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SAAS_AGENT_CONFIRM, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="saas_agent_created", action_id=RouteDeckActionIds.SAAS_AGENT_CONFIRM_LAUNCH, explanation="Launch creates the SaaS Agent and opens operator mode."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.OPERATOR_READY, to_stage=RouteDeckNodeIds.EMAIL, type="conditional", condition="auth_requested_from_operator", action_id=RouteDeckActionIds.INTENT_SIGN_IN, explanation="A visible sign-in action can restart auth from operator mode."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.OPERATOR_READY, to_stage=RouteDeckNodeIds.DISPLAY_NAME, type="conditional", condition="auth_requested_from_operator", action_id=RouteDeckActionIds.INTENT_REGISTER, explanation="A visible create-account action can restart auth from operator mode."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.OPERATOR_READY, to_stage=RouteDeckNodeIds.SETUP_INTRO, type="conditional", condition="setup_requested", action_id=RouteDeckActionIds.SETUP_REST_START, explanation="Setup can be reopened from a ready workspace."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.OPERATOR_READY, to_stage=RouteDeckNodeIds.SETUP_INTRO, type="conditional", condition="setup_requested", action_id=RouteDeckActionIds.SETUP_REST_START, explanation="Setup can be reopened from a ready SaaS Agent."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SETUP_INTRO, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="setup_canceled", action_id=RouteDeckActionIds.NAV_CANCEL, explanation="Setup can be canceled back to operator mode."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SETUP_INTRO, to_stage=RouteDeckNodeIds.WORKSPACE_JOB, type="conditional", condition="workspace_context_lost", explanation="Setup falls back to workspace naming if workspace context is missing."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SETUP_INTRO, to_stage=RouteDeckNodeIds.SAAS_AGENT_JOB, type="conditional", condition="saas_agent_context_lost", explanation="Setup falls back to SaaS Agent naming if SaaS Agent context is missing."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SETUP_INTRO, to_stage=RouteDeckNodeIds.CONNECTION_CONFIRM, type="conditional", condition="rest_details_ready", action_id=RouteDeckActionIds.SETUP_REST_CONFIGURE, explanation="Complete REST details move to connection confirmation."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.SETUP_INTRO, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="setup_skipped", action_id=RouteDeckActionIds.SETUP_OPEN_CHAT, explanation="Skipping setup returns to operator mode."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.CONNECTION_CONFIRM, to_stage=RouteDeckNodeIds.SETUP_INTRO, type="conditional", condition="back_to_setup", action_id=RouteDeckActionIds.NAV_BACK, explanation="Connection confirmation can return to setup details."),
-    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.CONNECTION_CONFIRM, to_stage=RouteDeckNodeIds.WORKSPACE_JOB, type="conditional", condition="workspace_context_lost", explanation="Connection confirmation falls back to workspace naming if workspace context is missing."),
+    RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.CONNECTION_CONFIRM, to_stage=RouteDeckNodeIds.SAAS_AGENT_JOB, type="conditional", condition="saas_agent_context_lost", explanation="Connection confirmation falls back to SaaS Agent naming if SaaS Agent context is missing."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.CONNECTION_CONFIRM, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="connection_activated", action_id=RouteDeckActionIds.SETUP_CONNECTION_ACTIVATE, explanation="Activation opens operator mode."),
     RouteDeckEdgeSpec(from_stage=RouteDeckNodeIds.CONNECTION_CONFIRM, to_stage=RouteDeckNodeIds.OPERATOR_READY, type="conditional", condition="setup_skipped", action_id=RouteDeckActionIds.SETUP_OPEN_CHAT, explanation="Skipping setup returns to operator mode."),
 ]
@@ -580,7 +599,7 @@ def persistent_actions_for_context(
     *,
     node: str | None,
     current_user: "User | None",
-    active_workspace_id: Any | None = None,
+    active_saas_agent_id: Any | None = None,
 ) -> list[EntryActionCard]:
     if current_user is None:
         actions = [
@@ -597,11 +616,11 @@ def persistent_actions_for_context(
             ]
         return actions
 
-    if active_workspace_id and node == RouteDeckNodeIds.OPERATOR_READY:
+    if active_saas_agent_id and node == RouteDeckNodeIds.OPERATOR_READY:
         return [action_card(RouteDeckActionIds.SETUP_REST_START)]
-    if active_workspace_id and node in SETUP_NODES:
+    if active_saas_agent_id and node in SETUP_NODES:
         return navigation_actions_for_node(node)
-    if node in (RouteDeckNodeIds.WORKSPACE_SELECT, RouteDeckNodeIds.WORKSPACE_JOB, RouteDeckNodeIds.WORKSPACE_CONFIRM):
+    if node in (RouteDeckNodeIds.SAAS_AGENT_SELECT, RouteDeckNodeIds.SAAS_AGENT_JOB, RouteDeckNodeIds.SAAS_AGENT_CONFIRM):
         return navigation_actions_for_node(node)
 
     return []

@@ -1,8 +1,10 @@
 from .base import Base, TenantBase
-from .public import User, Workspace, WorkspaceMember, WorkspaceRole
+from .public import User, SaaSAgent, SaaSAgentMember, SaaSAgentRole
 from .agent import (
     AgentDocument,
     AgentDocumentChunk,
+    AgentExecutionTrace,
+    AgentLearningCandidate,
     AgentMemory,
     AgentMessage,
     AgentSession,
@@ -27,13 +29,15 @@ __all__ = [
     "Base",
     "TenantBase",
     "User",
-    "Workspace",
-    "WorkspaceMember",
-    "WorkspaceRole",
+    "SaaSAgent",
+    "SaaSAgentMember",
+    "SaaSAgentRole",
     "AgentSession",
     "AgentMessage",
     "AgentDocument",
     "AgentDocumentChunk",
+    "AgentExecutionTrace",
+    "AgentLearningCandidate",
     "AgentMemory",
     "EntrySession",
     "EntryRun",

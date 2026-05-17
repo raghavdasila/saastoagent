@@ -12,7 +12,7 @@ GRAPH_VERSION = "entry_v1"
 class EntryLane(str, Enum):
     system = "system"
     auth = "auth"
-    workspace = "workspace"
+    saas_agent = "saas_agent"
     terminal = "terminal"
 
 
@@ -22,9 +22,9 @@ class EntryStageId(str, Enum):
     display_name = "display_name"
     email = "email"
     password = "password"
-    workspace_select = "workspace_select"
-    workspace_job = "workspace_job"
-    workspace_confirm = "workspace_confirm"
+    saas_agent_select = "saas_agent_select"
+    saas_agent_job = "saas_agent_job"
+    saas_agent_confirm = "saas_agent_confirm"
     setup_intro = "setup_intro"
     connection_confirm = "connection_confirm"
     operator_ready = "operator_ready"
@@ -72,20 +72,20 @@ ENTRY_NODE_SPECS = {
         label="Password",
         lane=EntryLane.auth,
     ),
-    EntryStageId.workspace_select: EntryNodeSpec(
-        id=EntryStageId.workspace_select,
-        label="Workspace Select",
-        lane=EntryLane.workspace,
+    EntryStageId.saas_agent_select: EntryNodeSpec(
+        id=EntryStageId.saas_agent_select,
+        label="SaaS Agent Select",
+        lane=EntryLane.saas_agent,
     ),
-    EntryStageId.workspace_job: EntryNodeSpec(
-        id=EntryStageId.workspace_job,
-        label="Workspace Setup",
-        lane=EntryLane.workspace,
+    EntryStageId.saas_agent_job: EntryNodeSpec(
+        id=EntryStageId.saas_agent_job,
+        label="SaaS Agent Setup",
+        lane=EntryLane.saas_agent,
     ),
-    EntryStageId.workspace_confirm: EntryNodeSpec(
-        id=EntryStageId.workspace_confirm,
-        label="Workspace Confirm",
-        lane=EntryLane.workspace,
+    EntryStageId.saas_agent_confirm: EntryNodeSpec(
+        id=EntryStageId.saas_agent_confirm,
+        label="SaaS Agent Confirm",
+        lane=EntryLane.saas_agent,
     ),
     EntryStageId.operator_ready: EntryNodeSpec(
         id=EntryStageId.operator_ready,
@@ -95,12 +95,12 @@ ENTRY_NODE_SPECS = {
     EntryStageId.setup_intro: EntryNodeSpec(
         id=EntryStageId.setup_intro,
         label="REST Setup",
-        lane=EntryLane.workspace,
+        lane=EntryLane.saas_agent,
     ),
     EntryStageId.connection_confirm: EntryNodeSpec(
         id=EntryStageId.connection_confirm,
         label="Connection Confirm",
-        lane=EntryLane.workspace,
+        lane=EntryLane.saas_agent,
     ),
 }
 

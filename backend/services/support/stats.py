@@ -6,16 +6,16 @@ from backend.core.database import async_session
 from backend.core.models import Connection, GeneratedTool
 
 
-async def get_workspace_stats(workspace_id: uuid.UUID) -> dict:
+async def get_saas_agent_stats(saas_agent_id: uuid.UUID) -> dict:
     async with async_session() as session:
         connections_count = (
             await session.execute(
-                select(func.count(Connection.id)).where(Connection.workspace_id == workspace_id)
+                select(func.count(Connection.id)).where(Connection.saas_agent_id == saas_agent_id)
             )
         ).scalar_one()
         tools_count = (
             await session.execute(
-                select(func.count(GeneratedTool.id)).where(GeneratedTool.workspace_id == workspace_id)
+                select(func.count(GeneratedTool.id)).where(GeneratedTool.saas_agent_id == saas_agent_id)
             )
         ).scalar_one()
     return {

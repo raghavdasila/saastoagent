@@ -9,13 +9,13 @@ from .graph_runtime import EntryRuntimeState
 from .route_conditions import EDGE_CONDITION_RESOLVERS, assert_route_deck_transition
 from .stage_auth import bootstrap_node, display_name_node, email_node, intent_node, password_node
 from .stage_io import StageHandler, execute_stage
-from .stage_workspace import (
+from .stage_saas_agent import (
     connection_confirm_node,
     operator_ready_node,
     setup_intro_node,
-    workspace_confirm_node,
-    workspace_job_node,
-    workspace_select_node,
+    saas_agent_confirm_node,
+    saas_agent_job_node,
+    saas_agent_select_node,
 )
 from backend.services.route_deck import build_route_deck_manifest
 
@@ -25,9 +25,9 @@ NODE_HANDLERS = {
     "display_name": display_name_node,
     "email": email_node,
     "password": password_node,
-    "workspace_select": workspace_select_node,
-    "workspace_job": workspace_job_node,
-    "workspace_confirm": workspace_confirm_node,
+    "saas_agent_select": saas_agent_select_node,
+    "saas_agent_job": saas_agent_job_node,
+    "saas_agent_confirm": saas_agent_confirm_node,
     "setup_intro": setup_intro_node,
     "connection_confirm": connection_confirm_node,
     "operator_ready": operator_ready_node,
@@ -36,7 +36,7 @@ NODE_HANDLERS = {
 ENTRY_GRAPH_GROUPS = {
     "public_entry": {"bootstrap", "intent"},
     "auth": {"display_name", "email", "password"},
-    "workspace": {"workspace_select", "workspace_job", "workspace_confirm"},
+    "saas_agent": {"saas_agent_select", "saas_agent_job", "saas_agent_confirm"},
     "setup": {"setup_intro", "connection_confirm"},
     "terminal": {"operator_ready"},
 }

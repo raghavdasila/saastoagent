@@ -93,7 +93,7 @@ def classify_risk(method: str, path: str, description: str = "", tags: list[str]
     return RiskLevel.read
 
 
-def build_action_node_data(endpoint: dict[str, Any], connection_id, workspace_id, spec_url: str) -> dict[str, Any]:
+def build_action_node_data(endpoint: dict[str, Any], connection_id, saas_agent_id, spec_url: str) -> dict[str, Any]:
     operation = endpoint["operation"]
     method = endpoint["method"]
     path = endpoint["path"]
@@ -110,7 +110,7 @@ def build_action_node_data(endpoint: dict[str, Any], connection_id, workspace_id
 
     return {
         "connection_id": connection_id,
-        "workspace_id": workspace_id,
+        "saas_agent_id": saas_agent_id,
         "name": str(op_id),
         "path": path,
         "method": method,

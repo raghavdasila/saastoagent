@@ -7,7 +7,7 @@ from fastapi_users.db import SQLAlchemyUserDatabase
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.auth import UserManager, get_jwt_strategy
-from backend.core.models import User, Workspace, WorkspaceMember, WorkspaceRole
+from backend.core.models import User, SaaSAgent, SaaSAgentMember, SaaSAgentRole
 from backend.core.schemas import UserCreate
 from backend.core.tenancy import create_tenant_schema
 
@@ -128,10 +128,10 @@ def _gate_passes(gate: str, params: dict[str, Any], evidence: dict[str, Any]) ->
         return action_id in _action_ids(evidence, "enabled_action_ids")
     if gate == "no_console_errors":
         return len(_strings_from_evidence(evidence, "console_errors")) == 0
-    if gate == "workspace_view":
+    if gate == "saas_agent_view":
         aliases = {"connections": "connect"}
         expected = aliases.get(str(params.get("view") or ""), str(params.get("view") or ""))
-        current = evidence.get("workspace_view") or evidence.get("active_view") or evidence.get("current_view")
+        current = evidence.get("saas_agent_view") or evidence.get("active_view") or evidence.get("current_view")
         current_text = aliases.get(str(current or ""), str(current or ""))
         return bool(expected) and current_text == expected
     if gate == "catalog_count_at_least":
@@ -182,26 +182,26 @@ async def _create_user(session: AsyncSession, *, email: str, display_name: str) 
     )
 
 
-async def _create_workspace(session: AsyncSession, *, user: User, run_token: str) -> Workspace:
-    workspace = Workspace(
-        name="QA Seed Workspace",
+async def _create_saas_agent(session: AsyncSession, *, user: User, run_token: str) -> SaaSAgent:
+    saas_agent = SaaSAgent(
+        name="QA Seed SaaS Agent",
         slug=f"qa-seed-{run_token}",
         created_by=user.id,
     )
-    session.add(workspace)
+    session.add(saas_agent)
     await session.flush()
     session.add(
-        WorkspaceMember(
+        SaaSAgentMember(
             user_id=user.id,
-            workspace_id=workspace.id,
-            role=WorkspaceRole.owner,
+            saas_agent_id=saas_agent.id,
+            role=SaaSAgentRole.owner,
         )
     )
     await session.flush()
     await session.commit()
-    await create_tenant_schema(workspace.id)
-    await session.refresh(workspace)
-    return workspace
+    await create_tenant_schema(saas_agent.id)
+    await session.refresh(saas_agent)
+    return saas_agent
 
 
 async def reset_qa_context(session: AsyncSession) -> QAResetResponse:
@@ -209,7 +209,7 @@ async def reset_qa_context(session: AsyncSession) -> QAResetResponse:
     seeded_email = f"qa-seeded-{run_token}@example.com"
     signup_email = f"qa-signup-{run_token}@example.com"
     seeded_user = await _create_user(session, email=seeded_email, display_name="QA Seeded User")
-    workspace = await _create_workspace(session, user=seeded_user, run_token=run_token)
+    saas_agent = await _create_saas_agent(session, user=seeded_user, run_token=run_token)
     await get_jwt_strategy().write_token(seeded_user)
 
     return QAResetResponse(
@@ -218,6 +218,6 @@ async def reset_qa_context(session: AsyncSession) -> QAResetResponse:
         signup_password=QA_PASSWORD,
         seeded_email=seeded_email,
         seeded_password=QA_PASSWORD,
-        seeded_workspace_id=str(workspace.id),
-        seeded_workspace_name=workspace.name,
+        seeded_saas_agent_id=str(saas_agent.id),
+        seeded_saas_agent_name=saas_agent.name,
     )

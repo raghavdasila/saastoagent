@@ -2,7 +2,7 @@ from __future__ import annotations
 
 QA_DOMAIN_MODEL = {
     "name": "SaaStoAgent entry navigation QA",
-    "description": "UI-driven behavioral QA for entry, auth, workspace setup, and RouteDeck navigation.",
+    "description": "UI-driven behavioral QA for entry, auth, SaaSAgent setup, and RouteDeck navigation.",
     "capabilities": [
         {
             "id": "entry_question",
@@ -17,9 +17,9 @@ QA_DOMAIN_MODEL = {
             "evidence_gates": ["route_deck_current_node", "action_enabled", "message_not_contains"],
         },
         {
-            "id": "workspace_setup",
-            "name": "Workspace setup navigation",
-            "expected_user_behaviors": ["complete signup", "describe workspace", "back or cancel setup"],
+            "id": "SaaSAgent_setup",
+            "name": "SaaSAgent setup navigation",
+            "expected_user_behaviors": ["complete signup", "describe SaaSAgent", "back or cancel setup"],
             "evidence_gates": ["route_deck_current_node", "action_enabled", "assistant_response"],
         },
         {
@@ -38,7 +38,7 @@ QA_DOMAIN_MODEL = {
                 "recover from validation feedback",
             ],
             "evidence_gates": [
-                "workspace_view",
+                "saas_agent_view",
                 "visible_text",
                 "api_response_ok",
                 "catalog_count_at_least",
@@ -49,7 +49,7 @@ QA_DOMAIN_MODEL = {
             "id": "catalog_inspection",
             "name": "Generated catalog inspection",
             "expected_user_behaviors": ["open Actions", "open Entities", "inspect generated tools"],
-            "evidence_gates": ["workspace_view", "visible_text", "catalog_count_at_least", "no_console_errors"],
+            "evidence_gates": ["saas_agent_view", "visible_text", "catalog_count_at_least", "no_console_errors"],
         },
         {
             "id": "rest_execution",
@@ -220,17 +220,17 @@ QA_SCENARIOS = [
         ],
     },
     {
-        "id": "signup_workspace_path",
-        "name": "Signup reaches workspace setup",
-        "persona": "New user creating a workspace.",
+        "id": "signup_SaaSAgent_path",
+        "name": "Signup reaches SaaSAgent setup",
+        "persona": "New user creating a SaaSAgent.",
         "opening_message": "",
-        "context": "Signup should continue into workspace creation without dead ends.",
-        "pass_criteria": "The flow reaches workspace setup, workspace confirm, or operator ready.",
+        "context": "Signup should continue into SaaSAgent creation without dead ends.",
+        "pass_criteria": "The flow reaches SaaSAgent setup, SaaSAgent confirm, or operator ready.",
         "max_turns": 14,
         "milestones": [
             {
                 "id": "complete-signup",
-                "capability": "workspace_setup",
+                "capability": "SaaSAgent_setup",
                 "goal": "Complete signup with generated QA credentials.",
                 "actions": [
                     {"action": "click_action", "params": {"action_id": "nav.cancel", "optional": True}},
@@ -246,7 +246,7 @@ QA_SCENARIOS = [
                     {
                         "gate": "route_deck_current_node_one_of",
                         "required": True,
-                        "params": {"nodes": ["workspace_job", "workspace_select", "workspace_confirm", "operator_ready"]},
+                        "params": {"nodes": ["saas_agent_job", "saas_agent_select", "saas_agent_confirm", "operator_ready"]},
                     }
                 ],
             }
@@ -281,9 +281,9 @@ QA_SCENARIOS = [
     {
         "id": "connection_catalog_preview",
         "name": "Preview and activate an OpenAPI connection",
-        "persona": "Workspace owner connecting a SaaS API schema.",
+        "persona": "SaaSAgent owner connecting a SaaS API schema.",
         "opening_message": "",
-        "context": "The workspace should expose a real Connections workbench, schema preview, and activation result.",
+        "context": "The SaaSAgent should expose a real Connections workbench, schema preview, and activation result.",
         "pass_criteria": "Connection preview succeeds and activation produces at least one generated action.",
         "max_turns": 8,
         "milestones": [
@@ -292,13 +292,13 @@ QA_SCENARIOS = [
                 "capability": "connection_setup",
                 "goal": "Open Connections and preview a reachable OpenAPI URL.",
                 "actions": [
-                    {"action": "open_workspace_view", "params": {"view": "connect"}},
+                    {"action": "open_saas_agent_view", "params": {"view": "connect"}},
                     {"action": "fill_connection_form", "params": {"fixture": "petstore_openapi"}},
                     {"action": "click_button", "params": {"label": "Preview API"}},
                     {"action": "collect_evidence", "params": {"include_api_status": True}},
                 ],
                 "evidence_gates": [
-                    {"gate": "workspace_view", "required": True, "params": {"view": "connect"}},
+                    {"gate": "saas_agent_view", "required": True, "params": {"view": "connect"}},
                     {"gate": "visible_text", "required": True, "params": {"text": "Catalog preview"}},
                     {"gate": "api_response_ok", "required": True, "params": {"key": "connection_preview"}},
                     {"gate": "no_console_errors", "required": True, "params": {}},
@@ -336,11 +336,11 @@ QA_SCENARIOS = [
                 "goal": "Open the generated Actions surface.",
                 "actions": [
                     {"action": "ensure_petstore_connection", "params": {}},
-                    {"action": "open_workspace_view", "params": {"view": "actions"}},
-                    {"action": "collect_workspace_catalog", "params": {}},
+                    {"action": "open_saas_agent_view", "params": {"view": "actions"}},
+                    {"action": "collect_saas_agent_catalog", "params": {}},
                 ],
                 "evidence_gates": [
-                    {"gate": "workspace_view", "required": True, "params": {"view": "actions"}},
+                    {"gate": "saas_agent_view", "required": True, "params": {"view": "actions"}},
                     {"gate": "visible_text", "required": True, "params": {"text": "Generated REST actions"}},
                     {"gate": "catalog_count_at_least", "required": True, "params": {"key": "actions", "min": 1}},
                 ],
@@ -350,11 +350,11 @@ QA_SCENARIOS = [
                 "capability": "catalog_inspection",
                 "goal": "Open the inferred Entities surface.",
                 "actions": [
-                    {"action": "open_workspace_view", "params": {"view": "entities"}},
-                    {"action": "collect_workspace_catalog", "params": {}},
+                    {"action": "open_saas_agent_view", "params": {"view": "entities"}},
+                    {"action": "collect_saas_agent_catalog", "params": {}},
                 ],
                 "evidence_gates": [
-                    {"gate": "workspace_view", "required": True, "params": {"view": "entities"}},
+                    {"gate": "saas_agent_view", "required": True, "params": {"view": "entities"}},
                     {"gate": "visible_text", "required": True, "params": {"text": "API groups"}},
                     {"gate": "catalog_count_at_least", "required": True, "params": {"key": "entities", "min": 1}},
                     {"gate": "no_console_errors", "required": True, "params": {}},
@@ -377,7 +377,7 @@ QA_SCENARIOS = [
                 "goal": "Ask for a read-safe API operation in chat.",
                 "actions": [
                     {"action": "ensure_petstore_connection", "params": {}},
-                    {"action": "open_workspace_view", "params": {"view": "chat"}},
+                    {"action": "open_saas_agent_view", "params": {"view": "chat"}},
                     {"action": "send_operator_chat", "params": {"text": "List available pets from the connected API."}},
                     {"action": "collect_evidence", "params": {"include_tool_calls": True}},
                 ],
@@ -404,7 +404,7 @@ QA_SCENARIOS = [
                 "goal": "Ask for a write API operation and verify the approval guard.",
                 "actions": [
                     {"action": "ensure_petstore_connection", "params": {}},
-                    {"action": "open_workspace_view", "params": {"view": "chat"}},
+                    {"action": "open_saas_agent_view", "params": {"view": "chat"}},
                     {"action": "send_operator_chat", "params": {"text": "Create a new pet named QA Approval Test."}},
                     {"action": "collect_evidence", "params": {"include_tool_calls": True}},
                 ],
@@ -414,6 +414,60 @@ QA_SCENARIOS = [
                     {"gate": "message_not_contains", "required": True, "params": {"text": "Executed POST"}},
                 ],
             }
+        ],
+    },
+    {
+        "id": "rag_memory_learning_surfaces",
+        "name": "RAG, memory, and learning surfaces are reachable",
+        "persona": "Operator validating the completed SaaS Agent foundation.",
+        "opening_message": "Inspect generated knowledge, save a memory, and review sandbox learning.",
+        "context": "The foundation must expose knowledge generation, durable memory, and learning review as visible operator surfaces.",
+        "pass_criteria": "Knowledge, memory, and learning surfaces render without console errors.",
+        "max_turns": 10,
+        "milestones": [
+            {
+                "id": "knowledge-rag",
+                "capability": "rag_generation",
+                "goal": "Open Knowledge Base and verify generated RAG control is visible.",
+                "actions": [
+                    {"action": "open_saas_agent_view", "params": {"view": "attachments"}},
+                    {"action": "collect_evidence", "params": {}},
+                ],
+                "evidence_gates": [
+                    {"gate": "saas_agent_view", "required": True, "params": {"view": "attachments"}},
+                    {"gate": "visible_text", "required": True, "params": {"text": "Generate catalog RAG"}},
+                    {"gate": "no_console_errors", "required": True, "params": {}},
+                ],
+            },
+            {
+                "id": "memory-panel",
+                "capability": "memory",
+                "goal": "Open Sessions & Memory and verify manual memory save is visible.",
+                "actions": [
+                    {"action": "open_saas_agent_view", "params": {"view": "admin"}},
+                    {"action": "click_button", "params": {"label": "Memories"}},
+                    {"action": "collect_evidence", "params": {}},
+                ],
+                "evidence_gates": [
+                    {"gate": "saas_agent_view", "required": True, "params": {"view": "admin"}},
+                    {"gate": "visible_text", "required": True, "params": {"text": "Save memory"}},
+                    {"gate": "no_console_errors", "required": True, "params": {}},
+                ],
+            },
+            {
+                "id": "learning-panel",
+                "capability": "sandbox_learning",
+                "goal": "Open Learn and verify sandbox learning review is visible.",
+                "actions": [
+                    {"action": "open_saas_agent_view", "params": {"view": "learn"}},
+                    {"action": "collect_evidence", "params": {}},
+                ],
+                "evidence_gates": [
+                    {"gate": "saas_agent_view", "required": True, "params": {"view": "learn"}},
+                    {"gate": "visible_text", "required": True, "params": {"text": "Sandbox learning"}},
+                    {"gate": "no_console_errors", "required": True, "params": {}},
+                ],
+            },
         ],
     },
 ]

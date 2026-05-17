@@ -35,7 +35,7 @@ function startingMessages(intent: AuthIntent | undefined): ChatUIMessage[] {
     return [
       makeMessage(
         'assistant',
-        "We'll create your account conversationally, then drop you into workspace setup. Tell me the name you want on the account, or type `skip` if you don't care.",
+        "We'll create your account conversationally, then drop you into saasAgent setup. Tell me the name you want on the account, or type `skip` if you don't care.",
       ),
     ]
   }
@@ -95,7 +95,7 @@ export function AuthAgentDesk({ initialIntent }: AuthAgentDeskProps) {
         await register(email, password, displayName || undefined)
       }
       setStep('done')
-      navigate('/')
+      navigate('/app/home')
     } catch (error: any) {
       setStep(intent === 'register' ? 'email' : 'email')
       appendAssistant(
@@ -212,7 +212,7 @@ export function AuthAgentDesk({ initialIntent }: AuthAgentDeskProps) {
           <section className="surface-card rounded-3xl p-6 sm:p-8">
             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">Why this changed</div>
             <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-400">
-              Auth is handled inside {OPERATOR_NAME} instead of a detached form. The flow collects only the next field it needs, stays in one thread, and hands you straight into workspace setup.
+              Auth is handled inside {OPERATOR_NAME} instead of a detached form. The flow collects only the next field it needs, stays in one thread, and hands you straight into saasAgent setup.
             </p>
           </section>
 
@@ -221,7 +221,7 @@ export function AuthAgentDesk({ initialIntent }: AuthAgentDeskProps) {
             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600 dark:text-slate-400">
               <p><span className="font-semibold text-slate-950 dark:text-white">1.</span> Choose auth intent.</p>
               <p><span className="font-semibold text-slate-950 dark:text-white">2.</span> Collect only the missing identity fields.</p>
-              <p><span className="font-semibold text-slate-950 dark:text-white">3.</span> Authenticate and route into workspace onboarding.</p>
+              <p><span className="font-semibold text-slate-950 dark:text-white">3.</span> Authenticate and route into saasAgent onboarding.</p>
             </div>
           </section>
         </aside>
