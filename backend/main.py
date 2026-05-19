@@ -11,6 +11,7 @@ from backend.core.models import User
 from backend.core.schemas import UserCreate, UserRead
 from backend.routes.entry import router as entry_router
 from backend.routes.app_graph import router as app_graph_router
+from backend.routes.corpus_graph import router as corpus_graph_router
 from backend.routes.health import router as health_router
 from backend.routes.saas_agents import router as saas_agents_router
 from backend.routes.agent import router as agent_router
@@ -66,6 +67,7 @@ async def get_current_user(user: User = Depends(current_active_user)):
 app.include_router(health_router)
 app.include_router(entry_router)
 app.include_router(app_graph_router)
+app.include_router(corpus_graph_router)
 app.include_router(saas_agents_router)
 app.include_router(agent_router)
 app.include_router(connections_router)

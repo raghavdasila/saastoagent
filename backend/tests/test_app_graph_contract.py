@@ -57,6 +57,20 @@ def test_app_graph_route_deck_matches_langgraph_contract():
             assert edge.action_id in action_ids
 
 
+def test_app_graph_manifest_edges_are_semantic_topology_not_global_actions():
+    manifest = build_app_graph_manifest()
+    edges = {(edge.from_stage, edge.to_stage, edge.action_id) for edge in manifest.edges}
+
+    assert len(manifest.edges) < len(manifest.nodes) * 2
+    assert ("home", "auth_register", AppActionIds.AUTH_REGISTER) in edges
+    assert ("agent_home", "connection_configure", AppActionIds.CONNECTION_CONFIGURE) in edges
+    assert ("connection_configure", "schema_preview", AppActionIds.CONNECTION_PREVIEW) in edges
+    assert ("schema_preview", "catalog_activation", AppActionIds.CONNECTION_ACTIVATE) in edges
+    assert ("catalog_activation", "catalog", None) in edges
+    assert ("qa", "home", AppActionIds.HOME) not in edges
+    assert ("memory", "agent_home", AppActionIds.AGENT_HOME) not in edges
+
+
 def test_app_graph_actions_are_scoped_and_target_typed_nodes():
     manifest = build_app_graph_manifest()
     node_ids = {node.id for node in manifest.nodes}
@@ -157,3 +171,49 @@ def test_app_graph_product_shell_hides_internal_route_deck_copy():
         assert text not in product_source
 
     assert "RouteDeck diagnostics" in source
+
+
+def test_product_shell_uses_corpus_and_routedeck_contracts_not_legacy_app_graph_endpoints():
+    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
+    source = shell_path.read_text(encoding="utf-8")
+    product_source = source.split("function DiagnosticsPanel", 1)[0]
+
+    assert "/corpus/state" in product_source
+    assert "/corpus/stream" in product_source
+    assert "/corpus/action" in product_source
+
+    forbidden = [
+        "/app/graph/snapshot",
+        "/app/graph/action",
+        "/routedeck/projection",
+        "useRouteDeckOperations",
+        "RouteDeckOperationDock",
+        "available_actions",
+        "persistent_actions",
+        "function WorkSurface",
+        "projection.diagnostics?.graph_state",
+        "projection.diagnostics?.replace_path",
+    ]
+    for text in forbidden:
+        assert text not in product_source
+
+
+def test_product_diagnostics_are_read_only():
+    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
+    source = shell_path.read_text(encoding="utf-8")
+    diagnostics_source = source.split("function DiagnosticsPanel", 1)[1]
+
+    assert "onActionSelect" not in diagnostics_source
+    assert "executeOperation" not in diagnostics_source
+    assert "onOperationSelect" not in diagnostics_source
+
+
+def test_legacy_app_graph_routes_are_explicitly_deprecated():
+    from backend.main import app
+
+    legacy_routes = [
+        route for route in app.routes if getattr(route, "path", "").startswith("/api/app/graph")
+    ]
+
+    assert legacy_routes
+    assert all(getattr(route, "deprecated", False) for route in legacy_routes)

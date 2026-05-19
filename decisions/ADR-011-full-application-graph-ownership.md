@@ -3,6 +3,7 @@
 Date: 2026-05-16
 Status: Accepted
 Supersedes: ADR-009 for application-wide navigation/control ownership
+Current status: Graph ownership still stands, but the product contract is now Corpus-first with RouteDeck projections and diagnostics as defined in [../architecture/route-deck-corpus-vision.md](../architecture/route-deck-corpus-vision.md), not raw eligible-action rendering in the product shell.
 
 ## Context
 

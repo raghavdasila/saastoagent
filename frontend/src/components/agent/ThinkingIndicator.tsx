@@ -13,13 +13,12 @@ export function ThinkingIndicator({ thinking, collapsed = false }: Props) {
 
   if (!thinking) {
     return (
-      <div className="flex items-center gap-2 py-1">
-        <Brain className="h-4 w-4 text-muted-foreground animate-pulse" />
-        <span className="text-sm text-muted-foreground">Thinking</span>
-        <div className="flex gap-1">
-          <span className="thinking-dot" />
-          <span className="thinking-dot" />
-          <span className="thinking-dot" />
+      <div className="flex items-center gap-1.5 py-1" aria-label="Corpus is responding">
+        <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/70 [animation-delay:-0.2s]" />
+        <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/70 [animation-delay:-0.1s]" />
+        <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/70" />
+        <div className="ml-1 h-px w-8 overflow-hidden rounded-full bg-muted-foreground/20">
+          <div className="h-full w-1/2 animate-pulse rounded-full bg-muted-foreground/60" />
         </div>
       </div>
     )

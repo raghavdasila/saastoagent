@@ -1,26 +1,33 @@
 # System Flow Index - SaaStoAgent v0.1
 
-Last Updated: May 16, 2026
+Last Updated: May 19, 2026
 
 This file is the source of truth for the currently implemented runtime and UX flows.
 
-## Active Architecture Warning - May 17, 2026
+## Active Architecture Status - May 19, 2026
 
-The current graph-first implementation is under product-architecture dispute. It
-has useful backend graph and RouteDeck plumbing, but the current UX contract is
-not accepted as the target architecture.
+The RouteDeck/Corpus architecture has been reset around the accepted runtime-store
+model.
 
-Do not continue from the current shell behavior as product truth. Read
-`context_checkpoints/context_checkpoint_17-05-2026-12-14PM.md` first.
+RouteDeck is graph-backed state management for agentic UI. SaaStoAgent consumes
+it through a product adapter and `RouteDeckStore`; Corpus remains the central
+SaaStoAgent product agent.
 
-Correct direction:
+Current anchors:
 
-- `/turn` must be the primary agent runtime.
-- Eligible capabilities are internal, not automatically rendered.
-- Visible proposals must be agent-authored.
-- Forms/work surfaces open only after user initiation or accepted proposal.
-- RouteDeck remains the graph-to-frontend bridge and diagnostics layer, not the
-  visible product metaphor or form renderer.
+- Framework direction: `../routedeck/docs/agentic-ui-state-runtime.md`
+- Product anti-drift vision: `architecture/route-deck-corpus-vision.md`
+- Current implementation plan/status: `plans/routedeck_runtime_store_reset_plan.md`
+
+Current rules:
+
+- Graph owns truth, guards, and commits.
+- RouteDeck owns the generic runtime/store over the graph.
+- Corpus reads RouteDeck state and chooses legal operations.
+- Legal operations are not raw product UI.
+- Visible user choices are Corpus-authored proposals or initiated surfaces.
+- Diagnostics is read-only and may expose graph internals.
+- Navigation diagnostics draw semantic route topology, not action edges.
 
 ## Graph-First Reset Implemented
 
@@ -32,11 +39,22 @@ As of the May 16 agent-first reset, RouteDeck and graph internals are no longer
 product-facing concepts. The primary shell is a chat-first SaaS Agent desk, with
 graph metadata available only from an explicit diagnostics disclosure.
 
-Primary app graph endpoints:
+Primary RouteDeck/Corpus endpoints:
+
+- `GET /api/corpus/stream`
+- `POST /api/corpus/action`
+- `GET /api/routedeck/projection`
+- `GET /api/routedeck/stream`
+- `GET /api/diagnostics/stream`
+
+Compatibility app graph endpoints:
 
 - `GET /api/app/graph/snapshot`
 - `POST /api/app/graph/turn`
 - `POST /api/app/graph/action`
+
+Compatibility endpoints are not the product UI contract and should be removed
+after tests and unrelated callers are migrated.
 
 Primary app graph frontend routes:
 
@@ -126,7 +144,7 @@ This section documents compatibility debt from the pre-reset shell. Primary rout
 9. Canvas artifacts remain closed by default and mount only after the user opens a canvas-capable artifact.
 10. `operator_ready` changes mode and SaaS Agent context inside the same shell; it does not replace the page with another layout.
 11. The next action dock ranks backend-owned actions and shows one recommended next step plus secondary persistent actions.
-12. RouteDeck navigation is split into a compact status strip and a right-side map overlay with focused and full-site SVG node-link visualization, allowed-action visibility, blocked-action visibility, and JSON export. The full-site graph uses a vertical lane layout on a manifest-sized scrollable canvas so the widget remains reusable outside this app. In operator mode it switches from the Entry RouteDeck to the selected SaaS Agent RouteDeck.
+12. RouteDeck diagnostics expose a focused current-node graph and a full sitemap-style navigation map. The full map shows all semantic navigation nodes and route edges, keeps actions out of the canvas, and shows action details only when inspecting a selected node.
 13. The evidence drawer is collapsed by default and exposes graph/session/run ids, readiness evidence, emitted trace/tool/learning widgets, and an advisory autonomy ladder.
 14. The context lens shows selected SaaS Agent identity, current SaaS Agent RouteDeck state, working-on summary, and connection/action/tool counts when operator mode is active.
 15. Direct `/agents/:SaaS AgentId` can show backend-provided anonymous auth actions without blocking SaaS Agent chat.
@@ -382,7 +400,7 @@ All routes are SaaS Agent-scoped and require SaaS Agent membership.
 - RouteDeck manifest validation: `python -m backend.services.route_deck.validate`
 - Backend tests: `python -m pytest backend/tests`
 - RouteDeck adapter tests: `cd ../routedeck && python -m pytest tests`
-- RouteDeck Docker/browser validation: `docker compose up -d --build frontend`, then Playwright against `http://localhost:3007` opening `Map` -> `Full graph`, confirming vertical lane order, 11 nodes, 24 paths, no same-row node overlap, no title/badge overlap, and no console errors.
+- RouteDeck Docker/browser validation: Playwright against `http://localhost:3007/app/home`, open Diagnostics -> Full map, confirm `Showing all 22 nodes and 29 routes`, no action controls on the canvas, selected-node actions only in the inspection panel, and no console errors.
 - Persistent quick actions smoke: anonymous landing and direct SaaS Agent route show backend-provided Sign In/Create Account, and Sign In enters email collection.
 - Anonymous SaaS Agent smoke: direct SaaS Agent chat remains visible without auth.
 - Responsive panel smoke: mobile side panel fits a 390x844 viewport.

@@ -1,6 +1,28 @@
 # Graph-First App Contract Validation
 
-Date: 2026-05-16
+Date: 2026-05-19
+
+## May 19 RouteDeck Runtime Store Update
+
+The active contract has moved from "frontend renders backend graph snapshots/actions" to "SaaStoAgent consumes RouteDeck through a runtime store."
+
+Current guardrails:
+
+- `RouteDeckStore` owns projection/status/dispatch/inspect state on the frontend.
+- Corpus remains the central product agent.
+- Legal operations are runtime/agent context and diagnostics data, not default product UI.
+- Product-visible choices are Corpus proposals or initiated surfaces.
+- Diagnostics is read-only.
+- Diagnostics nav maps draw semantic navigation routes only; actions are not graph edges.
+- Legacy `/api/app/graph/*` paths are compatibility debt and not the primary product UI contract.
+
+Current automated checks:
+
+- `python -m pytest tests -q` in `agent-lab-powered-projects/routedeck`
+- `python -m pytest backend/tests/test_app_graph_contract.py -q`
+- SaaStoAgent frontend `npm run type-check`
+- SaaStoAgent frontend `npm run build`
+- Browser smoke against Docker frontend `/app/home`, Diagnostics -> Full map
 
 ## May 17 Architecture Gap
 

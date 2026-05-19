@@ -141,6 +141,8 @@ def _node(
     actions: list[str],
     expected_input: str | None = None,
     recovery: str | None = None,
+    allowed_surfaces: dict[str, list[str]] | None = None,
+    default_surfaces: dict[str, str] | None = None,
 ) -> RouteDeckNodeSpec:
     return RouteDeckNodeSpec(
         id=node_id,
@@ -150,6 +152,8 @@ def _node(
         allowed_actions=actions,
         expected_input=expected_input,
         recovery_prompt=recovery,
+        allowed_surfaces=allowed_surfaces or {"main": [node_id, "compact"], "active": [node_id]},
+        default_surfaces=default_surfaces or {"main": node_id, "active": node_id},
     )
 
 
@@ -193,7 +197,7 @@ AGENT_REQUIRED_ACTIONS = [
 ALL_NAV_ACTIONS = [AppActionIds.HOME, *AGENT_REQUIRED_ACTIONS]
 
 NODE_SPECS = [
-    _node(AppNodeIds.HOME, "Home", lane="system", description="Root application node. Lists eligible SaaS Agents and creates the next graph-owned action.", actions=[AppActionIds.AUTH_SIGN_IN, AppActionIds.AUTH_REGISTER, AppActionIds.SAAS_AGENT_OPEN, AppActionIds.SAAS_AGENT_CREATE], recovery="Sign in, create an account, open a SaaS Agent, or create a SaaS Agent."),
+    _node(AppNodeIds.HOME, "Home", lane="system", description="Root application node. Lists eligible SaaS Agents and creates the next graph-owned action.", actions=[AppActionIds.AUTH_SIGN_IN, AppActionIds.AUTH_REGISTER, AppActionIds.SAAS_AGENT_OPEN, AppActionIds.SAAS_AGENT_CREATE], recovery="Sign in, create an account, open a SaaS Agent, or create a SaaS Agent.", allowed_surfaces={"main": ["lounge", "dashboard", "compact"], "active": ["home"]}, default_surfaces={"main": "dashboard", "active": "home"}),
     _node(AppNodeIds.AUTH_SIGN_IN, "Sign In", lane="auth", description="Authentication surface for existing users.", actions=[AppActionIds.HOME], recovery="Use the sign-in form or return home."),
     _node(AppNodeIds.AUTH_REGISTER, "Register", lane="auth", description="Authentication surface for account creation.", actions=[AppActionIds.HOME], recovery="Use the registration form or return home."),
     _node(AppNodeIds.SAAS_AGENT_SELECT, "SaaS Agent Select", description="Select an eligible SaaS Agent.", actions=[AppActionIds.HOME, AppActionIds.SAAS_AGENT_OPEN, AppActionIds.SAAS_AGENT_CREATE]),
@@ -254,12 +258,37 @@ def _edge(from_node: str, to_node: str, action_id: str | None = None) -> RouteDe
 
 
 def _build_edges() -> list[RouteDeckEdgeSpec]:
-    edges = [_edge(AppNodeIds.RECOVERY, AppNodeIds.HOME, AppActionIds.RECOVERY_HOME)]
-    for action_id, target in ACTION_TARGETS.items():
-        for node in NODE_SPECS:
-            if action_id in node.allowed_actions:
-                edges.append(_edge(node.id, target, action_id))
-    return edges
+    return [
+        _edge(AppNodeIds.HOME, AppNodeIds.AUTH_SIGN_IN, AppActionIds.AUTH_SIGN_IN),
+        _edge(AppNodeIds.HOME, AppNodeIds.AUTH_REGISTER, AppActionIds.AUTH_REGISTER),
+        _edge(AppNodeIds.AUTH_SIGN_IN, AppNodeIds.HOME, AppActionIds.HOME),
+        _edge(AppNodeIds.AUTH_REGISTER, AppNodeIds.HOME, AppActionIds.HOME),
+        _edge(AppNodeIds.HOME, AppNodeIds.SAAS_AGENT_SELECT, AppActionIds.SAAS_AGENT_OPEN),
+        _edge(AppNodeIds.HOME, AppNodeIds.SAAS_AGENT_CREATE, AppActionIds.SAAS_AGENT_CREATE),
+        _edge(AppNodeIds.SAAS_AGENT_SELECT, AppNodeIds.AGENT_HOME, AppActionIds.SAAS_AGENT_OPEN),
+        _edge(AppNodeIds.SAAS_AGENT_SELECT, AppNodeIds.SAAS_AGENT_CREATE, AppActionIds.SAAS_AGENT_CREATE),
+        _edge(AppNodeIds.SAAS_AGENT_CREATE, AppNodeIds.AGENT_HOME, AppActionIds.SAAS_AGENT_CREATE),
+        _edge(AppNodeIds.AGENT_HOME, AppNodeIds.CONNECTION_CONFIGURE, AppActionIds.CONNECTION_CONFIGURE),
+        _edge(AppNodeIds.CONNECTION_CONFIGURE, AppNodeIds.SCHEMA_PREVIEW, AppActionIds.CONNECTION_PREVIEW),
+        _edge(AppNodeIds.SCHEMA_PREVIEW, AppNodeIds.CATALOG_ACTIVATION, AppActionIds.CONNECTION_ACTIVATE),
+        _edge(AppNodeIds.CATALOG_ACTIVATION, AppNodeIds.CATALOG),
+        _edge(AppNodeIds.CATALOG, AppNodeIds.ENTITIES, AppActionIds.ENTITIES_OPEN),
+        _edge(AppNodeIds.CATALOG, AppNodeIds.ACTIONS, AppActionIds.ACTIONS_OPEN),
+        _edge(AppNodeIds.ACTIONS, AppNodeIds.EXECUTION_PLANNING, AppActionIds.EXECUTION_OPEN),
+        _edge(AppNodeIds.EXECUTION_PLANNING, AppNodeIds.NEEDS_INPUT, AppActionIds.EXECUTION_PLAN),
+        _edge(AppNodeIds.NEEDS_INPUT, AppNodeIds.EXECUTION_PLANNING, AppActionIds.EXECUTION_INPUT),
+        _edge(AppNodeIds.EXECUTION_PLANNING, AppNodeIds.APPROVAL_REQUIRED, AppActionIds.EXECUTION_PLAN),
+        _edge(AppNodeIds.EXECUTION_PLANNING, AppNodeIds.EXECUTING, AppActionIds.EXECUTION_PLAN),
+        _edge(AppNodeIds.APPROVAL_REQUIRED, AppNodeIds.EXECUTING, AppActionIds.APPROVAL_APPROVE),
+        _edge(AppNodeIds.APPROVAL_REQUIRED, AppNodeIds.RESULT_REVIEW, AppActionIds.APPROVAL_REJECT),
+        _edge(AppNodeIds.EXECUTING, AppNodeIds.RESULT_REVIEW),
+        _edge(AppNodeIds.RESULT_REVIEW, AppNodeIds.EXECUTION_PLANNING, AppActionIds.EXECUTION_PLAN),
+        _edge(AppNodeIds.AGENT_HOME, AppNodeIds.KNOWLEDGE, AppActionIds.KNOWLEDGE_OPEN),
+        _edge(AppNodeIds.KNOWLEDGE, AppNodeIds.MEMORY, AppActionIds.MEMORY_OPEN),
+        _edge(AppNodeIds.KNOWLEDGE, AppNodeIds.LEARNING, AppActionIds.LEARNING_OPEN),
+        _edge(AppNodeIds.AGENT_HOME, AppNodeIds.QA, AppActionIds.QA_OPEN),
+        _edge(AppNodeIds.RECOVERY, AppNodeIds.HOME, AppActionIds.RECOVERY_HOME),
+    ]
 
 
 def build_app_graph_manifest() -> RouteDeckManifest:

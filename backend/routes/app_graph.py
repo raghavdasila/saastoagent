@@ -14,7 +14,7 @@ from backend.services.app_graph import app_graph_runtime
 router = APIRouter(prefix="/api/app/graph", tags=["app-graph"])
 
 
-@router.get("/snapshot", response_model=AppGraphResponse)
+@router.get("/snapshot", response_model=AppGraphResponse, deprecated=True)
 async def get_app_graph_snapshot(
     node_id: str | None = None,
     saas_agent_id: uuid.UUID | None = None,
@@ -28,7 +28,7 @@ async def get_app_graph_snapshot(
     )
 
 
-@router.post("/turn", response_model=AppGraphResponse)
+@router.post("/turn", response_model=AppGraphResponse, deprecated=True)
 async def app_graph_turn(
     body: AppGraphRequest,
     user: User | None = Depends(current_optional_active_user),
@@ -37,7 +37,7 @@ async def app_graph_turn(
     return await app_graph_runtime.turn(request=body, user=user, db=db)
 
 
-@router.post("/action", response_model=AppGraphResponse)
+@router.post("/action", response_model=AppGraphResponse, deprecated=True)
 async def app_graph_action(
     body: AppGraphRequest,
     user: User | None = Depends(current_optional_active_user),

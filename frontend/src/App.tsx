@@ -21,13 +21,13 @@ export function App() {
   return (
     <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
       <Routes>
-        {/* Backend app state owns navigation and visible actions. */}
+        {/* Corpus owns product interaction; RouteDeck projects graph state into UI context. */}
         <Route path="/app/home" element={<AppGraphShell nodeId="home" />} />
         <Route path="/app/:nodeId" element={<GraphNodeRoute />} />
         <Route path="/app/agents/:saasAgentId" element={<SaaSAgentOperatorRoute />} />
         <Route path="/app/agents/:saasAgentId/:nodeId" element={<SaaSAgentGraphNodeRoute />} />
 
-        {/* Compatibility links hydrate graph context; they do not switch UI directly. */}
+        {/* Compatibility links hydrate graph context; they do not bypass Corpus. */}
         <Route path="/login" element={<Navigate to="/app/auth_sign_in" replace />} />
         <Route path="/register" element={<Navigate to="/app/auth_register" replace />} />
         <Route path="/agents/:saasAgentId" element={<SaaSAgentOperatorRoute />} />

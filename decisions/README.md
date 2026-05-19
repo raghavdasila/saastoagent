@@ -2,6 +2,9 @@
 
 Architectural Decision Records for SaaStoAgent v0.1.
 
+For the current RouteDeck + Corpus reset, treat [../architecture/route-deck-corpus-vision.md](../architecture/route-deck-corpus-vision.md) as the canonical anti-drift reference.
+Older ADRs that describe visible `available_actions` or `persistent_actions` as product UI are historical unless they are reaffirmed there.
+
 ## Format
 
 `ADR-{number}-{short-name}.md`

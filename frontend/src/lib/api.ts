@@ -116,4 +116,46 @@ export const api = {
       xhr.onerror = () => reject(new ApiError('Connection failed', 0))
       xhr.send()
     }),
+  getStream: (
+    path: string,
+    onEvent: (eventType: string, data: Record<string, unknown>) => void,
+  ) =>
+    new Promise<void>((resolve, reject) => {
+      const token = storage.getToken()
+      const saasAgentId = storage.getSaaSAgentId()
+      const xhr = new XMLHttpRequest()
+      let cursor = 0
+      let buffer = ''
+      xhr.open('GET', `/api${path}`)
+      if (token && token !== 'undefined' && token !== 'null') {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+      }
+      if (saasAgentId) {
+        xhr.setRequestHeader('X-SaaSAgent-ID', saasAgentId)
+      }
+      xhr.onprogress = () => {
+        const chunk = xhr.responseText.slice(cursor)
+        cursor = xhr.responseText.length
+        buffer += chunk
+        const events = buffer.split('\n\n')
+        buffer = events.pop() || ''
+        for (const eventText of events) {
+          const lines = eventText.split('\n')
+          const eventLine = lines.find((line) => line.startsWith('event: '))
+          const dataLine = lines.find((line) => line.startsWith('data: '))
+          if (!eventLine || !dataLine) continue
+          try {
+            onEvent(eventLine.slice(7).trim(), JSON.parse(dataLine.slice(6)))
+          } catch {
+            // Wait for the next progress chunk if JSON is incomplete.
+          }
+        }
+      }
+      xhr.onloadend = () => {
+        if (xhr.status >= 400) reject(new ApiError(`Request failed (${xhr.status})`, xhr.status))
+        else resolve()
+      }
+      xhr.onerror = () => reject(new ApiError('Connection failed', 0))
+      xhr.send()
+    }),
 }

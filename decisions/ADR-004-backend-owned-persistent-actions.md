@@ -2,6 +2,7 @@
 
 Date: 2026-05-09
 Status: Accepted
+Current status: Historical only for legacy entry surfaces. Superseded for the RouteDeck + Corpus product shell by [../architecture/route-deck-corpus-vision.md](../architecture/route-deck-corpus-vision.md).
 
 ## Context
 

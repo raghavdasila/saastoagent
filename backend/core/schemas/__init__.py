@@ -38,6 +38,13 @@ from .app_graph import (
     AppGraphSurface,
     AppGraphTurnResponse,
 )
+from .corpus import (
+    CorpusActionRequest,
+    CorpusActionResponse,
+    CorpusDiagnosticsSnapshot,
+    CorpusProposal,
+    CorpusStateResponse,
+)
 from .connection import (
     ActionNodeRead,
     ActionCatalogRead,
@@ -79,6 +86,11 @@ __all__ = [
     "AppGraphState",
     "AppGraphSurface",
     "AppGraphTurnResponse",
+    "CorpusActionRequest",
+    "CorpusActionResponse",
+    "CorpusDiagnosticsSnapshot",
+    "CorpusProposal",
+    "CorpusStateResponse",
     "AgentSessionRead",
     "AgentSessionList",
     "AgentMessageRead",
