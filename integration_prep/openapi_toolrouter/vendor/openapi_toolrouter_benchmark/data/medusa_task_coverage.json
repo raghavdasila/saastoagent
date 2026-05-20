@@ -1,0 +1,13 @@
+{
+  "coverage_terms": [
+    "products",
+    "orders",
+    "customers",
+    "carts",
+    "inventory",
+    "payments",
+    "fulfillment",
+    "returns",
+    "promotions"
+  ]
+}

@@ -94,6 +94,7 @@ type WorkbenchStatus =
   | 'Preparing proposal'
   | 'Committing'
   | 'Running diagnostics'
+  | 'Waiting for input'
   | 'Waiting for approval'
   | 'Needs attention'
 
@@ -383,7 +384,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
     : pendingSurfaceOpening
       ? 'Opening surface'
       : pendingProposal
-        ? 'Preparing proposal'
+        ? 'Waiting for input'
         : contextLens?.pending_trace_id
           ? 'Waiting for approval'
           : corpusStatus
@@ -406,7 +407,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
     const operation = action.operation
     if (operation.execution_mode === 'review' || operation.kind === 'form') {
       setPendingProposal(operationToProposal(operation))
-      setCorpusStatus('Preparing proposal')
+      setCorpusStatus('Ready')
       return
     }
     setCorpusStatus(operation.target_node && operation.target_node !== projection.graph_node ? 'Navigating' : 'Committing')
@@ -438,8 +439,8 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
   return (
     <div className="min-h-screen overflow-hidden bg-background text-foreground">
       <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
-        <div className="absolute -left-24 top-16 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute right-10 top-28 h-96 w-96 rounded-[8rem] bg-secondary/40 blur-3xl dark:bg-secondary/20" />
+        <div className="absolute -left-24 top-16 h-72 w-72 rounded-full bg-muted/70 blur-3xl dark:bg-white/[0.025]" />
+        <div className="absolute right-10 top-28 h-96 w-96 rounded-[8rem] bg-secondary/35 blur-3xl dark:bg-white/[0.02]" />
       </div>
 
       <WorkbenchTopbar
@@ -610,7 +611,7 @@ function WorkbenchTopbar({
         <div className="flex min-w-0 items-center gap-2">
           <StatusPill status={status} testId="corpus-status" />
           {user ? (
-            <div className="flex min-w-0 max-w-[12rem] items-center gap-2 rounded-full bg-secondary px-3 py-2 text-sm text-secondary-foreground" data-testid="auth-user-pill">
+            <div className="flex min-w-0 max-w-[12rem] items-center gap-2 rounded-full bg-muted px-3 py-2 text-sm text-foreground" data-testid="auth-user-pill">
               <User className="h-4 w-4 shrink-0" />
               <span className="max-w-48 truncate">{user.email || user.display_name || 'Signed in'}</span>
             </div>
@@ -632,9 +633,9 @@ function WorkbenchTopbar({
 }
 
 function StatusPill({ status, testId }: { status: WorkbenchStatus; testId?: string }) {
-  const active = status !== 'Ready'
+  const active = ['Thinking', 'Navigating', 'Opening surface', 'Preparing proposal', 'Committing', 'Running diagnostics'].includes(status)
   return (
-    <div className="inline-flex min-h-10 items-center gap-2 rounded-full bg-secondary px-3 py-2 text-sm font-medium text-secondary-foreground" data-testid={testId}>
+    <div className="inline-flex min-h-10 items-center gap-2 rounded-full border border-border/25 bg-muted px-3 py-2 text-sm font-medium text-foreground dark:border-white/10" data-testid={testId}>
       {active ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />}
       <span>{status}</span>
     </div>
@@ -794,7 +795,7 @@ function QuickActionChips({
               ? 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-md'
               : action.tone === 'outline'
                 ? 'border border-border bg-transparent text-primary hover:bg-primary/10'
-                : 'bg-secondary text-secondary-foreground hover:bg-primary/10',
+                : 'bg-secondary text-secondary-foreground hover:bg-secondary/90',
           ].join(' ')}
           title={action.description || action.label}
         >
@@ -841,7 +842,7 @@ function CapabilityRail({
                   ? 'bg-primary text-primary-foreground shadow-sm'
                   : available
                     ? 'text-foreground hover:bg-primary/10'
-                    : 'text-muted-foreground opacity-75 hover:bg-muted',
+                    : 'text-muted-foreground opacity-90 hover:bg-muted',
               ].join(' ')}
               title={status === 'locked' ? lockedCapabilityReason(item, contextLens) : item.label}
             >
@@ -867,10 +868,10 @@ function CapabilityStatusIcon({ status }: { status: 'active' | 'ready' | 'locked
 function SurfaceOpeningNotice({ opening }: { opening: CorpusSurfaceOpening }) {
   return (
     <div className="flex gap-3 px-4 py-3" data-testid="surface-opening-loader">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-primary">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-secondary">
         <Loader2 className="h-4 w-4 animate-spin" />
       </div>
-      <div className="max-w-[75%] rounded-[1.25rem] bg-secondary px-4 py-2.5 text-sm text-secondary-foreground shadow-sm">
+      <div className="max-w-[75%] rounded-[1.25rem] bg-muted px-4 py-2.5 text-sm text-foreground shadow-sm">
         Opening {opening.label}...
       </div>
     </div>
@@ -903,23 +904,23 @@ function FrameSurfacePanel() {
       : []
     return (
       <div className="md3-surface-low p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
             <div className="text-sm font-medium">Dashboard</div>
             <p className="mt-2 text-sm text-muted-foreground">
               Corpus stays in the center. The dashboard remains contextual until you ask to open or create an agent.
             </p>
           </div>
-          <div className="rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-secondary-foreground">
+          <div className="shrink-0 whitespace-nowrap rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-secondary-foreground">
             {saasAgents.length} agents
           </div>
         </div>
         {saasAgents.length > 0 && (
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {saasAgents.slice(0, 4).map((agent) => (
-              <div key={agent.id} className="rounded-[1rem] bg-background/70 p-3 text-sm">
+              <div key={agent.id} className="rounded-[1rem] border border-border/30 bg-background/70 p-3 text-sm dark:border-white/10">
                 <div className="font-medium">{agent.name}</div>
-                <div className="mt-1 text-xs text-muted-foreground">{agent.slug}</div>
+                <div className="mt-1 text-xs text-muted-foreground">Ready to configure</div>
               </div>
             ))}
           </div>
@@ -931,9 +932,9 @@ function FrameSurfacePanel() {
   return (
     <div className="md3-surface-low p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-sm font-medium">{String(surface.props?.title || contextLens?.working_on || projection.graph_node)}</div>
-        <span className="rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-secondary-foreground">
-          {projection.graph_node}
+        <div className="text-sm font-medium">{String(surface.props?.title || contextLens?.working_on || displayWork(projection.graph_node))}</div>
+        <span className="shrink-0 whitespace-nowrap rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-secondary-foreground">
+          Current node
         </span>
       </div>
       <div className="mt-2 text-sm text-muted-foreground">
@@ -966,7 +967,10 @@ function ProposalPanel({
   const submit = () => onAccept(values)
 
   return (
-    <div className="mb-3 rounded-[1.5rem] bg-card p-5 shadow-sm">
+    <div
+      className="mb-4 rounded-[1.75rem] border border-border/45 bg-background/95 p-5 shadow-[0_16px_36px_-28px_hsl(var(--foreground)/0.45)] dark:border-white/15 dark:bg-muted dark:shadow-black/30"
+      data-testid="corpus-proposal-surface"
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-medium">{proposal.label}</div>
@@ -1043,14 +1047,14 @@ function ActiveSurfacePanel({
 
   return (
     <section className="py-4" data-testid="active-surface-panel">
-      <div className="rounded-[1.75rem] bg-background/70 p-5 shadow-inner">
+      <div className="md3-surface-low rounded-[1.75rem] p-5">
         <div className="mb-4 flex items-center justify-between gap-3 border-b border-border/20 pb-3">
           <div>
             <h2 className="text-base font-medium">{surfaceTitle(activeSurface, contextLens)}</h2>
             <p className="mt-1 text-sm text-muted-foreground">Opened from committed graph state.</p>
           </div>
-          <span className="rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-secondary-foreground">
-            {activeSurface.variant}
+          <span className="shrink-0 whitespace-nowrap rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-secondary-foreground">
+            Active surface
           </span>
         </div>
         <SurfaceRenderer surface={activeSurface} contextLens={contextLens} graphState={graphState} />
@@ -1281,7 +1285,7 @@ function ContextPanel({
             {railNotice.state === 'locked' ? <Lock className="h-4 w-4" /> : <Activity className="h-4 w-4" />}
             Node switcher: {railNotice.label}
           </div>
-          <p className="mt-2 leading-5 text-secondary-foreground/80">{railNotice.message}</p>
+          <p className="mt-2 leading-5 text-secondary-foreground/85">{railNotice.message}</p>
         </div>
       )}
       <dl className="mt-3 grid gap-2 text-xs">
@@ -1289,7 +1293,7 @@ function ContextPanel({
         <LensRow label="Current work" value={displayWork(lens?.working_on || projection.current_context)} />
         <LensRow label="API readiness" value={`${lens?.ready_connection_count || 0}/${lens?.connection_count || 0} ready`} />
         <LensRow label="Tools" value={String(lens?.tool_count || 0)} />
-        <LensRow label="Recent event" value={projection.graph_node} />
+        <LensRow label="Recent event" value={displayWork(projection.graph_node)} />
         {lens?.pending_trace_id && <LensRow label="Pending approval" value={lens.pending_trace_status || 'Waiting'} />}
       </dl>
     </section>
@@ -1342,7 +1346,7 @@ function DiagnosticsPanel({
         Diagnostics
       </button>
       {open && (
-        <div className="mt-3 max-h-[calc(100vh-13rem)] overflow-y-auto rounded-[1.5rem] bg-background/70 p-4 text-xs shadow-inner">
+        <div className="mt-3 max-h-[calc(100vh-13rem)] overflow-y-auto rounded-[1.5rem] border border-border/35 bg-background/70 p-4 text-xs shadow-inner dark:border-white/10">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <div className="font-medium text-foreground">RouteDeck diagnostics</div>
@@ -1404,7 +1408,7 @@ function LensRow({ label, value }: { label: string; value: string }) {
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[1rem] bg-background/70 p-3">
+    <div className="rounded-[1rem] border border-border/30 bg-background/70 p-3 dark:border-white/10">
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="mt-1 font-medium">{value}</dd>
     </div>
@@ -1413,7 +1417,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 
 function Metric({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
   return (
-    <div className="rounded-[1rem] bg-background/70 p-4">
+    <div className="rounded-[1rem] border border-border/30 bg-background/70 p-4 dark:border-white/10">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         {icon}
         <span>{label}</span>
@@ -1437,7 +1441,7 @@ function InfoSurface({
   return (
     <div>
       <div className="flex items-start gap-3">
-        <div className="rounded-[1rem] bg-secondary p-2 text-primary">
+        <div className="rounded-[1rem] bg-secondary p-2 text-secondary-foreground">
           {icon}
         </div>
         <div className="min-w-0">
@@ -1617,5 +1621,35 @@ function handleProposalFieldChange(
 }
 
 function displayWork(value: string) {
+  const labels: Record<string, string> = {
+    home: 'Home',
+    auth_sign_in: 'Sign in',
+    auth_register: 'Create account',
+    saas_agent_select: 'Select SaaS Agent',
+    saas_agent_create: 'Create SaaS Agent',
+    agent_home: 'SaaS Agent Home',
+    connection_configure: 'Connect API',
+    schema_preview: 'Schema Preview',
+    catalog_activation: 'Catalog Activation',
+    catalog: 'Catalog',
+    entities: 'Entities',
+    actions: 'Actions',
+    execution_planning: 'Execution Planning',
+    needs_input: 'Needs Input',
+    approval_required: 'Approval Required',
+    executing: 'Executing',
+    result_review: 'Result Review',
+    knowledge: 'Knowledge',
+    memory: 'Memory',
+    learning: 'Learning',
+    qa: 'QA',
+    recovery: 'Recovery',
+    lounge: 'Lounge',
+  }
+  if (labels[value]) return labels[value]
   return value
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
 }

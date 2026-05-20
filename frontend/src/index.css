@@ -6,50 +6,50 @@
 
 @layer base {
   :root {
-    --background: 225 100% 99%;
+    --background: 42 36% 98%;
     --foreground: 230 10% 11%;
-    --card: 222 50% 96%;
+    --card: 38 24% 94%;
     --card-foreground: 230 10% 11%;
     --primary: 213 61% 41%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 219 71% 91%;
-    --secondary-foreground: 217 41% 12%;
-    --accent: 219 71% 91%;
-    --accent-foreground: 217 41% 12%;
+    --secondary: 29 65% 38%;
+    --secondary-foreground: 0 0% 100%;
+    --accent: 29 65% 38%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --muted: 219 38% 92%;
+    --muted: 38 18% 90%;
     --muted-foreground: 221 8% 29%;
-    --border: 223 4% 48%;
-    --input: 219 38% 92%;
+    --border: 36 10% 47%;
+    --input: 38 18% 90%;
     --ring: 213 61% 41%;
     --radius: 1.5rem;
-    --sidebar: 222 50% 96%;
+    --sidebar: 38 24% 94%;
     --sidebar-foreground: 230 10% 11%;
-    --sidebar-accent: 219 71% 91%;
+    --sidebar-accent: 214 48% 90%;
   }
 
   .dark {
-    --background: 225 17% 8%;
-    --foreground: 240 12% 90%;
-    --card: 225 12% 13%;
-    --card-foreground: 240 12% 90%;
-    --primary: 217 100% 83%;
-    --primary-foreground: 211 100% 19%;
-    --secondary: 220 17% 30%;
-    --secondary-foreground: 219 71% 91%;
-    --accent: 220 17% 30%;
-    --accent-foreground: 219 71% 91%;
+    --background: 220 7% 7%;
+    --foreground: 220 16% 94%;
+    --card: 220 7% 12%;
+    --card-foreground: 220 16% 94%;
+    --primary: 213 61% 41%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 29 65% 38%;
+    --secondary-foreground: 0 0% 100%;
+    --accent: 29 65% 38%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 62% 40%;
     --destructive-foreground: 0 0% 96%;
-    --muted: 216 13% 17%;
-    --muted-foreground: 230 13% 79%;
-    --border: 225 5% 58%;
-    --input: 216 13% 17%;
-    --ring: 217 100% 83%;
-    --sidebar: 225 12% 13%;
-    --sidebar-foreground: 240 12% 90%;
-    --sidebar-accent: 220 17% 30%;
+    --muted: 220 7% 16%;
+    --muted-foreground: 220 13% 82%;
+    --border: 220 8% 48%;
+    --input: 220 7% 16%;
+    --ring: 213 61% 41%;
+    --sidebar: 220 7% 12%;
+    --sidebar-foreground: 220 16% 94%;
+    --sidebar-accent: 220 9% 24%;
   }
 
   * {
@@ -70,20 +70,34 @@
     min-height: 100vh;
   }
 
-  button,
+  button {
+    @apply focus-visible:outline-none;
+  }
+
+  button:focus-visible {
+    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.35);
+  }
+
   input,
-  select {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  select,
+  textarea {
+    @apply focus-visible:outline-none;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
   }
 
   .dark body {
-    background-image: radial-gradient(circle at top right, rgba(169, 199, 255, 0.08), transparent 32%);
+    background-image: radial-gradient(circle at top right, rgba(255, 255, 255, 0.035), transparent 34%);
   }
 }
 
 @layer components {
   .surface-card {
-    @apply bg-card shadow-sm transition-all duration-300 dark:shadow-black/20;
+    @apply border border-border/45 bg-card shadow-sm transition-all duration-300 dark:border-white/15 dark:shadow-black/25;
   }
 
   .surface-muted {
@@ -91,7 +105,7 @@
   }
 
   .surface-outline-button {
-    @apply rounded-full border border-border bg-transparent px-4 py-2 text-sm font-medium text-primary transition-all duration-300 hover:bg-primary/10 active:scale-95;
+    @apply rounded-full border border-border/45 bg-transparent px-4 py-2 text-sm font-medium text-primary transition-all duration-300 hover:bg-primary/10 active:scale-95 dark:border-white/20;
   }
 
   .surface-solid-button {
@@ -99,19 +113,30 @@
   }
 
   .md3-surface {
-    @apply rounded-[1.5rem] bg-card shadow-sm transition-all duration-300;
+    @apply rounded-[1.5rem] border border-border/45 bg-card shadow-sm transition-all duration-300 dark:border-white/15 dark:shadow-black/25;
   }
 
   .md3-surface-low {
-    @apply rounded-[1.5rem] bg-muted shadow-sm transition-all duration-300;
+    @apply rounded-[1.5rem] border border-border/40 bg-muted shadow-sm transition-all duration-300 dark:border-white/15 dark:shadow-black/25;
   }
 
   .md3-chip {
-    @apply inline-flex min-h-10 items-center gap-2 rounded-full bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground transition-all duration-300 hover:bg-primary/10 active:scale-95;
+    @apply inline-flex min-h-10 items-center gap-2 rounded-full bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground transition-all duration-300 hover:bg-secondary/90 active:scale-95;
   }
 
   .md3-field {
-    @apply h-14 rounded-t-xl border-0 border-b-2 border-border bg-input px-4 text-sm text-foreground outline-none transition-colors duration-200 placeholder:text-muted-foreground focus:border-primary focus:ring-0;
+    @apply h-14 rounded-t-xl border-0 border-b-2 border-border bg-input px-4 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-muted-foreground focus:border-primary focus:ring-0;
+  }
+
+  .md3-field:focus-visible {
+    box-shadow: inset 0 -1px 0 0 hsl(var(--primary)), 0 0 0 3px hsl(var(--ring) / 0.16);
+  }
+
+  .corpus-command-input,
+  .corpus-command-input:focus,
+  .corpus-command-input:focus-visible {
+    outline: 0 !important;
+    box-shadow: none !important;
   }
 
   .operator-side-panel {

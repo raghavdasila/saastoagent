@@ -183,6 +183,43 @@ def test_material_workbench_rail_is_node_switcher_not_disabled_action_dock():
     assert "onSelect(item, action, status)" in rail_source
 
 
+def test_material_workbench_proposal_surface_has_real_card_boundary():
+    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
+    source = shell_path.read_text(encoding="utf-8")
+    proposal_source = source.split("function ProposalPanel", 1)[1].split("function ActiveSurfacePanel", 1)[0]
+
+    assert 'data-testid="corpus-proposal-surface"' in proposal_source
+    assert "border border-border" in proposal_source
+    assert "bg-background/95" in proposal_source
+    assert "dark:bg-muted" in proposal_source
+
+
+def test_material_workbench_proposal_waits_for_input_without_spinner_status():
+    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
+    source = shell_path.read_text(encoding="utf-8")
+    visible_status_source = source.split("const visibleStatus", 1)[1].split("const composerPlaceholder", 1)[0]
+    quick_action_source = source.split("const handleQuickAction", 1)[1].split("const handleRailSelect", 1)[0]
+    status_pill_source = source.split("function StatusPill", 1)[1].split("function AgentConversation", 1)[0]
+
+    assert "pendingProposal" in visible_status_source
+    assert "'Waiting for input'" in visible_status_source
+    assert "setCorpusStatus('Preparing proposal')" not in quick_action_source
+    assert "'Waiting for input'" not in status_pill_source.split("includes(status)", 1)[0]
+
+
+def test_material_tokens_share_primary_and_secondary_across_themes():
+    css_path = Path(__file__).parents[2] / "frontend" / "src" / "index.css"
+    source = css_path.read_text(encoding="utf-8")
+    root_source = source.split(":root {", 1)[1].split("}", 1)[0]
+    dark_source = source.split(".dark {", 1)[1].split("}", 1)[0]
+
+    assert "--primary: 213 61% 41%;" in root_source
+    assert "--primary: 213 61% 41%;" in dark_source
+    assert "--secondary: 29 65% 38%;" in root_source
+    assert "--secondary: 29 65% 38%;" in dark_source
+    assert "--secondary: 220 9% 24%;" not in dark_source
+
+
 def test_product_diagnostics_are_read_only():
     shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
     source = shell_path.read_text(encoding="utf-8")

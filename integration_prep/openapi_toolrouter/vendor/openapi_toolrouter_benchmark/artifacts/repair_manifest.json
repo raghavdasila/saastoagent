@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "policy": "remove_invalid_defaults_only",
+  "repairs": [
+    {
+      "source": "medusa_admin",
+      "json_pointer": "/components/schemas/AdminProductVariantDeleteResponse/properties/deleted/default",
+      "old_value": "variant",
+      "new_value": null,
+      "action": "remove_invalid_default",
+      "reason": "default is invalid for sibling schema: 'variant' is not of type 'boolean'"
+    },
+    {
+      "source": "medusa_store",
+      "json_pointer": "/components/schemas/AdminProductVariantDeleteResponse/properties/deleted/default",
+      "old_value": "variant",
+      "new_value": null,
+      "action": "remove_invalid_default",
+      "reason": "default is invalid for sibling schema: 'variant' is not of type 'boolean'"
+    }
+  ],
+  "repair_counts": {
+    "medusa_admin": 1,
+    "medusa_store": 1
+  }
+}

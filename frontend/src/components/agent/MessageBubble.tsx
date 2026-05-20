@@ -26,7 +26,7 @@ export function MessageBubble({ message, onFollowUp }: Props) {
       <div
         className={cn(
           'flex h-9 w-9 shrink-0 items-center justify-center rounded-full shadow-sm',
-          isUser ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground',
+          isUser ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground',
         )}
       >
         {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}

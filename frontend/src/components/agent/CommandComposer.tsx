@@ -37,7 +37,7 @@ export function CommandComposer({
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-full bg-muted p-2 shadow-inner">
+    <div className="flex items-center gap-2 rounded-full border border-border/30 bg-muted p-2 shadow-inner transition-shadow duration-200 focus-within:shadow-[0_0_0_3px_hsl(var(--ring)/0.18),inset_0_1px_2px_hsl(var(--foreground)/0.08)] dark:border-white/10">
       <input
         ref={inputRef}
         type={inputType}
@@ -47,7 +47,7 @@ export function CommandComposer({
         placeholder={placeholder}
         disabled={disabled}
         className={cn(
-          'min-w-0 flex-1 bg-transparent px-4 py-2 text-sm text-foreground outline-none',
+          'corpus-command-input min-w-0 flex-1 bg-transparent px-4 py-2 text-sm text-foreground outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0',
           'placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
         )}
         data-testid="corpus-command-input"

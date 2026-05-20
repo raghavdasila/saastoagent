@@ -1,0 +1,21 @@
+{
+  "model_status": "trained",
+  "event_count": 185,
+  "training_row_count": 436,
+  "positive_count": 181,
+  "negative_count": 255,
+  "feature_names": [
+    "rag_score",
+    "bm25_score",
+    "graph_sparse_score",
+    "grag_score",
+    "schema_param_match",
+    "operation_class_confidence",
+    "resource_overlap",
+    "path_token_overlap",
+    "auth_required_param_compatibility",
+    "previous_successful_usage_count",
+    "previous_correction_count",
+    "previous_rejection_count"
+  ]
+}

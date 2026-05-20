@@ -1,0 +1,8 @@
+.env
+.env.local
+*.pyc
+__pycache__/
+.pytest_cache/
+vendor/openapi_toolrouter_benchmark/data/sandbox_feedback_events.jsonl
+vendor/openapi_toolrouter_benchmark/data/*credentials*.json
+vendor/openapi_toolrouter_benchmark/data/*secrets*.json

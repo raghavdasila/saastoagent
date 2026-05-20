@@ -1,0 +1,1848 @@
+[
+  {
+    "task_id": "medusa_001",
+    "router_query": "List Product Categories for products",
+    "resource": "products",
+    "task_type": "single_step",
+    "operation_class": "list",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetProductCategories",
+      "medusa_admin:GetProductTags",
+      "medusa_store:GetProductCategories",
+      "medusa_admin:GetProductTypes"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.6,
+    "description_overlap": 0.6,
+    "tags_overlap": 0.4,
+    "path_overlap": 0.4,
+    "max_overlap": 0.6,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_002",
+    "router_query": "Get a Product Category with required parameters for products",
+    "resource": "products",
+    "task_type": "single_step",
+    "operation_class": "get",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetProductCategoriesId",
+      "medusa_admin:GetProductTagsId",
+      "medusa_store:GetProductCategoriesId",
+      "medusa_admin:GetProductTypesId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.3333333333333333,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.1111111111111111,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_003",
+    "router_query": "Create Product Category with a valid request body for products",
+    "resource": "products",
+    "task_type": "single_step",
+    "operation_class": "create",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostProductCategories",
+      "medusa_admin:PostProductTags",
+      "medusa_admin:PostProductTypes"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.3,
+    "description_overlap": 0.4,
+    "tags_overlap": 0.1,
+    "path_overlap": 0.1,
+    "max_overlap": 0.4,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_004",
+    "router_query": "Delete a Product Category with required parameters for products",
+    "resource": "products",
+    "task_type": "single_step",
+    "operation_class": "delete",
+    "expected_endpoint_sequence": [
+      "medusa_admin:DeleteProductCategoriesId",
+      "medusa_admin:DeleteProductTagsId",
+      "medusa_admin:DeleteProductTypesId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.5555555555555556,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.1111111111111111,
+    "max_overlap": 0.5555555555555556,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_005",
+    "router_query": "Manage Products of a Collection with required parameters for products",
+    "resource": "products",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCollectionsIdProducts",
+      "medusa_admin:PostProductsId",
+      "medusa_admin:PostPriceListsIdProducts",
+      "medusa_admin:PostSalesChannelsIdProducts"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.5555555555555556,
+    "description_overlap": 0.5555555555555556,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.1111111111111111,
+    "max_overlap": 0.5555555555555556,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_006",
+    "router_query": "List Draft Orders for orders",
+    "resource": "orders",
+    "task_type": "single_step",
+    "operation_class": "list",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetDraftOrders",
+      "medusa_admin:GetOrders"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.75,
+    "description_overlap": 0.75,
+    "tags_overlap": 0.5,
+    "path_overlap": 0.5,
+    "max_overlap": 0.75,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_007",
+    "router_query": "Get a Draft Order with required parameters for orders",
+    "resource": "orders",
+    "task_type": "single_step",
+    "operation_class": "get",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetDraftOrdersId",
+      "medusa_admin:GetOrdersId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.4444444444444444,
+    "tags_overlap": 0.2222222222222222,
+    "path_overlap": 0.2222222222222222,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_008",
+    "router_query": "Create Draft Order for orders",
+    "resource": "orders",
+    "task_type": "single_step",
+    "operation_class": "create",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostDraftOrders"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.6,
+    "description_overlap": 0.6,
+    "tags_overlap": 0.4,
+    "path_overlap": 0.4,
+    "max_overlap": 0.6,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_009",
+    "router_query": "Delete a Draft Order with required parameters for orders",
+    "resource": "orders",
+    "task_type": "single_step",
+    "operation_class": "delete",
+    "expected_endpoint_sequence": [
+      "medusa_admin:DeleteDraftOrdersId",
+      "medusa_admin:DeleteDraftOrdersIdEdit",
+      "medusa_admin:DeleteDraftOrdersIdEditItemsAction_id",
+      "medusa_admin:DeleteDraftOrdersIdEditPromotions"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.4444444444444444,
+    "tags_overlap": 0.2222222222222222,
+    "path_overlap": 0.2222222222222222,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_010",
+    "router_query": "Update a Draft Order with required parameters for orders",
+    "resource": "orders",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostDraftOrdersId",
+      "medusa_admin:PostDraftOrdersIdEdit",
+      "medusa_admin:PostDraftOrdersIdConvertToOrder",
+      "medusa_admin:PostDraftOrdersIdEditItemsAction_id"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.4444444444444444,
+    "tags_overlap": 0.2222222222222222,
+    "path_overlap": 0.3333333333333333,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_011",
+    "router_query": "List Customer Groups for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "list",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetCustomerGroups",
+      "medusa_admin:GetCustomers"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.6,
+    "description_overlap": 0.6,
+    "tags_overlap": 0.4,
+    "path_overlap": 0.4,
+    "max_overlap": 0.6,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_012",
+    "router_query": "Get a Customer Group with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "get",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetCustomerGroupsId",
+      "medusa_admin:GetCustomersId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.3333333333333333,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.1111111111111111,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_013",
+    "router_query": "Create Customer Group with a valid request body for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "create",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCustomerGroups",
+      "medusa_admin:PostCustomers"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.3,
+    "description_overlap": 0.4,
+    "tags_overlap": 0.1,
+    "path_overlap": 0.1,
+    "max_overlap": 0.4,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_014",
+    "router_query": "Delete a Customer Group with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "delete",
+    "expected_endpoint_sequence": [
+      "medusa_admin:DeleteCustomerGroupsId",
+      "medusa_admin:DeleteCustomersId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.5555555555555556,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.1111111111111111,
+    "max_overlap": 0.5555555555555556,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_015",
+    "router_query": "Update a Customer Group with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCustomerGroupsId",
+      "medusa_admin:PostCustomersIdCustomerGroups",
+      "medusa_admin:PostCustomerGroupsIdCustomers",
+      "medusa_admin:PostCustomersId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.4444444444444444,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.2222222222222222,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_016",
+    "router_query": "Get a Cart with required parameters for carts",
+    "resource": "carts",
+    "task_type": "single_step",
+    "operation_class": "get",
+    "expected_endpoint_sequence": [
+      "medusa_store:GetCartsId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.375,
+    "description_overlap": 0.25,
+    "tags_overlap": 0.125,
+    "path_overlap": 0.125,
+    "max_overlap": 0.375,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_017",
+    "router_query": "Create Cart with required parameters for carts",
+    "resource": "carts",
+    "task_type": "single_step",
+    "operation_class": "create",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCarts"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.2857142857142857,
+    "description_overlap": 0.2857142857142857,
+    "tags_overlap": 0.14285714285714285,
+    "path_overlap": 0.14285714285714285,
+    "max_overlap": 0.2857142857142857,
+    "overlap_bucket": "medium"
+  },
+  {
+    "task_id": "medusa_018",
+    "router_query": "Remove Gift Card from Cart with required parameters for carts",
+    "resource": "carts",
+    "task_type": "single_step",
+    "operation_class": "delete",
+    "expected_endpoint_sequence": [
+      "medusa_store:DeleteCartsIdGiftCards",
+      "medusa_store:DeleteCartsIdLineItemsLine_id",
+      "medusa_store:DeleteCartsIdPromotions"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.5,
+    "description_overlap": 0.5,
+    "tags_overlap": 0.1,
+    "path_overlap": 0.2,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_019",
+    "router_query": "Update a Cart with required parameters for carts",
+    "resource": "carts",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCartsId",
+      "medusa_store:PostCartsIdTaxes",
+      "medusa_store:PostCartsIdPromotions",
+      "medusa_store:PostCartsIdLineItemsLine_id"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.375,
+    "description_overlap": 0.5,
+    "tags_overlap": 0.125,
+    "path_overlap": 0.125,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_020",
+    "router_query": "List Inventory Items for inventory",
+    "resource": "inventory",
+    "task_type": "single_step",
+    "operation_class": "list",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetInventoryItems"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.75,
+    "description_overlap": 0.75,
+    "tags_overlap": 0.5,
+    "path_overlap": 0.5,
+    "max_overlap": 0.75,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_021",
+    "router_query": "Get a Inventory Item with required parameters for inventory",
+    "resource": "inventory",
+    "task_type": "single_step",
+    "operation_class": "get",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetInventoryItemsId",
+      "medusa_admin:GetInventoryItemsIdLocationLevels"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.5,
+    "description_overlap": 0.5,
+    "tags_overlap": 0.125,
+    "path_overlap": 0.125,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_022",
+    "router_query": "Create Inventory Item with a valid request body for inventory",
+    "resource": "inventory",
+    "task_type": "single_step",
+    "operation_class": "create",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostInventoryItems",
+      "medusa_admin:PostInventoryItemsLocationLevelsBatch"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.3333333333333333,
+    "description_overlap": 0.3333333333333333,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.1111111111111111,
+    "max_overlap": 0.3333333333333333,
+    "overlap_bucket": "medium"
+  },
+  {
+    "task_id": "medusa_023",
+    "router_query": "Delete Inventory Item with required parameters for inventory",
+    "resource": "inventory",
+    "task_type": "single_step",
+    "operation_class": "delete",
+    "expected_endpoint_sequence": [
+      "medusa_admin:DeleteInventoryItemsId",
+      "medusa_admin:DeleteInventoryItemsIdLocationLevelsLocation_id"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.42857142857142855,
+    "description_overlap": 0.42857142857142855,
+    "tags_overlap": 0.14285714285714285,
+    "path_overlap": 0.14285714285714285,
+    "max_overlap": 0.42857142857142855,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_024",
+    "router_query": "Update an Inventory Item with required parameters for inventory",
+    "resource": "inventory",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostInventoryItemsId",
+      "medusa_admin:PostInventoryItemsIdLocationLevelsLocation_id",
+      "medusa_admin:PostInventoryItemsIdLocationLevels",
+      "medusa_admin:PostInventoryItemsIdLocationLevelsBatch"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.5,
+    "description_overlap": 0.5,
+    "tags_overlap": 0.125,
+    "path_overlap": 0.125,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_025",
+    "router_query": "List Payments for payments",
+    "resource": "payments",
+    "task_type": "single_step",
+    "operation_class": "list",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetPayments",
+      "medusa_admin:GetPaymentsPaymentProviders"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.6666666666666666,
+    "description_overlap": 0.6666666666666666,
+    "tags_overlap": 0.3333333333333333,
+    "path_overlap": 0.3333333333333333,
+    "max_overlap": 0.6666666666666666,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_026",
+    "router_query": "Get a Payment with required parameters for payments",
+    "resource": "payments",
+    "task_type": "single_step",
+    "operation_class": "get",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetPaymentsId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.375,
+    "description_overlap": 0.25,
+    "tags_overlap": 0.125,
+    "path_overlap": 0.125,
+    "max_overlap": 0.375,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_027",
+    "router_query": "Create Payment Collection with a valid request body for payments",
+    "resource": "payments",
+    "task_type": "single_step",
+    "operation_class": "create",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostPaymentCollections",
+      "medusa_store:PostPaymentCollections"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.3,
+    "description_overlap": 0.5,
+    "tags_overlap": 0.1,
+    "path_overlap": 0.1,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_028",
+    "router_query": "Delete a Payment Collection with required parameters for payments",
+    "resource": "payments",
+    "task_type": "single_step",
+    "operation_class": "delete",
+    "expected_endpoint_sequence": [
+      "medusa_admin:DeletePaymentCollectionsId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.4444444444444444,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.1111111111111111,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_029",
+    "router_query": "Mark a Payment Collection as Paid with required parameters for payments",
+    "resource": "payments",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostPaymentCollectionsIdMarkAsPaid",
+      "medusa_admin:PostPaymentCollectionsIdPaymentSessions"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.5454545454545454,
+    "description_overlap": 0.5454545454545454,
+    "tags_overlap": 0.09090909090909091,
+    "path_overlap": 0.36363636363636365,
+    "max_overlap": 0.5454545454545454,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_030",
+    "router_query": "List Fulfillment Providers for fulfillment",
+    "resource": "fulfillment",
+    "task_type": "single_step",
+    "operation_class": "list",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetFulfillmentProviders"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.75,
+    "description_overlap": 0.75,
+    "tags_overlap": 0.5,
+    "path_overlap": 0.5,
+    "max_overlap": 0.75,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_031",
+    "router_query": "List Fulfillment Options with required parameters for fulfillment",
+    "resource": "fulfillment",
+    "task_type": "single_step",
+    "operation_class": "get",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetFulfillmentProvidersIdOptions"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.42857142857142855,
+    "description_overlap": 0.42857142857142855,
+    "tags_overlap": 0.14285714285714285,
+    "path_overlap": 0.2857142857142857,
+    "max_overlap": 0.42857142857142855,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_032",
+    "router_query": "Create Fulfillment with a valid request body for fulfillment",
+    "resource": "fulfillment",
+    "task_type": "single_step",
+    "operation_class": "create",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostFulfillments"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.25,
+    "description_overlap": 0.5,
+    "tags_overlap": 0.0,
+    "path_overlap": 0.0,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_033",
+    "router_query": "Delete Fulfillment Set with required parameters for fulfillment",
+    "resource": "fulfillment",
+    "task_type": "single_step",
+    "operation_class": "delete",
+    "expected_endpoint_sequence": [
+      "medusa_admin:DeleteFulfillmentSetsId",
+      "medusa_admin:DeleteFulfillmentSetsIdServiceZonesZone_id"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.42857142857142855,
+    "description_overlap": 0.42857142857142855,
+    "tags_overlap": 0.14285714285714285,
+    "path_overlap": 0.14285714285714285,
+    "max_overlap": 0.42857142857142855,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_034",
+    "router_query": "Add a Service Zone to a Fulfillment Set with required parameters for fulfillment",
+    "resource": "fulfillment",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostFulfillmentSetsIdServiceZones",
+      "medusa_admin:PostFulfillmentSetsIdServiceZonesZone_id"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.6363636363636364,
+    "description_overlap": 0.6363636363636364,
+    "tags_overlap": 0.09090909090909091,
+    "path_overlap": 0.18181818181818182,
+    "max_overlap": 0.6363636363636364,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_035",
+    "router_query": "List Return Reasons for returns",
+    "resource": "returns",
+    "task_type": "single_step",
+    "operation_class": "list",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetReturnReasons",
+      "medusa_admin:GetReturns"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.6,
+    "description_overlap": 0.6,
+    "tags_overlap": 0.4,
+    "path_overlap": 0.4,
+    "max_overlap": 0.6,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_036",
+    "router_query": "Get a Return Reason with required parameters for returns",
+    "resource": "returns",
+    "task_type": "single_step",
+    "operation_class": "get",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetReturnReasonsId",
+      "medusa_admin:GetReturnsId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.3333333333333333,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.1111111111111111,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_037",
+    "router_query": "Create Return Reason with a valid request body for returns",
+    "resource": "returns",
+    "task_type": "single_step",
+    "operation_class": "create",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostReturnReasons",
+      "medusa_admin:PostReturns"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.3,
+    "description_overlap": 0.4,
+    "tags_overlap": 0.1,
+    "path_overlap": 0.1,
+    "max_overlap": 0.4,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_038",
+    "router_query": "Delete a Return Reason with required parameters for returns",
+    "resource": "returns",
+    "task_type": "single_step",
+    "operation_class": "delete",
+    "expected_endpoint_sequence": [
+      "medusa_admin:DeleteReturnReasonsId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.4444444444444444,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.1111111111111111,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_039",
+    "router_query": "Update a Return Reason with required parameters for returns",
+    "resource": "returns",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostReturnReasonsId",
+      "medusa_admin:PostReturnsId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.4444444444444444,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.1111111111111111,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_040",
+    "router_query": "List Promotions for promotions",
+    "resource": "promotions",
+    "task_type": "single_step",
+    "operation_class": "list",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetPromotions"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.6666666666666666,
+    "description_overlap": 0.6666666666666666,
+    "tags_overlap": 0.3333333333333333,
+    "path_overlap": 0.3333333333333333,
+    "max_overlap": 0.6666666666666666,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_041",
+    "router_query": "Get a Promotion with required parameters for promotions",
+    "resource": "promotions",
+    "task_type": "single_step",
+    "operation_class": "get",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetPromotionsId",
+      "medusa_admin:GetPromotionsIdRule_type",
+      "medusa_admin:GetPromotionsRuleValueOptionsRule_typeRule_attribute_id",
+      "medusa_admin:GetPromotionsRuleAttributeOptionsRule_type"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.375,
+    "description_overlap": 0.5,
+    "tags_overlap": 0.125,
+    "path_overlap": 0.125,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_042",
+    "router_query": "Create Promotion for promotions",
+    "resource": "promotions",
+    "task_type": "single_step",
+    "operation_class": "create",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostPromotions"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.5,
+    "description_overlap": 0.5,
+    "tags_overlap": 0.25,
+    "path_overlap": 0.25,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_043",
+    "router_query": "Delete a Promotion with required parameters for promotions",
+    "resource": "promotions",
+    "task_type": "single_step",
+    "operation_class": "delete",
+    "expected_endpoint_sequence": [
+      "medusa_admin:DeletePromotionsId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.375,
+    "description_overlap": 0.375,
+    "tags_overlap": 0.125,
+    "path_overlap": 0.125,
+    "max_overlap": 0.375,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_044",
+    "router_query": "Manage the Promotions of a Campaign with required parameters for promotions",
+    "resource": "promotions",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCampaignsIdPromotions",
+      "medusa_admin:PostPromotionsId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.6,
+    "description_overlap": 0.6,
+    "tags_overlap": 0.1,
+    "path_overlap": 0.1,
+    "max_overlap": 0.6,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_045",
+    "router_query": "Create Cart with required parameters for carts",
+    "resource": "carts",
+    "task_type": "single_step",
+    "operation_class": "create",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCarts"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.2857142857142857,
+    "description_overlap": 0.2857142857142857,
+    "tags_overlap": 0.14285714285714285,
+    "path_overlap": 0.14285714285714285,
+    "max_overlap": 0.2857142857142857,
+    "overlap_bucket": "medium"
+  },
+  {
+    "task_id": "medusa_046",
+    "router_query": "Update a Cart with required parameters for carts",
+    "resource": "carts",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCartsId",
+      "medusa_store:PostCartsIdTaxes",
+      "medusa_store:PostCartsIdPromotions",
+      "medusa_store:PostCartsIdLineItemsLine_id"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.375,
+    "description_overlap": 0.5,
+    "tags_overlap": 0.125,
+    "path_overlap": 0.125,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_047",
+    "router_query": "Add Gift Card to Cart with required parameters for carts",
+    "resource": "carts",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCartsIdGiftCards",
+      "medusa_store:PostCartsId",
+      "medusa_store:PostCartsIdTaxes",
+      "medusa_store:PostCartsIdStoreCredits"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.5,
+    "description_overlap": 0.5,
+    "tags_overlap": 0.1,
+    "path_overlap": 0.2,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_048",
+    "router_query": "Add Line Item to Cart with required parameters for carts",
+    "resource": "carts",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCartsIdLineItems",
+      "medusa_store:PostCartsIdLineItemsLine_id",
+      "medusa_store:PostCartsId",
+      "medusa_store:PostCartsIdStoreCredits"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.5,
+    "description_overlap": 0.4,
+    "tags_overlap": 0.1,
+    "path_overlap": 0.2,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_049",
+    "router_query": "Update a Line Item in a Cart with required parameters for carts",
+    "resource": "carts",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCartsIdLineItemsLine_id",
+      "medusa_store:PostCartsIdLineItems",
+      "medusa_store:PostCartsId",
+      "medusa_store:PostCartsIdStoreCredits"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.5454545454545454,
+    "description_overlap": 0.5454545454545454,
+    "tags_overlap": 0.09090909090909091,
+    "path_overlap": 0.18181818181818182,
+    "max_overlap": 0.5454545454545454,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_050",
+    "router_query": "Add Promotions to Cart with required parameters for carts",
+    "resource": "carts",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCartsIdPromotions",
+      "medusa_store:PostCartsId",
+      "medusa_store:PostCartsIdTaxes",
+      "medusa_store:PostCartsIdStoreCredits"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.4444444444444444,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.2222222222222222,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_051",
+    "router_query": "Add Shipping Method to Cart with required parameters for carts",
+    "resource": "carts",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCartsIdShippingMethods",
+      "medusa_store:PostCartsId",
+      "medusa_store:PostCartsIdLineItemsLine_id",
+      "medusa_store:PostCartsIdLineItems"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.5,
+    "description_overlap": 0.5,
+    "tags_overlap": 0.1,
+    "path_overlap": 0.2,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_052",
+    "router_query": "Add Store Credit to Cart with required parameters for carts",
+    "resource": "carts",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCartsIdStoreCredits",
+      "medusa_store:PostCartsId",
+      "medusa_store:PostCartsIdGiftCards",
+      "medusa_store:PostCartsIdLineItemsLine_id"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.5,
+    "description_overlap": 0.5,
+    "tags_overlap": 0.1,
+    "path_overlap": 0.2,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_053",
+    "router_query": "Calculate Cart Taxes with required parameters for carts",
+    "resource": "carts",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCartsIdTaxes",
+      "medusa_store:PostCartsId",
+      "medusa_store:PostCartsIdLineItemsLine_id",
+      "medusa_store:PostCartsIdLineItems"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.375,
+    "description_overlap": 0.25,
+    "tags_overlap": 0.125,
+    "path_overlap": 0.25,
+    "max_overlap": 0.375,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_054",
+    "router_query": "Remove Gift Card from Cart with required parameters for carts",
+    "resource": "carts",
+    "task_type": "single_step",
+    "operation_class": "delete",
+    "expected_endpoint_sequence": [
+      "medusa_store:DeleteCartsIdGiftCards",
+      "medusa_store:DeleteCartsIdLineItemsLine_id",
+      "medusa_store:DeleteCartsIdPromotions"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.5,
+    "description_overlap": 0.5,
+    "tags_overlap": 0.1,
+    "path_overlap": 0.2,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_055",
+    "router_query": "Remove Line Item from Cart with required parameters for carts",
+    "resource": "carts",
+    "task_type": "single_step",
+    "operation_class": "delete",
+    "expected_endpoint_sequence": [
+      "medusa_store:DeleteCartsIdLineItemsLine_id",
+      "medusa_store:DeleteCartsIdPromotions",
+      "medusa_store:DeleteCartsIdGiftCards"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.5,
+    "description_overlap": 0.5,
+    "tags_overlap": 0.1,
+    "path_overlap": 0.2,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_056",
+    "router_query": "Remove Promotions from Cart with required parameters for carts",
+    "resource": "carts",
+    "task_type": "single_step",
+    "operation_class": "delete",
+    "expected_endpoint_sequence": [
+      "medusa_store:DeleteCartsIdPromotions",
+      "medusa_store:DeleteCartsIdLineItemsLine_id",
+      "medusa_store:DeleteCartsIdGiftCards"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.4444444444444444,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.2222222222222222,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_057",
+    "router_query": "Get a Cart with required parameters for carts",
+    "resource": "carts",
+    "task_type": "single_step",
+    "operation_class": "get",
+    "expected_endpoint_sequence": [
+      "medusa_store:GetCartsId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.375,
+    "description_overlap": 0.25,
+    "tags_overlap": 0.125,
+    "path_overlap": 0.125,
+    "max_overlap": 0.375,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_058",
+    "router_query": "Create Customer Group with a valid request body for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "create",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCustomerGroups",
+      "medusa_admin:PostCustomers"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.3,
+    "description_overlap": 0.4,
+    "tags_overlap": 0.1,
+    "path_overlap": 0.1,
+    "max_overlap": 0.4,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_059",
+    "router_query": "Create Customer for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "create",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCustomers",
+      "medusa_admin:PostCustomerGroups"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.5,
+    "description_overlap": 0.5,
+    "tags_overlap": 0.25,
+    "path_overlap": 0.25,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_060",
+    "router_query": "Register Customer with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "create",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCustomers",
+      "medusa_store:PostCustomersMe",
+      "medusa_store:PostCustomersMeAddresses"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.2857142857142857,
+    "description_overlap": 0.2857142857142857,
+    "tags_overlap": 0.14285714285714285,
+    "path_overlap": 0.14285714285714285,
+    "max_overlap": 0.2857142857142857,
+    "overlap_bucket": "medium"
+  },
+  {
+    "task_id": "medusa_061",
+    "router_query": "Update Customer with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "create",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCustomersMe",
+      "medusa_store:PostCustomers",
+      "medusa_store:PostCustomersMeAddresses"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.2857142857142857,
+    "description_overlap": 0.2857142857142857,
+    "tags_overlap": 0.14285714285714285,
+    "path_overlap": 0.14285714285714285,
+    "max_overlap": 0.2857142857142857,
+    "overlap_bucket": "medium"
+  },
+  {
+    "task_id": "medusa_062",
+    "router_query": "Create Address for Logged In Customer with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "create",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCustomersMeAddresses",
+      "medusa_store:PostCustomersMe",
+      "medusa_store:PostCustomers"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.6,
+    "description_overlap": 0.6,
+    "tags_overlap": 0.1,
+    "path_overlap": 0.1,
+    "max_overlap": 0.6,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_063",
+    "router_query": "Update a Customer Group with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCustomerGroupsId",
+      "medusa_admin:PostCustomersIdCustomerGroups",
+      "medusa_admin:PostCustomerGroupsIdCustomers",
+      "medusa_admin:PostCustomersId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.4444444444444444,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.2222222222222222,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_064",
+    "router_query": "Manage Customers of a Customer Group with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCustomerGroupsIdCustomers",
+      "medusa_admin:PostCustomersIdCustomerGroups",
+      "medusa_admin:PostCustomerGroupsId",
+      "medusa_admin:PostCustomersId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.6,
+    "description_overlap": 0.5,
+    "tags_overlap": 0.1,
+    "path_overlap": 0.2,
+    "max_overlap": 0.6,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_065",
+    "router_query": "Update a Customer with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCustomersId",
+      "medusa_admin:PostCustomersIdAddressesAddress_id",
+      "medusa_admin:PostCustomersIdAddresses",
+      "medusa_admin:PostCustomersIdCustomerGroups"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.375,
+    "description_overlap": 0.375,
+    "tags_overlap": 0.125,
+    "path_overlap": 0.25,
+    "max_overlap": 0.375,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_066",
+    "router_query": "Add a Customer Address with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCustomersIdAddresses",
+      "medusa_admin:PostCustomersIdAddressesAddress_id",
+      "medusa_admin:PostCustomersId",
+      "medusa_store:PostCustomersMeAddressesAddress_id"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.4444444444444444,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.1111111111111111,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_067",
+    "router_query": "Update a Customer's Address with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCustomersIdAddressesAddress_id",
+      "medusa_admin:PostCustomersIdAddresses",
+      "medusa_admin:PostCustomersId",
+      "medusa_store:PostCustomersMeAddressesAddress_id"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.5,
+    "description_overlap": 0.5,
+    "tags_overlap": 0.1,
+    "path_overlap": 0.1,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_068",
+    "router_query": "Manage Customer Groups of Customer with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCustomersIdCustomerGroups",
+      "medusa_admin:PostCustomerGroupsIdCustomers",
+      "medusa_admin:PostCustomerGroupsId",
+      "medusa_admin:PostCustomersId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.4444444444444444,
+    "tags_overlap": 0.2222222222222222,
+    "path_overlap": 0.3333333333333333,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_069",
+    "router_query": "Authenticate Customer with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostActor_typeAuth_provider",
+      "medusa_store:PostActor_typeAuth_providerUpdate",
+      "medusa_store:PostActor_typeAuth_provider_register",
+      "medusa_store:PostActor_typeAuth_providerCallback"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.2857142857142857,
+    "description_overlap": 0.42857142857142855,
+    "tags_overlap": 0.0,
+    "path_overlap": 0.14285714285714285,
+    "max_overlap": 0.42857142857142855,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_070",
+    "router_query": "Validate Authentication Callback with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostActor_typeAuth_providerCallback",
+      "medusa_store:PostActor_typeAuth_provider",
+      "medusa_store:PostActor_typeAuth_providerUpdate",
+      "medusa_store:PostActor_typeAuth_provider_register"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.375,
+    "description_overlap": 0.375,
+    "tags_overlap": 0.0,
+    "path_overlap": 0.125,
+    "max_overlap": 0.375,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_071",
+    "router_query": "Generate Reset Password Token for Customer with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostActor_typeAuth_providerResetPassword",
+      "medusa_store:PostActor_typeAuth_provider",
+      "medusa_store:PostActor_typeAuth_provider_register",
+      "medusa_store:PostActor_typeAuth_providerUpdate"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.6,
+    "description_overlap": 0.6,
+    "tags_overlap": 0.0,
+    "path_overlap": 0.3,
+    "max_overlap": 0.6,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_072",
+    "router_query": "Reset a Customer's Password with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostActor_typeAuth_providerUpdate",
+      "medusa_store:PostActor_typeAuth_provider",
+      "medusa_store:PostActor_typeAuth_provider_register",
+      "medusa_store:PostActor_typeAuth_providerCallback"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.5,
+    "description_overlap": 0.6,
+    "tags_overlap": 0.0,
+    "path_overlap": 0.1,
+    "max_overlap": 0.6,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_073",
+    "router_query": "Retrieve Registration JWT Token with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostActor_typeAuth_provider_register",
+      "medusa_store:PostActor_typeAuth_provider",
+      "medusa_store:PostActor_typeAuth_providerUpdate",
+      "medusa_store:PostActor_typeAuth_providerResetPassword"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.3333333333333333,
+    "tags_overlap": 0.0,
+    "path_overlap": 0.0,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_074",
+    "router_query": "Change Cart's Customer to Logged in Customer with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCartsIdCustomer"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.5833333333333334,
+    "description_overlap": 0.75,
+    "tags_overlap": 0.0,
+    "path_overlap": 0.08333333333333333,
+    "max_overlap": 0.75,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_075",
+    "router_query": "Update Customer's Address with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCustomersMeAddressesAddress_id",
+      "medusa_admin:PostCustomersIdAddressesAddress_id",
+      "medusa_admin:PostCustomersIdAddresses"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.4444444444444444,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.1111111111111111,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_076",
+    "router_query": "Delete a Customer Group with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "delete",
+    "expected_endpoint_sequence": [
+      "medusa_admin:DeleteCustomerGroupsId",
+      "medusa_admin:DeleteCustomersId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.5555555555555556,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.1111111111111111,
+    "max_overlap": 0.5555555555555556,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_077",
+    "router_query": "Delete a Customer with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "delete",
+    "expected_endpoint_sequence": [
+      "medusa_admin:DeleteCustomersId",
+      "medusa_admin:DeleteCustomersIdAddressesAddress_id",
+      "medusa_admin:DeleteCustomerGroupsId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.375,
+    "description_overlap": 0.5,
+    "tags_overlap": 0.125,
+    "path_overlap": 0.125,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_078",
+    "router_query": "Remove an Address from Customer with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "delete",
+    "expected_endpoint_sequence": [
+      "medusa_admin:DeleteCustomersIdAddressesAddress_id",
+      "medusa_admin:DeleteCustomersId",
+      "medusa_store:DeleteCustomersMeAddressesAddress_id"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.5,
+    "description_overlap": 0.4,
+    "tags_overlap": 0.1,
+    "path_overlap": 0.1,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_079",
+    "router_query": "Remove Customer's Address with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "delete",
+    "expected_endpoint_sequence": [
+      "medusa_store:DeleteCustomersMeAddressesAddress_id",
+      "medusa_admin:DeleteCustomersIdAddressesAddress_id"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.4444444444444444,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.1111111111111111,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_080",
+    "router_query": "Get a Customer Group with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "get",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetCustomerGroupsId",
+      "medusa_admin:GetCustomersId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.3333333333333333,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.1111111111111111,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_081",
+    "router_query": "Get a Customer with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "get",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetCustomersId",
+      "medusa_admin:GetCustomersIdAddressesAddress_id",
+      "medusa_admin:GetCustomersIdAddresses",
+      "medusa_admin:GetCustomerGroupsId"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.375,
+    "description_overlap": 0.25,
+    "tags_overlap": 0.125,
+    "path_overlap": 0.125,
+    "max_overlap": 0.375,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_082",
+    "router_query": "List Addresses with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "get",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetCustomersIdAddresses",
+      "medusa_admin:GetCustomersIdAddressesAddress_id",
+      "medusa_admin:GetCustomersId",
+      "medusa_store:GetCustomersMeAddressesAddress_id"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.2857142857142857,
+    "description_overlap": 0.2857142857142857,
+    "tags_overlap": 0.14285714285714285,
+    "path_overlap": 0.2857142857142857,
+    "max_overlap": 0.2857142857142857,
+    "overlap_bucket": "medium"
+  },
+  {
+    "task_id": "medusa_083",
+    "router_query": "List Addresses with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "get",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetCustomersIdAddressesAddress_id",
+      "medusa_admin:GetCustomersIdAddresses",
+      "medusa_admin:GetCustomersId",
+      "medusa_store:GetCustomersMeAddressesAddress_id"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.2857142857142857,
+    "description_overlap": 0.2857142857142857,
+    "tags_overlap": 0.14285714285714285,
+    "path_overlap": 0.2857142857142857,
+    "max_overlap": 0.2857142857142857,
+    "overlap_bucket": "medium"
+  },
+  {
+    "task_id": "medusa_084",
+    "router_query": "Get Customer's Address with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "get",
+    "expected_endpoint_sequence": [
+      "medusa_store:GetCustomersMeAddressesAddress_id",
+      "medusa_admin:GetCustomersIdAddressesAddress_id",
+      "medusa_admin:GetCustomersIdAddresses"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.3333333333333333,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.1111111111111111,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_085",
+    "router_query": "List Customer Groups for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "list",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetCustomerGroups",
+      "medusa_admin:GetCustomers"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.6,
+    "description_overlap": 0.6,
+    "tags_overlap": 0.4,
+    "path_overlap": 0.4,
+    "max_overlap": 0.6,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_086",
+    "router_query": "List Customers for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "list",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetCustomers",
+      "medusa_admin:GetCustomerGroups"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.6666666666666666,
+    "description_overlap": 0.6666666666666666,
+    "tags_overlap": 0.3333333333333333,
+    "path_overlap": 0.3333333333333333,
+    "max_overlap": 0.6666666666666666,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_087",
+    "router_query": "Get Logged in Customer with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "list",
+    "expected_endpoint_sequence": [
+      "medusa_store:GetCustomersMe",
+      "medusa_store:GetCustomersMeAddresses"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.3333333333333333,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.1111111111111111,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_088",
+    "router_query": "List Customer's Addresses with required parameters for customers",
+    "resource": "customers",
+    "task_type": "single_step",
+    "operation_class": "list",
+    "expected_endpoint_sequence": [
+      "medusa_store:GetCustomersMeAddresses",
+      "medusa_store:GetCustomersMe"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.4444444444444444,
+    "description_overlap": 0.2222222222222222,
+    "tags_overlap": 0.1111111111111111,
+    "path_overlap": 0.2222222222222222,
+    "max_overlap": 0.4444444444444444,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_089",
+    "router_query": "Create Fulfillment with a valid request body for fulfillment",
+    "resource": "fulfillment",
+    "task_type": "single_step",
+    "operation_class": "create",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostFulfillments"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.25,
+    "description_overlap": 0.5,
+    "tags_overlap": 0.0,
+    "path_overlap": 0.0,
+    "max_overlap": 0.5,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_090",
+    "router_query": "Add a Service Zone to a Fulfillment Set with required parameters for fulfillment",
+    "resource": "fulfillment",
+    "task_type": "single_step",
+    "operation_class": "custom",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostFulfillmentSetsIdServiceZones",
+      "medusa_admin:PostFulfillmentSetsIdServiceZonesZone_id"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.6363636363636364,
+    "description_overlap": 0.6363636363636364,
+    "tags_overlap": 0.09090909090909091,
+    "path_overlap": 0.18181818181818182,
+    "max_overlap": 0.6363636363636364,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_091",
+    "router_query": "Get a Cart then prepare Create Cart as a dry run for carts",
+    "resource": "carts",
+    "task_type": "multi_step",
+    "operation_class": "multi_step",
+    "expected_endpoint_sequence": [
+      "medusa_store:GetCartsId",
+      "medusa_store:PostCarts"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.2727272727272727,
+    "description_overlap": 0.2727272727272727,
+    "tags_overlap": 0.09090909090909091,
+    "path_overlap": 0.09090909090909091,
+    "max_overlap": 0.2727272727272727,
+    "overlap_bucket": "medium"
+  },
+  {
+    "task_id": "medusa_092",
+    "router_query": "Get a Customer Group then prepare Create Customer Group as a dry run for customers",
+    "resource": "customers",
+    "task_type": "multi_step",
+    "operation_class": "multi_step",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetCustomerGroupsId",
+      "medusa_admin:PostCustomerGroups"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.3333333333333333,
+    "description_overlap": 0.3333333333333333,
+    "tags_overlap": 0.08333333333333333,
+    "path_overlap": 0.08333333333333333,
+    "max_overlap": 0.3333333333333333,
+    "overlap_bucket": "medium"
+  },
+  {
+    "task_id": "medusa_093",
+    "router_query": "List Fulfillment Options then prepare Create Fulfillment as a dry run for fulfillment",
+    "resource": "fulfillment",
+    "task_type": "multi_step",
+    "operation_class": "multi_step",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetFulfillmentProvidersIdOptions",
+      "medusa_admin:PostFulfillments"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.2727272727272727,
+    "description_overlap": 0.36363636363636365,
+    "tags_overlap": 0.09090909090909091,
+    "path_overlap": 0.18181818181818182,
+    "max_overlap": 0.36363636363636365,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_094",
+    "router_query": "Get a Inventory Item then prepare Create Inventory Item as a dry run for inventory",
+    "resource": "inventory",
+    "task_type": "multi_step",
+    "operation_class": "multi_step",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetInventoryItemsId",
+      "medusa_admin:PostInventoryItems"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.36363636363636365,
+    "description_overlap": 0.2727272727272727,
+    "tags_overlap": 0.09090909090909091,
+    "path_overlap": 0.09090909090909091,
+    "max_overlap": 0.36363636363636365,
+    "overlap_bucket": "high"
+  },
+  {
+    "task_id": "medusa_095",
+    "router_query": "Get a Draft Order then prepare Create Draft Order as a dry run for orders",
+    "resource": "orders",
+    "task_type": "multi_step",
+    "operation_class": "multi_step",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetDraftOrdersId",
+      "medusa_admin:PostDraftOrders"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.3333333333333333,
+    "description_overlap": 0.3333333333333333,
+    "tags_overlap": 0.16666666666666666,
+    "path_overlap": 0.16666666666666666,
+    "max_overlap": 0.3333333333333333,
+    "overlap_bucket": "medium"
+  },
+  {
+    "task_id": "medusa_096",
+    "router_query": "Get a Payment then prepare Create Payment Collection as a dry run for payments",
+    "resource": "payments",
+    "task_type": "multi_step",
+    "operation_class": "multi_step",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetPaymentsId",
+      "medusa_admin:PostPaymentCollections"
+    ],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.25,
+    "description_overlap": 0.3333333333333333,
+    "tags_overlap": 0.08333333333333333,
+    "path_overlap": 0.08333333333333333,
+    "max_overlap": 0.3333333333333333,
+    "overlap_bucket": "medium"
+  },
+  {
+    "task_id": "medusa_097",
+    "router_query": "determine whether an external authorization source permits the requested workflow for products",
+    "resource": "products",
+    "task_type": "policy_required",
+    "operation_class": "policy_required",
+    "expected_endpoint_sequence": [],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.0,
+    "description_overlap": 0.0,
+    "tags_overlap": 0.0,
+    "path_overlap": 0.0,
+    "max_overlap": 0.0,
+    "overlap_bucket": "low"
+  },
+  {
+    "task_id": "medusa_098",
+    "router_query": "determine whether an external authorization source permits the requested workflow for orders",
+    "resource": "orders",
+    "task_type": "policy_required",
+    "operation_class": "policy_required",
+    "expected_endpoint_sequence": [],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.0,
+    "description_overlap": 0.0,
+    "tags_overlap": 0.0,
+    "path_overlap": 0.0,
+    "max_overlap": 0.0,
+    "overlap_bucket": "low"
+  },
+  {
+    "task_id": "medusa_099",
+    "router_query": "determine whether an external authorization source permits the requested workflow for customers",
+    "resource": "customers",
+    "task_type": "policy_required",
+    "operation_class": "policy_required",
+    "expected_endpoint_sequence": [],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.0,
+    "description_overlap": 0.0,
+    "tags_overlap": 0.0,
+    "path_overlap": 0.0,
+    "max_overlap": 0.0,
+    "overlap_bucket": "low"
+  },
+  {
+    "task_id": "medusa_100",
+    "router_query": "determine whether an external authorization source permits the requested workflow for carts",
+    "resource": "carts",
+    "task_type": "policy_required",
+    "operation_class": "policy_required",
+    "expected_endpoint_sequence": [],
+    "operation_id_overlap": 0.0,
+    "summary_overlap": 0.0,
+    "description_overlap": 0.0,
+    "tags_overlap": 0.0,
+    "path_overlap": 0.0,
+    "max_overlap": 0.0,
+    "overlap_bucket": "low"
+  }
+]

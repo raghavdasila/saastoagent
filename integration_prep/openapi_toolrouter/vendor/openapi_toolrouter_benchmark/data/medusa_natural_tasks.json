@@ -1,0 +1,5245 @@
+[
+  {
+    "id": "medusa_nat_001",
+    "query": "Can you help me create cart",
+    "router_query": "Can you help me create cart",
+    "track": "natural_routing",
+    "resource": "carts",
+    "operation_class": "create",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCarts"
+    ],
+    "expected_required_params": {
+      "medusa_store:PostCarts": [
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "x-publishable-api-key": "sample"
+    },
+    "allowed_alternatives": [],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "POST",
+      "path": "/store/carts",
+      "operationId": "PostCarts",
+      "summary": "Create Cart",
+      "description": "Create a cart.",
+      "tags": [
+        "Carts"
+      ],
+      "request_schemas": [
+        "StoreCreateCart"
+      ],
+      "response_schemas": [
+        "StoreCartResponse"
+      ],
+      "resources": [
+        "carts",
+        "store",
+        "createcart",
+        "cartresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_002",
+    "query": "Please update a cart",
+    "router_query": "Please update a cart",
+    "track": "natural_routing",
+    "resource": "carts",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCartsId"
+    ],
+    "expected_required_params": {
+      "medusa_store:PostCartsId": [
+        "id",
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "x-publishable-api-key": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:PostCartsIdTaxes"
+      ],
+      [
+        "medusa_store:PostCartsIdPromotions"
+      ],
+      [
+        "medusa_store:PostCartsIdLineItemsLine_id"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "POST",
+      "path": "/store/carts/{id}",
+      "operationId": "PostCartsId",
+      "summary": "Update a Cart",
+      "description": "Update a cart's details. This unsets the payment methods chosen before, and the customer would have to choose them again. Also, if the customer has chosen a shipping method whose option isn't valid for the cart's shipping address anymore, the shipping method will be unset. For example, if the shipping option is valid only in the US geo zone, and the shipping address's country code is `DE`, the shipping method will be unset.",
+      "tags": [
+        "Carts"
+      ],
+      "request_schemas": [
+        "UpdateCartData"
+      ],
+      "response_schemas": [
+        "StoreCart"
+      ],
+      "resources": [
+        "carts",
+        "store",
+        "updatecartdata",
+        "cart"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_003",
+    "query": "A user wants to add gift card to cart",
+    "router_query": "A user wants to add gift card to cart",
+    "track": "natural_routing",
+    "resource": "carts",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCartsIdGiftCards"
+    ],
+    "expected_required_params": {
+      "medusa_store:PostCartsIdGiftCards": [
+        "id",
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "x-publishable-api-key": "sample",
+      "code": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:PostCartsId"
+      ],
+      [
+        "medusa_store:PostCartsIdTaxes"
+      ],
+      [
+        "medusa_store:PostCartsIdStoreCredits"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "POST",
+      "path": "/store/carts/{id}/gift-cards",
+      "operationId": "PostCartsIdGiftCards",
+      "summary": "Add Gift Card to Cart",
+      "description": "Add a Gift Card to a cart",
+      "tags": [
+        "Carts"
+      ],
+      "request_schemas": [
+        "StoreAddGiftCardToCart"
+      ],
+      "response_schemas": [
+        "StoreCartResponse"
+      ],
+      "resources": [
+        "carts",
+        "store",
+        "gift_cards",
+        "addgiftcardtocart",
+        "cartresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_004",
+    "query": "I need to add line item to cart",
+    "router_query": "I need to add line item to cart",
+    "track": "natural_routing",
+    "resource": "carts",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCartsIdLineItems"
+    ],
+    "expected_required_params": {
+      "medusa_store:PostCartsIdLineItems": [
+        "id",
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "x-publishable-api-key": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:PostCartsIdLineItemsLine_id"
+      ],
+      [
+        "medusa_store:PostCartsId"
+      ],
+      [
+        "medusa_store:PostCartsIdStoreCredits"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "POST",
+      "path": "/store/carts/{id}/line-items",
+      "operationId": "PostCartsIdLineItems",
+      "summary": "Add Line Item to Cart",
+      "description": "Add a product variant as a line item in the cart.",
+      "tags": [
+        "Carts"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "StoreCartResponse"
+      ],
+      "resources": [
+        "carts",
+        "store",
+        "line_items",
+        "cartresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_005",
+    "query": "Can you help me update a line item in a cart",
+    "router_query": "Can you help me update a line item in a cart",
+    "track": "natural_routing",
+    "resource": "carts",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCartsIdLineItemsLine_id"
+    ],
+    "expected_required_params": {
+      "medusa_store:PostCartsIdLineItemsLine_id": [
+        "id",
+        "line_id",
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "line_id": "sample",
+      "x-publishable-api-key": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:PostCartsIdLineItems"
+      ],
+      [
+        "medusa_store:PostCartsId"
+      ],
+      [
+        "medusa_store:PostCartsIdStoreCredits"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "POST",
+      "path": "/store/carts/{id}/line-items/{line_id}",
+      "operationId": "PostCartsIdLineItemsLine_id",
+      "summary": "Update a Line Item in a Cart",
+      "description": "Update a line item's details in the cart.",
+      "tags": [
+        "Carts"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "StoreCartResponse"
+      ],
+      "resources": [
+        "carts",
+        "store",
+        "line_items",
+        "cartresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_006",
+    "query": "Please add promotions to cart",
+    "router_query": "Please add promotions to cart",
+    "track": "natural_routing",
+    "resource": "carts",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCartsIdPromotions"
+    ],
+    "expected_required_params": {
+      "medusa_store:PostCartsIdPromotions": [
+        "id",
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "x-publishable-api-key": "sample",
+      "promo_codes": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:PostCartsId"
+      ],
+      [
+        "medusa_store:PostCartsIdTaxes"
+      ],
+      [
+        "medusa_store:PostCartsIdStoreCredits"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "POST",
+      "path": "/store/carts/{id}/promotions",
+      "operationId": "PostCartsIdPromotions",
+      "summary": "Add Promotions to Cart",
+      "description": "Add a list of promotions to a cart.",
+      "tags": [
+        "Carts"
+      ],
+      "request_schemas": [
+        "StoreCartAddPromotion"
+      ],
+      "response_schemas": [
+        "StoreCartResponse"
+      ],
+      "resources": [
+        "carts",
+        "store",
+        "promotions",
+        "cartaddpromotion",
+        "cartresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_007",
+    "query": "A user wants to add shipping method to cart",
+    "router_query": "A user wants to add shipping method to cart",
+    "track": "natural_routing",
+    "resource": "carts",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCartsIdShippingMethods"
+    ],
+    "expected_required_params": {
+      "medusa_store:PostCartsIdShippingMethods": [
+        "id",
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "x-publishable-api-key": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:PostCartsId"
+      ],
+      [
+        "medusa_store:PostCartsIdLineItemsLine_id"
+      ],
+      [
+        "medusa_store:PostCartsIdLineItems"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "POST",
+      "path": "/store/carts/{id}/shipping-methods",
+      "operationId": "PostCartsIdShippingMethods",
+      "summary": "Add Shipping Method to Cart",
+      "description": "Add a shipping method to a cart. Use this API route when the customer chooses their preferred shipping option.",
+      "tags": [
+        "Carts"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "StoreCartResponse"
+      ],
+      "resources": [
+        "carts",
+        "store",
+        "shipping_methods",
+        "cartresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_008",
+    "query": "I need to add credit to cart",
+    "router_query": "I need to add credit to cart",
+    "track": "natural_routing",
+    "resource": "carts",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCartsIdStoreCredits"
+    ],
+    "expected_required_params": {
+      "medusa_store:PostCartsIdStoreCredits": [
+        "id",
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "x-publishable-api-key": "sample",
+      "amount": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:PostCartsId"
+      ],
+      [
+        "medusa_store:PostCartsIdGiftCards"
+      ],
+      [
+        "medusa_store:PostCartsIdLineItemsLine_id"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "POST",
+      "path": "/store/carts/{id}/store-credits",
+      "operationId": "PostCartsIdStoreCredits",
+      "summary": "Add Store Credit to Cart",
+      "description": "Add a Store Credit to a cart",
+      "tags": [
+        "Carts"
+      ],
+      "request_schemas": [
+        "StoreAddStoreCreditsToCart"
+      ],
+      "response_schemas": [
+        "StoreCartResponse"
+      ],
+      "resources": [
+        "carts",
+        "store",
+        "store_credits",
+        "addstorecreditstocart",
+        "cartresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_009",
+    "query": "Can you help me calculate cart taxes",
+    "router_query": "Can you help me calculate cart taxes",
+    "track": "natural_routing",
+    "resource": "carts",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCartsIdTaxes"
+    ],
+    "expected_required_params": {
+      "medusa_store:PostCartsIdTaxes": [
+        "id",
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "x-publishable-api-key": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:PostCartsId"
+      ],
+      [
+        "medusa_store:PostCartsIdLineItemsLine_id"
+      ],
+      [
+        "medusa_store:PostCartsIdLineItems"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "POST",
+      "path": "/store/carts/{id}/taxes",
+      "operationId": "PostCartsIdTaxes",
+      "summary": "Calculate Cart Taxes",
+      "description": "Calculate the cart's tax lines and amounts.",
+      "tags": [
+        "Carts"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "StoreCartResponse"
+      ],
+      "resources": [
+        "carts",
+        "store",
+        "taxes",
+        "cartresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_010",
+    "query": "Please remove gift card from cart",
+    "router_query": "Please remove gift card from cart",
+    "track": "natural_routing",
+    "resource": "carts",
+    "operation_class": "delete",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:DeleteCartsIdGiftCards"
+    ],
+    "expected_required_params": {
+      "medusa_store:DeleteCartsIdGiftCards": [
+        "id",
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "x-publishable-api-key": "sample",
+      "code": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:DeleteCartsIdLineItemsLine_id"
+      ],
+      [
+        "medusa_store:DeleteCartsIdPromotions"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "DELETE",
+      "path": "/store/carts/{id}/gift-cards",
+      "operationId": "DeleteCartsIdGiftCards",
+      "summary": "Remove Gift Card from Cart",
+      "description": "Remove a Gift Card from a cart.",
+      "tags": [
+        "Carts"
+      ],
+      "request_schemas": [
+        "StoreRemoveGiftCardFromCart"
+      ],
+      "response_schemas": [
+        "StoreCartResponse"
+      ],
+      "resources": [
+        "carts",
+        "store",
+        "gift_cards",
+        "removegiftcardfromcart",
+        "cartresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_011",
+    "query": "A user wants to remove line item from cart",
+    "router_query": "A user wants to remove line item from cart",
+    "track": "natural_routing",
+    "resource": "carts",
+    "operation_class": "delete",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:DeleteCartsIdLineItemsLine_id"
+    ],
+    "expected_required_params": {
+      "medusa_store:DeleteCartsIdLineItemsLine_id": [
+        "id",
+        "line_id",
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "line_id": "sample",
+      "x-publishable-api-key": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:DeleteCartsIdPromotions"
+      ],
+      [
+        "medusa_store:DeleteCartsIdGiftCards"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "DELETE",
+      "path": "/store/carts/{id}/line-items/{line_id}",
+      "operationId": "DeleteCartsIdLineItemsLine_id",
+      "summary": "Remove Line Item from Cart",
+      "description": "Remove a line item from a cart.",
+      "tags": [
+        "Carts"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "StoreCart"
+      ],
+      "resources": [
+        "carts",
+        "store",
+        "line_items",
+        "cart"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_012",
+    "query": "I need to remove promotions from cart",
+    "router_query": "I need to remove promotions from cart",
+    "track": "natural_routing",
+    "resource": "carts",
+    "operation_class": "delete",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:DeleteCartsIdPromotions"
+    ],
+    "expected_required_params": {
+      "medusa_store:DeleteCartsIdPromotions": [
+        "id",
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "x-publishable-api-key": "sample",
+      "promo_codes": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:DeleteCartsIdLineItemsLine_id"
+      ],
+      [
+        "medusa_store:DeleteCartsIdGiftCards"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "DELETE",
+      "path": "/store/carts/{id}/promotions",
+      "operationId": "DeleteCartsIdPromotions",
+      "summary": "Remove Promotions from Cart",
+      "description": "Remove a list of promotions from a cart.",
+      "tags": [
+        "Carts"
+      ],
+      "request_schemas": [
+        "StoreCartRemovePromotion"
+      ],
+      "response_schemas": [
+        "StoreCart"
+      ],
+      "resources": [
+        "carts",
+        "store",
+        "promotions",
+        "cartremovepromotion",
+        "cart"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_013",
+    "query": "Can you help me get a cart",
+    "router_query": "Can you help me get a cart",
+    "track": "natural_routing",
+    "resource": "carts",
+    "operation_class": "get",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:GetCartsId"
+    ],
+    "expected_required_params": {
+      "medusa_store:GetCartsId": [
+        "id",
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "x-publishable-api-key": "sample"
+    },
+    "allowed_alternatives": [],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "GET",
+      "path": "/store/carts/{id}",
+      "operationId": "GetCartsId",
+      "summary": "Get a Cart",
+      "description": "Retrieve a cart by its ID. You can expand the cart's relations or select the fields that should be returned.",
+      "tags": [
+        "Carts"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "StoreCartResponse"
+      ],
+      "resources": [
+        "carts",
+        "store",
+        "cartresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_014",
+    "query": "Please create customer group",
+    "router_query": "Please create customer group",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "create",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCustomerGroups"
+    ],
+    "expected_required_params": {},
+    "provided_params": {
+      "name": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostCustomers"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/customer-groups",
+      "operationId": "PostCustomerGroups",
+      "summary": "Create Customer Group",
+      "description": "Create a customer group.",
+      "tags": [
+        "Customer Groups"
+      ],
+      "request_schemas": [
+        "AdminCreateCustomerGroup"
+      ],
+      "response_schemas": [
+        "AdminCustomerGroupResponse"
+      ],
+      "resources": [
+        "customer_groups",
+        "admin",
+        "createcustomergroup",
+        "customergroupresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_015",
+    "query": "A user wants to create customer",
+    "router_query": "A user wants to create customer",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "create",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCustomers"
+    ],
+    "expected_required_params": {},
+    "provided_params": {},
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostCustomerGroups"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/customers",
+      "operationId": "PostCustomers",
+      "summary": "Create Customer",
+      "description": "Create a customer.",
+      "tags": [
+        "Customers"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminCustomerResponse"
+      ],
+      "resources": [
+        "customers",
+        "admin",
+        "customerresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_016",
+    "query": "I need to register customer",
+    "router_query": "I need to register customer",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "create",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCustomers"
+    ],
+    "expected_required_params": {
+      "medusa_store:PostCustomers": [
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "x-publishable-api-key": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:PostCustomersMe"
+      ],
+      [
+        "medusa_store:PostCustomersMeAddresses"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "POST",
+      "path": "/store/customers",
+      "operationId": "PostCustomers",
+      "summary": "Register Customer",
+      "description": "Register a customer. Use the `/auth/customer/emailpass/register` API route first to retrieve the registration token and pass it in the header of the request.",
+      "tags": [
+        "Customers"
+      ],
+      "request_schemas": [
+        "StoreCreateCustomer"
+      ],
+      "response_schemas": [
+        "StoreCustomerResponse"
+      ],
+      "resources": [
+        "customers",
+        "store",
+        "createcustomer",
+        "customerresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_017",
+    "query": "Can you help me update customer",
+    "router_query": "Can you help me update customer",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "create",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCustomersMe"
+    ],
+    "expected_required_params": {
+      "medusa_store:PostCustomersMe": [
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "x-publishable-api-key": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:PostCustomers"
+      ],
+      [
+        "medusa_store:PostCustomersMeAddresses"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "POST",
+      "path": "/store/customers/me",
+      "operationId": "PostCustomersMe",
+      "summary": "Update Customer",
+      "description": "Update the logged-in customer's details.",
+      "tags": [
+        "Customers"
+      ],
+      "request_schemas": [
+        "StoreUpdateCustomer"
+      ],
+      "response_schemas": [
+        "StoreCustomerResponse"
+      ],
+      "resources": [
+        "customers",
+        "store",
+        "me",
+        "updatecustomer",
+        "customerresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_018",
+    "query": "Please create address for logged in customer",
+    "router_query": "Please create address for logged in customer",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "create",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCustomersMeAddresses"
+    ],
+    "expected_required_params": {
+      "medusa_store:PostCustomersMeAddresses": [
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "x-publishable-api-key": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:PostCustomersMe"
+      ],
+      [
+        "medusa_store:PostCustomers"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "POST",
+      "path": "/store/customers/me/addresses",
+      "operationId": "PostCustomersMeAddresses",
+      "summary": "Create Address for Logged-In Customer",
+      "description": "Create an address for the logged-in customer.",
+      "tags": [
+        "Customers"
+      ],
+      "request_schemas": [
+        "StoreCreateCustomerAddress"
+      ],
+      "response_schemas": [
+        "StoreCustomerResponse"
+      ],
+      "resources": [
+        "customers",
+        "store",
+        "me",
+        "addresses",
+        "createcustomeraddress",
+        "customerresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_019",
+    "query": "A user wants to update a customer group",
+    "router_query": "A user wants to update a customer group",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCustomerGroupsId"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostCustomerGroupsId": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostCustomersIdCustomerGroups"
+      ],
+      [
+        "medusa_admin:PostCustomerGroupsIdCustomers"
+      ],
+      [
+        "medusa_admin:PostCustomersId"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/customer-groups/{id}",
+      "operationId": "PostCustomerGroupsId",
+      "summary": "Update a Customer Group",
+      "description": "Update a customer group's details.",
+      "tags": [
+        "Customer Groups"
+      ],
+      "request_schemas": [
+        "AdminUpdateCustomerGroup"
+      ],
+      "response_schemas": [
+        "AdminCustomerGroupResponse"
+      ],
+      "resources": [
+        "customer_groups",
+        "admin",
+        "updatecustomergroup",
+        "customergroupresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_020",
+    "query": "I need to manage customers of a customer group",
+    "router_query": "I need to manage customers of a customer group",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCustomerGroupsIdCustomers"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostCustomerGroupsIdCustomers": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostCustomersIdCustomerGroups"
+      ],
+      [
+        "medusa_admin:PostCustomerGroupsId"
+      ],
+      [
+        "medusa_admin:PostCustomersId"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/customer-groups/{id}/customers",
+      "operationId": "PostCustomerGroupsIdCustomers",
+      "summary": "Manage Customers of a Customer Group",
+      "description": "Manage the customers of a group to add or remove them from the group.",
+      "tags": [
+        "Customer Groups"
+      ],
+      "request_schemas": [
+        "AdminBatchLink"
+      ],
+      "response_schemas": [
+        "AdminCustomerGroupResponse"
+      ],
+      "resources": [
+        "customer_groups",
+        "admin",
+        "customers",
+        "batchlink",
+        "customergroupresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_021",
+    "query": "Can you help me update a customer",
+    "router_query": "Can you help me update a customer",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCustomersId"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostCustomersId": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostCustomersIdAddressesAddress_id"
+      ],
+      [
+        "medusa_admin:PostCustomersIdAddresses"
+      ],
+      [
+        "medusa_admin:PostCustomersIdCustomerGroups"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/customers/{id}",
+      "operationId": "PostCustomersId",
+      "summary": "Update a Customer",
+      "description": "Update a customer's details.",
+      "tags": [
+        "Customers"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminCustomerResponse"
+      ],
+      "resources": [
+        "customers",
+        "admin",
+        "customerresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_022",
+    "query": "Please add a customer address",
+    "router_query": "Please add a customer address",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCustomersIdAddresses"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostCustomersIdAddresses": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostCustomersIdAddressesAddress_id"
+      ],
+      [
+        "medusa_admin:PostCustomersId"
+      ],
+      [
+        "medusa_store:PostCustomersMeAddressesAddress_id"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/customers/{id}/addresses",
+      "operationId": "PostCustomersIdAddresses",
+      "summary": "Add a Customer Address",
+      "description": "Add an address to a customer.",
+      "tags": [
+        "Customers"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminCustomerResponse"
+      ],
+      "resources": [
+        "customers",
+        "admin",
+        "addresses",
+        "customerresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_023",
+    "query": "A user wants to update a customer s address",
+    "router_query": "A user wants to update a customer s address",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCustomersIdAddressesAddress_id"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostCustomersIdAddressesAddress_id": [
+        "id",
+        "address_id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "address_id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostCustomersIdAddresses"
+      ],
+      [
+        "medusa_admin:PostCustomersId"
+      ],
+      [
+        "medusa_store:PostCustomersMeAddressesAddress_id"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/customers/{id}/addresses/{address_id}",
+      "operationId": "PostCustomersIdAddressesAddress_id",
+      "summary": "Update a Customer's Address",
+      "description": "Update a customer address's details.",
+      "tags": [
+        "Customers"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminCustomerResponse"
+      ],
+      "resources": [
+        "customers",
+        "admin",
+        "addresses",
+        "customerresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_024",
+    "query": "I need to manage customer groups of customer",
+    "router_query": "I need to manage customer groups of customer",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostCustomersIdCustomerGroups"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostCustomersIdCustomerGroups": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostCustomerGroupsIdCustomers"
+      ],
+      [
+        "medusa_admin:PostCustomerGroupsId"
+      ],
+      [
+        "medusa_admin:PostCustomersId"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/customers/{id}/customer-groups",
+      "operationId": "PostCustomersIdCustomerGroups",
+      "summary": "Manage Customer Groups of Customer",
+      "description": "Manage the customer groups of a customer, adding or removing the customer from those groups.",
+      "tags": [
+        "Customers"
+      ],
+      "request_schemas": [
+        "AdminBatchLink"
+      ],
+      "response_schemas": [
+        "AdminCustomerResponse"
+      ],
+      "resources": [
+        "customers",
+        "admin",
+        "customer_groups",
+        "batchlink",
+        "customerresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_025",
+    "query": "Can you help me authenticate customer",
+    "router_query": "Can you help me authenticate customer",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostActor_typeAuth_provider"
+    ],
+    "expected_required_params": {
+      "medusa_store:PostActor_typeAuth_provider": [
+        "auth_provider"
+      ]
+    },
+    "provided_params": {
+      "auth_provider": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:PostActor_typeAuth_providerUpdate"
+      ],
+      [
+        "medusa_store:PostActor_typeAuth_provider_register"
+      ],
+      [
+        "medusa_store:PostActor_typeAuth_providerCallback"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "POST",
+      "path": "/auth/customer/{auth_provider}",
+      "operationId": "PostActor_typeAuth_provider",
+      "summary": "Authenticate Customer",
+      "description": "Authenticate a customer and receive the JWT token to be used in the header of subsequent requests.\n\nWhen used with a third-party provider, such as Google, the request returns a `location` property. You redirect to the specified URL in your storefront to continue authentication with the third-party service.\n",
+      "tags": [
+        "Auth"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AuthResponse",
+        "AuthCallbackResponse"
+      ],
+      "resources": [
+        "auth",
+        "customer",
+        "authresponse",
+        "authcallbackresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_026",
+    "query": "Please validate authentication callback",
+    "router_query": "Please validate authentication callback",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostActor_typeAuth_providerCallback"
+    ],
+    "expected_required_params": {
+      "medusa_store:PostActor_typeAuth_providerCallback": [
+        "auth_provider"
+      ]
+    },
+    "provided_params": {
+      "auth_provider": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:PostActor_typeAuth_provider"
+      ],
+      [
+        "medusa_store:PostActor_typeAuth_providerUpdate"
+      ],
+      [
+        "medusa_store:PostActor_typeAuth_provider_register"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "POST",
+      "path": "/auth/customer/{auth_provider}/callback",
+      "operationId": "PostActor_typeAuth_providerCallback",
+      "summary": "Validate Authentication Callback",
+      "description": "This API route is used by your storefront or frontend application when a third-party provider redirects to it after authentication. It validates the authentication with the third-party provider and, if successful, returns an authentication token. All query parameters received from the third-party provider, such as `code`, `state`, and `error`, must be passed as query parameters to this route.\nYou can decode the JWT token using libraries like [react-jwt](https://www.npmjs.com/package/react-jwt) in the storefront. If the decoded data doesn't  have an `actor_id` property, then you must register the customer using the Create Customer API route passing the token in the request's Authorization header.\n",
+      "tags": [
+        "Auth"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AuthResponse"
+      ],
+      "resources": [
+        "auth",
+        "customer",
+        "callback",
+        "authresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_027",
+    "query": "A user wants to generate reset password token for customer",
+    "router_query": "A user wants to generate reset password token for customer",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostActor_typeAuth_providerResetPassword"
+    ],
+    "expected_required_params": {
+      "medusa_store:PostActor_typeAuth_providerResetPassword": [
+        "auth_provider"
+      ]
+    },
+    "provided_params": {
+      "auth_provider": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:PostActor_typeAuth_provider"
+      ],
+      [
+        "medusa_store:PostActor_typeAuth_provider_register"
+      ],
+      [
+        "medusa_store:PostActor_typeAuth_providerUpdate"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "POST",
+      "path": "/auth/customer/{auth_provider}/reset-password",
+      "operationId": "PostActor_typeAuth_providerResetPassword",
+      "summary": "Generate Reset Password Token for Customer",
+      "description": "Generate a reset password token for a customer. This API route doesn't reset the customer password or send them the reset instructions in a notification.\n\nInstead, This API route emits the `auth.password_reset` event, passing it the token as a payload. You can listen to that event in a subscriber as explained in [this guide](https://docs.medusajs.com/resources/commerce-modules/auth/reset-password), then send the customer a notification. The notification is sent using a [Notification Module Provider](https://docs.medusajs.com/resources/infrastructure-modules/notification), and it should have a URL that accepts a `token` query parameter, allowing the customer to reset their password from the storefront.\n\n\n Use the generated token to update the customer's password using the [Reset Password API route](https://docs.medusajs.com/api/store#auth_postactor_typeauth_providerupdate).\n",
+      "tags": [
+        "Auth"
+      ],
+      "request_schemas": [],
+      "response_schemas": [],
+      "resources": [
+        "auth",
+        "customer",
+        "reset_password"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_028",
+    "query": "I need to reset a customer s password",
+    "router_query": "I need to reset a customer s password",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostActor_typeAuth_providerUpdate"
+    ],
+    "expected_required_params": {
+      "medusa_store:PostActor_typeAuth_providerUpdate": [
+        "auth_provider"
+      ]
+    },
+    "provided_params": {
+      "auth_provider": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:PostActor_typeAuth_provider"
+      ],
+      [
+        "medusa_store:PostActor_typeAuth_provider_register"
+      ],
+      [
+        "medusa_store:PostActor_typeAuth_providerCallback"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "POST",
+      "path": "/auth/customer/{auth_provider}/update",
+      "operationId": "PostActor_typeAuth_providerUpdate",
+      "summary": "Reset a Customer's Password",
+      "description": "Reset a customer's password using a reset-password token generated with the [Generate Reset Password Token API route](https://docs.medusajs.com/api/store#auth_postactor_typeauth_providerresetpassword). You pass the token as a bearer token in the request's Authorization header.",
+      "tags": [
+        "Auth"
+      ],
+      "request_schemas": [],
+      "response_schemas": [],
+      "resources": [
+        "auth",
+        "customer",
+        "update"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_029",
+    "query": "Can you help me retrieve registration jwt token",
+    "router_query": "Can you help me retrieve registration jwt token",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostActor_typeAuth_provider_register"
+    ],
+    "expected_required_params": {
+      "medusa_store:PostActor_typeAuth_provider_register": [
+        "auth_provider"
+      ]
+    },
+    "provided_params": {
+      "auth_provider": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:PostActor_typeAuth_provider"
+      ],
+      [
+        "medusa_store:PostActor_typeAuth_providerUpdate"
+      ],
+      [
+        "medusa_store:PostActor_typeAuth_providerResetPassword"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "POST",
+      "path": "/auth/customer/{auth_provider}/register",
+      "operationId": "PostActor_typeAuth_provider_register",
+      "summary": "Retrieve Registration JWT Token",
+      "description": "This API route retrieves a registration JWT token of a customer that hasn't been registered yet. The token is used in the header of requests that create a customer.",
+      "tags": [
+        "Auth"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AuthResponse"
+      ],
+      "resources": [
+        "auth",
+        "customer",
+        "register",
+        "authresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_030",
+    "query": "Please change cart s customer to logged in customer",
+    "router_query": "Please change cart s customer to logged in customer",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCartsIdCustomer"
+    ],
+    "expected_required_params": {
+      "medusa_store:PostCartsIdCustomer": [
+        "id",
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "x-publishable-api-key": "sample"
+    },
+    "allowed_alternatives": [],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "POST",
+      "path": "/store/carts/{id}/customer",
+      "operationId": "PostCartsIdCustomer",
+      "summary": "Change Cart's Customer to Logged-in Customer",
+      "description": "Change the cart's customer to the currently logged-in customer. This is useful when you create the cart for a guest customer, then they log in with their account.",
+      "tags": [
+        "Carts"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "StoreCartResponse"
+      ],
+      "resources": [
+        "carts",
+        "store",
+        "customer",
+        "cartresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_031",
+    "query": "A user wants to update customer s address",
+    "router_query": "A user wants to update customer s address",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:PostCustomersMeAddressesAddress_id"
+    ],
+    "expected_required_params": {
+      "medusa_store:PostCustomersMeAddressesAddress_id": [
+        "address_id",
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "address_id": "sample",
+      "x-publishable-api-key": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostCustomersIdAddressesAddress_id"
+      ],
+      [
+        "medusa_admin:PostCustomersIdAddresses"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "POST",
+      "path": "/store/customers/me/addresses/{address_id}",
+      "operationId": "PostCustomersMeAddressesAddress_id",
+      "summary": "Update Customer's Address",
+      "description": "Update the logged-in customer's address.",
+      "tags": [
+        "Customers"
+      ],
+      "request_schemas": [
+        "StoreUpdateCustomerAddress"
+      ],
+      "response_schemas": [
+        "StoreCustomerResponse"
+      ],
+      "resources": [
+        "customers",
+        "store",
+        "me",
+        "addresses",
+        "updatecustomeraddress",
+        "customerresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_032",
+    "query": "I need to delete a customer group",
+    "router_query": "I need to delete a customer group",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "delete",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:DeleteCustomerGroupsId"
+    ],
+    "expected_required_params": {
+      "medusa_admin:DeleteCustomerGroupsId": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:DeleteCustomersId"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "DELETE",
+      "path": "/admin/customer-groups/{id}",
+      "operationId": "DeleteCustomerGroupsId",
+      "summary": "Delete a Customer Group",
+      "description": "Delete a customer group. Customers in the group aren't deleted.\n",
+      "tags": [
+        "Customer Groups"
+      ],
+      "request_schemas": [],
+      "response_schemas": [],
+      "resources": [
+        "customer_groups",
+        "admin"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_033",
+    "query": "Can you help me delete a customer",
+    "router_query": "Can you help me delete a customer",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "delete",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:DeleteCustomersId"
+    ],
+    "expected_required_params": {
+      "medusa_admin:DeleteCustomersId": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:DeleteCustomersIdAddressesAddress_id"
+      ],
+      [
+        "medusa_admin:DeleteCustomerGroupsId"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "DELETE",
+      "path": "/admin/customers/{id}",
+      "operationId": "DeleteCustomersId",
+      "summary": "Delete a Customer",
+      "description": "Delete a customer.",
+      "tags": [
+        "Customers"
+      ],
+      "request_schemas": [],
+      "response_schemas": [],
+      "resources": [
+        "customers",
+        "admin"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_034",
+    "query": "Please remove an address from customer",
+    "router_query": "Please remove an address from customer",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "delete",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:DeleteCustomersIdAddressesAddress_id"
+    ],
+    "expected_required_params": {
+      "medusa_admin:DeleteCustomersIdAddressesAddress_id": [
+        "id",
+        "address_id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "address_id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:DeleteCustomersId"
+      ],
+      [
+        "medusa_store:DeleteCustomersMeAddressesAddress_id"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "DELETE",
+      "path": "/admin/customers/{id}/addresses/{address_id}",
+      "operationId": "DeleteCustomersIdAddressesAddress_id",
+      "summary": "Remove an Address from Customer",
+      "description": "Remove a customer's address.",
+      "tags": [
+        "Customers"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminCustomer"
+      ],
+      "resources": [
+        "customers",
+        "admin",
+        "addresses",
+        "customer"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_035",
+    "query": "A user wants to remove customer s address",
+    "router_query": "A user wants to remove customer s address",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "delete",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:DeleteCustomersMeAddressesAddress_id"
+    ],
+    "expected_required_params": {
+      "medusa_store:DeleteCustomersMeAddressesAddress_id": [
+        "address_id",
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "address_id": "sample",
+      "x-publishable-api-key": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:DeleteCustomersIdAddressesAddress_id"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "DELETE",
+      "path": "/store/customers/me/addresses/{address_id}",
+      "operationId": "DeleteCustomersMeAddressesAddress_id",
+      "summary": "Remove Customer's Address",
+      "description": "Remove an address of the logged-in customer.",
+      "tags": [
+        "Customers"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "StoreCustomer"
+      ],
+      "resources": [
+        "customers",
+        "store",
+        "me",
+        "addresses",
+        "customer"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_036",
+    "query": "I need to get a customer group",
+    "router_query": "I need to get a customer group",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "get",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetCustomerGroupsId"
+    ],
+    "expected_required_params": {
+      "medusa_admin:GetCustomerGroupsId": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:GetCustomersId"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "GET",
+      "path": "/admin/customer-groups/{id}",
+      "operationId": "GetCustomerGroupsId",
+      "summary": "Get a Customer Group",
+      "description": "Retrieve a customer group by its ID. You can expand the customer group's relations or select the fields that should be returned.",
+      "tags": [
+        "Customer Groups"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminCustomerGroupResponse"
+      ],
+      "resources": [
+        "customer_groups",
+        "admin",
+        "customergroupresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_037",
+    "query": "Can you help me get a customer",
+    "router_query": "Can you help me get a customer",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "get",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetCustomersId"
+    ],
+    "expected_required_params": {
+      "medusa_admin:GetCustomersId": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:GetCustomersIdAddressesAddress_id"
+      ],
+      [
+        "medusa_admin:GetCustomersIdAddresses"
+      ],
+      [
+        "medusa_admin:GetCustomerGroupsId"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "GET",
+      "path": "/admin/customers/{id}",
+      "operationId": "GetCustomersId",
+      "summary": "Get a Customer",
+      "description": "Retrieve a customer by its ID. You can expand the customer's relations or select the fields that should be returned.",
+      "tags": [
+        "Customers"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminCustomerResponse"
+      ],
+      "resources": [
+        "customers",
+        "admin",
+        "customerresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_038",
+    "query": "Please list addresses",
+    "router_query": "Please list addresses",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "get",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetCustomersIdAddresses"
+    ],
+    "expected_required_params": {
+      "medusa_admin:GetCustomersIdAddresses": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:GetCustomersIdAddressesAddress_id"
+      ],
+      [
+        "medusa_admin:GetCustomersId"
+      ],
+      [
+        "medusa_store:GetCustomersMeAddressesAddress_id"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "GET",
+      "path": "/admin/customers/{id}/addresses",
+      "operationId": "GetCustomersIdAddresses",
+      "summary": "List Addresses",
+      "description": "Retrieve a list of addresses in a customer. The addresses can be filtered by fields like `query`. The addresses can also be paginated.",
+      "tags": [
+        "Customers"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminCustomerAddress"
+      ],
+      "resources": [
+        "customers",
+        "admin",
+        "addresses",
+        "customeraddress"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_039",
+    "query": "A user wants to list addresses",
+    "router_query": "A user wants to list addresses",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "get",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetCustomersIdAddressesAddress_id"
+    ],
+    "expected_required_params": {
+      "medusa_admin:GetCustomersIdAddressesAddress_id": [
+        "id",
+        "address_id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "address_id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:GetCustomersIdAddresses"
+      ],
+      [
+        "medusa_admin:GetCustomersId"
+      ],
+      [
+        "medusa_store:GetCustomersMeAddressesAddress_id"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "GET",
+      "path": "/admin/customers/{id}/addresses/{address_id}",
+      "operationId": "GetCustomersIdAddressesAddress_id",
+      "summary": "List Addresses",
+      "description": "Retrieve a list of a customer's addresses. The addresses can be filtered by fields like `company`. The addresses can also be paginated.",
+      "tags": [
+        "Customers"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminCustomerAddressResponse"
+      ],
+      "resources": [
+        "customers",
+        "admin",
+        "addresses",
+        "customeraddressresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_040",
+    "query": "I need to get customer s address",
+    "router_query": "I need to get customer s address",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "get",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:GetCustomersMeAddressesAddress_id"
+    ],
+    "expected_required_params": {
+      "medusa_store:GetCustomersMeAddressesAddress_id": [
+        "address_id",
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "address_id": "sample",
+      "x-publishable-api-key": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:GetCustomersIdAddressesAddress_id"
+      ],
+      [
+        "medusa_admin:GetCustomersIdAddresses"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "GET",
+      "path": "/store/customers/me/addresses/{address_id}",
+      "operationId": "GetCustomersMeAddressesAddress_id",
+      "summary": "Get Customer's Address",
+      "description": "Retrieve an address of the logged-in customer. You can expand the address's relations or select the fields that should be returned.",
+      "tags": [
+        "Customers"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "StoreCustomerAddressResponse"
+      ],
+      "resources": [
+        "customers",
+        "store",
+        "me",
+        "addresses",
+        "customeraddressresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_041",
+    "query": "Can you help me list customer groups",
+    "router_query": "Can you help me list customer groups",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "list",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetCustomerGroups"
+    ],
+    "expected_required_params": {},
+    "provided_params": {},
+    "allowed_alternatives": [
+      [
+        "medusa_admin:GetCustomers"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "GET",
+      "path": "/admin/customer-groups",
+      "operationId": "GetCustomerGroups",
+      "summary": "List Customer Groups",
+      "description": "Retrieve a list of customer groups. The customer groups can be filtered by fields such as `id`. The customer groups can also be sorted or paginated.",
+      "tags": [
+        "Customer Groups"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminCustomerGroup"
+      ],
+      "resources": [
+        "customer_groups",
+        "admin",
+        "customergroup",
+        "customeringroupfilters"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_042",
+    "query": "Please list customers",
+    "router_query": "Please list customers",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "list",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetCustomers"
+    ],
+    "expected_required_params": {},
+    "provided_params": {},
+    "allowed_alternatives": [
+      [
+        "medusa_admin:GetCustomerGroups"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "GET",
+      "path": "/admin/customers",
+      "operationId": "GetCustomers",
+      "summary": "List Customers",
+      "description": "Retrieve a list of customers. The customers can be filtered by fields such as `id`. The customers can also be sorted or paginated.",
+      "tags": [
+        "Customers"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminCustomer"
+      ],
+      "resources": [
+        "customers",
+        "admin",
+        "customer",
+        "customergroupincustomerfilters"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_043",
+    "query": "A user wants to get logged in customer",
+    "router_query": "A user wants to get logged in customer",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "list",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:GetCustomersMe"
+    ],
+    "expected_required_params": {
+      "medusa_store:GetCustomersMe": [
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "x-publishable-api-key": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:GetCustomersMeAddresses"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "GET",
+      "path": "/store/customers/me",
+      "operationId": "GetCustomersMe",
+      "summary": "Get Logged-in Customer",
+      "description": "Retrieve the logged-in customer. You can expand the customer's relations or select the fields that should be returned.",
+      "tags": [
+        "Customers"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "StoreCustomerResponse"
+      ],
+      "resources": [
+        "customers",
+        "store",
+        "me",
+        "customerresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_044",
+    "query": "I need to list customer s addresses",
+    "router_query": "I need to list customer s addresses",
+    "track": "natural_routing",
+    "resource": "customers",
+    "operation_class": "list",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_store:GetCustomersMeAddresses"
+    ],
+    "expected_required_params": {
+      "medusa_store:GetCustomersMeAddresses": [
+        "x-publishable-api-key"
+      ]
+    },
+    "provided_params": {
+      "x-publishable-api-key": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_store:GetCustomersMe"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_store",
+      "method": "GET",
+      "path": "/store/customers/me/addresses",
+      "operationId": "GetCustomersMeAddresses",
+      "summary": "List Customer's Addresses",
+      "description": "Retrieve the addresses of the logged-in customer. The addresses can be filtered by fields such as `country_code`. The addresses can also be sorted or paginated.",
+      "tags": [
+        "Customers"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "StoreCustomerAddressListResponse"
+      ],
+      "resources": [
+        "customers",
+        "store",
+        "me",
+        "addresses",
+        "customeraddresslistresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_045",
+    "query": "Can you help me create fulfillment",
+    "router_query": "Can you help me create fulfillment",
+    "track": "natural_routing",
+    "resource": "fulfillment",
+    "operation_class": "create",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostFulfillments"
+    ],
+    "expected_required_params": {},
+    "provided_params": {
+      "location_id": "sample",
+      "provider_id": "sample",
+      "delivery_address": "sample",
+      "items": "sample",
+      "labels": "sample",
+      "order_id": "sample"
+    },
+    "allowed_alternatives": [],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/fulfillments",
+      "operationId": "PostFulfillments",
+      "summary": "Create Fulfillment",
+      "description": "Create a fulfillment for an order, return, exchange, and more.",
+      "tags": [
+        "Fulfillments"
+      ],
+      "request_schemas": [
+        "AdminCreateFulfillment"
+      ],
+      "response_schemas": [
+        "AdminFulfillmentResponse"
+      ],
+      "resources": [
+        "fulfillments",
+        "admin",
+        "createfulfillment",
+        "fulfillmentresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_046",
+    "query": "Please add a service zone to a fulfillment set",
+    "router_query": "Please add a service zone to a fulfillment set",
+    "track": "natural_routing",
+    "resource": "fulfillment",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostFulfillmentSetsIdServiceZones"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostFulfillmentSetsIdServiceZones": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "name": "sample",
+      "geo_zones": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostFulfillmentSetsIdServiceZonesZone_id"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/fulfillment-sets/{id}/service-zones",
+      "operationId": "PostFulfillmentSetsIdServiceZones",
+      "summary": "Add a Service Zone to a Fulfillment Set",
+      "description": "Add a service zone to a fulfillment set.",
+      "tags": [
+        "Fulfillment Sets"
+      ],
+      "request_schemas": [
+        "AdminCreateFulfillmentSetServiceZone"
+      ],
+      "response_schemas": [
+        "AdminFulfillmentSetResponse"
+      ],
+      "resources": [
+        "fulfillment_sets",
+        "admin",
+        "service_zones",
+        "createfulfillmentsetservicezone",
+        "fulfillmentsetresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_047",
+    "query": "A user wants to update the service zone of a fulfillment set",
+    "router_query": "A user wants to update the service zone of a fulfillment set",
+    "track": "natural_routing",
+    "resource": "fulfillment",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostFulfillmentSetsIdServiceZonesZone_id"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostFulfillmentSetsIdServiceZonesZone_id": [
+        "id",
+        "zone_id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "zone_id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostFulfillmentSetsIdServiceZones"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/fulfillment-sets/{id}/service-zones/{zone_id}",
+      "operationId": "PostFulfillmentSetsIdServiceZonesZone_id",
+      "summary": "Update the Service Zone of a Fulfillment Set",
+      "description": "Update the details of a service zone in a fulfillment set.",
+      "tags": [
+        "Fulfillment Sets"
+      ],
+      "request_schemas": [
+        "AdminUpdateFulfillmentSetServiceZone"
+      ],
+      "response_schemas": [
+        "AdminFulfillmentSetResponse"
+      ],
+      "resources": [
+        "fulfillment_sets",
+        "admin",
+        "service_zones",
+        "updatefulfillmentsetservicezone",
+        "fulfillmentsetresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_048",
+    "query": "I need to cancel a fulfillment",
+    "router_query": "I need to cancel a fulfillment",
+    "track": "natural_routing",
+    "resource": "fulfillment",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostFulfillmentsIdCancel"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostFulfillmentsIdCancel": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostFulfillmentsIdShipment"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/fulfillments/{id}/cancel",
+      "operationId": "PostFulfillmentsIdCancel",
+      "summary": "Cancel a Fulfillment",
+      "description": "Cancel a fulfillment. The fulfillment can't be shipped or delivered.\n\nTo cancel the fulfillment, the `cancelFulfillment` method of the associated fulfillment provider is used.\n",
+      "tags": [
+        "Fulfillments"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminFulfillmentResponse"
+      ],
+      "resources": [
+        "fulfillments",
+        "admin",
+        "cancel",
+        "fulfillmentresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_049",
+    "query": "Can you help me create a shipment for a fulfillment",
+    "router_query": "Can you help me create a shipment for a fulfillment",
+    "track": "natural_routing",
+    "resource": "fulfillment",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostFulfillmentsIdShipment"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostFulfillmentsIdShipment": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "labels": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostFulfillmentsIdCancel"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/fulfillments/{id}/shipment",
+      "operationId": "PostFulfillmentsIdShipment",
+      "summary": "Create a Shipment for a Fulfillment",
+      "description": "Create a shipment for a fulfillment. The fulfillment must not be shipped or canceled.",
+      "tags": [
+        "Fulfillments"
+      ],
+      "request_schemas": [
+        "AdminCreateFulfillmentShipment"
+      ],
+      "response_schemas": [
+        "AdminFulfillmentResponse"
+      ],
+      "resources": [
+        "fulfillments",
+        "admin",
+        "shipment",
+        "createfulfillmentshipment",
+        "fulfillmentresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_050",
+    "query": "Please manage fulfillment providers of a stock location",
+    "router_query": "Please manage fulfillment providers of a stock location",
+    "track": "natural_routing",
+    "resource": "fulfillment",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostStockLocationsIdFulfillmentProviders"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostStockLocationsIdFulfillmentProviders": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostStockLocationsIdFulfillmentSets"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/stock-locations/{id}/fulfillment-providers",
+      "operationId": "PostStockLocationsIdFulfillmentProviders",
+      "summary": "Manage Fulfillment Providers of a Stock Location",
+      "description": "Manage the fulfillment providers to add or remove them from a stock location.",
+      "tags": [
+        "Stock Locations"
+      ],
+      "request_schemas": [
+        "AdminBatchLink"
+      ],
+      "response_schemas": [
+        "AdminStockLocationResponse"
+      ],
+      "resources": [
+        "stock_locations",
+        "admin",
+        "fulfillment_providers",
+        "batchlink",
+        "stocklocationresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_051",
+    "query": "A user wants to add fulfillment set to stock location",
+    "router_query": "A user wants to add fulfillment set to stock location",
+    "track": "natural_routing",
+    "resource": "fulfillment",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostStockLocationsIdFulfillmentSets"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostStockLocationsIdFulfillmentSets": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "name": "sample",
+      "type": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostStockLocationsIdFulfillmentProviders"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/stock-locations/{id}/fulfillment-sets",
+      "operationId": "PostStockLocationsIdFulfillmentSets",
+      "summary": "Add Fulfillment Set to Stock Location",
+      "description": "Create and add a fulfillment set to a stock location.",
+      "tags": [
+        "Stock Locations"
+      ],
+      "request_schemas": [
+        "AdminCreateStockLocationFulfillmentSet"
+      ],
+      "response_schemas": [
+        "AdminStockLocationResponse"
+      ],
+      "resources": [
+        "stock_locations",
+        "admin",
+        "fulfillment_sets",
+        "createstocklocationfulfillmentset",
+        "stocklocationresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_052",
+    "query": "I need to delete fulfillment set",
+    "router_query": "I need to delete fulfillment set",
+    "track": "natural_routing",
+    "resource": "fulfillment",
+    "operation_class": "delete",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:DeleteFulfillmentSetsId"
+    ],
+    "expected_required_params": {
+      "medusa_admin:DeleteFulfillmentSetsId": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:DeleteFulfillmentSetsIdServiceZonesZone_id"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "DELETE",
+      "path": "/admin/fulfillment-sets/{id}",
+      "operationId": "DeleteFulfillmentSetsId",
+      "summary": "Delete Fulfillment Set",
+      "description": "Delete a fulfillment set.",
+      "tags": [
+        "Fulfillment Sets"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminFulfillmentSetDeleteResponse"
+      ],
+      "resources": [
+        "fulfillment_sets",
+        "admin",
+        "fulfillmentsetdeleteresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_053",
+    "query": "Can you help me remove a service zone from fulfillment set",
+    "router_query": "Can you help me remove a service zone from fulfillment set",
+    "track": "natural_routing",
+    "resource": "fulfillment",
+    "operation_class": "delete",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:DeleteFulfillmentSetsIdServiceZonesZone_id"
+    ],
+    "expected_required_params": {
+      "medusa_admin:DeleteFulfillmentSetsIdServiceZonesZone_id": [
+        "id",
+        "zone_id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "zone_id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:DeleteFulfillmentSetsId"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "DELETE",
+      "path": "/admin/fulfillment-sets/{id}/service-zones/{zone_id}",
+      "operationId": "DeleteFulfillmentSetsIdServiceZonesZone_id",
+      "summary": "Remove a Service Zone from Fulfillment Set",
+      "description": "Remove a service zone that belongs to a fulfillment set.",
+      "tags": [
+        "Fulfillment Sets"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminServiceZoneDeleteResponse"
+      ],
+      "resources": [
+        "fulfillment_sets",
+        "admin",
+        "service_zones",
+        "servicezonedeleteresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_054",
+    "query": "Please list fulfillment options",
+    "router_query": "Please list fulfillment options",
+    "track": "natural_routing",
+    "resource": "fulfillment",
+    "operation_class": "get",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetFulfillmentProvidersIdOptions"
+    ],
+    "expected_required_params": {
+      "medusa_admin:GetFulfillmentProvidersIdOptions": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "GET",
+      "path": "/admin/fulfillment-providers/{id}/options",
+      "operationId": "GetFulfillmentProvidersIdOptions",
+      "summary": "List Fulfillment Options",
+      "description": "Retrieve the list of fulfillment options of a fulfillment provider. These options may be retrieved from an integrated third-party service.",
+      "tags": [
+        "Fulfillment Providers"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminFulfillmentProviderOptionsListResponse"
+      ],
+      "resources": [
+        "fulfillment_providers",
+        "admin",
+        "options",
+        "fulfillmentprovideroptionslistresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_055",
+    "query": "A user wants to get a service zone in a fulfillment set",
+    "router_query": "A user wants to get a service zone in a fulfillment set",
+    "track": "natural_routing",
+    "resource": "fulfillment",
+    "operation_class": "get",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetFulfillmentSetsIdServiceZonesZone_id"
+    ],
+    "expected_required_params": {
+      "medusa_admin:GetFulfillmentSetsIdServiceZonesZone_id": [
+        "id",
+        "zone_id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "zone_id": "sample"
+    },
+    "allowed_alternatives": [],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "GET",
+      "path": "/admin/fulfillment-sets/{id}/service-zones/{zone_id}",
+      "operationId": "GetFulfillmentSetsIdServiceZonesZone_id",
+      "summary": "Get a Service Zone in a Fulfillment Set",
+      "description": "Retrieve a service zone that belongs to a fulfillment set. be paginated.",
+      "tags": [
+        "Fulfillment Sets"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminServiceZoneResponse"
+      ],
+      "resources": [
+        "fulfillment_sets",
+        "admin",
+        "service_zones",
+        "servicezoneresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_056",
+    "query": "I need to list fulfillment providers",
+    "router_query": "I need to list fulfillment providers",
+    "track": "natural_routing",
+    "resource": "fulfillment",
+    "operation_class": "list",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetFulfillmentProviders"
+    ],
+    "expected_required_params": {},
+    "provided_params": {},
+    "allowed_alternatives": [],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "GET",
+      "path": "/admin/fulfillment-providers",
+      "operationId": "GetFulfillmentProviders",
+      "summary": "List Fulfillment Providers",
+      "description": "Retrieve a list of fulfillment providers. The fulfillment providers can be filtered by fields such as `id`. The fulfillment providers can also be sorted or paginated.",
+      "tags": [
+        "Fulfillment Providers"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminFulfillmentProviderListResponse"
+      ],
+      "resources": [
+        "fulfillment_providers",
+        "admin",
+        "fulfillmentproviderlistresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_057",
+    "query": "Can you help me create inventory item",
+    "router_query": "Can you help me create inventory item",
+    "track": "natural_routing",
+    "resource": "inventory",
+    "operation_class": "create",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostInventoryItems"
+    ],
+    "expected_required_params": {},
+    "provided_params": {},
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostInventoryItemsLocationLevelsBatch"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/inventory-items",
+      "operationId": "PostInventoryItems",
+      "summary": "Create Inventory Item",
+      "description": "Create an inventory item.",
+      "tags": [
+        "Inventory Items"
+      ],
+      "request_schemas": [
+        "AdminCreateInventoryItem"
+      ],
+      "response_schemas": [
+        "AdminInventoryItemResponse"
+      ],
+      "resources": [
+        "inventory_items",
+        "admin",
+        "createinventoryitem",
+        "inventoryitemresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_058",
+    "query": "Please manage inventory levels",
+    "router_query": "Please manage inventory levels",
+    "track": "natural_routing",
+    "resource": "inventory",
+    "operation_class": "create",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostInventoryItemsLocationLevelsBatch"
+    ],
+    "expected_required_params": {},
+    "provided_params": {},
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostInventoryItems"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/inventory-items/location-levels/batch",
+      "operationId": "PostInventoryItemsLocationLevelsBatch",
+      "summary": "Manage Inventory Levels",
+      "description": "Manage inventory levels to create, update, or delete them.",
+      "tags": [
+        "Inventory Items"
+      ],
+      "request_schemas": [
+        "AdminBatchInventoryItemsLocationLevels"
+      ],
+      "response_schemas": [
+        "AdminBatchInventoryItemsLocationLevelsResponse"
+      ],
+      "resources": [
+        "inventory_items",
+        "admin",
+        "location_levels",
+        "batch",
+        "batchinventoryitemslocationlevels",
+        "batchinventoryitemslocationlevelsresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_059",
+    "query": "A user wants to update an inventory item",
+    "router_query": "A user wants to update an inventory item",
+    "track": "natural_routing",
+    "resource": "inventory",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostInventoryItemsId"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostInventoryItemsId": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostInventoryItemsIdLocationLevelsLocation_id"
+      ],
+      [
+        "medusa_admin:PostInventoryItemsIdLocationLevels"
+      ],
+      [
+        "medusa_admin:PostInventoryItemsIdLocationLevelsBatch"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/inventory-items/{id}",
+      "operationId": "PostInventoryItemsId",
+      "summary": "Update an Inventory Item",
+      "description": "Update an inventory item's details.",
+      "tags": [
+        "Inventory Items"
+      ],
+      "request_schemas": [
+        "AdminUpdateInventoryItem"
+      ],
+      "response_schemas": [
+        "AdminInventoryItemResponse"
+      ],
+      "resources": [
+        "inventory_items",
+        "admin",
+        "updateinventoryitem",
+        "inventoryitemresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_060",
+    "query": "I need to create inventory level for inventory item",
+    "router_query": "I need to create inventory level for inventory item",
+    "track": "natural_routing",
+    "resource": "inventory",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostInventoryItemsIdLocationLevels"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostInventoryItemsIdLocationLevels": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "location_id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostInventoryItemsIdLocationLevelsLocation_id"
+      ],
+      [
+        "medusa_admin:PostInventoryItemsIdLocationLevelsBatch"
+      ],
+      [
+        "medusa_admin:PostInventoryItemsId"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/inventory-items/{id}/location-levels",
+      "operationId": "PostInventoryItemsIdLocationLevels",
+      "summary": "Create Inventory Level for Inventory Item",
+      "description": "Create an inventory level for an inventory item.",
+      "tags": [
+        "Inventory Items"
+      ],
+      "request_schemas": [
+        "AdminBatchCreateInventoryItemLocationLevels"
+      ],
+      "response_schemas": [
+        "AdminInventoryItemResponse"
+      ],
+      "resources": [
+        "inventory_items",
+        "admin",
+        "location_levels",
+        "batchcreateinventoryitemlocationlevels",
+        "inventoryitemresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_061",
+    "query": "Can you help me manage inventory levels of inventory item",
+    "router_query": "Can you help me manage inventory levels of inventory item",
+    "track": "natural_routing",
+    "resource": "inventory",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostInventoryItemsIdLocationLevelsBatch"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostInventoryItemsIdLocationLevelsBatch": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostInventoryItemsIdLocationLevelsLocation_id"
+      ],
+      [
+        "medusa_admin:PostInventoryItemsIdLocationLevels"
+      ],
+      [
+        "medusa_admin:PostInventoryItemsId"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/inventory-items/{id}/location-levels/batch",
+      "operationId": "PostInventoryItemsIdLocationLevelsBatch",
+      "summary": "Manage Inventory Levels of Inventory Item",
+      "description": "Manage the inventory levels of an inventory item to create or delete them.",
+      "tags": [
+        "Inventory Items"
+      ],
+      "request_schemas": [
+        "AdminBatchInventoryItemLocationLevels"
+      ],
+      "response_schemas": [],
+      "resources": [
+        "inventory_items",
+        "admin",
+        "location_levels",
+        "batch",
+        "batchinventoryitemlocationlevels"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_062",
+    "query": "Please update an inventory level of an inventory item",
+    "router_query": "Please update an inventory level of an inventory item",
+    "track": "natural_routing",
+    "resource": "inventory",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostInventoryItemsIdLocationLevelsLocation_id"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostInventoryItemsIdLocationLevelsLocation_id": [
+        "id",
+        "location_id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "location_id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostInventoryItemsIdLocationLevels"
+      ],
+      [
+        "medusa_admin:PostInventoryItemsIdLocationLevelsBatch"
+      ],
+      [
+        "medusa_admin:PostInventoryItemsId"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/inventory-items/{id}/location-levels/{location_id}",
+      "operationId": "PostInventoryItemsIdLocationLevelsLocation_id",
+      "summary": "Update an Inventory Level of an Inventory Item",
+      "description": "Updates the details of an inventory item's inventory level using its associated location ID.",
+      "tags": [
+        "Inventory Items"
+      ],
+      "request_schemas": [
+        "AdminUpdateInventoryLevel"
+      ],
+      "response_schemas": [
+        "AdminInventoryItemResponse"
+      ],
+      "resources": [
+        "inventory_items",
+        "admin",
+        "location_levels",
+        "updateinventorylevel",
+        "inventoryitemresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_063",
+    "query": "A user wants to delete inventory item",
+    "router_query": "A user wants to delete inventory item",
+    "track": "natural_routing",
+    "resource": "inventory",
+    "operation_class": "delete",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:DeleteInventoryItemsId"
+    ],
+    "expected_required_params": {
+      "medusa_admin:DeleteInventoryItemsId": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:DeleteInventoryItemsIdLocationLevelsLocation_id"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "DELETE",
+      "path": "/admin/inventory-items/{id}",
+      "operationId": "DeleteInventoryItemsId",
+      "summary": "Delete Inventory Item",
+      "description": "Delete an inventory item.",
+      "tags": [
+        "Inventory Items"
+      ],
+      "request_schemas": [],
+      "response_schemas": [],
+      "resources": [
+        "inventory_items",
+        "admin"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_064",
+    "query": "I need to remove inventory level of inventory item",
+    "router_query": "I need to remove inventory level of inventory item",
+    "track": "natural_routing",
+    "resource": "inventory",
+    "operation_class": "delete",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:DeleteInventoryItemsIdLocationLevelsLocation_id"
+    ],
+    "expected_required_params": {
+      "medusa_admin:DeleteInventoryItemsIdLocationLevelsLocation_id": [
+        "id",
+        "location_id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "location_id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:DeleteInventoryItemsId"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "DELETE",
+      "path": "/admin/inventory-items/{id}/location-levels/{location_id}",
+      "operationId": "DeleteInventoryItemsIdLocationLevelsLocation_id",
+      "summary": "Remove Inventory Level of Inventory Item",
+      "description": "Remove the inventory level of an inventory item.\n\nIf the inventory level has reserved quantity greater than `0`, an error is thrown.\n",
+      "tags": [
+        "Inventory Items"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminInventoryItem"
+      ],
+      "resources": [
+        "inventory_items",
+        "admin",
+        "location_levels",
+        "inventoryitem"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_065",
+    "query": "Can you help me get a inventory item",
+    "router_query": "Can you help me get a inventory item",
+    "track": "natural_routing",
+    "resource": "inventory",
+    "operation_class": "get",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetInventoryItemsId"
+    ],
+    "expected_required_params": {
+      "medusa_admin:GetInventoryItemsId": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:GetInventoryItemsIdLocationLevels"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "GET",
+      "path": "/admin/inventory-items/{id}",
+      "operationId": "GetInventoryItemsId",
+      "summary": "Get a Inventory Item",
+      "description": "Retrieve a inventory item by its ID. You can expand the inventory item's relations or select the fields that should be returned.",
+      "tags": [
+        "Inventory Items"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminInventoryItemResponse"
+      ],
+      "resources": [
+        "inventory_items",
+        "admin",
+        "inventoryitemresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_066",
+    "query": "Please list inventory levels",
+    "router_query": "Please list inventory levels",
+    "track": "natural_routing",
+    "resource": "inventory",
+    "operation_class": "get",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetInventoryItemsIdLocationLevels"
+    ],
+    "expected_required_params": {
+      "medusa_admin:GetInventoryItemsIdLocationLevels": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:GetInventoryItemsId"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "GET",
+      "path": "/admin/inventory-items/{id}/location-levels",
+      "operationId": "GetInventoryItemsIdLocationLevels",
+      "summary": "List Inventory Levels",
+      "description": "Retrieve a list of inventory levels associated with an inventory item. The inventory levels can be filtered by fields like `location_id`. The inventory levels can also be paginated.",
+      "tags": [
+        "Inventory Items"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "InventoryLevel"
+      ],
+      "resources": [
+        "inventory_items",
+        "admin",
+        "location_levels",
+        "inventorylevel"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_067",
+    "query": "A user wants to list inventory items",
+    "router_query": "A user wants to list inventory items",
+    "track": "natural_routing",
+    "resource": "inventory",
+    "operation_class": "list",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:GetInventoryItems"
+    ],
+    "expected_required_params": {},
+    "provided_params": {},
+    "allowed_alternatives": [],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "GET",
+      "path": "/admin/inventory-items",
+      "operationId": "GetInventoryItems",
+      "summary": "List Inventory Items",
+      "description": "Retrieve a list of inventory items. The inventory items can be filtered by fields such as `id`. The inventory items can also be sorted or paginated.",
+      "tags": [
+        "Inventory Items"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminInventoryItem"
+      ],
+      "resources": [
+        "inventory_items",
+        "admin",
+        "inventoryitem"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_068",
+    "query": "I need to create draft order",
+    "router_query": "I need to create draft order",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "create",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostDraftOrders"
+    ],
+    "expected_required_params": {},
+    "provided_params": {},
+    "allowed_alternatives": [],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/draft-orders",
+      "operationId": "PostDraftOrders",
+      "summary": "Create Draft Order",
+      "description": "Create a draft order. This creates an order with the `is_draft_order` property enabled. You can later convert the draft order to an order.",
+      "tags": [
+        "Draft Orders"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminDraftOrderResponse"
+      ],
+      "resources": [
+        "draft_orders",
+        "admin",
+        "draftorderresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_069",
+    "query": "Can you help me create order edit",
+    "router_query": "Can you help me create order edit",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "create",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrderEdits"
+    ],
+    "expected_required_params": {},
+    "provided_params": {
+      "order_id": "sample"
+    },
+    "allowed_alternatives": [],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/order-edits",
+      "operationId": "PostOrderEdits",
+      "summary": "Create Order Edit",
+      "description": "Create an order edit.",
+      "tags": [
+        "Order Edits"
+      ],
+      "request_schemas": [
+        "AdminPostOrderEditsReqSchema"
+      ],
+      "response_schemas": [
+        "AdminOrderEditResponse"
+      ],
+      "resources": [
+        "order_edits",
+        "admin",
+        "postordereditsreqschema",
+        "ordereditresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_070",
+    "query": "Please export orders",
+    "router_query": "Please export orders",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "create",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrdersExport"
+    ],
+    "expected_required_params": {},
+    "provided_params": {},
+    "allowed_alternatives": [],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/orders/export",
+      "operationId": "PostOrdersExport",
+      "summary": "Export Orders",
+      "description": "Start an order export process to retrieve a CSV of exported orders.\n\nYou'll receive in the response the transaction ID of the workflow generating the CSV file. To check the status of the execution, send a GET request to `/admin/workflows-executions/export-orders/:transaction-id`.\n\nOnce the execution finishes successfully, a notification is created for the export. You can retrieve the notifications using the `/admin/notification` API route to retrieve the file's download URL.\n",
+      "tags": [
+        "Orders"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminExportOrderResponse"
+      ],
+      "resources": [
+        "orders",
+        "admin",
+        "export",
+        "exportorderresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_071",
+    "query": "A user wants to update a draft order",
+    "router_query": "A user wants to update a draft order",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostDraftOrdersId"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostDraftOrdersId": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostDraftOrdersIdEdit"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdConvertToOrder"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEditItemsAction_id"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/draft-orders/{id}",
+      "operationId": "PostDraftOrdersId",
+      "summary": "Update a Draft Order",
+      "description": "Update a draft order's details. This doesn't include updating the draft order's items, shipping methods, or promotions. To update those, you need to create an edit that you can later request or confirm.",
+      "tags": [
+        "Draft Orders"
+      ],
+      "request_schemas": [
+        "AdminUpdateDraftOrder"
+      ],
+      "response_schemas": [
+        "AdminDraftOrderResponse"
+      ],
+      "resources": [
+        "draft_orders",
+        "admin",
+        "updatedraftorder",
+        "draftorderresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_072",
+    "query": "I need to convert a draft order to an order",
+    "router_query": "I need to convert a draft order to an order",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostDraftOrdersIdConvertToOrder"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostDraftOrdersIdConvertToOrder": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostDraftOrdersId"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEdit"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEditItemsAction_id"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/draft-orders/{id}/convert-to-order",
+      "operationId": "PostDraftOrdersIdConvertToOrder",
+      "summary": "Convert a Draft Order to an Order",
+      "description": "Convert a draft order to an order. This will finalize the draft order and create a new order with the same details.",
+      "tags": [
+        "Draft Orders"
+      ],
+      "request_schemas": [
+        "AdminDraftOrderParams"
+      ],
+      "response_schemas": [
+        "AdminOrderResponse"
+      ],
+      "resources": [
+        "draft_orders",
+        "admin",
+        "convert_to_order",
+        "draftorderparams",
+        "orderresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_073",
+    "query": "Can you help me create a draft order edit",
+    "router_query": "Can you help me create a draft order edit",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostDraftOrdersIdEdit"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostDraftOrdersIdEdit": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostDraftOrdersIdEditItemsAction_id"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEditItems"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEditRequest"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/draft-orders/{id}/edit",
+      "operationId": "PostDraftOrdersIdEdit",
+      "summary": "Create a Draft Order Edit",
+      "description": "Create an edit on a draft order. This will allow you to make changes to the draft order's items, shipping methods, or promotions. Once you've made the necessar changes, you can later either request the edit (which requires a confirmation from the customer), or force-confirm the edit.",
+      "tags": [
+        "Draft Orders"
+      ],
+      "request_schemas": [],
+      "response_schemas": [],
+      "resources": [
+        "draft_orders",
+        "admin",
+        "edit"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_074",
+    "query": "Please confirm an edit on a draft order",
+    "router_query": "Please confirm an edit on a draft order",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostDraftOrdersIdEditConfirm"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostDraftOrdersIdEditConfirm": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostDraftOrdersIdEdit"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEditItemsAction_id"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEditItems"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/draft-orders/{id}/edit/confirm",
+      "operationId": "PostDraftOrdersIdEditConfirm",
+      "summary": "Confirm an Edit on a Draft Order",
+      "description": "Confirm an edit on a draft order. This will apply the changes made to the draft order.",
+      "tags": [
+        "Draft Orders"
+      ],
+      "request_schemas": [],
+      "response_schemas": [],
+      "resources": [
+        "draft_orders",
+        "admin",
+        "edit",
+        "confirm"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_075",
+    "query": "A user wants to add item to draft order edit",
+    "router_query": "A user wants to add item to draft order edit",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostDraftOrdersIdEditItems"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostDraftOrdersIdEditItems": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostDraftOrdersIdEditItemsAction_id"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEditItemsItemItem_id"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEdit"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/draft-orders/{id}/edit/items",
+      "operationId": "PostDraftOrdersIdEditItems",
+      "summary": "Add Item to Draft Order Edit",
+      "description": "Add an item to a draft order edit.",
+      "tags": [
+        "Draft Orders"
+      ],
+      "request_schemas": [
+        "AdminAddDraftOrderItems"
+      ],
+      "response_schemas": [],
+      "resources": [
+        "draft_orders",
+        "admin",
+        "edit",
+        "items",
+        "adddraftorderitems"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_076",
+    "query": "I need to update new item in draft order edit",
+    "router_query": "I need to update new item in draft order edit",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostDraftOrdersIdEditItemsAction_id"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostDraftOrdersIdEditItemsAction_id": [
+        "id",
+        "action_id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "action_id": "sample",
+      "quantity": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostDraftOrdersIdEditItems"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEditItemsItemItem_id"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEdit"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/draft-orders/{id}/edit/items/{action_id}",
+      "operationId": "PostDraftOrdersIdEditItemsAction_id",
+      "summary": "Update New Item in Draft Order Edit",
+      "description": "Update a new item that was added to a draft order edit by the ID of the item's `ITEM_ADD` action.\n\nEvery item has an `actions` property, whose value is an array of actions. You can check the action's name using its `action` property, and use the value of the `id` property.\n",
+      "tags": [
+        "Draft Orders"
+      ],
+      "request_schemas": [
+        "AdminUpdateDraftOrderActionItem"
+      ],
+      "response_schemas": [],
+      "resources": [
+        "draft_orders",
+        "admin",
+        "edit",
+        "items",
+        "updatedraftorderactionitem"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_077",
+    "query": "Can you help me update existing item in draft order edit",
+    "router_query": "Can you help me update existing item in draft order edit",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostDraftOrdersIdEditItemsItemItem_id"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostDraftOrdersIdEditItemsItemItem_id": [
+        "id",
+        "item_id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "item_id": "sample",
+      "quantity": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostDraftOrdersIdEditItemsAction_id"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEditItems"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEdit"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/draft-orders/{id}/edit/items/item/{item_id}",
+      "operationId": "PostDraftOrdersIdEditItemsItemItem_id",
+      "summary": "Update Existing Item in Draft Order Edit",
+      "description": "Update an existing item in a draft order edit.",
+      "tags": [
+        "Draft Orders"
+      ],
+      "request_schemas": [
+        "AdminUpdateDraftOrderItem"
+      ],
+      "response_schemas": [],
+      "resources": [
+        "draft_orders",
+        "admin",
+        "edit",
+        "items",
+        "item",
+        "updatedraftorderitem"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_078",
+    "query": "Please add promotions to draft order edit",
+    "router_query": "Please add promotions to draft order edit",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostDraftOrdersIdEditPromotions"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostDraftOrdersIdEditPromotions": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "promo_codes": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostDraftOrdersIdEdit"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEditItemsAction_id"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEditItems"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/draft-orders/{id}/edit/promotions",
+      "operationId": "PostDraftOrdersIdEditPromotions",
+      "summary": "Add Promotions to Draft Order Edit",
+      "description": "Add promotions to a draft order edit.",
+      "tags": [
+        "Draft Orders"
+      ],
+      "request_schemas": [
+        "AdminAddDraftOrderPromotions"
+      ],
+      "response_schemas": [
+        "AdminDraftOrderPreviewResponse"
+      ],
+      "resources": [
+        "draft_orders",
+        "admin",
+        "edit",
+        "promotions",
+        "adddraftorderpromotions",
+        "draftorderpreviewresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_079",
+    "query": "A user wants to request edit on draft order",
+    "router_query": "A user wants to request edit on draft order",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostDraftOrdersIdEditRequest"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostDraftOrdersIdEditRequest": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostDraftOrdersIdEdit"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEditItemsAction_id"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEditItems"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/draft-orders/{id}/edit/request",
+      "operationId": "PostDraftOrdersIdEditRequest",
+      "summary": "Request Edit on Draft Order",
+      "description": "Change the status of a draft order's edit to be requested. Later, the edit can be confirmed or canceled.",
+      "tags": [
+        "Draft Orders"
+      ],
+      "request_schemas": [],
+      "response_schemas": [],
+      "resources": [
+        "draft_orders",
+        "admin",
+        "edit",
+        "request"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_080",
+    "query": "I need to add shipping method to draft order edit",
+    "router_query": "I need to add shipping method to draft order edit",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostDraftOrdersIdEditShippingMethods"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostDraftOrdersIdEditShippingMethods": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "shipping_option_id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostDraftOrdersIdEditShippingMethodsAction_id"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEditShippingMethodsMethodMethod_id"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEdit"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/draft-orders/{id}/edit/shipping-methods",
+      "operationId": "PostDraftOrdersIdEditShippingMethods",
+      "summary": "Add Shipping Method to Draft Order Edit",
+      "description": "Add a shipping method to a draft order edit.",
+      "tags": [
+        "Draft Orders"
+      ],
+      "request_schemas": [
+        "AdminAddDraftOrderShippingMethod"
+      ],
+      "response_schemas": [],
+      "resources": [
+        "draft_orders",
+        "admin",
+        "edit",
+        "shipping_methods",
+        "adddraftordershippingmethod"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_081",
+    "query": "Can you help me update new shipping method in draft order edit",
+    "router_query": "Can you help me update new shipping method in draft order edit",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostDraftOrdersIdEditShippingMethodsAction_id"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostDraftOrdersIdEditShippingMethodsAction_id": [
+        "id",
+        "action_id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "action_id": "sample",
+      "shipping_option_id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostDraftOrdersIdEditShippingMethods"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEditShippingMethodsMethodMethod_id"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEdit"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/draft-orders/{id}/edit/shipping-methods/{action_id}",
+      "operationId": "PostDraftOrdersIdEditShippingMethodsAction_id",
+      "summary": "Update New Shipping Method in Draft Order Edit",
+      "description": "Update a new shipping method that was added to a draft order edit using the `ID` of the method's `SHIPPING_ADD` action.\n\nEvery shipping method has an `actions` property, whose value is an array of actions. You can check the action's name using its `action` property, and use the value of the `id` property.\n",
+      "tags": [
+        "Draft Orders"
+      ],
+      "request_schemas": [
+        "AdminUpdateDraftOrderActionShippingMethod"
+      ],
+      "response_schemas": [],
+      "resources": [
+        "draft_orders",
+        "admin",
+        "edit",
+        "shipping_methods",
+        "updatedraftorderactionshippingmethod"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_082",
+    "query": "Please update existing shipping method in draft order edit",
+    "router_query": "Please update existing shipping method in draft order edit",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostDraftOrdersIdEditShippingMethodsMethodMethod_id"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostDraftOrdersIdEditShippingMethodsMethodMethod_id": [
+        "id",
+        "method_id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "method_id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostDraftOrdersIdEditShippingMethodsAction_id"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEditShippingMethods"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEdit"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/draft-orders/{id}/edit/shipping-methods/method/{method_id}",
+      "operationId": "PostDraftOrdersIdEditShippingMethodsMethodMethod_id",
+      "summary": "Update Existing Shipping Method in Draft Order Edit",
+      "description": "Update an existing shipping method in a draft order edit.",
+      "tags": [
+        "Draft Orders"
+      ],
+      "request_schemas": [
+        "AdminUpdateDraftOrderShippingMethod"
+      ],
+      "response_schemas": [],
+      "resources": [
+        "draft_orders",
+        "admin",
+        "edit",
+        "shipping_methods",
+        "method",
+        "updatedraftordershippingmethod"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_083",
+    "query": "A user wants to update an order change",
+    "router_query": "A user wants to update an order change",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrderChangesId"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostOrderChangesId": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostOrdersId"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/order-changes/{id}",
+      "operationId": "PostOrderChangesId",
+      "summary": "Update an Order Change",
+      "description": "Update an order change's details. An order change can be an exchange, claim, or edit. For example, you can edit whether an exchange carries over the parent order's promotion.",
+      "tags": [
+        "Order Changes"
+      ],
+      "request_schemas": [
+        "AdminUpdateOrderChange"
+      ],
+      "response_schemas": [
+        "AdminOrderChangeResponse"
+      ],
+      "resources": [
+        "order_changes",
+        "admin",
+        "updateorderchange",
+        "orderchangeresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_084",
+    "query": "I need to confirm order edit",
+    "router_query": "I need to confirm order edit",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrderEditsIdConfirm"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostOrderEditsIdConfirm": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostOrderEditsIdItemsAction_id"
+      ],
+      [
+        "medusa_admin:PostOrderEditsIdItems"
+      ],
+      [
+        "medusa_admin:PostOrderEditsIdRequest"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/order-edits/{id}/confirm",
+      "operationId": "PostOrderEditsIdConfirm",
+      "summary": "Confirm Order Edit",
+      "description": "Confirm an order edit request and apply the changes on the order.",
+      "tags": [
+        "Order Edits"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminOrderEditPreviewResponse"
+      ],
+      "resources": [
+        "order_edits",
+        "admin",
+        "confirm",
+        "ordereditpreviewresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_085",
+    "query": "Can you help me add items to order edit",
+    "router_query": "Can you help me add items to order edit",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrderEditsIdItems"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostOrderEditsIdItems": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostOrderEditsIdItemsAction_id"
+      ],
+      [
+        "medusa_admin:PostOrderEditsIdItemsItemItem_id"
+      ],
+      [
+        "medusa_admin:PostOrderEditsIdConfirm"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/order-edits/{id}/items",
+      "operationId": "PostOrderEditsIdItems",
+      "summary": "Add Items to Order Edit",
+      "description": "Add new items to an order edit. These items will have the action `ITEM_ADD`.",
+      "tags": [
+        "Order Edits"
+      ],
+      "request_schemas": [
+        "AdminPostOrderEditsAddItemsReqSchema"
+      ],
+      "response_schemas": [
+        "AdminOrderEditPreviewResponse"
+      ],
+      "resources": [
+        "order_edits",
+        "admin",
+        "items",
+        "postordereditsadditemsreqschema",
+        "ordereditpreviewresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_086",
+    "query": "Please update an item in an order edit",
+    "router_query": "Please update an item in an order edit",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrderEditsIdItemsAction_id"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostOrderEditsIdItemsAction_id": [
+        "id",
+        "action_id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "action_id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostOrderEditsIdItems"
+      ],
+      [
+        "medusa_admin:PostOrderEditsIdItemsItemItem_id"
+      ],
+      [
+        "medusa_admin:PostOrderEditsIdConfirm"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/order-edits/{id}/items/{action_id}",
+      "operationId": "PostOrderEditsIdItemsAction_id",
+      "summary": "Update an Item in an Order Edit",
+      "description": "Update an added item in the order edit by the ID of the item's `ITEM_ADD` action.\n\nEvery item has an `actions` property, whose value is an array of actions. You can check the action's name using its `action` property, and use the value of the `id` property.\n",
+      "tags": [
+        "Order Edits"
+      ],
+      "request_schemas": [
+        "AdminPostOrderEditsItemsActionReqSchema"
+      ],
+      "response_schemas": [
+        "AdminOrderEditPreviewResponse"
+      ],
+      "resources": [
+        "order_edits",
+        "admin",
+        "items",
+        "postordereditsitemsactionreqschema",
+        "ordereditpreviewresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_087",
+    "query": "A user wants to update order item quantity of order edit",
+    "router_query": "A user wants to update order item quantity of order edit",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrderEditsIdItemsItemItem_id"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostOrderEditsIdItemsItemItem_id": [
+        "id",
+        "item_id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "item_id": "sample",
+      "quantity": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostOrderEditsIdItemsAction_id"
+      ],
+      [
+        "medusa_admin:PostOrderEditsIdItems"
+      ],
+      [
+        "medusa_admin:PostDraftOrdersIdEditItemsItemItem_id"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/order-edits/{id}/items/item/{item_id}",
+      "operationId": "PostOrderEditsIdItemsItemItem_id",
+      "summary": "Update Order Item Quantity of Order Edit",
+      "description": "Update an existing order item's quantity of an order edit.\nYou can also use this API route to remove an item from an order by setting its quantity to `0`.\n",
+      "tags": [
+        "Order Edits"
+      ],
+      "request_schemas": [
+        "AdminPostOrderEditsUpdateItemQuantityReqSchema"
+      ],
+      "response_schemas": [
+        "AdminOrderEditPreviewResponse"
+      ],
+      "resources": [
+        "order_edits",
+        "admin",
+        "items",
+        "item",
+        "postordereditsupdateitemquantityreqschema",
+        "ordereditpreviewresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_088",
+    "query": "I need to request order edit",
+    "router_query": "I need to request order edit",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrderEditsIdRequest"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostOrderEditsIdRequest": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostOrderEditsIdItemsAction_id"
+      ],
+      [
+        "medusa_admin:PostOrderEditsIdItems"
+      ],
+      [
+        "medusa_admin:PostOrderEditsIdConfirm"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/order-edits/{id}/request",
+      "operationId": "PostOrderEditsIdRequest",
+      "summary": "Request Order Edit",
+      "description": "Change the status of an active order edit to requested.",
+      "tags": [
+        "Order Edits"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminOrderEditPreviewResponse"
+      ],
+      "resources": [
+        "order_edits",
+        "admin",
+        "request",
+        "ordereditpreviewresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_089",
+    "query": "Can you help me add shipping method to order edit",
+    "router_query": "Can you help me add shipping method to order edit",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrderEditsIdShippingMethod"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostOrderEditsIdShippingMethod": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "shipping_option_id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostOrderEditsIdShippingMethodAction_id"
+      ],
+      [
+        "medusa_admin:PostOrderEditsIdRequest"
+      ],
+      [
+        "medusa_admin:PostOrderEditsIdConfirm"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/order-edits/{id}/shipping-method",
+      "operationId": "PostOrderEditsIdShippingMethod",
+      "summary": "Add Shipping Method to Order Edit",
+      "description": "Add a shipping method to an exchange. The shipping method will have a `SHIPPING_ADD` action.",
+      "tags": [
+        "Order Edits"
+      ],
+      "request_schemas": [
+        "AdminPostOrderEditsShippingReqSchema"
+      ],
+      "response_schemas": [
+        "AdminOrderEditPreviewResponse"
+      ],
+      "resources": [
+        "order_edits",
+        "admin",
+        "shipping_method",
+        "postordereditsshippingreqschema",
+        "ordereditpreviewresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_090",
+    "query": "Please update shipping method of an order edit",
+    "router_query": "Please update shipping method of an order edit",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrderEditsIdShippingMethodAction_id"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostOrderEditsIdShippingMethodAction_id": [
+        "id",
+        "action_id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "action_id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostOrderEditsIdShippingMethod"
+      ],
+      [
+        "medusa_admin:PostOrderEditsIdRequest"
+      ],
+      [
+        "medusa_admin:PostOrderEditsIdConfirm"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/order-edits/{id}/shipping-method/{action_id}",
+      "operationId": "PostOrderEditsIdShippingMethodAction_id",
+      "summary": "Update Shipping Method of an Order Edit",
+      "description": "Update a shipping method in the order edit by the ID of the method's `SHIPPING_ADD` action.\n\nEvery shipping method has an `actions` property, whose value is an array of actions. You can check the action's name using its `action` property, and use the value of the `id` property.\n",
+      "tags": [
+        "Order Edits"
+      ],
+      "request_schemas": [
+        "AdminPostOrderEditsShippingActionReqSchema"
+      ],
+      "response_schemas": [
+        "AdminOrderEditPreviewResponse"
+      ],
+      "resources": [
+        "order_edits",
+        "admin",
+        "shipping_method",
+        "postordereditsshippingactionreqschema",
+        "ordereditpreviewresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_091",
+    "query": "A user wants to update order",
+    "router_query": "A user wants to update order",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrdersId"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostOrdersId": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostOrdersIdCancel"
+      ],
+      [
+        "medusa_admin:PostOrdersIdArchive"
+      ],
+      [
+        "medusa_admin:PostOrdersIdTransfer"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/orders/{id}",
+      "operationId": "PostOrdersId",
+      "summary": "Update Order",
+      "description": "Update an order's details.",
+      "tags": [
+        "Orders"
+      ],
+      "request_schemas": [
+        "AdminUpdateOrder"
+      ],
+      "response_schemas": [
+        "AdminOrderResponse"
+      ],
+      "resources": [
+        "orders",
+        "admin",
+        "updateorder",
+        "orderresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_092",
+    "query": "I need to archive an order",
+    "router_query": "I need to archive an order",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrdersIdArchive"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostOrdersIdArchive": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostOrdersId"
+      ],
+      [
+        "medusa_admin:PostOrdersIdCancel"
+      ],
+      [
+        "medusa_admin:PostOrdersIdTransfer"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/orders/{id}/archive",
+      "operationId": "PostOrdersIdArchive",
+      "summary": "Archive an Order",
+      "description": "Change the status of an order to archived.",
+      "tags": [
+        "Orders"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminOrderResponse"
+      ],
+      "resources": [
+        "orders",
+        "admin",
+        "archive",
+        "orderresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_093",
+    "query": "Can you help me cancel order",
+    "router_query": "Can you help me cancel order",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrdersIdCancel"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostOrdersIdCancel": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostOrdersIdTransferCancel"
+      ],
+      [
+        "medusa_admin:PostOrdersIdFulfillmentsFulfillment_idCancel"
+      ],
+      [
+        "medusa_admin:PostOrdersId"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/orders/{id}/cancel",
+      "operationId": "PostOrdersIdCancel",
+      "summary": "Cancel Order",
+      "description": "Cancel an order. The cancelation fails if:\n- The order has captured payments.\n\n\n- The order has refund payments.\n\n\n- The order has fulfillments that aren't canceled.\n",
+      "tags": [
+        "Orders"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminOrderResponse"
+      ],
+      "resources": [
+        "orders",
+        "admin",
+        "cancel",
+        "orderresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_094",
+    "query": "Please complete order",
+    "router_query": "Please complete order",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrdersIdComplete"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostOrdersIdComplete": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostOrdersId"
+      ],
+      [
+        "medusa_admin:PostOrdersIdCancel"
+      ],
+      [
+        "medusa_admin:PostOrdersIdArchive"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/orders/{id}/complete",
+      "operationId": "PostOrdersIdComplete",
+      "summary": "Complete Order",
+      "description": "Mark an order as completed.",
+      "tags": [
+        "Orders"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminOrderResponse"
+      ],
+      "resources": [
+        "orders",
+        "admin",
+        "complete",
+        "orderresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_095",
+    "query": "A user wants to create credit line for order",
+    "router_query": "A user wants to create credit line for order",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrdersIdCreditLines"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostOrdersIdCreditLines": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "amount": "sample",
+      "reference": "sample",
+      "reference_id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostOrdersId"
+      ],
+      [
+        "medusa_admin:PostOrdersIdComplete"
+      ],
+      [
+        "medusa_admin:PostOrdersIdCancel"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/orders/{id}/credit-lines",
+      "operationId": "PostOrdersIdCreditLines",
+      "summary": "Create Credit Line for Order",
+      "description": "Create a credit line for an order.",
+      "tags": [
+        "Orders"
+      ],
+      "request_schemas": [
+        "AdminCreateOrderCreditLine"
+      ],
+      "response_schemas": [
+        "AdminOrderResponse"
+      ],
+      "resources": [
+        "orders",
+        "admin",
+        "credit_lines",
+        "createordercreditline",
+        "orderresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_096",
+    "query": "I need to create an order fulfillment",
+    "router_query": "I need to create an order fulfillment",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrdersIdFulfillments"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostOrdersIdFulfillments": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostOrdersIdFulfillmentsFulfillment_idCancel"
+      ],
+      [
+        "medusa_admin:PostOrdersIdFulfillmentsFulfillment_idShipments"
+      ],
+      [
+        "medusa_admin:PostOrdersIdFulfillmentsFulfillment_idMarkAsDelivered"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/orders/{id}/fulfillments",
+      "operationId": "PostOrdersIdFulfillments",
+      "summary": "Create an Order Fulfillment",
+      "description": "Create a fulfillment for an order. The creation fails if the order is canceled.",
+      "tags": [
+        "Orders"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminOrderResponse"
+      ],
+      "resources": [
+        "orders",
+        "admin",
+        "fulfillments",
+        "orderresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_097",
+    "query": "Can you help me cancel fulfillment",
+    "router_query": "Can you help me cancel fulfillment",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrdersIdFulfillmentsFulfillment_idCancel"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostOrdersIdFulfillmentsFulfillment_idCancel": [
+        "id",
+        "fulfillment_id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "fulfillment_id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostOrdersIdFulfillments"
+      ],
+      [
+        "medusa_admin:PostOrdersIdCancel"
+      ],
+      [
+        "medusa_admin:PostOrdersIdFulfillmentsFulfillment_idShipments"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/orders/{id}/fulfillments/{fulfillment_id}/cancel",
+      "operationId": "PostOrdersIdFulfillmentsFulfillment_idCancel",
+      "summary": "Cancel Fulfillment",
+      "description": "Cancel an order's fulfillment. The fulfillment can't be canceled if it's shipped.",
+      "tags": [
+        "Orders"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminOrderResponse"
+      ],
+      "resources": [
+        "orders",
+        "admin",
+        "fulfillments",
+        "cancel",
+        "orderresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_098",
+    "query": "Please mark a fulfillment as delivered",
+    "router_query": "Please mark a fulfillment as delivered",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrdersIdFulfillmentsFulfillment_idMarkAsDelivered"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostOrdersIdFulfillmentsFulfillment_idMarkAsDelivered": [
+        "id",
+        "fulfillment_id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "fulfillment_id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostOrdersIdFulfillments"
+      ],
+      [
+        "medusa_admin:PostOrdersIdFulfillmentsFulfillment_idCancel"
+      ],
+      [
+        "medusa_admin:PostOrdersIdFulfillmentsFulfillment_idShipments"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/orders/{id}/fulfillments/{fulfillment_id}/mark-as-delivered",
+      "operationId": "PostOrdersIdFulfillmentsFulfillment_idMarkAsDelivered",
+      "summary": "Mark a Fulfillment as Delivered.",
+      "description": "Mark an order's fulfillment as delivered.",
+      "tags": [
+        "Orders"
+      ],
+      "request_schemas": [
+        "AdminMarkOrderFulfillmentAsDelivered"
+      ],
+      "response_schemas": [
+        "AdminOrderResponse"
+      ],
+      "resources": [
+        "orders",
+        "admin",
+        "fulfillments",
+        "mark_as_delivered",
+        "markorderfulfillmentasdelivered",
+        "orderresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_099",
+    "query": "A user wants to create shipment for an order s fulfillment",
+    "router_query": "A user wants to create shipment for an order s fulfillment",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrdersIdFulfillmentsFulfillment_idShipments"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostOrdersIdFulfillmentsFulfillment_idShipments": [
+        "id",
+        "fulfillment_id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "fulfillment_id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostOrdersIdFulfillments"
+      ],
+      [
+        "medusa_admin:PostOrdersIdFulfillmentsFulfillment_idCancel"
+      ],
+      [
+        "medusa_admin:PostOrdersIdFulfillmentsFulfillment_idMarkAsDelivered"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/orders/{id}/fulfillments/{fulfillment_id}/shipments",
+      "operationId": "PostOrdersIdFulfillmentsFulfillment_idShipments",
+      "summary": "Create Shipment for an Order's Fulfillment",
+      "description": "Create a shipment for an order's fulfillment.",
+      "tags": [
+        "Orders"
+      ],
+      "request_schemas": [],
+      "response_schemas": [
+        "AdminOrderResponse"
+      ],
+      "resources": [
+        "orders",
+        "admin",
+        "fulfillments",
+        "shipments",
+        "orderresponse"
+      ]
+    }
+  },
+  {
+    "id": "medusa_nat_100",
+    "query": "I need to request order transfer",
+    "router_query": "I need to request order transfer",
+    "track": "natural_routing",
+    "resource": "orders",
+    "operation_class": "custom",
+    "expected_decision_type": "ROUTE",
+    "expected_endpoint_sequence": [
+      "medusa_admin:PostOrdersIdTransfer"
+    ],
+    "expected_required_params": {
+      "medusa_admin:PostOrdersIdTransfer": [
+        "id"
+      ]
+    },
+    "provided_params": {
+      "id": "sample",
+      "customer_id": "sample"
+    },
+    "allowed_alternatives": [
+      [
+        "medusa_admin:PostOrdersIdTransferCancel"
+      ],
+      [
+        "medusa_admin:PostOrdersId"
+      ],
+      [
+        "medusa_admin:PostOrdersIdCancel"
+      ]
+    ],
+    "task_type": "single_step",
+    "notes": "track=natural_routing; generated_natural_query_from_openapi_metadata",
+    "provenance": {
+      "source": "medusa_admin",
+      "method": "POST",
+      "path": "/admin/orders/{id}/transfer",
+      "operationId": "PostOrdersIdTransfer",
+      "summary": "Request Order Transfer",
+      "description": "Request an order to be transfered to another customer. The transfer is confirmed by sending a request to the [Accept Order Transfer](https://docs.medusajs.com/api/store#orders_postordersidtransferaccept) Store API route.",
+      "tags": [
+        "Orders"
+      ],
+      "request_schemas": [
+        "AdminRequestOrderTransfer"
+      ],
+      "response_schemas": [
+        "AdminOrderResponse"
+      ],
+      "resources": [
+        "orders",
+        "admin",
+        "transfer",
+        "requestordertransfer",
+        "orderresponse"
+      ]
+    }
+  }
+]
