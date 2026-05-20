@@ -108,7 +108,9 @@ class AppGraphTurnRouter:
         try:
             from openai import AsyncOpenAI
 
-            client = AsyncOpenAI(api_key=settings.openai_api_key)
+            from backend.core.langsmith import wrap_openai_client
+
+            client = wrap_openai_client(AsyncOpenAI(api_key=settings.openai_api_key))
             response = await client.chat.completions.create(
                 model=self.model,
                 messages=[

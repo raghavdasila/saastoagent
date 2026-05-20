@@ -1,10 +1,10 @@
 /**
  * SaaSAgentShell
  *
- * Renders the full operator saasAgent UI (Header + ActivityBar + AgentCanvas)
+ * Renders the full SaaS Agent UI (Header + ActivityBar + AgentCanvas)
  * while accepting `saasAgentId` as a prop instead of reading it from React
- * Router's useParams.  This lets OperatorGateway mount the saasAgent inline
- * when the graph reaches `operator_ready` — without any route navigation.
+ * Router's useParams. This lets Corpus mount the SaaS Agent inline
+ * without any route navigation.
  *
  * The /agents/:saasAgentId deep-link route still uses SaaSAgentLayout (which relies
  * on useParams via SaaSAgentProvider's default behaviour) and that path is

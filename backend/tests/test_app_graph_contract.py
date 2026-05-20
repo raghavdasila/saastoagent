@@ -10,7 +10,6 @@ from backend.services.app_graph import (
 )
 from backend.core.schemas import AppGraphState
 from backend.services.app_graph.manifest import ACTION_SPECS, AppActionIds, route_action_to_card
-from backend.services.app_graph.router import AppGraphTurnRouter
 from routedeck_langgraph import validate_langgraph_contract
 from pathlib import Path
 
@@ -95,56 +94,6 @@ def test_app_graph_free_text_policy_is_not_phrase_list_routing():
     assert "approve:*" not in action_ids
 
 
-def test_app_graph_router_disabled_clarifies_without_executing_text():
-    import asyncio
-
-    manifest = build_app_graph_manifest()
-    actions = [
-        route_action_to_card(action)
-        for action in ACTION_SPECS
-        if action.id in {AppActionIds.AUTH_SIGN_IN, AppActionIds.SAAS_AGENT_CREATE}
-    ]
-    router = AppGraphTurnRouter(provider="disabled")
-
-    decision = asyncio.run(
-        router.route(
-            user_input="create a medusa storefront agent",
-            state=AppGraphState(node="home"),
-            actions=actions,
-            manifest=manifest,
-        )
-    )
-
-    assert decision.intent == "clarify"
-    assert decision.action_id is None
-    assert decision.confidence == 1.0
-    assert "I'm SaaStoAgent" in (decision.clarification or "")
-    assert "Sign in" not in (decision.clarification or "")
-    assert "Create account" not in (decision.clarification or "")
-    assert "Create SaaS Agent" not in (decision.clarification or "")
-    assert router.action_needs_clarification(decision, actions) == decision.clarification
-    assert "not available" not in (decision.clarification or "").lower()
-
-
-def test_app_graph_router_requires_structured_slots_before_action():
-    action = next(action for action in ACTION_SPECS if action.id == AppActionIds.SAAS_AGENT_CREATE)
-    card = route_action_to_card(action)
-    router = AppGraphTurnRouter(provider="disabled")
-
-    missing = router.action_needs_clarification(
-        decision=router._coerce_decision(
-            '{"intent":"action","action_id":"saas_agent.create","slots":{},"confidence":0.99}',
-            [card],
-            provider="test",
-        ),
-        actions=[card],
-    )
-
-    assert missing is not None
-    assert "Name" in missing
-    assert "Slug" in missing
-
-
 def test_app_graph_connection_options_include_medusa_targets():
     action = next(action for action in ACTION_SPECS if action.id == AppActionIds.CONNECTION_ACTIVATE)
     target_field = next(field for field in action.fields if field.key == "api_target")
@@ -198,6 +147,15 @@ def test_product_shell_uses_corpus_and_routedeck_contracts_not_legacy_app_graph_
         assert text not in product_source
 
 
+def test_auth_surface_completion_does_not_force_page_reload():
+    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
+    source = shell_path.read_text(encoding="utf-8")
+    auth_surface_source = source.split("function AuthSurfaceCard", 1)[1].split("function ContextPanel", 1)[0]
+
+    assert "window.location.assign" not in auth_surface_source
+    assert "window.location.reload" not in auth_surface_source
+
+
 def test_product_diagnostics_are_read_only():
     shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
     source = shell_path.read_text(encoding="utf-8")
@@ -208,12 +166,11 @@ def test_product_diagnostics_are_read_only():
     assert "onOperationSelect" not in diagnostics_source
 
 
-def test_legacy_app_graph_routes_are_explicitly_deprecated():
+def test_legacy_app_graph_routes_are_not_registered():
     from backend.main import app
 
     legacy_routes = [
         route for route in app.routes if getattr(route, "path", "").startswith("/api/app/graph")
     ]
 
-    assert legacy_routes
-    assert all(getattr(route, "deprecated", False) for route in legacy_routes)
+    assert legacy_routes == []

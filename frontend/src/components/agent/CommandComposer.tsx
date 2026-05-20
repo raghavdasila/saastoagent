@@ -50,7 +50,7 @@ export function CommandComposer({
           'min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-foreground outline-none',
           'placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
         )}
-        data-testid="entry-command-input"
+        data-testid="corpus-command-input"
       />
       <button
         type="button"
@@ -61,7 +61,7 @@ export function CommandComposer({
         disabled={disabled || !value.trim()}
         className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         title="Send"
-        data-testid="entry-command-send"
+        data-testid="corpus-command-send"
       >
         <ArrowUp className="h-4 w-4" />
       </button>

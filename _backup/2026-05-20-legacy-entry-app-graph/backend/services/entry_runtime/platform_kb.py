@@ -8,6 +8,7 @@ from typing import Any
 from openai import AsyncOpenAI
 
 from backend.core.config import settings
+from backend.core.langsmith import wrap_openai_client
 
 
 @dataclass(frozen=True)
@@ -83,7 +84,7 @@ class PlatformKB:
     @property
     def client(self) -> AsyncOpenAI:
         if self._client is None:
-            self._client = AsyncOpenAI(api_key=settings.openai_api_key)
+            self._client = wrap_openai_client(AsyncOpenAI(api_key=settings.openai_api_key))
         return self._client
 
     async def search(self, query: str, *, top_k: int = 3) -> list[PlatformKBResult]:

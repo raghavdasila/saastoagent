@@ -29,7 +29,11 @@ services:
       STA_CORS_ORIGINS: '["http://localhost:3007"]'
       STA_OPENAI_API_KEY: ${STA_OPENAI_API_KEY:-}
       STA_DEFAULT_MODEL: ${STA_DEFAULT_MODEL:-gpt-5-mini}
+      STA_OPENAI_REASONING_EFFORT: ${STA_OPENAI_REASONING_EFFORT:-minimal}
       STA_EMBEDDING_MODEL: ${STA_EMBEDDING_MODEL:-text-embedding-3-small}
+      STA_LANGSMITH_TRACING: ${STA_LANGSMITH_TRACING:-false}
+      STA_LANGSMITH_API_KEY: ${STA_LANGSMITH_API_KEY:-}
+      STA_LANGSMITH_PROJECT: ${STA_LANGSMITH_PROJECT:-saastoagent v0.1}
       STA_UPLOAD_DIR: /app/saastoagent-v0.1/uploads
     ports:
       - "8085:8000"

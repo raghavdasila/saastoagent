@@ -17,8 +17,8 @@ const SaaSAgentContext = createContext<SaaSAgentContextValue>({
 
 interface SaaSAgentProviderProps {
   children: ReactNode
-  /** Optional override — when set, useParams is ignored.  Used by SaaSAgentShell
-   *  (rendered inside OperatorGateway) which is not mounted under a /agents/:id route. */
+  /** Optional override: when set, useParams is ignored. Used by SaaSAgentShell
+   *  when Corpus renders an agent surface without a /agents/:id route. */
   saasAgentId?: string
 }
 

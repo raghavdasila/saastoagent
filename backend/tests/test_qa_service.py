@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from backend.services.qa.schemas import QAEvalRequest, QAEvidenceGate
@@ -119,15 +118,9 @@ def test_qa_reset_guard_defaults_to_local_dev_secret_only():
     assert not is_reset_allowed("production-secret")
 
 
-def test_frontend_qa_runner_supports_all_scenario_actions():
+def test_frontend_qa_panel_does_not_mount_legacy_entry_runner():
     repo_root = Path(__file__).resolve().parents[2]
-    hook_source = (repo_root / "frontend" / "src" / "hooks" / "useSaaStoAgentQA.ts").read_text()
-    supported_actions = set(re.findall(r"case '([^']+)'", hook_source))
-    scenario_actions = {
-        action.action
-        for scenario in list_scenarios()
-        for milestone in scenario.milestones
-        for action in milestone.actions
-    }
+    panel_source = (repo_root / "frontend" / "src" / "components" / "qa" / "QAAgentPanel.tsx").read_text()
 
-    assert scenario_actions - supported_actions == set()
+    assert "useSaaStoAgentQA" not in panel_source
+    assert "entryStore" not in panel_source

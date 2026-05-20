@@ -17,6 +17,7 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
+from backend.core.langsmith import wrap_openai_client
 from backend.core.models import ActionNode, AgentDocument, AgentDocumentChunk, AgentExecutionTrace, Connection, GeneratedTool
 
 CHUNK_SIZE = 500  # tokens (approximate)
@@ -33,7 +34,7 @@ class RAGService:
     @property
     def client(self) -> AsyncOpenAI:
         if self._client is None:
-            self._client = AsyncOpenAI(api_key=settings.openai_api_key)
+            self._client = wrap_openai_client(AsyncOpenAI(api_key=settings.openai_api_key))
         return self._client
 
     # ── Ingestion ────────────────────────────────────────────────

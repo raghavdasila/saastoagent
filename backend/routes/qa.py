@@ -5,7 +5,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
 from backend.core.database import get_async_session
-from backend.services.entry_runtime import ENTRY_SESSION_COOKIE
 from backend.services.qa.schemas import QADomainModelResponse, QAEvalRequest, QAEvalResponse, QAResetResponse, QAScenarioListResponse
 from backend.services.qa.service import domain_model, evaluate_turn, is_reset_allowed, list_scenarios, reset_qa_context
 
@@ -33,7 +32,6 @@ async def qa_reset(response: Response, session: AsyncSession = Depends(get_async
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="QA reset is only available in the local development configuration.",
-        )
+    )
     result = await reset_qa_context(session)
-    response.delete_cookie(ENTRY_SESSION_COOKIE, path="/")
     return result

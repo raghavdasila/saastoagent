@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 from typing import Any, AsyncIterator
@@ -64,18 +65,33 @@ from backend.services.app_graph.manifest import (
     build_app_graph_manifest,
     route_action_to_card,
 )
-from backend.services.app_graph.router import AppGraphTurnRouter
 from backend.services.catalog import SaaSAgent_catalog, preview_openapi_spec
 from backend.services.discovery.activation import ActivationService
 from routedeck_core import RouteDeckOperation, RouteDeckSurface, build_projection, build_runtime_snapshot
 
 
-CORPUS_SYSTEM_PROMPT = """You are Corpus, the central SaaStoAgent platform graph agent.
+CORPUS_TURN_ROUTER_PROMPT = """You are Corpus, the central SaaStoAgent platform graph agent.
 You own platform navigation, setup, recovery, and surface selection for SaaStoAgent.
 You do not run created SaaS Agents in this version.
-Select at most one legal RouteDeck operation and return only JSON:
-{"message": string, "operation_id": string|null, "args": object, "surface_intent": object, "confidence": number}.
-Use only legal operation ids from the RouteDeck projection."""
+Classify the turn, choose at most one legal RouteDeck operation, and return only JSON:
+{
+  "intent": "reply_now" | "open_surface" | "clarify" | "deep_work" | "propose_operation",
+  "message": string,
+  "operation_id": string|null,
+  "args": object,
+  "surface_intent": object,
+  "confidence": number,
+  "preamble": string|null
+}.
+
+Rules:
+- Use only operation ids present in route_deck_projection.legal_operations.
+- Use "open_surface" when the user asks to open a workflow surface such as signup, login, API setup, knowledge, memory, execution, QA, or recovery.
+- Use "propose_operation" for legal operations that require review before execution.
+- Use "reply_now" for greetings, short platform questions, and requests that can be answered from the projection without another model pass.
+- Use "clarify" when the request is ambiguous or no legal operation can satisfy it.
+- Use "deep_work" only when a slower synthesized answer is genuinely needed.
+- For surface-opening turns, make "message" the prompt to show after the active surface is visible."""
 
 CORPUS_STREAM_PROMPT = """You are Corpus, the central SaaStoAgent platform agent.
 Respond conversationally and concisely to the user based on the RouteDeck
@@ -83,13 +99,14 @@ projection. Do not claim to run created SaaS Agents. If a platform action is
 needed, describe the next step naturally; the Corpus graph will decide the typed
 operation separately."""
 
+CORPUS_ROUTER_FIRST_TOKEN_BUDGET_SECONDS = 0.6
+
 
 class CorpusGraphRuntime:
     def __init__(self) -> None:
         self.manifest = build_app_graph_manifest()
         self._action_by_id = {action.id: action for action in ACTION_SPECS}
         self._node_by_id = {node.id: node for node in self.manifest.nodes}
-        self.router = AppGraphTurnRouter()
         self._presentation_state_by_key: dict[str, dict[str, Any]] = {}
 
     async def snapshot(self, *, request: AppGraphRequest, user: User | None, db: AsyncSession) -> AppGraphResponse:
@@ -287,12 +304,6 @@ class CorpusGraphRuntime:
         projection_version: int = 1,
         openai_api_key: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
-        api_key = settings.openai_api_key if openai_api_key is None else openai_api_key
-        if not api_key:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Corpus graph requires a configured LLM. Set STA_OPENAI_API_KEY before using Corpus.",
-            )
         turn_state = await self._initial_state(request, user, db)
         turn_state.node = await self._eligible_node_or_recovery(request.node_id or turn_state.node, turn_state, user, db)
         normalized_request = AppGraphRequest(
@@ -307,23 +318,46 @@ class CorpusGraphRuntime:
             db=db,
             projection_version=projection_version,
         )
+        api_key = settings.openai_api_key if openai_api_key is None else openai_api_key
+        if not api_key:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Corpus graph requires a configured LLM. Set STA_OPENAI_API_KEY before using Corpus.",
+            )
         yield {"event_type": "corpus_status", "projection_version": projection.projection_version, "payload": {"status": "thinking"}}
-        streamed_text = ""
-        try:
-            async for delta in self._stream_corpus_message(
-                api_key=api_key,
-                user_input=request.user_input or "",
-                projection=projection.model_dump(mode="json"),
-            ):
-                if not delta:
-                    continue
-                streamed_text += delta
-                yield {"event_type": "message_delta", "projection_version": projection.projection_version, "payload": {"delta": delta}}
-            decision = await self._corpus_decision(
+        decision_task = asyncio.create_task(
+            self._corpus_turn_plan(
                 api_key=api_key,
                 user_input=request.user_input or "",
                 projection=projection.model_dump(mode="json"),
             )
+        )
+        decision: dict[str, Any] | None = None
+        streamed_before_decision = False
+        try:
+            decision = await asyncio.wait_for(
+                asyncio.shield(decision_task),
+                timeout=CORPUS_ROUTER_FIRST_TOKEN_BUDGET_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            streamed_before_decision = True
+            async for event in self._stream_reply_events(
+                api_key=api_key,
+                user_input=request.user_input or "",
+                projection=projection.model_dump(mode="json"),
+                projection_version=projection.projection_version,
+                fallback_message="",
+            ):
+                yield event
+            try:
+                decision = await decision_task
+            except Exception as exc:
+                yield {
+                    "event_type": "corpus_error",
+                    "projection_version": projection.projection_version,
+                    "payload": {"message": "Corpus could not complete the model turn.", "error": exc.__class__.__name__},
+                }
+                return
         except Exception as exc:
             yield {
                 "event_type": "corpus_error",
@@ -331,7 +365,8 @@ class CorpusGraphRuntime:
                 "payload": {"message": "Corpus could not complete the model turn.", "error": exc.__class__.__name__},
             }
             return
-        if self._store_surface_intent(turn_state, user, decision.get("surface_intent")):
+        surface_intent_changed = self._store_surface_intent(turn_state, user, decision.get("surface_intent"))
+        if surface_intent_changed:
             projection = await self.route_deck_projection(
                 request=normalized_request,
                 user=user,
@@ -343,15 +378,76 @@ class CorpusGraphRuntime:
                 "projection_version": projection.projection_version,
                 "payload": {"projection": projection.model_dump(mode="json")},
             }
-        message = str(decision.get("message") or "")
-        if message and not streamed_text:
-            yield {"event_type": "message_delta", "projection_version": projection.projection_version, "payload": {"content": message}}
+        intent = self._turn_plan_intent(decision)
+        message = str(decision.get("message") or "").strip()
         operation_id = decision.get("operation_id")
         operation = next((candidate for candidate in projection.legal_operations if candidate.id == operation_id), None)
         if operation is None:
-            yield {"event_type": "corpus_done", "projection_version": projection.projection_version, "payload": {"status": "no_operation"}}
+            if operation_id:
+                message = message or "That action is not available from here."
+                async for event in self._message_delta_events(projection_version=projection.projection_version, text=message):
+                    yield event
+                yield {"event_type": "corpus_done", "projection_version": projection.projection_version, "payload": {"status": "clarify"}}
+                return
+            if intent == "deep_work":
+                streamed_text = ""
+                preamble = str(decision.get("preamble") or message or "").strip()
+                if preamble:
+                    async for event in self._message_delta_events(projection_version=projection.projection_version, text=preamble):
+                        yield event
+                try:
+                    async for delta in self._stream_corpus_message(
+                        api_key=api_key,
+                        user_input=request.user_input or "",
+                        projection=projection.model_dump(mode="json"),
+                    ):
+                        if not delta:
+                            continue
+                        streamed_text += delta
+                        yield {"event_type": "message_delta", "projection_version": projection.projection_version, "payload": {"delta": delta}}
+                except Exception as exc:
+                    yield {
+                        "event_type": "corpus_error",
+                        "projection_version": projection.projection_version,
+                        "payload": {"message": "Corpus could not complete the model turn.", "error": exc.__class__.__name__},
+                    }
+                    return
+                if message and not streamed_text and not preamble:
+                    async for event in self._message_delta_events(projection_version=projection.projection_version, text=message):
+                        yield event
+                yield {"event_type": "corpus_done", "projection_version": projection.projection_version, "payload": {"status": "deep_work"}}
+                return
+            message = message or "I can help from here. Choose one of the visible next steps."
+            if streamed_before_decision:
+                pass
+            elif surface_intent_changed:
+                async for event in self._message_delta_events(projection_version=projection.projection_version, text=message):
+                    yield event
+            else:
+                async for event in self._stream_reply_events(
+                    api_key=api_key,
+                    user_input=request.user_input or "",
+                    projection=projection.model_dump(mode="json"),
+                    projection_version=projection.projection_version,
+                    fallback_message=message,
+                ):
+                    yield event
+            done_status = intent if intent in {"reply_now", "clarify"} else "clarify"
+            yield {"event_type": "corpus_done", "projection_version": projection.projection_version, "payload": {"status": done_status}}
             return
         if operation.execution_mode == "auto":
+            expected_active_surface = self._expected_active_surface_for_operation(operation)
+            if expected_active_surface is not None:
+                yield {
+                    "event_type": "surface_opening",
+                    "projection_version": projection.projection_version,
+                    "payload": {
+                        "operation_id": operation.id,
+                        "label": operation.label,
+                        "target_node": operation.target_node,
+                        "expected_active_surface": expected_active_surface,
+                    },
+                }
             response = await self.corpus_action(
                 request=normalized_request,
                 operation_id=operation.id,
@@ -370,6 +466,12 @@ class CorpusGraphRuntime:
                     "active_surface": response.active_surface.model_dump(mode="json") if response.active_surface else None,
                     "messages": [message.model_dump(mode="json") for message in response.messages],
                     "replace_path": response.replace_path,
+                    "surface_prompt": self._surface_prompt_payload(
+                        operation=operation,
+                        response=response,
+                        decision_message=message,
+                        expected_active_surface=expected_active_surface,
+                    ),
                 },
             }
             return
@@ -388,36 +490,6 @@ class CorpusGraphRuntime:
             "projection_version": projection.projection_version,
             "payload": proposal.model_dump(mode="json"),
         }
-
-    async def turn(self, *, request: AppGraphRequest, user: User | None, db: AsyncSession) -> AppGraphResponse:
-        if request.selected_action_id:
-            return await self.action(request=request, user=user, db=db)
-        state = await self._initial_state(request, user, db)
-        actions = await self._valid_actions(state, user, db)
-        decision = await self.router.route(
-            user_input=request.user_input,
-            state=state,
-            actions=actions,
-            manifest=self.manifest,
-        )
-        clarification = self.router.action_needs_clarification(decision, actions)
-        if decision.intent == "action" and decision.action_id and not clarification:
-            routed_request = AppGraphRequest(
-                state=state,
-                selected_action_id=decision.action_id,
-                action_payload=decision.slots,
-            )
-            response = await self.action(request=routed_request, user=user, db=db)
-            response.evidence.append({"type": "turn_router", "decision": decision.model_dump(mode="json")})
-            return response
-        message = clarification or decision.clarification or "I can help from here. Choose one of the visible next steps."
-        return await self._response(
-            state=state,
-            user=user,
-            db=db,
-            messages=[EntryGraphMessage(content=message)],
-            evidence=[{"type": "turn_router", "decision": decision.model_dump(mode="json")}],
-        )
 
     async def action(self, *, request: AppGraphRequest, user: User | None, db: AsyncSession) -> AppGraphResponse:
         state = await self._initial_state(request, user, db)
@@ -551,29 +623,87 @@ class CorpusGraphRuntime:
                 ids.extend([AppActionIds.CATALOG_OPEN, AppActionIds.ENTITIES_OPEN, AppActionIds.ACTIONS_OPEN, AppActionIds.EXECUTION_OPEN])
         return [route_action_to_card(self._action_by_id[action_id]) for action_id in ids]
 
-    async def _corpus_decision(self, *, api_key: str, user_input: str, projection: dict[str, Any]) -> dict[str, Any]:
+    def _turn_plan_intent(self, decision: dict[str, Any]) -> str:
+        intent = str(decision.get("intent") or "").strip()
+        allowed = {"reply_now", "open_surface", "clarify", "deep_work", "propose_operation"}
+        if intent in allowed:
+            return intent
+        return "propose_operation" if decision.get("operation_id") else "reply_now"
+
+    async def _message_delta_events(self, *, projection_version: int, text: str) -> AsyncIterator[dict[str, Any]]:
+        for delta in self._message_text_chunks(text):
+            yield {"event_type": "message_delta", "projection_version": projection_version, "payload": {"delta": delta}}
+            await asyncio.sleep(0)
+
+    async def _stream_reply_events(
+        self,
+        *,
+        api_key: str,
+        user_input: str,
+        projection: dict[str, Any],
+        projection_version: int,
+        fallback_message: str,
+    ) -> AsyncIterator[dict[str, Any]]:
+        streamed_text = ""
+        try:
+            async for delta in self._stream_corpus_message(
+                api_key=api_key,
+                user_input=user_input,
+                projection=projection,
+            ):
+                if not delta:
+                    continue
+                streamed_text += delta
+                yield {"event_type": "message_delta", "projection_version": projection_version, "payload": {"delta": delta}}
+        except Exception as exc:
+            yield {
+                "event_type": "corpus_error",
+                "projection_version": projection_version,
+                "payload": {"message": "Corpus could not complete the model turn.", "error": exc.__class__.__name__},
+            }
+            return
+        if not streamed_text and fallback_message:
+            async for event in self._message_delta_events(projection_version=projection_version, text=fallback_message):
+                yield event
+
+    def _message_text_chunks(self, text: str, *, target_size: int = 18) -> list[str]:
+        if not text:
+            return []
+        return [text[index : index + target_size] for index in range(0, len(text), target_size)]
+
+    async def _corpus_turn_plan(self, *, api_key: str, user_input: str, projection: dict[str, Any]) -> dict[str, Any]:
         from openai import AsyncOpenAI
 
-        client = AsyncOpenAI(api_key=api_key)
+        from backend.core.langsmith import wrap_openai_client
+
+        client = wrap_openai_client(AsyncOpenAI(api_key=api_key))
         response = await client.chat.completions.create(
             model=settings.default_model,
             messages=[
-                {"role": "system", "content": CORPUS_SYSTEM_PROMPT},
+                {"role": "system", "content": CORPUS_TURN_ROUTER_PROMPT},
                 {"role": "user", "content": json.dumps({"user_input": user_input, "route_deck_projection": projection})},
             ],
             response_format={"type": "json_object"},
+            **_openai_latency_options(),
         )
         content = response.choices[0].message.content or "{}"
         try:
             parsed = json.loads(content)
         except json.JSONDecodeError:
-            return {"message": "I could not read the model response.", "operation_id": None, "args": {}}
-        return parsed if isinstance(parsed, dict) else {"message": "", "operation_id": None, "args": {}}
+            return {"intent": "clarify", "message": "I could not read the model response.", "operation_id": None, "args": {}}
+        if not isinstance(parsed, dict):
+            return {"intent": "clarify", "message": "", "operation_id": None, "args": {}}
+        parsed.setdefault("intent", "propose_operation" if parsed.get("operation_id") else "reply_now")
+        parsed.setdefault("args", {})
+        parsed.setdefault("surface_intent", {})
+        return parsed
 
     async def _stream_corpus_message(self, *, api_key: str, user_input: str, projection: dict[str, Any]) -> AsyncIterator[str]:
         from openai import AsyncOpenAI
 
-        client = AsyncOpenAI(api_key=api_key)
+        from backend.core.langsmith import wrap_openai_client
+
+        client = wrap_openai_client(AsyncOpenAI(api_key=api_key))
         stream = await client.chat.completions.create(
             model=settings.default_model,
             messages=[
@@ -581,6 +711,7 @@ class CorpusGraphRuntime:
                 {"role": "user", "content": json.dumps({"user_input": user_input, "route_deck_projection": projection})},
             ],
             stream=True,
+            **_openai_latency_options(),
         )
         async for chunk in stream:
             content = chunk.choices[0].delta.content if chunk.choices else None
@@ -704,6 +835,24 @@ class CorpusGraphRuntime:
         saas_agents: list[SaaSAgentRead],
         context: str,
     ) -> RouteDeckSurface | None:
+        component = self._active_surface_component_for_node(state.node)
+        if component is None:
+            return None
+        return RouteDeckSurface(
+            name="active",
+            component=component,
+            variant=state.node,
+            role="active",
+            props={
+                "title": lens.working_on,
+                "node_id": state.node,
+                "saas_agents": [agent.model_dump(mode="json") for agent in saas_agents],
+                "lens": lens.model_dump(mode="json"),
+                **state.graph_context,
+            },
+        )
+
+    def _active_surface_component_for_node(self, node_id: str | None) -> str | None:
         active_components = {
             AppNodeIds.AUTH_SIGN_IN: "CorpusAuthSurface",
             AppNodeIds.AUTH_REGISTER: "CorpusAuthSurface",
@@ -723,22 +872,40 @@ class CorpusGraphRuntime:
             AppNodeIds.QA: "QASurface",
             AppNodeIds.RECOVERY: "RecoverySurface",
         }
-        component = active_components.get(state.node)
+        return active_components.get(node_id or "")
+
+    def _expected_active_surface_for_operation(self, operation: RouteDeckOperation) -> dict[str, Any] | None:
+        component = self._active_surface_component_for_node(operation.target_node)
         if component is None:
             return None
-        return RouteDeckSurface(
-            name="active",
-            component=component,
-            variant=state.node,
-            role="active",
-            props={
-                "title": lens.working_on,
-                "node_id": state.node,
-                "saas_agents": [agent.model_dump(mode="json") for agent in saas_agents],
-                "lens": lens.model_dump(mode="json"),
-                **state.graph_context,
-            },
-        )
+        return {
+            "name": "active",
+            "component": component,
+            "variant": operation.target_node,
+            "role": "active",
+        }
+
+    def _surface_prompt_payload(
+        self,
+        *,
+        operation: RouteDeckOperation,
+        response: CorpusActionResponse,
+        decision_message: str,
+        expected_active_surface: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        if expected_active_surface is None:
+            return None
+        content = decision_message.strip()
+        if not content and response.messages:
+            content = str(response.messages[0].content or "").strip()
+        if not content:
+            return None
+        return {
+            "operation_id": operation.id,
+            "target_node": operation.target_node,
+            "expected_active_surface": expected_active_surface,
+            "content": content,
+        }
 
     def _blocked_actions(self, state: AppGraphState, user: User | None, lens: AppGraphContextLens) -> list[dict[str, str]]:
         blocked: list[dict[str, str]] = []
@@ -1106,6 +1273,9 @@ class CorpusGraphRuntime:
         return values, [name for name in required if name not in values]
 
 
-AppGraphRuntime = CorpusGraphRuntime
 corpus_graph_runtime = CorpusGraphRuntime()
-app_graph_runtime = corpus_graph_runtime
+
+
+def _openai_latency_options() -> dict[str, Any]:
+    effort = settings.openai_reasoning_effort.strip()
+    return {"reasoning_effort": effort} if effort else {}

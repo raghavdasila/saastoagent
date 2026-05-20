@@ -5,6 +5,8 @@ import json
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
+from backend.core.langsmith import configure_langsmith_environment
+
 
 class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:postgres@db:5432/saastoagent_v0_1"
@@ -16,12 +18,13 @@ class Settings(BaseSettings):
     # OpenAI / agent runtime
     openai_api_key: str = ""
     default_model: str = "gpt-5-mini"
+    openai_reasoning_effort: str = "minimal"
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1536
-    app_graph_router_provider: str = "disabled"
-    app_graph_router_model: str = ""
-    app_graph_router_confidence_threshold: float = 0.65
-    app_graph_router_ollama_url: str = "http://localhost:11434"
+    langsmith_tracing: bool = False
+    langsmith_api_key: str = ""
+    langsmith_project: str = "saastoagent v0.1"
+    langsmith_endpoint: str = ""
 
     # Uploads (RAG attachments)
     upload_dir: str = "./uploads"
@@ -46,3 +49,9 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+configure_langsmith_environment(
+    tracing=settings.langsmith_tracing,
+    api_key=settings.langsmith_api_key,
+    project=settings.langsmith_project,
+    endpoint=settings.langsmith_endpoint,
+)

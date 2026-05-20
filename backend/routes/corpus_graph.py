@@ -4,12 +4,11 @@ import json
 import uuid
 from typing import Any, AsyncIterator
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.auth import current_optional_active_user
-from backend.core.config import settings
 from backend.core.database import get_async_session
 from backend.core.models import User
 from backend.core.schemas import AppGraphRequest, CorpusActionRequest, CorpusActionResponse, CorpusStateResponse
@@ -84,11 +83,6 @@ async def stream_corpus_turn(
     user: User | None = Depends(current_optional_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    if not settings.openai_api_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Corpus graph requires a configured LLM. Set STA_OPENAI_API_KEY before using Corpus.",
-        )
     turn_id = str(uuid.uuid4())
 
     async def events() -> AsyncIterator[str]:

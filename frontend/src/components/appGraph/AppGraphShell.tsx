@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { ChangeEvent, ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { ChangeEvent, FormEvent, ReactNode } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   RouteDeckDebugger,
@@ -34,16 +34,25 @@ import { AttachmentsPanel } from '@/components/agent/AttachmentsPanel'
 import { CommandComposer } from '@/components/agent/CommandComposer'
 import { LearningPanel } from '@/components/agent/LearningPanel'
 import { MessageBubble } from '@/components/agent/MessageBubble'
-import { AuthAgentDesk } from '@/components/auth/AuthAgentDesk'
 import { ActionsCanvas } from '@/components/saasAgent/ActionsCanvas'
 import { EntitiesCanvas } from '@/components/saasAgent/EntitiesCanvas'
 import { QAAgentPanel } from '@/components/qa/QAAgentPanel'
 import { ThemeToggleButton } from '@/components/theme/ThemeToggleButton'
+import { useAuth } from '@/context/AuthContext'
 import { api } from '@/lib/api'
+import { isValidEmail } from '@/lib/entryGraph'
 import { useSaaSAgentStore } from '@/stores/saasAgentStore'
 import type { ChatUIMessage } from '@/types/agent'
 import type { AppGraphContextLens, AppGraphState } from '@/types/appGraph'
-import type { CorpusActionResponse, CorpusDiagnosticsSnapshot, CorpusProposal, CorpusStateResponse } from '@/types/corpus'
+import type {
+  CorpusActionResponse,
+  CorpusDiagnosticsSnapshot,
+  CorpusExpectedActiveSurface,
+  CorpusProposal,
+  CorpusStateResponse,
+  CorpusSurfaceOpening,
+  CorpusSurfacePrompt,
+} from '@/types/corpus'
 import type { SaaSAgent } from '@/types/domain'
 
 interface AppGraphShellProps {
@@ -126,6 +135,9 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
   ])
   const [draft, setDraft] = useState('')
   const [pendingProposal, setPendingProposal] = useState<CorpusProposal | null>(null)
+  const [pendingSurfaceOpening, setPendingSurfaceOpening] = useState<CorpusSurfaceOpening | null>(null)
+  const [queuedSurfacePrompt, setQueuedSurfacePrompt] = useState<CorpusSurfacePrompt | null>(null)
+  const activeSurface = activeSurfaceFromProjection(projection)
 
   useEffect(() => {
     if (!projection || !graphState) return
@@ -134,6 +146,20 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
       replaceBrowserPath(replacePath)
     }
   }, [graphState, projection, replacePath, setSaaSAgentId])
+
+  useEffect(() => {
+    if (!queuedSurfacePrompt) return
+    if (!surfaceMatchesExpected(activeSurface, queuedSurfacePrompt.expected_active_surface)) return
+    setChatMessages((current) => [...current, makeAgentMessage('assistant', queuedSurfacePrompt.content)])
+    setQueuedSurfacePrompt(null)
+    setPendingSurfaceOpening(null)
+  }, [activeSurface, queuedSurfacePrompt])
+
+  useEffect(() => {
+    if (!pendingSurfaceOpening || queuedSurfacePrompt) return
+    if (!surfaceMatchesExpected(activeSurface, pendingSurfaceOpening.expected_active_surface)) return
+    setPendingSurfaceOpening(null)
+  }, [activeSurface, pendingSurfaceOpening, queuedSurfacePrompt])
 
   const executeOperation = useMutation({
     mutationFn: async ({
@@ -164,9 +190,14 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
 
   const turn = useMutation({
     mutationFn: async (userInput: string) => {
+      const currentGraphState = graphStateFromRouteDeckState(routeDeckStore.getState()) || graphState
       const params = new URLSearchParams({ user_input: userInput })
-      if (nodeId) params.set('node_id', nodeId)
-      if (saasAgentId) params.set('saas_agent_id', saasAgentId)
+      if (currentGraphState?.node) params.set('node_id', currentGraphState.node)
+      if (currentGraphState?.active_saas_agent_id) {
+        params.set('saas_agent_id', currentGraphState.active_saas_agent_id)
+      } else if (saasAgentId) {
+        params.set('saas_agent_id', saasAgentId)
+      }
       if (projection?.projection_version) {
         params.set('projection_version', String(projection.projection_version))
       }
@@ -197,10 +228,17 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
           ),
         )
       }
+      const removeEmptyStreamingMessage = () => {
+        setChatMessages((current) =>
+          current.filter((message) => message.id !== streamMessageId || Boolean(message.content.trim())),
+        )
+      }
 
       setPendingProposal(null)
+      setQueuedSurfacePrompt(null)
 
       await api.getStream(`/corpus/stream?${params.toString()}`, (eventType, eventData) => {
+        const routeDeckEvent = { event_type: eventType, payload: eventData.payload || {} } as RouteDeckEvent
         const payload = (eventData.payload || {}) as Record<string, unknown>
         if (eventType === 'corpus_status') {
           ensureStreamingMessage()
@@ -229,12 +267,20 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
           setPendingProposal(payload as unknown as CorpusProposal)
           finishStreamingMessage()
         }
+        if (eventType === 'surface_opening') {
+          removeEmptyStreamingMessage()
+          setPendingSurfaceOpening(payload as unknown as CorpusSurfaceOpening)
+        }
         if (eventType === 'operation_completed') {
           const nextProjection = payload.projection as RouteDeckProjection | undefined
           if (nextProjection) {
             const nextState = payload.state as AppGraphState | undefined
-            routeDeckStore.receiveEvent(eventData as unknown as RouteDeckEvent)
+            routeDeckStore.receiveEvent(routeDeckEvent)
             setSaaSAgentId(nextState?.active_saas_agent_id || null)
+          }
+          const surfacePrompt = payload.surface_prompt as CorpusSurfacePrompt | null | undefined
+          if (surfacePrompt?.content) {
+            setQueuedSurfacePrompt(surfacePrompt)
           }
           const nextPath = typeof payload.replace_path === 'string' ? payload.replace_path : null
           if (nextPath && nextPath !== window.location.pathname) {
@@ -243,7 +289,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
           finishStreamingMessage()
         }
         if (eventType === 'projection_update') {
-          routeDeckStore.receiveEvent(eventData as unknown as RouteDeckEvent)
+          routeDeckStore.receiveEvent(routeDeckEvent)
         }
         if (eventType === 'corpus_done') {
           finishStreamingMessage()
@@ -268,10 +314,17 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
   })
 
   const hasStreamingCorpusMessage = chatMessages.some((message) => message.isStreaming)
+  const authSurfaceActive = activeSurface?.component === 'CorpusAuthSurface'
+  const composerDisabled = executeOperation.isPending || turn.isPending || Boolean(pendingSurfaceOpening) || authSurfaceActive
+  const composerPlaceholder = authSurfaceActive
+    ? 'Complete authentication in the active surface'
+    : pendingSurfaceOpening
+      ? `Opening ${pendingSurfaceOpening.label}...`
+      : 'Message Corpus'
 
   const sendChatTurn = () => {
     const value = draft.trim()
-    if (!value || turn.isPending || executeOperation.isPending) return
+    if (!value || composerDisabled) return
     setDraft('')
     setChatMessages((current) => [...current, makeAgentMessage('user', value)])
     turn.mutate(value)
@@ -294,14 +347,19 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
         </div>
       </header>
 
-      <div className="grid min-h-[calc(100vh-3.5rem)] lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <main className="min-w-0">
+      <div className="grid min-h-[calc(100vh-3.5rem)] lg:h-[calc(100vh-3.5rem)] lg:grid-cols-[minmax(0,1fr)_22rem] lg:overflow-hidden">
+        <main className="min-w-0 lg:min-h-0 lg:overflow-hidden">
           <AgentConversation
             messages={chatMessages}
             draft={draft}
-            busy={executeOperation.isPending || (turn.isPending && !hasStreamingCorpusMessage)}
+            busy={executeOperation.isPending || (turn.isPending && !hasStreamingCorpusMessage && !pendingSurfaceOpening)}
+            composerDisabled={composerDisabled}
+            composerPlaceholder={composerPlaceholder}
             error={turn.error || executeOperation.error}
             pendingProposal={pendingProposal}
+            pendingSurfaceOpening={pendingSurfaceOpening}
+            activeSurfacePanel={<ActiveSurfacePanel projection={projection} graphState={graphState} />}
+            activeSurfaceKey={activeSurface ? `${activeSurface.component}:${activeSurface.variant}` : 'none'}
             onDraftChange={setDraft}
             onSend={sendChatTurn}
             onProposalAccept={(args) =>
@@ -310,10 +368,9 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
             }
             onProposalDismiss={() => setPendingProposal(null)}
           />
-          <ActiveSurfacePanel projection={projection} graphState={graphState} />
         </main>
 
-        <aside className="border-t border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#09090b] lg:border-l lg:border-t-0">
+        <aside className="border-t border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#09090b] lg:min-h-0 lg:overflow-y-auto lg:border-l lg:border-t-0">
           <ContextPanel projection={projection} />
           <DiagnosticsPanel
             projection={projection}
@@ -352,8 +409,8 @@ function createSaaStoAgentRouteDeckStore({
       if (!graphState) throw new Error('Graph state is unavailable')
       const response = await api.post<CorpusActionResponse>('/corpus/action', {
         state: graphState,
-        node_id: nodeId || graphState.node,
-        saas_agent_id: saasAgentId || graphState.active_saas_agent_id,
+        node_id: graphState.node || nodeId,
+        saas_agent_id: graphState.active_saas_agent_id || saasAgentId,
         operation_id: input.operation_id,
         args: input.args || {},
         projection_version: currentState.projection.projection_version || 1,
@@ -415,8 +472,13 @@ function AgentConversation({
   messages,
   draft,
   busy,
+  composerDisabled,
+  composerPlaceholder,
   error,
   pendingProposal,
+  pendingSurfaceOpening,
+  activeSurfacePanel,
+  activeSurfaceKey,
   onDraftChange,
   onSend,
   onProposalAccept,
@@ -425,17 +487,33 @@ function AgentConversation({
   messages: ChatUIMessage[]
   draft: string
   busy: boolean
+  composerDisabled: boolean
+  composerPlaceholder: string
   error: unknown
   pendingProposal: CorpusProposal | null
+  pendingSurfaceOpening: CorpusSurfaceOpening | null
+  activeSurfacePanel: ReactNode
+  activeSurfaceKey: string
   onDraftChange: (value: string) => void
   onSend: () => void
   onProposalAccept: (args: Record<string, unknown>) => void
   onProposalDismiss: () => void
 }) {
+  const workspaceRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const workspace = workspaceRef.current
+    if (!workspace) return undefined
+    const frame = window.requestAnimationFrame(() => {
+      workspace.scrollTo({ top: workspace.scrollHeight, behavior: 'smooth' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [messages.length, busy, pendingSurfaceOpening?.operation_id, pendingProposal?.operation_id, activeSurfaceKey, error])
+
   return (
-    <section className="border-b border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-[#08080a]" data-testid="app-agent-chat">
-      <div className="mx-auto flex min-h-[28rem] max-w-5xl flex-col px-4 py-4 sm:px-6">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-white/10">
+    <section className="flex h-[calc(100vh-3.5rem)] min-h-0 flex-col border-b border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-[#08080a] lg:h-full" data-testid="app-agent-chat">
+      <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col px-4 pt-4 sm:px-6">
+        <div className="shrink-0 flex items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-white/10">
           <div>
             <h1 className="text-lg font-semibold">Corpus</h1>
             <p className="mt-1 text-sm text-slate-500">Tell Corpus what to set up, inspect, or run.</p>
@@ -443,51 +521,69 @@ function AgentConversation({
           <Activity className="h-5 w-5 text-slate-400" />
         </div>
 
-        <div className="py-4">
+        <div ref={workspaceRef} className="min-h-0 flex-1 overflow-y-auto py-4">
           <FrameSurfacePanel />
-        </div>
 
-        <div className="flex-1 overflow-y-auto py-3">
-          {messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
-          ))}
-          {busy && (
-            <MessageBubble
-              message={{
-                id: 'corpus-busy',
-                role: 'assistant',
-                content: '',
-                timestamp: Date.now(),
-                isStreaming: true,
-              }}
+          <div className="py-3">
+            {messages.map((message) => (
+              <MessageBubble key={message.id} message={message} />
+            ))}
+            {busy && (
+              <MessageBubble
+                message={{
+                  id: 'corpus-busy',
+                  role: 'assistant',
+                  content: '',
+                  timestamp: Date.now(),
+                  isStreaming: true,
+                }}
+              />
+            )}
+            {pendingSurfaceOpening && <SurfaceOpeningNotice opening={pendingSurfaceOpening} />}
+          </div>
+
+          {activeSurfacePanel}
+
+          {pendingProposal && (
+            <ProposalPanel
+              proposal={pendingProposal}
+              busy={busy}
+              onAccept={onProposalAccept}
+              onDismiss={onProposalDismiss}
             />
+          )}
+
+          {error && (
+            <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+              {error instanceof Error ? error.message : 'Corpus could not complete that step.'}
+            </div>
           )}
         </div>
 
-        {pendingProposal && (
-          <ProposalPanel
-            proposal={pendingProposal}
-            busy={busy}
-            onAccept={onProposalAccept}
-            onDismiss={onProposalDismiss}
+        <div className="shrink-0 border-t border-slate-200 bg-slate-50 py-3 dark:border-white/10 dark:bg-[#08080a]">
+          <CommandComposer
+            value={draft}
+            onChange={onDraftChange}
+            onSend={onSend}
+            placeholder={composerPlaceholder}
+            disabled={composerDisabled}
           />
-        )}
-
-        {error && (
-          <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
-            {error instanceof Error ? error.message : 'Corpus could not complete that step.'}
-          </div>
-        )}
-
-        <CommandComposer
-          value={draft}
-          onChange={onDraftChange}
-          onSend={onSend}
-          placeholder="Message Corpus"
-          disabled={busy}
-        />
+        </div>
       </div>
     </section>
+  )
+}
+
+function SurfaceOpeningNotice({ opening }: { opening: CorpusSurfaceOpening }) {
+  return (
+    <div className="flex gap-3 px-4 py-3" data-testid="surface-opening-loader">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-300">
+        <Loader2 className="h-4 w-4 animate-spin" />
+      </div>
+      <div className="max-w-[75%] rounded-2xl border border-sky-100 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm dark:border-sky-500/20 dark:bg-white/[0.04] dark:text-slate-200">
+        Opening {opening.label}...
+      </div>
+    </div>
   )
 }
 
@@ -649,15 +745,15 @@ function ActiveSurfacePanel({
 }) {
   const contextLens = contextLensFromProjection(projection)
   const activeSurface = useMemo(
-    () => Object.values(projection.surfaces).find((surface) => surface.role === 'active') || null,
+    () => activeSurfaceFromProjection(projection),
     [projection.surfaces],
   )
 
   if (!activeSurface) return null
 
   return (
-    <section className="px-4 py-6 sm:px-6">
-      <div className="mx-auto max-w-5xl rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
+    <section className="py-4" data-testid="active-surface-panel">
+      <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
         <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-white/10">
           <div>
             <h2 className="text-base font-semibold">{surfaceTitle(activeSurface, contextLens)}</h2>
@@ -683,7 +779,7 @@ function SurfaceRenderer({
   graphState: AppGraphState | null
 }) {
   if (surface.component === 'CorpusAuthSurface') {
-    return <AuthAgentDesk initialIntent={surface.variant === 'auth_register' ? 'register' : 'login'} />
+    return <AuthSurfaceCard surface={surface} />
   }
   if (surface.component === 'EntitiesSurface') return <EntitiesCanvas />
   if (surface.component === 'ActionsSurface') return <ActionsCanvas />
@@ -741,6 +837,137 @@ function SurfaceRenderer({
   }
   return (
     <InfoSurface title={surfaceTitle(surface, contextLens)} description="This surface is available from the current node." icon={<Boxes className="h-5 w-5" />} />
+  )
+}
+
+function AuthSurfaceCard({ surface }: { surface: RouteDeckSurface }) {
+  const intent = surface.variant === 'auth_register' ? 'register' : 'login'
+  const { login, register } = useAuth()
+  const routeDeckStore = useRouteDeckStore()
+  const firstFieldRef = useRef<HTMLInputElement>(null)
+  const [displayName, setDisplayName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    firstFieldRef.current?.focus()
+  }, [intent])
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setError(null)
+    const cleanedEmail = email.trim()
+    if (!isValidEmail(cleanedEmail)) {
+      setError('Enter a full email address.')
+      return
+    }
+    if (intent === 'register' && password.length < 8) {
+      setError('Use at least 8 characters for the password.')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      if (intent === 'register') {
+        await register(cleanedEmail, password, displayName.trim() || undefined)
+      } else {
+        await login(cleanedEmail, password)
+      }
+      await routeDeckStore.dispatch({
+        operation_id: 'navigate.home',
+        args: {},
+      })
+    } catch (authError: unknown) {
+      setError(authError instanceof Error ? authError.message : 'Authentication failed.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const title = intent === 'register' ? 'Create account' : 'Sign in'
+  const description =
+    intent === 'register'
+      ? 'Create the platform account here. Corpus will continue from the authenticated graph after this succeeds.'
+      : 'Sign in here. Corpus will keep the graph context and continue after authentication succeeds.'
+
+  return (
+    <form className="grid gap-4" onSubmit={submit} data-testid="corpus-auth-surface">
+      <div>
+        <h3 className="text-lg font-semibold">{title}</h3>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">{description}</p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {intent === 'register' && (
+          <label className="grid gap-1.5 text-sm sm:col-span-2">
+            <span className="text-xs font-medium text-slate-500">Display name</span>
+            <input
+              ref={firstFieldRef}
+              type="text"
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+              placeholder="Optional"
+              className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-400 dark:border-white/10 dark:bg-[#09090b]"
+              data-testid="corpus-auth-display-name"
+            />
+          </label>
+        )}
+
+        <label className="grid gap-1.5 text-sm">
+          <span className="text-xs font-medium text-slate-500">Email</span>
+          <input
+            ref={intent === 'login' ? firstFieldRef : undefined}
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="you@example.com"
+            className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-400 dark:border-white/10 dark:bg-[#09090b]"
+            data-testid="corpus-auth-email"
+          />
+        </label>
+
+        <label className="grid gap-1.5 text-sm">
+          <span className="text-xs font-medium text-slate-500">Password</span>
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder={intent === 'register' ? 'At least 8 characters' : 'Password'}
+            className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-400 dark:border-white/10 dark:bg-[#09090b]"
+            data-testid="corpus-auth-password"
+          />
+        </label>
+      </div>
+
+      {error && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+          {error}
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="submit"
+          disabled={submitting}
+          className="inline-flex items-center gap-2 rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+        >
+          {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+          {title}
+        </button>
+        <button
+          type="button"
+          disabled={submitting}
+          onClick={() => {
+            void routeDeckStore.dispatch({ operation_id: 'navigate.home', args: {} })
+          }}
+          className="rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   )
 }
 
@@ -806,7 +1033,7 @@ function DiagnosticsPanel({
         Diagnostics
       </button>
       {open && (
-        <div className="fixed inset-y-16 right-4 z-40 w-[min(44rem,calc(100vw-2rem))] overflow-y-auto rounded-lg border border-slate-200 bg-white p-4 text-xs shadow-2xl dark:border-white/10 dark:bg-[#09090b]">
+        <div className="mt-3 max-h-[calc(100vh-8rem)] overflow-y-auto rounded-lg border border-slate-200 bg-white p-4 text-xs shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <div className="font-semibold text-slate-950 dark:text-white">RouteDeck diagnostics</div>
@@ -925,6 +1152,22 @@ function contextLensFromProjection(projection: RouteDeckProjection): AppGraphCon
   const sideSurface = projection.surfaces.side
   if (!sideSurface?.props || typeof sideSurface.props !== 'object') return null
   return sideSurface.props as unknown as AppGraphContextLens
+}
+
+function activeSurfaceFromProjection(projection: RouteDeckProjection): RouteDeckSurface | null {
+  return Object.values(projection.surfaces).find((surface) => surface.role === 'active') || null
+}
+
+function surfaceMatchesExpected(
+  surface: RouteDeckSurface | null,
+  expected?: CorpusExpectedActiveSurface | null,
+) {
+  if (!surface || !expected) return false
+  if (expected.name && surface.name !== expected.name) return false
+  if (expected.component && surface.component !== expected.component) return false
+  if (expected.variant && surface.variant !== expected.variant) return false
+  if (expected.role && surface.role !== expected.role) return false
+  return true
 }
 
 function proposalFields(proposal: CorpusProposal): ProposalField[] {
