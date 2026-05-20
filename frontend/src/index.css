@@ -1,14 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 42 36% 98%;
+    --background: 40 33% 98%;
     --foreground: 230 10% 11%;
-    --card: 38 24% 94%;
+    --card: 0 0% 100%;
     --card-foreground: 230 10% 11%;
     --primary: 213 61% 41%;
     --primary-foreground: 0 0% 100%;
@@ -18,13 +16,13 @@
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --muted: 38 18% 90%;
+    --muted: 40 22% 94%;
     --muted-foreground: 221 8% 29%;
-    --border: 36 10% 47%;
-    --input: 38 18% 90%;
+    --border: 36 13% 69%;
+    --input: 40 22% 92%;
     --ring: 213 61% 41%;
-    --radius: 1.5rem;
-    --sidebar: 38 24% 94%;
+    --radius: 0.75rem;
+    --sidebar: 0 0% 100%;
     --sidebar-foreground: 230 10% 11%;
     --sidebar-accent: 214 48% 90%;
   }
@@ -32,7 +30,7 @@
   .dark {
     --background: 220 7% 7%;
     --foreground: 220 16% 94%;
-    --card: 220 7% 12%;
+    --card: 220 7% 11%;
     --card-foreground: 220 16% 94%;
     --primary: 213 61% 41%;
     --primary-foreground: 0 0% 100%;
@@ -42,12 +40,12 @@
     --accent-foreground: 0 0% 100%;
     --destructive: 0 62% 40%;
     --destructive-foreground: 0 0% 96%;
-    --muted: 220 7% 16%;
+    --muted: 220 7% 15%;
     --muted-foreground: 220 13% 82%;
-    --border: 220 8% 48%;
-    --input: 220 7% 16%;
+    --border: 220 7% 40%;
+    --input: 220 7% 15%;
     --ring: 213 61% 41%;
-    --sidebar: 220 7% 12%;
+    --sidebar: 220 7% 11%;
     --sidebar-foreground: 220 16% 94%;
     --sidebar-accent: 220 9% 24%;
   }
@@ -68,6 +66,11 @@
     @apply bg-background text-foreground antialiased;
     font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     min-height: 100vh;
+    background-image:
+      radial-gradient(circle at 16% -8%, hsl(var(--primary) / 0.1), transparent 30rem),
+      radial-gradient(circle at 92% 12%, hsl(var(--secondary) / 0.12), transparent 26rem),
+      linear-gradient(135deg, hsl(40 33% 98%), hsl(42 25% 94%) 48%, hsl(216 28% 96%));
+    background-attachment: fixed;
   }
 
   button {
@@ -91,13 +94,37 @@
   }
 
   .dark body {
-    background-image: radial-gradient(circle at top right, rgba(255, 255, 255, 0.035), transparent 34%);
+    background-image:
+      radial-gradient(circle at 14% 0%, hsl(var(--primary) / 0.16), transparent 30rem),
+      radial-gradient(circle at 94% 18%, hsl(var(--secondary) / 0.12), transparent 25rem),
+      linear-gradient(180deg, hsl(var(--background)), hsl(220 7% 5%));
   }
 }
 
 @layer components {
+  .workbench-canvas {
+    @apply min-h-screen overflow-hidden text-foreground;
+  }
+
+  .workbench-topbar {
+    @apply rounded-[0.875rem] border border-border/25 bg-card/80 shadow-[0_22px_58px_-44px_hsl(var(--foreground)/0.72)] backdrop-blur-xl dark:border-white/10 dark:bg-card/80 dark:shadow-black/50;
+    background-color: hsl(var(--card) / 0.8);
+  }
+
+  .workbench-panel {
+    @apply rounded-[0.875rem] border border-border/25 bg-card/75 shadow-[0_24px_64px_-46px_hsl(var(--foreground)/0.72)] backdrop-blur-xl transition-all duration-300 dark:border-white/10 dark:bg-card/80 dark:shadow-black/40;
+    background: linear-gradient(180deg, hsl(var(--card) / 0.88), hsl(var(--muted) / 0.58));
+  }
+
+  .corpus-workbench {
+    @apply rounded-[0.95rem] border border-border/25 bg-card/90 shadow-[0_30px_72px_-48px_hsl(var(--foreground)/0.76)] backdrop-blur-xl transition-all duration-300 dark:border-white/10 dark:bg-card/90 dark:shadow-black/50;
+    background:
+      radial-gradient(circle at 70% 18%, hsl(var(--primary) / 0.06), transparent 22rem),
+      linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(var(--muted) / 0.48));
+  }
+
   .surface-card {
-    @apply border border-border/45 bg-card shadow-sm transition-all duration-300 dark:border-white/15 dark:shadow-black/25;
+    @apply rounded-[0.75rem] border border-border/25 bg-card shadow-[0_18px_46px_-36px_hsl(var(--foreground)/0.55)] transition-all duration-300 dark:border-white/10 dark:shadow-black/30;
   }
 
   .surface-muted {
@@ -105,31 +132,46 @@
   }
 
   .surface-outline-button {
-    @apply rounded-full border border-border/45 bg-transparent px-4 py-2 text-sm font-medium text-primary transition-all duration-300 hover:bg-primary/10 active:scale-95 dark:border-white/20;
+    @apply rounded-[0.8rem] border border-border/30 bg-card/80 px-4 py-2 text-sm font-medium text-primary shadow-sm transition-all duration-300 hover:border-primary/25 hover:bg-muted active:scale-95 dark:border-white/10 dark:bg-muted/60 dark:hover:bg-muted;
   }
 
   .surface-solid-button {
-    @apply rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-all duration-300 hover:bg-primary/90 hover:shadow-md active:scale-95;
+    @apply rounded-[0.8rem] bg-primary px-5 py-2 text-sm font-medium text-primary-foreground shadow-[0_12px_26px_-18px_hsl(var(--primary)/0.9)] transition-all duration-300 hover:bg-primary/90 hover:shadow-[0_18px_34px_-20px_hsl(var(--primary)/0.95)] active:scale-95;
   }
 
   .md3-surface {
-    @apply rounded-[1.5rem] border border-border/45 bg-card shadow-sm transition-all duration-300 dark:border-white/15 dark:shadow-black/25;
+    @apply rounded-[0.875rem] border border-border/25 bg-card/80 shadow-[0_22px_56px_-42px_hsl(var(--foreground)/0.62)] transition-all duration-300 dark:border-white/10 dark:bg-card/90 dark:shadow-black/40;
+    background-color: hsl(var(--card) / 0.82);
   }
 
   .md3-surface-low {
-    @apply rounded-[1.5rem] border border-border/40 bg-muted shadow-sm transition-all duration-300 dark:border-white/15 dark:shadow-black/25;
+    @apply rounded-[0.75rem] border border-border/20 bg-muted/75 shadow-[0_16px_38px_-32px_hsl(var(--foreground)/0.45)] transition-all duration-300 dark:border-white/10 dark:bg-muted/75 dark:shadow-black/30;
+    background-color: hsl(var(--muted) / 0.75);
+  }
+
+  .workbench-hero-surface {
+    border: 1px solid hsl(220 10% 18% / 0.14);
+    background:
+      radial-gradient(circle at 92% 12%, hsl(var(--secondary) / 0.42), transparent 10rem),
+      linear-gradient(135deg, hsl(222 13% 15%), hsl(220 10% 11%) 50%, hsl(36 18% 22%));
+    color: rgb(248 250 252);
+    box-shadow: 0 28px 70px -48px rgba(25, 26, 31, 0.86);
+  }
+
+  .workbench-hero-surface .text-muted-foreground {
+    color: rgb(203 213 225 / 0.9);
   }
 
   .md3-chip {
-    @apply inline-flex min-h-10 items-center gap-2 rounded-full bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground transition-all duration-300 hover:bg-secondary/90 active:scale-95;
+    @apply inline-flex min-h-10 items-center gap-2 rounded-[0.8rem] bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground transition-all duration-300 hover:bg-secondary/90 active:scale-95;
   }
 
   .md3-field {
-    @apply h-14 rounded-t-xl border-0 border-b-2 border-border bg-input px-4 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-muted-foreground focus:border-primary focus:ring-0;
+    @apply h-14 rounded-[0.75rem] border border-border/55 bg-input/90 px-4 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-muted-foreground focus:border-primary focus:ring-0 dark:bg-background/50 dark:border-white/10;
   }
 
   .md3-field:focus-visible {
-    box-shadow: inset 0 -1px 0 0 hsl(var(--primary)), 0 0 0 3px hsl(var(--ring) / 0.16);
+    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.16);
   }
 
   .corpus-command-input,
@@ -158,6 +200,22 @@
       max-height: none;
       overflow: visible;
     }
+  }
+
+  .dark .workbench-panel {
+    background-color: hsl(220 7% 11% / 0.8);
+  }
+
+  .dark .corpus-workbench {
+    background-color: hsl(220 7% 11% / 0.9);
+  }
+
+  .dark .md3-surface {
+    background-color: hsl(220 7% 11% / 0.86);
+  }
+
+  .dark .md3-surface-low {
+    background-color: hsl(220 7% 15% / 0.75);
   }
 }
 
@@ -212,3 +270,13 @@
 .thinking-dot:nth-child(1) { animation-delay: -0.32s; }
 .thinking-dot:nth-child(2) { animation-delay: -0.16s; }
 .thinking-dot:nth-child(3) { animation-delay: 0s; }
+
+html.dark .workbench-panel {
+  background-color: rgba(26, 27, 30, 0.8) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+html.dark .corpus-workbench {
+  background-color: rgba(26, 27, 30, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}

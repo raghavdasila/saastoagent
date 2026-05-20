@@ -37,7 +37,7 @@ export function CommandComposer({
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-full border border-border/30 bg-muted p-2 shadow-inner transition-shadow duration-200 focus-within:shadow-[0_0_0_3px_hsl(var(--ring)/0.18),inset_0_1px_2px_hsl(var(--foreground)/0.08)] dark:border-white/10">
+    <div className="flex items-center gap-2 rounded-[0.95rem] border border-border/20 bg-muted/75 p-2 shadow-[inset_0_1px_2px_hsl(var(--foreground)/0.08),0_14px_34px_-30px_hsl(var(--foreground)/0.65)] transition-shadow duration-200 focus-within:shadow-[0_0_0_3px_hsl(var(--ring)/0.18),inset_0_1px_2px_hsl(var(--foreground)/0.08)] dark:border-white/10 dark:bg-muted/75">
       <input
         ref={inputRef}
         type={inputType}
@@ -59,7 +59,7 @@ export function CommandComposer({
           window.setTimeout(() => inputRef.current?.focus(), 0)
         }}
         disabled={disabled || !value.trim()}
-        className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-all duration-300 hover:bg-primary/90 hover:shadow-md active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-11 w-11 items-center justify-center rounded-[0.8rem] bg-primary text-primary-foreground shadow-[0_14px_26px_-17px_hsl(var(--primary)/0.9)] transition-all duration-300 hover:bg-primary/90 hover:shadow-[0_18px_34px_-18px_hsl(var(--primary)/0.95)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
         title="Send"
         data-testid="corpus-command-send"
       >

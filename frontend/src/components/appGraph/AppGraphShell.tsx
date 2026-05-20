@@ -437,12 +437,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
   }
 
   return (
-    <div className="min-h-screen overflow-hidden bg-background text-foreground">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
-        <div className="absolute -left-24 top-16 h-72 w-72 rounded-full bg-muted/70 blur-3xl dark:bg-white/[0.025]" />
-        <div className="absolute right-10 top-28 h-96 w-96 rounded-[8rem] bg-secondary/35 blur-3xl dark:bg-white/[0.02]" />
-      </div>
-
+    <div className="workbench-canvas">
       <WorkbenchTopbar
         projection={projection}
         contextLens={contextLens}
@@ -451,7 +446,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
         onLogout={handleLogout}
       />
 
-      <div className="relative grid min-h-[calc(100vh-4.5rem)] gap-3 p-3 lg:h-[calc(100vh-4.5rem)] lg:grid-cols-[16rem_minmax(0,1fr)_22rem] lg:overflow-hidden">
+      <div className="relative grid min-h-[calc(100vh-5.25rem)] gap-4 px-4 pb-4 lg:h-[calc(100vh-5.25rem)] lg:grid-cols-[16rem_minmax(0,1fr)_22rem] lg:overflow-hidden">
         <CapabilityRail projection={projection} graphState={graphState} contextLens={contextLens} onSelect={handleRailSelect} />
 
         <main className="min-w-0 lg:min-h-0 lg:overflow-hidden">
@@ -479,7 +474,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
           />
         </main>
 
-        <aside className="md3-surface min-w-0 p-4 lg:min-h-0 lg:overflow-y-auto">
+        <aside className="workbench-panel min-w-0 p-4 dark:!bg-[rgba(26,27,30,0.8)] lg:min-h-0 lg:overflow-y-auto">
           <ContextPanel projection={projection} status={visibleStatus} railNotice={railNotice} />
           <DiagnosticsPanel
             projection={projection}
@@ -592,14 +587,14 @@ function WorkbenchTopbar({
 }) {
   const currentWork = displayWork(contextLens?.working_on || projection.current_context)
   return (
-    <header className="relative z-20 border-b border-border/30 bg-background/85 backdrop-blur">
-      <div className="flex min-h-[4.5rem] items-center justify-between gap-4 px-4 sm:px-6">
+    <header className="relative z-20 p-4 pb-3">
+      <div className="workbench-topbar flex min-h-[3.9rem] items-center justify-between gap-4 px-4 sm:px-5">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-[1.25rem] bg-primary text-primary-foreground shadow-md">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[0_16px_34px_-22px_hsl(var(--primary)/0.9)]">
             <Bot className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <div className="truncate text-base font-medium">SaaStoAgent</div>
+            <div className="truncate text-base font-semibold tracking-[-0.01em]">SaaStoAgent</div>
             <div className="mt-0.5 flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
               <span className="truncate">Corpus</span>
               <span>/</span>
@@ -611,12 +606,12 @@ function WorkbenchTopbar({
         <div className="flex min-w-0 items-center gap-2">
           <StatusPill status={status} testId="corpus-status" />
           {user ? (
-            <div className="flex min-w-0 max-w-[12rem] items-center gap-2 rounded-full bg-muted px-3 py-2 text-sm text-foreground" data-testid="auth-user-pill">
+            <div className="flex min-w-0 max-w-[12rem] items-center gap-2 rounded-full border border-border/20 bg-muted/70 px-3 py-2 text-sm text-foreground shadow-sm dark:border-white/10" data-testid="auth-user-pill">
               <User className="h-4 w-4 shrink-0" />
               <span className="max-w-48 truncate">{user.email || user.display_name || 'Signed in'}</span>
             </div>
           ) : (
-            <div className="hidden rounded-full bg-muted px-3 py-2 text-sm text-muted-foreground md:block">Not signed in</div>
+            <div className="hidden rounded-full border border-border/20 bg-muted/70 px-3 py-2 text-sm text-muted-foreground shadow-sm md:block dark:border-white/10">Not signed in</div>
           )}
           <button type="button" className="surface-outline-button hidden md:inline-flex">Profile</button>
           {user && (
@@ -635,7 +630,7 @@ function WorkbenchTopbar({
 function StatusPill({ status, testId }: { status: WorkbenchStatus; testId?: string }) {
   const active = ['Thinking', 'Navigating', 'Opening surface', 'Preparing proposal', 'Committing', 'Running diagnostics'].includes(status)
   return (
-    <div className="inline-flex min-h-10 items-center gap-2 rounded-full border border-border/25 bg-muted px-3 py-2 text-sm font-medium text-foreground dark:border-white/10" data-testid={testId}>
+    <div className="inline-flex min-h-10 items-center gap-2 rounded-[0.8rem] border border-border/20 bg-muted/75 px-3 py-2 text-sm font-medium text-foreground shadow-sm dark:border-white/10" data-testid={testId}>
       {active ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />}
       <span>{status}</span>
     </div>
@@ -700,17 +695,17 @@ function AgentConversation({
   }, [messages.length, busy, pendingSurfaceOpening?.operation_id, pendingProposal?.operation_id, activeSurfaceKey, error])
 
   return (
-    <section className="md3-surface flex h-[calc(100vh-8rem)] min-h-0 flex-col lg:h-full" data-testid="app-agent-chat">
-      <div className="flex min-h-0 w-full flex-1 flex-col px-4 pt-4 sm:px-5">
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/20 pb-3">
+    <section className="corpus-workbench flex h-[calc(100vh-8.75rem)] min-h-0 flex-col dark:!bg-[rgba(26,27,30,0.9)] lg:h-full" data-testid="app-agent-chat">
+      <div className="flex min-h-0 w-full flex-1 flex-col px-5 pt-5 sm:px-6">
+        <div className="flex shrink-0 items-center justify-between gap-3 pb-4">
           <div>
-            <h1 className="text-xl font-medium">Corpus Workspace</h1>
+            <h1 className="text-2xl font-semibold tracking-[-0.01em]">Corpus Workspace</h1>
             <p className="mt-1 text-sm text-muted-foreground">Tell Corpus what to set up, inspect, or run.</p>
           </div>
           <div className="hidden sm:block"><StatusPill status={status} testId="corpus-inline-status" /></div>
         </div>
 
-        <div ref={workspaceRef} className="min-h-0 flex-1 overflow-y-auto py-4">
+        <div ref={workspaceRef} className="min-h-0 flex-1 overflow-y-auto py-4 pr-1">
           <FrameSurfacePanel />
 
           <div className="py-3">
@@ -752,13 +747,13 @@ function AgentConversation({
           )}
 
           {error && (
-            <div className="mb-3 rounded-[1rem] bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+            <div className="mb-3 rounded-[0.625rem] bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
               {error instanceof Error ? error.message : 'Corpus could not complete that step.'}
             </div>
           )}
         </div>
 
-        <div className="shrink-0 border-t border-border/20 bg-card py-3">
+        <div className="shrink-0 border-t border-border/10 bg-card/50 py-4 backdrop-blur dark:border-white/10 dark:bg-card/30">
           <CommandComposer
             value={draft}
             onChange={onDraftChange}
@@ -790,12 +785,12 @@ function QuickActionChips({
           type="button"
           onClick={() => onAction(action)}
           className={[
-            'inline-flex min-h-10 items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-300 active:scale-95',
+            'inline-flex min-h-10 items-center gap-2 rounded-[0.8rem] px-4 py-2 text-sm font-semibold transition-all duration-300 active:scale-95',
             action.tone === 'primary'
-              ? 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-md'
+              ? 'bg-primary text-primary-foreground shadow-[0_14px_28px_-19px_hsl(var(--primary)/0.9)] hover:bg-primary/90 hover:shadow-[0_20px_36px_-20px_hsl(var(--primary)/0.95)]'
               : action.tone === 'outline'
-                ? 'border border-border bg-transparent text-primary hover:bg-primary/10'
-                : 'bg-secondary text-secondary-foreground hover:bg-secondary/90',
+                ? 'border border-border/25 bg-card/90 text-primary shadow-sm hover:border-primary/25 hover:bg-muted'
+                : 'border border-border/20 bg-muted/75 text-foreground shadow-sm hover:bg-card/90',
           ].join(' ')}
           title={action.description || action.label}
         >
@@ -822,9 +817,9 @@ function CapabilityRail({
   const currentNode = graphState?.node || projection.graph_node
   const items = capabilityItems()
   return (
-    <nav className="md3-surface hidden min-w-0 p-3 lg:block" aria-label="RouteDeck node switcher" data-testid="capability-rail">
-      <div className="mb-3 px-3 pt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">RouteDeck Nodes</div>
-      <div className="space-y-1.5">
+    <nav className="workbench-panel hidden min-w-0 p-3 dark:!bg-[rgba(26,27,30,0.8)] lg:block" aria-label="RouteDeck node switcher" data-testid="capability-rail">
+      <div className="mb-3 px-3 pt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">RouteDeck Nodes</div>
+      <div className="space-y-2">
         {items.map((item) => {
           const operation = item.operationId ? operationsById.get(item.operationId) : undefined
           const active = item.nodes.includes(currentNode)
@@ -837,16 +832,16 @@ function CapabilityRail({
               type="button"
               onClick={() => onSelect(item, action, status)}
               className={[
-                'group flex min-h-12 w-full items-center gap-3 rounded-full px-3 text-left text-sm font-medium transition-all duration-300 active:scale-95',
+                'group flex min-h-12 w-full items-center gap-3 rounded-[0.7rem] px-3 text-left text-sm font-medium transition-all duration-300 active:scale-95',
                 active
-                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  ? 'bg-primary text-primary-foreground shadow-[0_16px_30px_-22px_hsl(var(--primary)/0.95)]'
                   : available
-                    ? 'text-foreground hover:bg-primary/10'
-                    : 'text-muted-foreground opacity-90 hover:bg-muted',
+                    ? 'text-foreground hover:bg-muted/80'
+                    : 'text-muted-foreground opacity-90 hover:bg-muted/60',
               ].join(' ')}
               title={status === 'locked' ? lockedCapabilityReason(item, contextLens) : item.label}
             >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-background/60 text-current">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-background/60 text-current shadow-sm dark:bg-background/30">
                 {item.icon}
               </span>
               <span className="min-w-0 flex-1 truncate">{item.label}</span>
@@ -871,7 +866,7 @@ function SurfaceOpeningNotice({ opening }: { opening: CorpusSurfaceOpening }) {
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-secondary">
         <Loader2 className="h-4 w-4 animate-spin" />
       </div>
-      <div className="max-w-[75%] rounded-[1.25rem] bg-muted px-4 py-2.5 text-sm text-foreground shadow-sm">
+      <div className="max-w-[75%] rounded-[0.75rem] bg-muted px-4 py-2.5 text-sm text-foreground shadow-sm">
         Opening {opening.label}...
       </div>
     </div>
@@ -887,7 +882,7 @@ function FrameSurfacePanel() {
   if (surface.component === 'CorpusLoungeSurface') {
     return (
       <div className="md3-surface-low p-5">
-        <div className="flex items-center gap-2 text-sm font-medium"><Sparkles className="h-4 w-4 text-primary" />{String(surface.props?.title || 'Explore SaaStoAgent')}</div>
+        <div className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="h-4 w-4 text-primary" />{String(surface.props?.title || 'Explore SaaStoAgent')}</div>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
           {String(
             surface.props?.subtitle ||
@@ -903,23 +898,25 @@ function FrameSurfacePanel() {
       ? (surface.props?.saas_agents as SaaSAgent[])
       : []
     return (
-      <div className="md3-surface-low p-5">
+      <div className="relative overflow-hidden rounded-[0.9rem] border border-border/20 bg-gradient-to-br from-card via-muted/75 to-card p-5 shadow-[0_22px_52px_-42px_hsl(var(--foreground)/0.68)] dark:border-white/10 dark:from-muted/80 dark:via-card dark:to-muted/50">
+        <div className="pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-secondary/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-28 left-1/4 h-52 w-52 rounded-full bg-primary/10 blur-3xl" />
         <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="text-sm font-medium">Dashboard</div>
+          <div className="relative min-w-0">
+            <div className="text-sm font-semibold">Dashboard</div>
             <p className="mt-2 text-sm text-muted-foreground">
               Corpus stays in the center. The dashboard remains contextual until you ask to open or create an agent.
             </p>
           </div>
-          <div className="shrink-0 whitespace-nowrap rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-secondary-foreground">
+          <div className="relative shrink-0 whitespace-nowrap rounded-full bg-secondary px-3 py-1 text-[11px] font-semibold text-secondary-foreground shadow-[0_12px_26px_-18px_hsl(var(--secondary)/0.9)]">
             {saasAgents.length} agents
           </div>
         </div>
         {saasAgents.length > 0 && (
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <div className="relative mt-4 grid gap-2 sm:grid-cols-2">
             {saasAgents.slice(0, 4).map((agent) => (
-              <div key={agent.id} className="rounded-[1rem] border border-border/30 bg-background/70 p-3 text-sm dark:border-white/10">
-                <div className="font-medium">{agent.name}</div>
+              <div key={agent.id} className="rounded-[0.75rem] border border-border/20 bg-card/90 p-3 text-sm shadow-[0_16px_32px_-28px_hsl(var(--foreground)/0.55)] dark:border-white/10 dark:bg-background/30">
+                <div className="font-semibold">{agent.name}</div>
                 <div className="mt-1 text-xs text-muted-foreground">Ready to configure</div>
               </div>
             ))}
@@ -932,8 +929,8 @@ function FrameSurfacePanel() {
   return (
     <div className="md3-surface-low p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-sm font-medium">{String(surface.props?.title || contextLens?.working_on || displayWork(projection.graph_node))}</div>
-        <span className="shrink-0 whitespace-nowrap rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-secondary-foreground">
+        <div className="text-sm font-semibold">{String(surface.props?.title || contextLens?.working_on || displayWork(projection.graph_node))}</div>
+        <span className="shrink-0 whitespace-nowrap rounded-full bg-secondary px-3 py-1 text-[11px] font-semibold text-secondary-foreground shadow-sm">
           Current node
         </span>
       </div>
@@ -968,12 +965,12 @@ function ProposalPanel({
 
   return (
     <div
-      className="mb-4 rounded-[1.75rem] border border-border/45 bg-background/95 p-5 shadow-[0_16px_36px_-28px_hsl(var(--foreground)/0.45)] dark:border-white/15 dark:bg-muted dark:shadow-black/30"
+      className="mb-4 rounded-[0.9rem] border border-border/30 bg-card p-5 shadow-[0_26px_64px_-42px_hsl(var(--foreground)/0.65)] dark:border-white/15 dark:bg-muted dark:shadow-black/40"
       data-testid="corpus-proposal-surface"
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-sm font-medium">{proposal.label}</div>
+          <div className="text-sm font-semibold">{proposal.label}</div>
           {proposal.description && <p className="mt-1 text-sm text-muted-foreground">{proposal.description}</p>}
         </div>
         <button
@@ -986,7 +983,7 @@ function ProposalPanel({
       </div>
 
       {fields.length > 0 && (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
           {fields.map((field) => (
             <label key={field.key} className="grid gap-1.5 text-sm">
               <span className="text-xs font-medium text-muted-foreground">{field.label}</span>
@@ -1047,13 +1044,13 @@ function ActiveSurfacePanel({
 
   return (
     <section className="py-4" data-testid="active-surface-panel">
-      <div className="md3-surface-low rounded-[1.75rem] p-5">
-        <div className="mb-4 flex items-center justify-between gap-3 border-b border-border/20 pb-3">
+      <div className="rounded-[0.9rem] border border-border/30 bg-card p-5 shadow-[0_26px_64px_-42px_hsl(var(--foreground)/0.65)] dark:border-white/15 dark:bg-muted dark:shadow-black/40">
+        <div className="mb-4 flex items-center justify-between gap-3 pb-3">
           <div>
-            <h2 className="text-base font-medium">{surfaceTitle(activeSurface, contextLens)}</h2>
+            <h2 className="text-base font-semibold">{surfaceTitle(activeSurface, contextLens)}</h2>
             <p className="mt-1 text-sm text-muted-foreground">Opened from committed graph state.</p>
           </div>
-          <span className="shrink-0 whitespace-nowrap rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-secondary-foreground">
+          <span className="shrink-0 whitespace-nowrap rounded-full bg-secondary px-3 py-1 text-[11px] font-semibold text-secondary-foreground shadow-sm">
             Active surface
           </span>
         </div>
@@ -1236,7 +1233,7 @@ function AuthSurfaceCard({ surface }: { surface: RouteDeckSurface }) {
       </div>
 
       {error && (
-        <div className="rounded-[1rem] bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+        <div className="rounded-[0.625rem] bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
           {error}
         </div>
       )}
@@ -1280,15 +1277,15 @@ function ContextPanel({
       <h2 className="text-sm font-medium">Context / Evidence</h2>
       <div className="mt-3"><StatusPill status={status} testId="corpus-sidebar-status" /></div>
       {railNotice && (
-        <div className="mt-3 rounded-[1.25rem] bg-secondary px-4 py-3 text-sm text-secondary-foreground" data-testid="rail-node-notice">
+          <div className="mt-3 rounded-[0.75rem] bg-secondary px-4 py-3 text-sm text-secondary-foreground shadow-sm" data-testid="rail-node-notice">
           <div className="flex items-center gap-2 font-medium">
             {railNotice.state === 'locked' ? <Lock className="h-4 w-4" /> : <Activity className="h-4 w-4" />}
             Node switcher: {railNotice.label}
           </div>
-          <p className="mt-2 leading-5 text-secondary-foreground/85">{railNotice.message}</p>
+          <p className="mt-2 leading-5 text-secondary-foreground/90">{railNotice.message}</p>
         </div>
       )}
-      <dl className="mt-3 grid gap-2 text-xs">
+      <dl className="mt-4 grid gap-2 text-xs">
         <LensRow label="Agent" value={lens?.selected_saas_agent_name || 'No agent selected'} />
         <LensRow label="Current work" value={displayWork(lens?.working_on || projection.current_context)} />
         <LensRow label="API readiness" value={`${lens?.ready_connection_count || 0}/${lens?.connection_count || 0} ready`} />
@@ -1346,7 +1343,7 @@ function DiagnosticsPanel({
         Diagnostics
       </button>
       {open && (
-        <div className="mt-3 max-h-[calc(100vh-13rem)] overflow-y-auto rounded-[1.5rem] border border-border/35 bg-background/70 p-4 text-xs shadow-inner dark:border-white/10">
+        <div className="mt-3 max-h-[calc(100vh-13rem)] overflow-y-auto rounded-xl border border-border/25 bg-card p-4 text-xs shadow-inner dark:border-white/10 dark:bg-muted">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <div className="font-medium text-foreground">RouteDeck diagnostics</div>
@@ -1364,7 +1361,7 @@ function DiagnosticsPanel({
           </div>
 
           {loadError && (
-            <div className="mb-4 rounded-[1rem] bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+            <div className="mb-4 rounded-[0.625rem] bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
               {loadError}
             </div>
           )}
@@ -1378,7 +1375,7 @@ function DiagnosticsPanel({
                 onSelectedNodeChange={setSelectedNodeId}
               />
 
-              <details className="mt-4 rounded-[1rem] bg-slate-950 p-3 text-[11px] text-slate-100">
+              <details className="mt-4 rounded-[0.625rem] bg-slate-950 p-3 text-[11px] text-slate-100">
                 <summary className="cursor-pointer font-semibold">Raw RouteDeck JSON</summary>
                 <pre className="mt-3 max-h-96 overflow-auto">
                   {JSON.stringify(snapshot, null, 2)}
@@ -1399,7 +1396,7 @@ function DiagnosticsPanel({
 
 function LensRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[1rem] bg-background/60 p-3">
+    <div className="rounded-[0.625rem] border border-border/10 bg-background/40 p-3 shadow-sm dark:border-white/5 dark:bg-background/30">
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="mt-1 break-words font-medium">{value}</dd>
     </div>
@@ -1408,7 +1405,7 @@ function LensRow({ label, value }: { label: string; value: string }) {
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[1rem] border border-border/30 bg-background/70 p-3 dark:border-white/10">
+    <div className="rounded-xl border border-border/25 bg-card p-3 shadow-sm dark:border-white/10 dark:bg-muted">
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="mt-1 font-medium">{value}</dd>
     </div>
@@ -1417,7 +1414,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 
 function Metric({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
   return (
-    <div className="rounded-[1rem] border border-border/30 bg-background/70 p-4 dark:border-white/10">
+    <div className="rounded-xl border border-border/25 bg-card p-4 shadow-sm dark:border-white/10 dark:bg-muted">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         {icon}
         <span>{label}</span>
@@ -1441,7 +1438,7 @@ function InfoSurface({
   return (
     <div>
       <div className="flex items-start gap-3">
-        <div className="rounded-[1rem] bg-secondary p-2 text-secondary-foreground">
+        <div className="rounded-[0.625rem] bg-secondary p-2 text-secondary-foreground">
           {icon}
         </div>
         <div className="min-w-0">

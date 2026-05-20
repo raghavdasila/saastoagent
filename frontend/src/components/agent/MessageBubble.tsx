@@ -25,8 +25,8 @@ export function MessageBubble({ message, onFollowUp }: Props) {
     >
       <div
         className={cn(
-          'flex h-9 w-9 shrink-0 items-center justify-center rounded-full shadow-sm',
-          isUser ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground',
+          'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-sm',
+          isUser ? 'bg-primary text-primary-foreground' : 'bg-card text-foreground ring-1 ring-border/15 dark:bg-muted dark:ring-white/10',
         )}
       >
         {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
@@ -35,8 +35,8 @@ export function MessageBubble({ message, onFollowUp }: Props) {
       <div className={cn('flex max-w-[75%] flex-col gap-2', isUser && 'items-end')}>
         <div
           className={cn(
-            'rounded-[1.5rem] px-4 py-2.5 shadow-sm',
-            isUser ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground',
+            'rounded-[0.8rem] px-4 py-2.5 shadow-sm',
+            isUser ? 'bg-primary text-primary-foreground' : 'bg-muted/80 text-foreground ring-1 ring-border/10 dark:bg-muted dark:ring-white/5',
           )}
         >
           {isUser ? (

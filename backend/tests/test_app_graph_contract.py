@@ -190,7 +190,7 @@ def test_material_workbench_proposal_surface_has_real_card_boundary():
 
     assert 'data-testid="corpus-proposal-surface"' in proposal_source
     assert "border border-border" in proposal_source
-    assert "bg-background/95" in proposal_source
+    assert "bg-card" in proposal_source
     assert "dark:bg-muted" in proposal_source
 
 
