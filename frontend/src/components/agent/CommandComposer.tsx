@@ -37,7 +37,7 @@ export function CommandComposer({
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-[0.95rem] border border-border/20 bg-muted/75 p-2 shadow-[inset_0_1px_2px_hsl(var(--foreground)/0.08),0_14px_34px_-30px_hsl(var(--foreground)/0.65)] transition-shadow duration-200 focus-within:shadow-[0_0_0_3px_hsl(var(--ring)/0.18),inset_0_1px_2px_hsl(var(--foreground)/0.08)] dark:border-white/10 dark:bg-muted/75">
+    <div className="flex items-center gap-2 rounded-[0.95rem] border border-border/20 bg-transparent p-2 shadow-[inset_0_1px_2px_hsl(var(--foreground)/0.05),0_14px_34px_-30px_hsl(var(--foreground)/0.48)] transition-shadow duration-200 focus-within:shadow-[0_0_0_3px_hsl(var(--ring)/0.18),inset_0_1px_2px_hsl(var(--foreground)/0.05)] dark:border-white/10 dark:bg-transparent">
       <input
         ref={inputRef}
         type={inputType}
