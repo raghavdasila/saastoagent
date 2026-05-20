@@ -13,6 +13,7 @@ import {
   type RouteDeckClientState,
   type RouteDeckDispatchResult,
   type RouteDeckEvent,
+  type RouteDeckOperation,
   type RouteDeckProjection,
   type RouteDeckStore,
   type RouteDeckSurface,
@@ -20,13 +21,27 @@ import {
 import {
   Activity,
   AlertTriangle,
+  BookOpen,
   Bot,
   Boxes,
+  Brain,
+  CheckCircle2,
+  Circle,
+  ClipboardCheck,
+  Database,
   FileText,
+  GraduationCap,
+  Home,
   KeyRound,
   Loader2,
+  Lock,
+  LogOut,
   Play,
+  Plug,
   ShieldCheck,
+  Sparkles,
+  User,
+  Wrench,
 } from 'lucide-react'
 
 import { AdminPanel } from '@/components/agent/AdminPanel'
@@ -69,6 +84,39 @@ interface ProposalField {
   default?: unknown
   options?: Array<{ value: string; label: string }> | null
   sensitive?: boolean
+}
+
+type WorkbenchStatus =
+  | 'Ready'
+  | 'Thinking'
+  | 'Navigating'
+  | 'Opening surface'
+  | 'Preparing proposal'
+  | 'Committing'
+  | 'Running diagnostics'
+  | 'Waiting for approval'
+  | 'Needs attention'
+
+interface CorpusQuickAction {
+  operation: RouteDeckOperation
+  label: string
+  description?: string | null
+  icon: ReactNode
+  tone: 'primary' | 'tonal' | 'outline'
+}
+
+interface CapabilityItem {
+  id: string
+  label: string
+  icon: ReactNode
+  nodes: string[]
+  operationId?: string
+}
+
+interface RailSelectionNotice {
+  label: string
+  state: 'active' | 'locked'
+  message: string
 }
 
 export function AppGraphShell({ nodeId, saasAgentId }: AppGraphShellProps) {
@@ -124,6 +172,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
   const routeDeckStore = useRouteDeckStore()
   const dispatchRouteDeck = useRouteDeckDispatch()
   const projection = useRouteDeckProjection()
+  const { user, logout } = useAuth()
   const graphState = graphStateFromRouteDeckState(routeDeckState)
   const replacePath = routeDeckState.location || null
   const setSaaSAgentId = useSaaSAgentStore((state) => state.setSaaSAgentId)
@@ -137,7 +186,11 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
   const [pendingProposal, setPendingProposal] = useState<CorpusProposal | null>(null)
   const [pendingSurfaceOpening, setPendingSurfaceOpening] = useState<CorpusSurfaceOpening | null>(null)
   const [queuedSurfacePrompt, setQueuedSurfacePrompt] = useState<CorpusSurfacePrompt | null>(null)
+  const [corpusStatus, setCorpusStatus] = useState<WorkbenchStatus>('Ready')
+  const [railNotice, setRailNotice] = useState<RailSelectionNotice | null>(null)
   const activeSurface = activeSurfaceFromProjection(projection)
+  const quickActions = useMemo(() => corpusQuickActions(projection), [projection])
+  const contextLens = contextLensFromProjection(projection)
 
   useEffect(() => {
     if (!projection || !graphState) return
@@ -174,6 +227,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
     onSuccess: (response) => {
       const nextGraphState = graphStateFromRouteDeckState(response.state)
       setPendingProposal(null)
+      setCorpusStatus('Ready')
       setSaaSAgentId(nextGraphState?.active_saas_agent_id || null)
       if (response.messages && response.messages.length > 0) {
         setChatMessages((current) => [
@@ -236,11 +290,13 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
 
       setPendingProposal(null)
       setQueuedSurfacePrompt(null)
+      setCorpusStatus('Thinking')
 
       await api.getStream(`/corpus/stream?${params.toString()}`, (eventType, eventData) => {
         const routeDeckEvent = { event_type: eventType, payload: eventData.payload || {} } as RouteDeckEvent
         const payload = (eventData.payload || {}) as Record<string, unknown>
         if (eventType === 'corpus_status') {
+          setCorpusStatus('Thinking')
           ensureStreamingMessage()
         }
         if (eventType === 'message_delta' && typeof payload.delta === 'string') {
@@ -264,14 +320,17 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
           )
         }
         if (eventType === 'proposal') {
+          setCorpusStatus('Preparing proposal')
           setPendingProposal(payload as unknown as CorpusProposal)
           finishStreamingMessage()
         }
         if (eventType === 'surface_opening') {
+          setCorpusStatus('Opening surface')
           removeEmptyStreamingMessage()
           setPendingSurfaceOpening(payload as unknown as CorpusSurfaceOpening)
         }
         if (eventType === 'operation_completed') {
+          setCorpusStatus('Committing')
           const nextProjection = payload.projection as RouteDeckProjection | undefined
           if (nextProjection) {
             const nextState = payload.state as AppGraphState | undefined
@@ -289,12 +348,15 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
           finishStreamingMessage()
         }
         if (eventType === 'projection_update') {
+          setCorpusStatus('Navigating')
           routeDeckStore.receiveEvent(routeDeckEvent)
         }
         if (eventType === 'corpus_done') {
+          setCorpusStatus('Ready')
           finishStreamingMessage()
         }
         if (eventType === 'corpus_error') {
+          setCorpusStatus('Needs attention')
           ensureStreamingMessage()
           setChatMessages((current) =>
             current.map((message) =>
@@ -316,6 +378,15 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
   const hasStreamingCorpusMessage = chatMessages.some((message) => message.isStreaming)
   const authSurfaceActive = activeSurface?.component === 'CorpusAuthSurface'
   const composerDisabled = executeOperation.isPending || turn.isPending || Boolean(pendingSurfaceOpening) || authSurfaceActive
+  const visibleStatus: WorkbenchStatus = executeOperation.isPending
+    ? 'Committing'
+    : pendingSurfaceOpening
+      ? 'Opening surface'
+      : pendingProposal
+        ? 'Preparing proposal'
+        : contextLens?.pending_trace_id
+          ? 'Waiting for approval'
+          : corpusStatus
   const composerPlaceholder = authSurfaceActive
     ? 'Complete authentication in the active surface'
     : pendingSurfaceOpening
@@ -330,24 +401,58 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
     turn.mutate(value)
   }
 
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-950 dark:bg-background dark:text-white">
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-white/10 dark:bg-[#09090b]/90">
-        <div className="flex min-h-14 items-center justify-between gap-3 px-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <Bot className="h-5 w-5 shrink-0 text-sky-600" />
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold">SaaStoAgent</div>
-              <div className="truncate text-xs text-slate-500">
-                {displayWork(contextLensFromProjection(projection)?.working_on || projection.current_context)}
-              </div>
-            </div>
-          </div>
-          <ThemeToggleButton />
-        </div>
-      </header>
+  const handleQuickAction = (action: CorpusQuickAction) => {
+    setRailNotice(null)
+    const operation = action.operation
+    if (operation.execution_mode === 'review' || operation.kind === 'form') {
+      setPendingProposal(operationToProposal(operation))
+      setCorpusStatus('Preparing proposal')
+      return
+    }
+    setCorpusStatus(operation.target_node && operation.target_node !== projection.graph_node ? 'Navigating' : 'Committing')
+    executeOperation.mutate({ operationId: operation.id, args: operation.payload || {} })
+  }
 
-      <div className="grid min-h-[calc(100vh-3.5rem)] lg:h-[calc(100vh-3.5rem)] lg:grid-cols-[minmax(0,1fr)_22rem] lg:overflow-hidden">
+  const handleRailSelect = (item: CapabilityItem, action: CorpusQuickAction | null, state: 'active' | 'ready' | 'locked') => {
+    if (state === 'ready' && action) {
+      handleQuickAction(action)
+      return
+    }
+
+    setRailNotice({
+      label: item.label,
+      state: state === 'active' ? 'active' : 'locked',
+      message:
+        state === 'active'
+          ? `${item.label} is already the active RouteDeck node. Corpus will keep working in the current surface.`
+          : lockedCapabilityReason(item, contextLens),
+    })
+  }
+
+  const handleLogout = () => {
+    logout()
+    setSaaSAgentId(null)
+    void routeDeckStore.refresh().catch(() => undefined)
+  }
+
+  return (
+    <div className="min-h-screen overflow-hidden bg-background text-foreground">
+      <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
+        <div className="absolute -left-24 top-16 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
+        <div className="absolute right-10 top-28 h-96 w-96 rounded-[8rem] bg-secondary/40 blur-3xl dark:bg-secondary/20" />
+      </div>
+
+      <WorkbenchTopbar
+        projection={projection}
+        contextLens={contextLens}
+        status={visibleStatus}
+        user={user}
+        onLogout={handleLogout}
+      />
+
+      <div className="relative grid min-h-[calc(100vh-4.5rem)] gap-3 p-3 lg:h-[calc(100vh-4.5rem)] lg:grid-cols-[16rem_minmax(0,1fr)_22rem] lg:overflow-hidden">
+        <CapabilityRail projection={projection} graphState={graphState} contextLens={contextLens} onSelect={handleRailSelect} />
+
         <main className="min-w-0 lg:min-h-0 lg:overflow-hidden">
           <AgentConversation
             messages={chatMessages}
@@ -355,13 +460,16 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
             busy={executeOperation.isPending || (turn.isPending && !hasStreamingCorpusMessage && !pendingSurfaceOpening)}
             composerDisabled={composerDisabled}
             composerPlaceholder={composerPlaceholder}
+            status={visibleStatus}
             error={turn.error || executeOperation.error}
             pendingProposal={pendingProposal}
             pendingSurfaceOpening={pendingSurfaceOpening}
+            quickActions={quickActions}
             activeSurfacePanel={<ActiveSurfacePanel projection={projection} graphState={graphState} />}
             activeSurfaceKey={activeSurface ? `${activeSurface.component}:${activeSurface.variant}` : 'none'}
             onDraftChange={setDraft}
             onSend={sendChatTurn}
+            onQuickAction={handleQuickAction}
             onProposalAccept={(args) =>
               pendingProposal &&
               executeOperation.mutate({ operationId: pendingProposal.operation_id, args })
@@ -370,8 +478,8 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
           />
         </main>
 
-        <aside className="border-t border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#09090b] lg:min-h-0 lg:overflow-y-auto lg:border-l lg:border-t-0">
-          <ContextPanel projection={projection} />
+        <aside className="md3-surface min-w-0 p-4 lg:min-h-0 lg:overflow-y-auto">
+          <ContextPanel projection={projection} status={visibleStatus} railNotice={railNotice} />
           <DiagnosticsPanel
             projection={projection}
             graphState={graphState}
@@ -468,19 +576,87 @@ function makeAgentMessage(role: 'user' | 'assistant', content: string): ChatUIMe
   }
 }
 
+function WorkbenchTopbar({
+  projection,
+  contextLens,
+  status,
+  user,
+  onLogout,
+}: {
+  projection: RouteDeckProjection
+  contextLens: AppGraphContextLens | null
+  status: WorkbenchStatus
+  user: { email?: string; display_name?: string | null } | null
+  onLogout: () => void
+}) {
+  const currentWork = displayWork(contextLens?.working_on || projection.current_context)
+  return (
+    <header className="relative z-20 border-b border-border/30 bg-background/85 backdrop-blur">
+      <div className="flex min-h-[4.5rem] items-center justify-between gap-4 px-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-[1.25rem] bg-primary text-primary-foreground shadow-md">
+            <Bot className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-base font-medium">SaaStoAgent</div>
+            <div className="mt-0.5 flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+              <span className="truncate">Corpus</span>
+              <span>/</span>
+              <span className="truncate">{currentWork}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex min-w-0 items-center gap-2">
+          <StatusPill status={status} testId="corpus-status" />
+          {user ? (
+            <div className="flex min-w-0 max-w-[12rem] items-center gap-2 rounded-full bg-secondary px-3 py-2 text-sm text-secondary-foreground" data-testid="auth-user-pill">
+              <User className="h-4 w-4 shrink-0" />
+              <span className="max-w-48 truncate">{user.email || user.display_name || 'Signed in'}</span>
+            </div>
+          ) : (
+            <div className="hidden rounded-full bg-muted px-3 py-2 text-sm text-muted-foreground md:block">Not signed in</div>
+          )}
+          <button type="button" className="surface-outline-button hidden md:inline-flex">Profile</button>
+          {user && (
+            <button type="button" onClick={onLogout} className="surface-outline-button inline-flex items-center gap-2" data-testid="auth-logout">
+              <LogOut className="h-4 w-4" />
+              Logout
+            </button>
+          )}
+          <ThemeToggleButton />
+        </div>
+      </div>
+    </header>
+  )
+}
+
+function StatusPill({ status, testId }: { status: WorkbenchStatus; testId?: string }) {
+  const active = status !== 'Ready'
+  return (
+    <div className="inline-flex min-h-10 items-center gap-2 rounded-full bg-secondary px-3 py-2 text-sm font-medium text-secondary-foreground" data-testid={testId}>
+      {active ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />}
+      <span>{status}</span>
+    </div>
+  )
+}
+
 function AgentConversation({
   messages,
   draft,
   busy,
   composerDisabled,
   composerPlaceholder,
+  status,
   error,
   pendingProposal,
   pendingSurfaceOpening,
+  quickActions,
   activeSurfacePanel,
   activeSurfaceKey,
   onDraftChange,
   onSend,
+  onQuickAction,
   onProposalAccept,
   onProposalDismiss,
 }: {
@@ -489,17 +665,29 @@ function AgentConversation({
   busy: boolean
   composerDisabled: boolean
   composerPlaceholder: string
+  status: WorkbenchStatus
   error: unknown
   pendingProposal: CorpusProposal | null
   pendingSurfaceOpening: CorpusSurfaceOpening | null
+  quickActions: CorpusQuickAction[]
   activeSurfacePanel: ReactNode
   activeSurfaceKey: string
   onDraftChange: (value: string) => void
   onSend: () => void
+  onQuickAction: (action: CorpusQuickAction) => void
   onProposalAccept: (args: Record<string, unknown>) => void
   onProposalDismiss: () => void
 }) {
   const workspaceRef = useRef<HTMLDivElement>(null)
+  let latestAssistantMessageId: string | null = null
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]
+    if (!message) continue
+    if (message.role === 'assistant' && !message.isStreaming) {
+      latestAssistantMessageId = message.id
+      break
+    }
+  }
 
   useEffect(() => {
     const workspace = workspaceRef.current
@@ -511,14 +699,14 @@ function AgentConversation({
   }, [messages.length, busy, pendingSurfaceOpening?.operation_id, pendingProposal?.operation_id, activeSurfaceKey, error])
 
   return (
-    <section className="flex h-[calc(100vh-3.5rem)] min-h-0 flex-col border-b border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-[#08080a] lg:h-full" data-testid="app-agent-chat">
-      <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col px-4 pt-4 sm:px-6">
-        <div className="shrink-0 flex items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-white/10">
+    <section className="md3-surface flex h-[calc(100vh-8rem)] min-h-0 flex-col lg:h-full" data-testid="app-agent-chat">
+      <div className="flex min-h-0 w-full flex-1 flex-col px-4 pt-4 sm:px-5">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/20 pb-3">
           <div>
-            <h1 className="text-lg font-semibold">Corpus</h1>
-            <p className="mt-1 text-sm text-slate-500">Tell Corpus what to set up, inspect, or run.</p>
+            <h1 className="text-xl font-medium">Corpus Workspace</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Tell Corpus what to set up, inspect, or run.</p>
           </div>
-          <Activity className="h-5 w-5 text-slate-400" />
+          <div className="hidden sm:block"><StatusPill status={status} testId="corpus-inline-status" /></div>
         </div>
 
         <div ref={workspaceRef} className="min-h-0 flex-1 overflow-y-auto py-4">
@@ -526,7 +714,16 @@ function AgentConversation({
 
           <div className="py-3">
             {messages.map((message) => (
-              <MessageBubble key={message.id} message={message} />
+              <div key={message.id}>
+                <MessageBubble message={message} />
+                {message.id === latestAssistantMessageId && (
+                  <QuickActionChips
+                    actions={quickActions}
+                    onAction={onQuickAction}
+                    className="-mt-1 mb-3 pl-16 pr-4"
+                  />
+                )}
+              </div>
             ))}
             {busy && (
               <MessageBubble
@@ -554,13 +751,13 @@ function AgentConversation({
           )}
 
           {error && (
-            <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+            <div className="mb-3 rounded-[1rem] bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
               {error instanceof Error ? error.message : 'Corpus could not complete that step.'}
             </div>
           )}
         </div>
 
-        <div className="shrink-0 border-t border-slate-200 bg-slate-50 py-3 dark:border-white/10 dark:bg-[#08080a]">
+        <div className="shrink-0 border-t border-border/20 bg-card py-3">
           <CommandComposer
             value={draft}
             onChange={onDraftChange}
@@ -574,13 +771,106 @@ function AgentConversation({
   )
 }
 
+function QuickActionChips({
+  actions,
+  onAction,
+  className = '',
+}: {
+  actions: CorpusQuickAction[]
+  onAction: (action: CorpusQuickAction) => void
+  className?: string
+}) {
+  if (actions.length === 0) return null
+  return (
+    <div className={`flex flex-wrap gap-2 ${className}`} data-testid="corpus-quick-actions">
+      {actions.map((action) => (
+        <button
+          key={action.operation.id}
+          type="button"
+          onClick={() => onAction(action)}
+          className={[
+            'inline-flex min-h-10 items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-300 active:scale-95',
+            action.tone === 'primary'
+              ? 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-md'
+              : action.tone === 'outline'
+                ? 'border border-border bg-transparent text-primary hover:bg-primary/10'
+                : 'bg-secondary text-secondary-foreground hover:bg-primary/10',
+          ].join(' ')}
+          title={action.description || action.label}
+        >
+          {action.icon}
+          <span>{action.label}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function CapabilityRail({
+  projection,
+  graphState,
+  contextLens,
+  onSelect,
+}: {
+  projection: RouteDeckProjection
+  graphState: AppGraphState | null
+  contextLens: AppGraphContextLens | null
+  onSelect: (item: CapabilityItem, action: CorpusQuickAction | null, state: 'active' | 'ready' | 'locked') => void
+}) {
+  const operationsById = new Map(projection.legal_operations.map((operation) => [operation.id, operation]))
+  const currentNode = graphState?.node || projection.graph_node
+  const items = capabilityItems()
+  return (
+    <nav className="md3-surface hidden min-w-0 p-3 lg:block" aria-label="RouteDeck node switcher" data-testid="capability-rail">
+      <div className="mb-3 px-3 pt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">RouteDeck Nodes</div>
+      <div className="space-y-1.5">
+        {items.map((item) => {
+          const operation = item.operationId ? operationsById.get(item.operationId) : undefined
+          const active = item.nodes.includes(currentNode)
+          const available = !item.operationId || Boolean(operation)
+          const status = active ? 'active' : available ? 'ready' : 'locked'
+          const action = operation ? operationToQuickAction(operation) : null
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onSelect(item, action, status)}
+              className={[
+                'group flex min-h-12 w-full items-center gap-3 rounded-full px-3 text-left text-sm font-medium transition-all duration-300 active:scale-95',
+                active
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : available
+                    ? 'text-foreground hover:bg-primary/10'
+                    : 'text-muted-foreground opacity-75 hover:bg-muted',
+              ].join(' ')}
+              title={status === 'locked' ? lockedCapabilityReason(item, contextLens) : item.label}
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-background/60 text-current">
+                {item.icon}
+              </span>
+              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              <CapabilityStatusIcon status={status} />
+            </button>
+          )
+        })}
+      </div>
+    </nav>
+  )
+}
+
+function CapabilityStatusIcon({ status }: { status: 'active' | 'ready' | 'locked' }) {
+  if (status === 'active') return <Activity className="h-4 w-4" />
+  if (status === 'ready') return <Circle className="h-3.5 w-3.5 fill-emerald-500 text-emerald-500" />
+  return <Lock className="h-4 w-4" />
+}
+
 function SurfaceOpeningNotice({ opening }: { opening: CorpusSurfaceOpening }) {
   return (
     <div className="flex gap-3 px-4 py-3" data-testid="surface-opening-loader">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-300">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-primary">
         <Loader2 className="h-4 w-4 animate-spin" />
       </div>
-      <div className="max-w-[75%] rounded-2xl border border-sky-100 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm dark:border-sky-500/20 dark:bg-white/[0.04] dark:text-slate-200">
+      <div className="max-w-[75%] rounded-[1.25rem] bg-secondary px-4 py-2.5 text-sm text-secondary-foreground shadow-sm">
         Opening {opening.label}...
       </div>
     </div>
@@ -595,9 +885,9 @@ function FrameSurfacePanel() {
 
   if (surface.component === 'CorpusLoungeSurface') {
     return (
-      <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
-        <div className="text-sm font-semibold">{String(surface.props?.title || 'Explore SaaStoAgent')}</div>
-        <p className="mt-2 text-sm leading-6 text-slate-500">
+      <div className="md3-surface-low p-5">
+        <div className="flex items-center gap-2 text-sm font-medium"><Sparkles className="h-4 w-4 text-primary" />{String(surface.props?.title || 'Explore SaaStoAgent')}</div>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
           {String(
             surface.props?.subtitle ||
               'Ask about the platform, then let Corpus guide you into the next graph node when needed.',
@@ -612,24 +902,24 @@ function FrameSurfacePanel() {
       ? (surface.props?.saas_agents as SaaSAgent[])
       : []
     return (
-      <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="md3-surface-low p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold">Dashboard</div>
-            <p className="mt-2 text-sm text-slate-500">
+            <div className="text-sm font-medium">Dashboard</div>
+            <p className="mt-2 text-sm text-muted-foreground">
               Corpus stays in the center. The dashboard remains contextual until you ask to open or create an agent.
             </p>
           </div>
-          <div className="rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-500 dark:border-white/10">
+          <div className="rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-secondary-foreground">
             {saasAgents.length} agents
           </div>
         </div>
         {saasAgents.length > 0 && (
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {saasAgents.slice(0, 4).map((agent) => (
-              <div key={agent.id} className="rounded-md border border-slate-200 p-3 text-sm dark:border-white/10">
+              <div key={agent.id} className="rounded-[1rem] bg-background/70 p-3 text-sm">
                 <div className="font-medium">{agent.name}</div>
-                <div className="mt-1 text-xs text-slate-500">{agent.slug}</div>
+                <div className="mt-1 text-xs text-muted-foreground">{agent.slug}</div>
               </div>
             ))}
           </div>
@@ -639,14 +929,14 @@ function FrameSurfacePanel() {
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
+    <div className="md3-surface-low p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-sm font-semibold">{String(surface.props?.title || contextLens?.working_on || projection.graph_node)}</div>
-        <span className="rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-500 dark:border-white/10">
+        <div className="text-sm font-medium">{String(surface.props?.title || contextLens?.working_on || projection.graph_node)}</div>
+        <span className="rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-secondary-foreground">
           {projection.graph_node}
         </span>
       </div>
-      <div className="mt-2 text-sm text-slate-500">
+      <div className="mt-2 text-sm text-muted-foreground">
         {contextLens?.selected_saas_agent_name
           ? `Focused on ${contextLens.selected_saas_agent_name}.`
           : 'Context is graph-owned and can change when Corpus commits the next legal operation.'}
@@ -676,16 +966,16 @@ function ProposalPanel({
   const submit = () => onAccept(values)
 
   return (
-    <div className="mb-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
+    <div className="mb-3 rounded-[1.5rem] bg-card p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold">{proposal.label}</div>
-          {proposal.description && <p className="mt-1 text-sm text-slate-500">{proposal.description}</p>}
+          <div className="text-sm font-medium">{proposal.label}</div>
+          {proposal.description && <p className="mt-1 text-sm text-muted-foreground">{proposal.description}</p>}
         </div>
         <button
           type="button"
           onClick={onDismiss}
-          className="rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-500 transition hover:bg-slate-100 dark:border-white/10 dark:hover:bg-white/5"
+          className="surface-outline-button px-3 py-1 text-xs"
         >
           Dismiss
         </button>
@@ -695,12 +985,12 @@ function ProposalPanel({
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {fields.map((field) => (
             <label key={field.key} className="grid gap-1.5 text-sm">
-              <span className="text-xs font-medium text-slate-500">{field.label}</span>
+              <span className="text-xs font-medium text-muted-foreground">{field.label}</span>
               {field.field_type === 'select' ? (
                 <select
                   value={String(values[field.key] ?? field.default ?? '')}
                   onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))}
-                  className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-[#09090b]"
+                  className="md3-field"
                 >
                   {(field.options || []).map((option) => (
                     <option key={option.value} value={option.value}>
@@ -714,7 +1004,7 @@ function ProposalPanel({
                   value={String(values[field.key] ?? field.default ?? '')}
                   placeholder={field.placeholder || ''}
                   onChange={(event) => handleProposalFieldChange(field.key, event, setValues)}
-                  className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-[#09090b]"
+                  className="md3-field"
                 />
               )}
             </label>
@@ -727,7 +1017,7 @@ function ProposalPanel({
           type="button"
           onClick={submit}
           disabled={busy}
-          className="inline-flex items-center rounded-full border border-sky-300 bg-sky-50 px-3.5 py-1.5 text-xs font-medium text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-300 dark:hover:bg-sky-500/20"
+          className="surface-solid-button disabled:cursor-not-allowed disabled:opacity-50"
         >
           Continue
         </button>
@@ -753,13 +1043,13 @@ function ActiveSurfacePanel({
 
   return (
     <section className="py-4" data-testid="active-surface-panel">
-      <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
-        <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-white/10">
+      <div className="rounded-[1.75rem] bg-background/70 p-5 shadow-inner">
+        <div className="mb-4 flex items-center justify-between gap-3 border-b border-border/20 pb-3">
           <div>
-            <h2 className="text-base font-semibold">{surfaceTitle(activeSurface, contextLens)}</h2>
-            <p className="mt-1 text-sm text-slate-500">Opened from committed graph state.</p>
+            <h2 className="text-base font-medium">{surfaceTitle(activeSurface, contextLens)}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Opened from committed graph state.</p>
           </div>
-          <span className="rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-500 dark:border-white/10">
+          <span className="rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-secondary-foreground">
             {activeSurface.variant}
           </span>
         </div>
@@ -895,54 +1185,54 @@ function AuthSurfaceCard({ surface }: { surface: RouteDeckSurface }) {
   return (
     <form className="grid gap-4" onSubmit={submit} data-testid="corpus-auth-surface">
       <div>
-        <h3 className="text-lg font-semibold">{title}</h3>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">{description}</p>
+        <h3 className="text-xl font-medium">{title}</h3>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
         {intent === 'register' && (
           <label className="grid gap-1.5 text-sm sm:col-span-2">
-            <span className="text-xs font-medium text-slate-500">Display name</span>
+            <span className="text-xs font-medium text-muted-foreground">Display name</span>
             <input
               ref={firstFieldRef}
               type="text"
               value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
               placeholder="Optional"
-              className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-400 dark:border-white/10 dark:bg-[#09090b]"
+              className="md3-field"
               data-testid="corpus-auth-display-name"
             />
           </label>
         )}
 
         <label className="grid gap-1.5 text-sm">
-          <span className="text-xs font-medium text-slate-500">Email</span>
+          <span className="text-xs font-medium text-muted-foreground">Email</span>
           <input
             ref={intent === 'login' ? firstFieldRef : undefined}
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="you@example.com"
-            className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-400 dark:border-white/10 dark:bg-[#09090b]"
+            className="md3-field"
             data-testid="corpus-auth-email"
           />
         </label>
 
         <label className="grid gap-1.5 text-sm">
-          <span className="text-xs font-medium text-slate-500">Password</span>
+          <span className="text-xs font-medium text-muted-foreground">Password</span>
           <input
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             placeholder={intent === 'register' ? 'At least 8 characters' : 'Password'}
-            className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-400 dark:border-white/10 dark:bg-[#09090b]"
+            className="md3-field"
             data-testid="corpus-auth-password"
           />
         </label>
       </div>
 
       {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+        <div className="rounded-[1rem] bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
           {error}
         </div>
       )}
@@ -951,7 +1241,7 @@ function AuthSurfaceCard({ surface }: { surface: RouteDeckSurface }) {
         <button
           type="submit"
           disabled={submitting}
-          className="inline-flex items-center gap-2 rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+          className="surface-solid-button inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
           {title}
@@ -962,7 +1252,7 @@ function AuthSurfaceCard({ surface }: { surface: RouteDeckSurface }) {
           onClick={() => {
             void routeDeckStore.dispatch({ operation_id: 'navigate.home', args: {} })
           }}
-          className="rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
+          className="surface-outline-button disabled:cursor-not-allowed disabled:opacity-50"
         >
           Cancel
         </button>
@@ -971,16 +1261,35 @@ function AuthSurfaceCard({ surface }: { surface: RouteDeckSurface }) {
   )
 }
 
-function ContextPanel({ projection }: { projection: RouteDeckProjection }) {
+function ContextPanel({
+  projection,
+  status,
+  railNotice,
+}: {
+  projection: RouteDeckProjection
+  status: WorkbenchStatus
+  railNotice: RailSelectionNotice | null
+}) {
   const lens = contextLensFromProjection(projection)
   return (
     <section>
-      <h2 className="text-sm font-semibold">Working on</h2>
+      <h2 className="text-sm font-medium">Context / Evidence</h2>
+      <div className="mt-3"><StatusPill status={status} testId="corpus-sidebar-status" /></div>
+      {railNotice && (
+        <div className="mt-3 rounded-[1.25rem] bg-secondary px-4 py-3 text-sm text-secondary-foreground" data-testid="rail-node-notice">
+          <div className="flex items-center gap-2 font-medium">
+            {railNotice.state === 'locked' ? <Lock className="h-4 w-4" /> : <Activity className="h-4 w-4" />}
+            Node switcher: {railNotice.label}
+          </div>
+          <p className="mt-2 leading-5 text-secondary-foreground/80">{railNotice.message}</p>
+        </div>
+      )}
       <dl className="mt-3 grid gap-2 text-xs">
         <LensRow label="Agent" value={lens?.selected_saas_agent_name || 'No agent selected'} />
         <LensRow label="Current work" value={displayWork(lens?.working_on || projection.current_context)} />
         <LensRow label="API readiness" value={`${lens?.ready_connection_count || 0}/${lens?.connection_count || 0} ready`} />
         <LensRow label="Tools" value={String(lens?.tool_count || 0)} />
+        <LensRow label="Recent event" value={projection.graph_node} />
         {lens?.pending_trace_id && <LensRow label="Pending approval" value={lens.pending_trace_status || 'Waiting'} />}
       </dl>
     </section>
@@ -1023,35 +1332,35 @@ function DiagnosticsPanel({
   }, [open, projection])
 
   return (
-    <section className="mt-6">
+    <section className="mt-6" data-testid="diagnostics-sidebar">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
+        className="surface-outline-button inline-flex items-center gap-2 text-xs"
       >
         <AlertTriangle className="h-3.5 w-3.5" />
         Diagnostics
       </button>
       {open && (
-        <div className="mt-3 max-h-[calc(100vh-8rem)] overflow-y-auto rounded-lg border border-slate-200 bg-white p-4 text-xs shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="mt-3 max-h-[calc(100vh-13rem)] overflow-y-auto rounded-[1.5rem] bg-background/70 p-4 text-xs shadow-inner">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
-              <div className="font-semibold text-slate-950 dark:text-white">RouteDeck diagnostics</div>
-              <div className="mt-1 font-mono text-[11px] text-slate-500">
+              <div className="font-medium text-foreground">RouteDeck diagnostics</div>
+              <div className="mt-1 font-mono text-[11px] text-muted-foreground">
                 {projection.current_context} / {projection.graph_node} / v{projection.projection_version}
               </div>
             </div>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-600 transition hover:bg-slate-100 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
+              className="surface-outline-button px-3 py-1 text-xs"
             >
               Close
             </button>
           </div>
 
           {loadError && (
-            <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+            <div className="mb-4 rounded-[1rem] bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
               {loadError}
             </div>
           )}
@@ -1065,7 +1374,7 @@ function DiagnosticsPanel({
                 onSelectedNodeChange={setSelectedNodeId}
               />
 
-              <details className="mt-4 rounded-lg border border-slate-200 bg-slate-950 p-3 text-[11px] text-slate-100 dark:border-white/10">
+              <details className="mt-4 rounded-[1rem] bg-slate-950 p-3 text-[11px] text-slate-100">
                 <summary className="cursor-pointer font-semibold">Raw RouteDeck JSON</summary>
                 <pre className="mt-3 max-h-96 overflow-auto">
                   {JSON.stringify(snapshot, null, 2)}
@@ -1073,7 +1382,7 @@ function DiagnosticsPanel({
               </details>
             </>
           ) : (
-            <div className="flex items-center gap-2 py-6 text-sm text-slate-500">
+            <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               Loading diagnostics
             </div>
@@ -1086,8 +1395,8 @@ function DiagnosticsPanel({
 
 function LensRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-slate-200 p-2 dark:border-white/10">
-      <dt className="text-slate-500">{label}</dt>
+    <div className="rounded-[1rem] bg-background/60 p-3">
+      <dt className="text-muted-foreground">{label}</dt>
       <dd className="mt-1 break-words font-medium">{value}</dd>
     </div>
   )
@@ -1095,8 +1404,8 @@ function LensRow({ label, value }: { label: string; value: string }) {
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/[0.03]">
-      <dt className="text-xs text-slate-500">{label}</dt>
+    <div className="rounded-[1rem] bg-background/70 p-3">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="mt-1 font-medium">{value}</dd>
     </div>
   )
@@ -1104,12 +1413,12 @@ function Fact({ label, value }: { label: string; value: string }) {
 
 function Metric({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
-      <div className="flex items-center gap-2 text-sm text-slate-500">
+    <div className="rounded-[1rem] bg-background/70 p-4">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
         {icon}
         <span>{label}</span>
       </div>
-      <div className="mt-2 text-2xl font-semibold">{value}</div>
+      <div className="mt-2 text-2xl font-medium">{value}</div>
     </div>
   )
 }
@@ -1128,12 +1437,12 @@ function InfoSurface({
   return (
     <div>
       <div className="flex items-start gap-3">
-        <div className="rounded-md border border-slate-200 bg-white p-2 text-sky-600 dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="rounded-[1rem] bg-secondary p-2 text-primary">
           {icon}
         </div>
         <div className="min-w-0">
-          <h3 className="text-lg font-semibold">{title}</h3>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">{description}</p>
+          <h3 className="text-lg font-medium">{title}</h3>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">{description}</p>
         </div>
       </div>
       {children && <div className="mt-5">{children}</div>}
@@ -1156,6 +1465,120 @@ function contextLensFromProjection(projection: RouteDeckProjection): AppGraphCon
 
 function activeSurfaceFromProjection(projection: RouteDeckProjection): RouteDeckSurface | null {
   return Object.values(projection.surfaces).find((surface) => surface.role === 'active') || null
+}
+
+function corpusQuickActions(projection: RouteDeckProjection): CorpusQuickAction[] {
+  return projection.legal_operations
+    .filter((operation) => operation.id !== 'navigate.home')
+    .slice(0, 5)
+    .map(operationToQuickAction)
+}
+
+function operationToQuickAction(operation: RouteDeckOperation): CorpusQuickAction {
+  return {
+    operation,
+    label: corpusActionLabel(operation),
+    description: operation.description,
+    icon: operationIcon(operation.id),
+    tone: operation.emphasis === 'primary' ? 'primary' : operation.execution_mode === 'review' ? 'outline' : 'tonal',
+  }
+}
+
+function operationToProposal(operation: RouteDeckOperation): CorpusProposal {
+  return {
+    operation_id: operation.id,
+    label: corpusActionLabel(operation),
+    description: operation.description,
+    args: operation.payload || {},
+    execution_mode: operation.execution_mode || 'review',
+    safety_class: operation.safety_class,
+    input_schema: operation.input_schema,
+    target_node: operation.target_node,
+  }
+}
+
+function corpusActionLabel(operation: RouteDeckOperation) {
+  const labels: Record<string, string> = {
+    'auth.sign_in': 'Sign in',
+    'auth.register': 'Create account',
+    'saas_agent.create': 'Create SaaS Agent',
+    'saas_agent.open': 'Open SaaS Agent',
+    'navigate.connection_configure': 'Connect API',
+    'connection.preview': 'Preview schema',
+    'connection.activate': 'Activate API',
+    'catalog.open': 'Catalog',
+    'entities.open': 'Entities',
+    'actions.open': 'Actions',
+    'execution.open': 'Execution',
+    'execution.plan': 'Plan execution',
+    'knowledge.open': 'Knowledge',
+    'memory.open': 'Memory',
+    'learning.open': 'Learning',
+    'qa.open': 'Run QA',
+  }
+  return labels[operation.id] || operation.label
+}
+
+function operationIcon(operationId: string): ReactNode {
+  if (operationId.includes('auth')) return <User className="h-4 w-4" />
+  if (operationId.includes('saas_agent.create')) return <PlusCircleIcon />
+  if (operationId.includes('saas_agent.open')) return <Home className="h-4 w-4" />
+  if (operationId.includes('connection')) return <Plug className="h-4 w-4" />
+  if (operationId.includes('catalog')) return <Database className="h-4 w-4" />
+  if (operationId.includes('entities')) return <Boxes className="h-4 w-4" />
+  if (operationId.includes('actions')) return <ListIcon />
+  if (operationId.includes('execution')) return <Play className="h-4 w-4" />
+  if (operationId.includes('knowledge')) return <BookOpen className="h-4 w-4" />
+  if (operationId.includes('memory')) return <Brain className="h-4 w-4" />
+  if (operationId.includes('learning')) return <GraduationCap className="h-4 w-4" />
+  if (operationId.includes('qa')) return <ClipboardCheck className="h-4 w-4" />
+  return <Sparkles className="h-4 w-4" />
+}
+
+function PlusCircleIcon() {
+  return <Sparkles className="h-4 w-4" />
+}
+
+function ListIcon() {
+  return <Wrench className="h-4 w-4" />
+}
+
+function lockedCapabilityReason(item: CapabilityItem, lens: AppGraphContextLens | null) {
+  if (item.id === 'agent') {
+    return 'Create Agent is available after authentication. Use the auth action chips in Corpus first.'
+  }
+  if (item.id === 'connect') {
+    return 'Connect API needs an active SaaS Agent. Create or open an agent first.'
+  }
+  if (item.id === 'catalog' || item.id === 'actions') {
+    return lens?.connection_count
+      ? `${item.label} is waiting for the current connection to be activated.`
+      : `${item.label} unlocks after Corpus connects and activates an API schema.`
+  }
+  if (item.id === 'execution') {
+    return lens?.tool_count
+      ? 'Execution is waiting for a valid execution plan from Corpus.'
+      : 'Execution unlocks after activated API actions have generated runnable tools.'
+  }
+  if (item.id === 'knowledge' || item.id === 'memory' || item.id === 'learning' || item.id === 'qa') {
+    return `${item.label} needs an active SaaS Agent context before RouteDeck can switch there.`
+  }
+  return `${item.label} is not legal from the current RouteDeck node. Corpus can move there once the graph prerequisites are met.`
+}
+
+function capabilityItems(): CapabilityItem[] {
+  return [
+    { id: 'home', label: 'Home', icon: <Home className="h-4 w-4" />, nodes: ['home'], operationId: 'navigate.home' },
+    { id: 'agent', label: 'Create Agent', icon: <Sparkles className="h-4 w-4" />, nodes: ['saas_agent_select', 'saas_agent_create', 'agent_home'], operationId: 'saas_agent.create' },
+    { id: 'connect', label: 'Connect API', icon: <Plug className="h-4 w-4" />, nodes: ['connection_configure', 'schema_preview'], operationId: 'navigate.connection_configure' },
+    { id: 'catalog', label: 'Catalog', icon: <Database className="h-4 w-4" />, nodes: ['catalog_activation', 'catalog'], operationId: 'catalog.open' },
+    { id: 'actions', label: 'Actions', icon: <Wrench className="h-4 w-4" />, nodes: ['entities', 'actions'], operationId: 'actions.open' },
+    { id: 'execution', label: 'Execution', icon: <Play className="h-4 w-4" />, nodes: ['execution_planning', 'needs_input', 'approval_required', 'executing', 'result_review'], operationId: 'execution.open' },
+    { id: 'knowledge', label: 'Knowledge', icon: <BookOpen className="h-4 w-4" />, nodes: ['knowledge'], operationId: 'knowledge.open' },
+    { id: 'memory', label: 'Memory', icon: <Brain className="h-4 w-4" />, nodes: ['memory'], operationId: 'memory.open' },
+    { id: 'learning', label: 'Learning', icon: <GraduationCap className="h-4 w-4" />, nodes: ['learning'], operationId: 'learning.open' },
+    { id: 'qa', label: 'QA', icon: <ClipboardCheck className="h-4 w-4" />, nodes: ['qa'], operationId: 'qa.open' },
+  ]
 }
 
 function surfaceMatchesExpected(

@@ -6,8 +6,9 @@ import pytest
 from fastapi import HTTPException
 from routedeck_core import RouteDeckOperation, RouteDeckSurface, build_projection
 
-from backend.core.schemas import AppGraphRequest, AppGraphState
+from backend.core.schemas import AppGraphContextLens, AppGraphRequest, AppGraphState
 from backend.services.app_graph import corpus_graph_runtime
+from backend.services.app_graph.manifest import AppActionIds
 from backend.services.app_graph.runtime import CorpusGraphRuntime
 from backend.main import app
 
@@ -32,6 +33,21 @@ def test_corpus_graph_projects_lounge_through_routedeck():
     assert projection.surfaces["side"].component == "CorpusContextLens"
     assert projection.surfaces["side"].role == "frame"
     assert {operation.id for operation in projection.legal_operations} == {"auth.sign_in", "auth.register"}
+    register = next(operation for operation in projection.legal_operations if operation.id == "auth.register")
+    assert register.category == "auth"
+    assert register.kind == "button"
+    assert register.placement == "next_best"
+    assert register.emphasis == "secondary"
+
+
+def test_authenticated_projection_does_not_offer_auth_actions():
+    lens = AppGraphContextLens(current_node="home", working_on="Home")
+    state = AppGraphState(node="home")
+    user = object()
+
+    assert not corpus_graph_runtime._is_action_eligible(AppActionIds.AUTH_SIGN_IN, state, user, lens)
+    assert not corpus_graph_runtime._is_action_eligible(AppActionIds.AUTH_REGISTER, state, user, lens)
+    assert corpus_graph_runtime._is_action_eligible(AppActionIds.SAAS_AGENT_CREATE, state, user, lens)
 
 
 def test_route_deck_projection_diagnostics_do_not_carry_product_runtime_state():

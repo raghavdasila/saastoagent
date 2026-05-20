@@ -156,6 +156,33 @@ def test_auth_surface_completion_does_not_force_page_reload():
     assert "window.location.reload" not in auth_surface_source
 
 
+def test_material_workbench_renders_corpus_chips_and_auth_identity_without_raw_ids():
+    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
+    source = shell_path.read_text(encoding="utf-8")
+    conversation_source = source.split("function AgentConversation", 1)[1].split("function QuickActionChips", 1)[0]
+    quick_action_source = source.split("function QuickActionChips", 1)[1].split("function CapabilityRail", 1)[0]
+
+    assert 'data-testid="corpus-quick-actions"' in quick_action_source
+    assert "latestAssistantMessageId" in conversation_source
+    assert "message.id === latestAssistantMessageId" in conversation_source
+    assert 'data-testid="auth-user-pill"' in source
+    assert 'data-testid="capability-rail"' in source
+    assert "operation.id}</span>" not in quick_action_source
+    assert "{operation.id}" not in quick_action_source
+
+
+def test_material_workbench_rail_is_node_switcher_not_disabled_action_dock():
+    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
+    source = shell_path.read_text(encoding="utf-8")
+    rail_source = source.split("function CapabilityRail", 1)[1].split("function CapabilityStatusIcon", 1)[0]
+
+    assert "RouteDeck node switcher" in rail_source
+    assert "Node switcher:" in source
+    assert 'data-testid="rail-node-notice"' in source
+    assert "disabled={!operation || active}" not in rail_source
+    assert "onSelect(item, action, status)" in rail_source
+
+
 def test_product_diagnostics_are_read_only():
     shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
     source = shell_path.read_text(encoding="utf-8")

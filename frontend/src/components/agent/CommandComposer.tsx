@@ -37,7 +37,7 @@ export function CommandComposer({
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-2xl border border-border bg-background p-2 shadow-sm">
+    <div className="flex items-center gap-2 rounded-full bg-muted p-2 shadow-inner">
       <input
         ref={inputRef}
         type={inputType}
@@ -47,7 +47,7 @@ export function CommandComposer({
         placeholder={placeholder}
         disabled={disabled}
         className={cn(
-          'min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-foreground outline-none',
+          'min-w-0 flex-1 bg-transparent px-4 py-2 text-sm text-foreground outline-none',
           'placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
         )}
         data-testid="corpus-command-input"
@@ -59,7 +59,7 @@ export function CommandComposer({
           window.setTimeout(() => inputRef.current?.focus(), 0)
         }}
         disabled={disabled || !value.trim()}
-        className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-all duration-300 hover:bg-primary/90 hover:shadow-md active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
         title="Send"
         data-testid="corpus-command-send"
       >

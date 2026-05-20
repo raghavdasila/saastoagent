@@ -569,7 +569,9 @@ class CorpusGraphRuntime:
         return actions
 
     def _is_action_eligible(self, action_id: str, state: AppGraphState, user: User | None, lens: AppGraphContextLens) -> bool:
-        if action_id in {AppActionIds.AUTH_SIGN_IN, AppActionIds.AUTH_REGISTER, AppActionIds.HOME, AppActionIds.RECOVERY_HOME}:
+        if action_id in {AppActionIds.AUTH_SIGN_IN, AppActionIds.AUTH_REGISTER}:
+            return user is None
+        if action_id in {AppActionIds.HOME, AppActionIds.RECOVERY_HOME}:
             return True
         if user is None:
             return False
@@ -732,6 +734,10 @@ class CorpusGraphRuntime:
             id=action.id,
             label=action.label,
             description=action.description,
+            category=action.category,
+            kind=action.kind,
+            placement=action.placement,
+            emphasis=action.emphasis,
             safety_class=safety_class,
             execution_mode=execution_mode,
             input_schema={"fields": [field.model_dump(mode="json") for field in action.fields]},
