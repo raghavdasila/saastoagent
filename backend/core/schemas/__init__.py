@@ -16,7 +16,14 @@ from .entry import (
     EntryRouteDeckRuntimeSnapshot,
     EntryUIArtifact,
 )
-from .saas_agent import SaaSAgentCreate, SaaSAgentRead, SaaSAgentStats
+from .saas_agent import (
+    DeployedAgentProfile,
+    SaaSAgentCreate,
+    SaaSAgentDeploymentRead,
+    SaaSAgentDeploymentUpdate,
+    SaaSAgentRead,
+    SaaSAgentStats,
+)
 from .agent import (
     AgentAdminStats,
     AgentDocumentChunkRead,
@@ -78,6 +85,9 @@ __all__ = [
     "SaaSAgentCreate",
     "SaaSAgentRead",
     "SaaSAgentStats",
+    "SaaSAgentDeploymentRead",
+    "SaaSAgentDeploymentUpdate",
+    "DeployedAgentProfile",
     "ChatRequest",
     "AppGraphContextLens",
     "AppGraphRequest",

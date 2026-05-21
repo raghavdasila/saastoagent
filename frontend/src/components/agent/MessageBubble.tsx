@@ -12,9 +12,10 @@ import { ToolCard } from './ToolCard'
 interface Props {
   message: ChatUIMessage
   onFollowUp?: (question: string) => void
+  showToolCalls?: boolean
 }
 
-export function MessageBubble({ message, onFollowUp }: Props) {
+export function MessageBubble({ message, onFollowUp, showToolCalls = true }: Props) {
   const isUser = message.role === 'user'
 
   return (
@@ -51,7 +52,7 @@ export function MessageBubble({ message, onFollowUp }: Props) {
                 <ThinkingIndicator thinking={message.thinking} collapsed />
               )}
 
-              {message.toolCalls && message.toolCalls.length > 0 && (
+              {showToolCalls && message.toolCalls && message.toolCalls.length > 0 && (
                 <div className="mb-2 space-y-1.5">
                   {message.toolCalls.map((tc) => (
                     <ToolCard key={tc.callId} toolCall={tc} />

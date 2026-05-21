@@ -54,6 +54,7 @@ class ChatService:
     ) -> AsyncGenerator[str, None]:
         session = await self._resolve_session(session_id, saas_agent_id, user_id, db, handoff_context=handoff_context)
         session_id = session.id
+        public_response = _is_deployed_channel(session.metadata_ or {})
 
         # Resolve SaaSAgent name for prompt context
         ws = await db.get(SaaSAgent, saas_agent_id)
@@ -107,6 +108,7 @@ class ChatService:
                 reasoning_mode=reasoning_mode,
                 session_id=session_id,
                 memory_context=memory_context,
+                public_response=public_response,
                 db=db,
             )
         )
@@ -143,6 +145,7 @@ class ChatService:
         reasoning_mode: str,
         session_id: uuid.UUID,
         memory_context: str,
+        public_response: bool,
         db: AsyncSession,
     ) -> None:
         try:
@@ -163,6 +166,8 @@ class ChatService:
             sources_data: list[dict] = []
 
             async def emit_runtime_event(event_name: str, payload: dict[str, Any]) -> None:
+                if public_response and event_name in {"tool_start", "tool_end"}:
+                    return
                 if event_name == "tool_start":
                     await queue.put(tool_start(payload["tool_name"], payload["call_id"], payload.get("inputs") or {}))
                     tool_calls_data.append(
@@ -209,6 +214,7 @@ class ChatService:
                 user_id=user_id,
                 db=db,
                 emit=emit_runtime_event,
+                public_response=public_response,
             )
             if rest_content is not None:
                 full_content = rest_content
@@ -429,6 +435,11 @@ def _handoff_summary(metadata: dict[str, Any]) -> str:
         compact = " | ".join(str(message)[:160] for message in recent_messages[-4:])
         parts.append(f"Recent entry conversation: {compact}")
     return "\n".join(parts)
+
+
+def _is_deployed_channel(metadata: dict[str, Any]) -> bool:
+    handoff = metadata.get("handoff_context")
+    return isinstance(handoff, dict) and handoff.get("channel") == "deployed_web"
 
 
 def _rest_follow_ups(content: str) -> list[str]:

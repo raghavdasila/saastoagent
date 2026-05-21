@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import uuid
+from types import SimpleNamespace
+
 from backend.services.app_graph import (
     ACTION_TARGETS,
     APP_GRAPH_GROUPS,
     APP_GRAPH_VERSION,
     NODE_HANDLERS,
     build_app_graph_manifest,
+    corpus_graph_runtime,
     validate_app_graph_manifest,
 )
 from backend.core.schemas import AppGraphState
@@ -192,6 +196,66 @@ def test_material_workbench_proposal_surface_has_real_card_boundary():
     assert "border border-border" in proposal_source
     assert "bg-card" in proposal_source
     assert "dark:bg-muted" in proposal_source
+
+
+def test_connection_setup_surface_renders_real_api_forms():
+    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
+    source = shell_path.read_text(encoding="utf-8")
+    connection_source = source.split("function ConnectionSetupSurface", 1)[1].split("function ActiveSurfacePanel", 1)[0]
+
+    assert 'data-testid="connection-setup-surface"' in connection_source
+    assert "connection.preview" in connection_source
+    assert "connection.activate" in connection_source
+    assert "Save and activate API" in connection_source
+    assert "OperationForm" in connection_source
+
+
+def test_agent_route_without_node_uses_agent_home_state_not_home():
+    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
+    source = shell_path.read_text(encoding="utf-8")
+    corpus_state_path_source = source.split("function corpusStatePath", 1)[1].split("function createSaaStoAgentRouteDeckStore", 1)[0]
+    turn_source = source.split("const turn = useMutation", 1)[1].split("const hasStreamingCorpusMessage", 1)[0]
+
+    assert "saasAgentId ? 'agent_home'" in corpus_state_path_source
+    assert "currentGraphState?.node === 'home' && saasAgentId" in turn_source
+    assert "params.set('node_id', streamNodeId)" in turn_source
+
+
+def test_surface_opening_prompt_for_connection_is_deterministic_not_a_choice_question():
+    action = next(action for action in ACTION_SPECS if action.id == AppActionIds.CONNECTION_CONFIGURE)
+    content = corpus_graph_runtime._deterministic_surface_prompt(action)
+
+    assert "Connection setup is open" in content
+    assert "what would you like" not in content.lower()
+    assert "which would you like" not in content.lower()
+
+
+def test_api_setup_request_routes_to_connection_surface_when_agent_is_active():
+    action = next(action for action in ACTION_SPECS if action.id == AppActionIds.CONNECTION_CONFIGURE)
+    state = AppGraphState(node="agent_home", active_saas_agent_id=uuid.uuid4())
+    projection = SimpleNamespace(legal_operations=[action])
+
+    decision = corpus_graph_runtime._deterministic_turn_plan(
+        user_input="let me setup the api",
+        state=state,
+        projection=projection,
+    )
+
+    assert decision is not None
+    assert decision["intent"] == "open_surface"
+    assert decision["operation_id"] == AppActionIds.CONNECTION_CONFIGURE
+    assert "Connection setup is open" in decision["message"]
+    assert "what would you like" not in decision["message"].lower()
+
+
+def test_auto_operation_stream_emits_done_after_operation_completed():
+    runtime_path = Path(__file__).parents[1] / "services" / "app_graph" / "runtime.py"
+    source = runtime_path.read_text(encoding="utf-8")
+    auto_operation_source = source.split('if operation.execution_mode == "auto":', 1)[1].split("proposal = CorpusProposal", 1)[0]
+
+    assert '"event_type": "operation_completed"' in auto_operation_source
+    assert '"event_type": "corpus_done"' in auto_operation_source
+    assert '"status": "committed"' in auto_operation_source
 
 
 def test_material_workbench_proposal_waits_for_input_without_spinner_status():

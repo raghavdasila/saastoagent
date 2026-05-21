@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 
 import { AppGraphShell } from '@/components/appGraph/AppGraphShell'
+import { DeployedAgentChatPage } from '@/pages/DeployedAgentChatPage'
 
 function SaaSAgentOperatorRoute() {
   const { saasAgentId } = useParams<{ saasAgentId: string }>()
@@ -26,6 +27,7 @@ export function App() {
         <Route path="/app/:nodeId" element={<GraphNodeRoute />} />
         <Route path="/app/agents/:saasAgentId" element={<SaaSAgentOperatorRoute />} />
         <Route path="/app/agents/:saasAgentId/:nodeId" element={<SaaSAgentGraphNodeRoute />} />
+        <Route path="/a/:slug" element={<DeployedAgentChatPage />} />
 
         {/* Compatibility links hydrate graph context; they do not bypass Corpus. */}
         <Route path="/login" element={<Navigate to="/app/auth_sign_in" replace />} />

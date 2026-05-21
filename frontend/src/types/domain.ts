@@ -33,6 +33,30 @@ export interface AuthTokens {
   token_type: string
 }
 
+export interface DeployedAgentProfile {
+  saas_agent_id: string
+  slug: string
+  name: string
+  enabled: boolean
+  auth_required: boolean
+  visitor_auth_mode: 'inherit_from_connection' | 'anonymous' | 'login_required'
+  execution_mode: 'sandbox' | 'live'
+  default_write_policy: 'confirm' | 'owner_approval' | 'block'
+  welcome_message: string
+}
+
+export interface SaaSAgentDeployment {
+  id: string
+  saas_agent_id: string
+  enabled: boolean
+  visitor_auth_mode: 'inherit_from_connection' | 'anonymous' | 'login_required'
+  execution_mode: 'sandbox' | 'live'
+  default_write_policy: 'confirm' | 'owner_approval' | 'block'
+  welcome_message: string
+  created_at: string
+  updated_at: string
+}
+
 export interface ConnectionRead {
   id: string
   saas_agent_id: string

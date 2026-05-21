@@ -1,11 +1,11 @@
 # SaaStoAgent v0.1 Context
 
-Last Updated: May 21, 2026 11:07
+Last Updated: May 21, 2026 15:30
 Project: SaaStoAgent v0.1
-Status: The Corpus-centered workbench shell and the shared RouteDeck debugger
-pass are implemented and documented. Continue from semantic hub-map grouping,
-browser automation, and remaining RouteDeck compatibility cleanup, not from the
-rejected sitemap or page-replacing auth-shell assumptions.
+Status: The Corpus-centered builder workbench remains the RouteDeck surface, and
+the first deployed-agent web-chat slice is now implemented at `/a/:slug`.
+Continue by deepening deployed-agent acceptance fixtures and execution policy,
+not by replacing the builder shell or hardcoding Medusa behavior.
 Repository: `agent-lab-powered-projects/saastoagent-v0.1`
 
 ## Start Here
@@ -50,8 +50,32 @@ The core rules are:
 - Diagnostics is read-only and exposes graph/runtime internals when opened.
 - The focus debugger uses lane-separated routing; the full map uses a
   root-centered radial hub layout around `home`.
+- Deployed agent chat is a separate visitor surface, not a RouteDeck workbench.
+  It resolves by SaaSAgent slug, fetches deployment policy, and streams through
+  the same agent chat/SSE runtime.
+- ToolRouter is now represented by a backend-local adapter. It owns route/top-k/
+  missing-param/policy/unsafe decisions; existing REST execution traces remain
+  the executor of record.
 
 ## Implemented This Session
+
+- Added deployed-agent deployment state with owner-managed settings:
+  `enabled`, `visitor_auth_mode`, `execution_mode`, `default_write_policy`, and
+  `welcome_message`.
+- Added public deployed-agent APIs:
+  `GET /api/deployed-agents/{slug}` and
+  `POST /api/deployed-agents/{slug}/chat`.
+- Added the `/a/:slug` chat-only frontend surface with inline visitor auth gate,
+  existing chat bubbles/tool cards, and no RouteDeck rail/debugger.
+- Added a deployment card to the builder context panel so owners can enable and
+  configure the public URL from the current SaaSAgent context.
+- Added backend-local `ToolRouterAdapter` and wired it into the existing
+  `rest_operator` path for route, top-k, missing-parameter, policy-confirmation,
+  and unsafe destructive decisions.
+- Added tests covering deployed access policy, public route registration,
+  ToolRouter decisions, and REST-operator top-k formatting.
+
+## Previous Implemented Session
 
 - Refined the Corpus workbench shell, including auth/signup/login flow and
   authenticated topbar/surface behavior.
@@ -67,6 +91,19 @@ The core rules are:
   validation note, and closeout artifacts.
 
 ## Verification
+
+- `python -m pytest backend/tests`: 65 passed.
+- SaaStoAgent frontend `npm run type-check`: passed.
+- SaaStoAgent frontend `npm run build`: passed, with the existing Vite large
+  chunk warning.
+- `docker compose up -d --build`: backend/frontend/db started successfully.
+- Docker smoke:
+  - `GET http://localhost:8085/api/health`: `{"status":"ok"}`
+  - `GET http://localhost:3007/a/not-enabled-yet`: returned the SPA.
+  - Browser smoke on `/a/not-enabled-yet`: rendered “Agent unavailable” with no
+    console errors.
+
+### Previous Verification
 
 - `python -m pytest backend/tests/test_app_graph_contract.py -q`: 16 passed.
 - `npm test` in `agent-lab-powered-projects/routedeck/react`: 6 passed.
@@ -90,17 +127,15 @@ Keep for now:
 
 ## Next Concrete Step
 
-Continue from `plans/routedeck_runtime_store_reset_plan.md`:
+Continue the deployed-agent sandbox slice:
 
-1. Add semantic branch labels/grouping to the radial hub map.
-2. Add repo-native browser coverage for auth surface opening, inline proposal
-   widgets, and docked/fullscreen diagnostics.
-3. Remove remaining product-path dependence on compatibility `/api/app/graph/*`
-   endpoints.
-4. Add LLM/meta-tool adapters backed by the same RouteDeck introspection source
-   as diagnostics.
-5. Keep tightening shell polish without breaking the permanent central-chat
-   model.
+1. Seed deterministic Storefront and Admin OpenAPI fixture flows without
+   hardcoding product routing logic.
+2. Add end-to-end tests that create a SaaSAgent, activate Storefront, enable
+   deployment, chat through `/a/:slug`, then repeat with Admin write approval.
+3. Deepen visitor-auth policy into per-action and per-connection overrides.
+4. Add richer deployed result/approval cards after the text-first flow is stable.
+5. Keep RouteDeck as the builder/workbench surface and keep `/a/:slug` chat-only.
 
 ## Anti-Drift Reminder
 

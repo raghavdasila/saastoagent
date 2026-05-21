@@ -1,5 +1,5 @@
 from .base import Base, TenantBase
-from .public import User, SaaSAgent, SaaSAgentMember, SaaSAgentRole
+from .public import User, SaaSAgent, SaaSAgentDeployment, SaaSAgentMember, SaaSAgentRole
 from .agent import (
     AgentDocument,
     AgentDocumentChunk,
@@ -30,6 +30,7 @@ __all__ = [
     "TenantBase",
     "User",
     "SaaSAgent",
+    "SaaSAgentDeployment",
     "SaaSAgentMember",
     "SaaSAgentRole",
     "AgentSession",

@@ -15,6 +15,7 @@ from backend.routes.saas_agents import router as saas_agents_router
 from backend.routes.agent import router as agent_router
 from backend.routes.connections import router as connections_router
 from backend.routes.qa import router as qa_router
+from backend.routes.deployed_agents import router as deployed_agents_router
 
 structlog.configure(
     processors=[
@@ -68,3 +69,4 @@ app.include_router(saas_agents_router)
 app.include_router(agent_router)
 app.include_router(connections_router)
 app.include_router(qa_router)
+app.include_router(deployed_agents_router)

@@ -1,7 +1,9 @@
 import asyncio
+from types import SimpleNamespace
 
 from backend.core.schemas import ActionNodeRead
-from backend.services.agent.rest_operator import _build_inputs, _parse_trace_control, _tokens
+from backend.services.agent.rest_operator import _build_inputs, _format_execution_failure, _format_router_decision, _maybe_handle_trace_control, _parse_trace_control, _tokens
+from backend.services.toolrouter.adapter import ToolRouterDecision, ToolRouterDecisionType
 from backend.services.catalog import infer_entities, preview_openapi_spec
 
 
@@ -116,3 +118,68 @@ def test_rest_operator_parses_approval_resume_controls():
     assert _parse_trace_control("cancel abcdef12") == ("cancel", "abcdef12")
     assert _parse_trace_control("reject abcdef12") == ("cancel", "abcdef12")
     assert _parse_trace_control("approve this please") is None
+
+
+def test_rest_operator_formats_toolrouter_topk_decision():
+    decision = ToolRouterDecision(
+        type=ToolRouterDecisionType.SHOW_TOPK,
+        candidates=[
+            SimpleNamespace(tool=SimpleNamespace(name="listOrders"), action=SimpleNamespace(method="GET", path="/orders"), score=5),
+            SimpleNamespace(tool=SimpleNamespace(name="searchOrders"), action=SimpleNamespace(method="GET", path="/orders/search"), score=5),
+        ],
+    )
+
+    content = _format_router_decision(decision)
+
+    assert "I need one more detail" in content
+    assert "listOrders" not in content
+    assert "searchOrders" not in content
+    assert "/orders" not in content
+    assert "score" not in content
+
+
+def test_rest_operator_failure_message_does_not_expose_selected_tool():
+    content = _format_execution_failure(
+        tool_name="listproducts",
+        result={"error": "All connection attempts failed", "status_code": 0},
+        trace_token="abcdef12",
+    )
+
+    assert "listproducts" not in content
+    assert "selected" not in content.lower()
+    assert "could not reach" in content.lower()
+
+
+def test_rest_operator_public_failure_omits_debug_trace():
+    content = _format_execution_failure(
+        tool_name="listproducts",
+        result={"error": "All connection attempts failed", "status_code": 0},
+        trace_token="abcdef12",
+        public_response=True,
+    )
+
+    assert "listproducts" not in content
+    assert "Trace:" not in content
+    assert "Status:" not in content
+    assert "could not reach" in content.lower()
+
+
+def test_rest_operator_public_trace_control_does_not_expose_trace_details():
+    async def emit(_event_name, _payload):
+        raise AssertionError("public approval controls should not emit internal events")
+
+    content = asyncio.run(
+        _maybe_handle_trace_control(
+            message="approve abcdef12",
+            saas_agent_id="00000000-0000-0000-0000-000000000111",
+            session_id=None,
+            user_id=None,
+            db=None,
+            emit=emit,
+            public_response=True,
+        )
+    )
+
+    assert "agent owner" in content
+    assert "abcdef12" not in content
+    assert "trace" not in content.lower()

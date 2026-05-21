@@ -6,9 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.auth import current_active_user
 from backend.core.database import get_async_session
-from backend.core.models import User, SaaSAgent, SaaSAgentMember, SaaSAgentRole
-from backend.core.schemas import SaaSAgentCreate, SaaSAgentRead, SaaSAgentStats
+from backend.core.models import User, SaaSAgent, SaaSAgentDeployment, SaaSAgentMember, SaaSAgentRole
+from backend.core.schemas import SaaSAgentCreate, SaaSAgentDeploymentRead, SaaSAgentDeploymentUpdate, SaaSAgentRead, SaaSAgentStats
 from backend.core.tenancy import create_tenant_schema
+from backend.services.deployed_agents import get_or_create_deployment
 from backend.services.support.stats import get_saas_agent_stats
 
 router = APIRouter(prefix="/api/saas-agents", tags=["saas-agents"])
@@ -132,3 +133,51 @@ async def get_saas_agent_stats_route(
 
     stats = await get_saas_agent_stats(saas_agent_id)
     return SaaSAgentStats(**stats)
+
+
+@router.get("/{saas_agent_id}/deployment", response_model=SaaSAgentDeploymentRead)
+async def get_saas_agent_deployment(
+    saas_agent_id: uuid.UUID,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    await _require_saas_agent_admin(saas_agent_id, user, session)
+    return await get_or_create_deployment(saas_agent_id=saas_agent_id, db=session)
+
+
+@router.put("/{saas_agent_id}/deployment", response_model=SaaSAgentDeploymentRead)
+async def update_saas_agent_deployment(
+    saas_agent_id: uuid.UUID,
+    body: SaaSAgentDeploymentUpdate,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    await _require_saas_agent_admin(saas_agent_id, user, session)
+    deployment = await get_or_create_deployment(saas_agent_id=saas_agent_id, db=session)
+    deployment.enabled = body.enabled
+    deployment.visitor_auth_mode = body.visitor_auth_mode
+    deployment.execution_mode = body.execution_mode
+    deployment.default_write_policy = body.default_write_policy
+    deployment.welcome_message = body.welcome_message
+    await session.commit()
+    await session.refresh(deployment)
+    return deployment
+
+
+async def _require_saas_agent_admin(
+    saas_agent_id: uuid.UUID,
+    user: User,
+    session: AsyncSession,
+) -> SaaSAgentMember:
+    result = await session.execute(
+        select(SaaSAgentMember).where(
+            SaaSAgentMember.saas_agent_id == saas_agent_id,
+            SaaSAgentMember.user_id == user.id,
+        )
+    )
+    member = result.scalar_one_or_none()
+    if member is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a member of this SaaS Agent")
+    if member.role not in (SaaSAgentRole.owner, SaaSAgentRole.admin):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SaaS Agent admin role required")
+    return member

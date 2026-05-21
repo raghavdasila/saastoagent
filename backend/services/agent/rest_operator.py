@@ -14,6 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from backend.core.credentials import decrypt_value, inject_credentials
 from backend.core.models import ActionNode, AgentExecutionTrace, Connection, GeneratedTool, RiskLevel
+from backend.services.toolrouter.adapter import ToolRouterAdapter, ToolRouterDecision, ToolRouterDecisionType
 
 _TOKEN_RE = re.compile(r"[a-z0-9_/-]+", re.IGNORECASE)
 _EXECUTION_HINTS = {
@@ -51,6 +52,7 @@ async def run_rest_operator_turn(
     user_id: uuid.UUID | None = None,
     db: AsyncSession,
     emit,
+    public_response: bool = False,
 ) -> str | None:
     approval_result = await _maybe_handle_trace_control(
         message=message,
@@ -59,6 +61,7 @@ async def run_rest_operator_turn(
         user_id=user_id,
         db=db,
         emit=emit,
+        public_response=public_response,
     )
     if approval_result is not None:
         return approval_result
@@ -75,8 +78,40 @@ async def run_rest_operator_turn(
     candidate_summary_rows = _candidate_summary_rows(candidates)
     risk = _risk_value(top.tool.risk_level)
     inputs, missing = _build_inputs(message, top.action, top.tool)
+    decision = ToolRouterAdapter().decide(
+        message=message,
+        candidates=candidates,
+        inputs=inputs,
+        missing=missing,
+    )
 
-    if risk in _WRITE_RISKS or top.tool.requires_approval:
+    if decision.type in {ToolRouterDecisionType.SHOW_TOPK, ToolRouterDecisionType.BLOCK_UNSAFE}:
+        return _format_router_decision(decision)
+
+    if decision.type == ToolRouterDecisionType.ASK_PARAM:
+        trace = await create_execution_trace(
+            candidate=top,
+            inputs=inputs,
+            missing=missing,
+            candidate_summary=candidate_summary_rows,
+            status="needs_input",
+            approval_state="not_required",
+            route_node="needs_input",
+            saas_agent_id=saas_agent_id,
+            session_id=session_id,
+            user_id=user_id,
+            db=db,
+        )
+        content = (
+            "I need one more detail before I can do that.\n\n"
+            f"Please provide: {', '.join(_humanize_name(name) for name in missing)}.\n\n"
+            "Once you provide that, I can continue."
+        )
+        if not public_response:
+            content = content.replace("\n\nOnce you provide", f"\n\nTrace: `{str(trace.id)[:8]}`\n\nOnce you provide")
+        return content
+
+    if decision.type == ToolRouterDecisionType.ASK_POLICY:
         trace = await create_execution_trace(
             candidate=top,
             inputs=inputs,
@@ -91,46 +126,29 @@ async def run_rest_operator_turn(
             db=db,
         )
         trace_token = str(trace.id)[:8]
-        await emit(
-            "approval_required",
-            {
-                "trace_id": str(trace.id),
-                "trace_token": trace_token,
-                "tool": top.tool.name,
-                "risk": risk,
-                "connection": top.connection.name,
-                "inputs": inputs,
-                "missing": missing,
-            },
-        )
+        if not public_response:
+            await emit(
+                "approval_required",
+                {
+                    "trace_id": str(trace.id),
+                    "trace_token": trace_token,
+                    "tool": top.tool.name,
+                    "risk": risk,
+                    "connection": top.connection.name,
+                    "inputs": inputs,
+                    "missing": missing,
+                },
+            )
+        if public_response:
+            return (
+                "This request needs approval before I can run it.\n\n"
+                "Ask the agent owner to approve the action, or request a read-only preview instead."
+            )
         return (
             "I found the matching API action, but it needs approval before execution.\n\n"
-            f"Candidate: `{top.tool.name}` on {top.connection.name}\n"
             f"Risk: `{risk}`\n"
             f"Trace: `{trace_token}`\n\n"
             f"Reply `approve {trace_token}` to execute it, or `cancel {trace_token}` to reject it."
-        )
-
-    if missing:
-        trace = await create_execution_trace(
-            candidate=top,
-            inputs=inputs,
-            missing=missing,
-            candidate_summary=candidate_summary_rows,
-            status="needs_input",
-            approval_state="not_required",
-            route_node="needs_input",
-            saas_agent_id=saas_agent_id,
-            session_id=session_id,
-            user_id=user_id,
-            db=db,
-        )
-        return (
-            "I found the likely API action, but it needs more inputs before it can run.\n\n"
-            f"Candidate: `{top.tool.name}` on {top.connection.name}\n"
-            f"Missing: {', '.join(f'`{name}`' for name in missing)}\n\n"
-            f"Trace: `{str(trace.id)[:8]}`\n\n"
-            f"Other close matches:\n{candidate_summary}"
         )
 
     trace = await create_execution_trace(
@@ -146,39 +164,48 @@ async def run_rest_operator_turn(
         user_id=user_id,
         db=db,
     )
-    await emit(
-        "execution_planned",
-        {
-            "trace_id": str(trace.id),
-            "trace_token": str(trace.id)[:8],
-            "tool": top.tool.name,
-            "risk": risk,
-            "inputs": inputs,
-        },
-    )
+    if not public_response:
+        await emit(
+            "execution_planned",
+            {
+                "trace_id": str(trace.id),
+                "trace_token": str(trace.id)[:8],
+                "tool": top.tool.name,
+                "risk": risk,
+                "inputs": inputs,
+            },
+        )
     call_id = uuid.uuid4().hex[:8]
-    await emit("tool_start", {"tool_name": top.tool.name, "call_id": call_id, "inputs": inputs})
+    if not public_response:
+        await emit("tool_start", {"tool_name": top.tool.name, "call_id": call_id, "inputs": inputs})
     result = await execute_rest_tool(top, inputs, db)
     await finalize_execution_trace(trace, result, db)
     output_text = json.dumps(result, default=str)[:5000]
-    await emit("tool_end", {"call_id": call_id, "output": output_text})
+    if not public_response:
+        await emit("tool_end", {"call_id": call_id, "output": output_text})
 
     if result.get("error"):
+        return _format_execution_failure(
+            tool_name=top.tool.name,
+            result=result,
+            trace_token=str(trace.id)[:8],
+            public_response=public_response,
+        )
+
+    if public_response:
         return (
-            f"I selected `{top.tool.name}` but the API call failed.\n\n"
-            f"Error: {result['error']}\n"
-            f"Status: {result.get('status_code', 0)}\n\n"
-            f"Trace: `{str(trace.id)[:8]}`\n\n"
-            "The failure has enough trace detail for a learning candidate in the next pass."
+            "Here’s what I found.\n\n"
+            f"```json\n{json.dumps(_preview_body(result.get('body')), indent=2, default=str)[:2500]}\n```\n\n"
+            "You can ask me to check another item or narrow the result."
         )
 
     return (
-        f"I used `{top.tool.name}` from {top.connection.name}.\n\n"
+        "Here’s what I found.\n\n"
         f"Status: {result.get('status_code')}\n"
         f"Duration: {result.get('duration_ms')} ms\n\n"
         f"Trace: `{str(trace.id)[:8]}`\n\n"
         f"Result preview:\n```json\n{json.dumps(_preview_body(result.get('body')), indent=2, default=str)[:2500]}\n```\n\n"
-        f"Close action matches considered:\n{candidate_summary}"
+        "You can ask me to check another item or narrow the result."
     )
 
 
@@ -259,11 +286,14 @@ async def _maybe_handle_trace_control(
     user_id: uuid.UUID | None,
     db: AsyncSession,
     emit,
+    public_response: bool = False,
 ) -> str | None:
     parsed = _parse_trace_control(message)
     if parsed is None:
         return None
     command, trace_token = parsed
+    if public_response:
+        return "Approval actions must be handled by the agent owner, not from this public chat."
     trace = await _find_trace_by_token(db, saas_agent_id, trace_token)
     if trace is None:
         return f"I could not find a pending execution trace matching `{trace_token}`."
@@ -490,6 +520,43 @@ def _format_candidate_summary(candidates: list[ToolCandidate]) -> str:
     )
 
 
+def _format_router_decision(decision: ToolRouterDecision) -> str:
+    if decision.type == ToolRouterDecisionType.BLOCK_UNSAFE:
+        return (
+            "I blocked this API request because it looks unsafe for the sandbox.\n\n"
+            f"Reason: {decision.reason or 'Unsafe request'}\n\n"
+            "Try a narrower operation with explicit identifiers, or ask for a read-only preview first."
+        )
+    detail_hints = _clarification_hints(decision.candidates)
+    return (
+        "I need one more detail so I can do the right thing.\n\n"
+        f"{detail_hints}\n\n"
+        "Reply in plain language with the missing detail."
+    )
+
+
+def _format_execution_failure(*, tool_name: str, result: dict[str, Any], trace_token: str, public_response: bool = False) -> str:
+    error_text = str(result.get("error") or "Unknown error")
+    status = result.get("status_code", 0)
+    if status == 0 or "connection" in error_text.lower():
+        summary = "I could not reach the connected API."
+    else:
+        summary = "The connected API returned an error."
+    if public_response:
+        return (
+            f"{summary}\n\n"
+            f"Error: {error_text}\n\n"
+            "Try again after the API is reachable, or ask for a narrower request."
+        )
+    return (
+        f"{summary}\n\n"
+        f"Error: {error_text}\n"
+        f"Status: {status}\n\n"
+        f"Trace: `{trace_token}`\n\n"
+        "Try again after the API is reachable, or ask for a narrower request."
+    )
+
+
 def _candidate_summary_rows(candidates: list[ToolCandidate]) -> list[dict[str, Any]]:
     return [
         {
@@ -501,6 +568,42 @@ def _candidate_summary_rows(candidates: list[ToolCandidate]) -> list[dict[str, A
         }
         for row in candidates[:5]
     ]
+
+
+def _clarification_hints(candidates: list[Any]) -> str:
+    path_params: list[str] = []
+    collection_labels: list[str] = []
+    for candidate in candidates[:5]:
+        action = getattr(candidate, "action", None)
+        path = str(getattr(action, "path", "") or "")
+        params = [
+            str(parameter.get("name"))
+            for parameter in (getattr(action, "parameters", None) or [])
+            if isinstance(parameter, dict) and parameter.get("required")
+        ]
+        path_params.extend(params)
+        label = _entity_label_from_path(path)
+        if label and label not in collection_labels:
+            collection_labels.append(label)
+    if path_params:
+        readable = ", ".join(_humanize_name(name) for name in sorted(set(path_params)))
+        if collection_labels:
+            return f"Do you want the {', '.join(collection_labels)} list, or details for a specific item? If it is a specific item, include {readable}."
+        return f"If this is about a specific item, include {readable}."
+    if collection_labels:
+        return f"Are you asking to list, search, or filter {', '.join(collection_labels)}?"
+    return "Please add the target, filter, or identifier you want me to use."
+
+
+def _entity_label_from_path(path: str) -> str:
+    parts = [part for part in path.split("/") if part and not part.startswith("{")]
+    if not parts:
+        return ""
+    return _humanize_name(parts[-1])
+
+
+def _humanize_name(value: str) -> str:
+    return str(value).replace("_", " ").replace("-", " ")
 
 
 def _preview_body(body: Any) -> Any:

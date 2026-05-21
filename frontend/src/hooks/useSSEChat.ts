@@ -11,6 +11,7 @@ import type {
 
 interface UseSSEChatOptions {
   saasAgentId: string | null
+  chatPath?: string | null
   onError?: (message: string) => void
 }
 
@@ -31,7 +32,7 @@ export interface UseSSEChatReturn {
   abort: () => void
 }
 
-export function useSSEChat({ saasAgentId, onError }: UseSSEChatOptions): UseSSEChatReturn {
+export function useSSEChat({ saasAgentId, chatPath, onError }: UseSSEChatOptions): UseSSEChatReturn {
   const [messages, setMessages] = useState<ChatUIMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [thinking, setThinking] = useState('')
@@ -61,7 +62,7 @@ export function useSSEChat({ saasAgentId, onError }: UseSSEChatOptions): UseSSEC
     sourcesRef.current = []
     followUpsRef.current = []
     cursorRef.current = 0
-  }, [saasAgentId])
+  }, [saasAgentId, chatPath])
 
   const flushAssistant = useCallback(() => {
     setMessages((prev) => {
@@ -205,7 +206,8 @@ export function useSSEChat({ saasAgentId, onError }: UseSSEChatOptions): UseSSEC
       reasoningMode: string = 'balanced',
       handoffContext?: AgentHandoffContext | null,
     ) => {
-      if (isStreaming || !saasAgentId) return
+      const resolvedChatPath = chatPath || (saasAgentId ? `/api/saas-agents/${saasAgentId}/agent/chat` : null)
+      if (isStreaming || !resolvedChatPath) return
 
       const userMsg: ChatUIMessage = {
         id: crypto.randomUUID(),
@@ -237,7 +239,7 @@ export function useSSEChat({ saasAgentId, onError }: UseSSEChatOptions): UseSSEC
       const xhr = new XMLHttpRequest()
       xhrRef.current = xhr
 
-      xhr.open('POST', `/api/saas-agents/${saasAgentId}/agent/chat`)
+      xhr.open('POST', resolvedChatPath)
       xhr.setRequestHeader('Content-Type', 'application/json')
       const token = storage.getToken()
       if (token && token !== 'undefined' && token !== 'null') {
@@ -276,7 +278,7 @@ export function useSSEChat({ saasAgentId, onError }: UseSSEChatOptions): UseSSEC
         }),
       )
     },
-    [isStreaming, saasAgentId, sessionId, parseSSEChunk, finishStream, onError],
+    [isStreaming, saasAgentId, chatPath, sessionId, parseSSEChunk, finishStream, onError],
   )
 
   const abort = useCallback(() => {

@@ -72,7 +72,7 @@ import type {
   CorpusSurfaceOpening,
   CorpusSurfacePrompt,
 } from '@/types/corpus'
-import type { SaaSAgent } from '@/types/domain'
+import type { SaaSAgent, SaaSAgentDeployment } from '@/types/domain'
 
 interface AppGraphShellProps {
   nodeId?: string
@@ -251,7 +251,10 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
     mutationFn: async (userInput: string) => {
       const currentGraphState = graphStateFromRouteDeckState(routeDeckStore.getState()) || graphState
       const params = new URLSearchParams({ user_input: userInput })
-      if (currentGraphState?.node) params.set('node_id', currentGraphState.node)
+      const streamNodeId = currentGraphState?.node === 'home' && saasAgentId
+        ? 'agent_home'
+        : currentGraphState?.node
+      if (streamNodeId) params.set('node_id', streamNodeId)
       if (currentGraphState?.active_saas_agent_id) {
         params.set('saas_agent_id', currentGraphState.active_saas_agent_id)
       } else if (saasAgentId) {
@@ -465,7 +468,14 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
             pendingProposal={pendingProposal}
             pendingSurfaceOpening={pendingSurfaceOpening}
             quickActions={quickActions}
-            activeSurfacePanel={<ActiveSurfacePanel projection={projection} graphState={graphState} />}
+            activeSurfacePanel={
+              <ActiveSurfacePanel
+                projection={projection}
+                graphState={graphState}
+                busy={executeOperation.isPending}
+                onOperationSubmit={(operationId, args) => executeOperation.mutate({ operationId, args })}
+              />
+            }
             activeSurfaceKey={activeSurface ? `${activeSurface.component}:${activeSurface.variant}` : 'none'}
             onDraftChange={setDraft}
             onSend={sendChatTurn}
@@ -492,7 +502,8 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
 
 function corpusStatePath(nodeId?: string, saasAgentId?: string) {
   const params = new URLSearchParams()
-  if (nodeId) params.set('node_id', nodeId)
+  const effectiveNodeId = nodeId || (saasAgentId ? 'agent_home' : undefined)
+  if (effectiveNodeId) params.set('node_id', effectiveNodeId)
   if (saasAgentId) params.set('saas_agent_id', saasAgentId)
   const query = params.toString()
   return `/corpus/state${query ? `?${query}` : ''}`
@@ -1031,12 +1042,153 @@ function ProposalPanel({
   )
 }
 
+function OperationForm({
+  operation,
+  busy,
+  submitLabel,
+  onSubmit,
+}: {
+  operation: RouteDeckOperation
+  busy: boolean
+  submitLabel?: string
+  onSubmit: (args: Record<string, unknown>) => void
+}) {
+  const proposal = operationToProposal(operation)
+  const fields = proposalFields(proposal)
+  const [values, setValues] = useState<Record<string, unknown>>(() => proposalDefaults(proposal))
+
+  useEffect(() => {
+    setValues(proposalDefaults(proposal))
+  }, [operation.id])
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    onSubmit(values)
+  }
+
+  return (
+    <form className="grid gap-4" onSubmit={submit}>
+      {fields.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {fields.map((field) => (
+            <label key={field.key} className="grid gap-1.5 text-sm">
+              <span className="text-xs font-medium text-muted-foreground">
+                {field.label}
+                {field.required ? ' *' : ''}
+              </span>
+              {field.field_type === 'select' ? (
+                <select
+                  value={String(values[field.key] ?? field.default ?? '')}
+                  required={field.required}
+                  onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))}
+                  className="md3-field"
+                >
+                  {(field.options || []).map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type={field.sensitive ? 'password' : field.field_type === 'url' ? 'url' : 'text'}
+                  value={String(values[field.key] ?? field.default ?? '')}
+                  required={field.required}
+                  placeholder={field.placeholder || ''}
+                  onChange={(event) => handleProposalFieldChange(field.key, event, setValues)}
+                  className="md3-field"
+                />
+              )}
+            </label>
+          ))}
+        </div>
+      )}
+      <div>
+        <button
+          type="submit"
+          disabled={busy}
+          className="surface-solid-button disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {submitLabel || corpusActionLabel(operation)}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+function ConnectionSetupSurface({
+  projection,
+  busy,
+  onOperationSubmit,
+}: {
+  projection: RouteDeckProjection
+  busy: boolean
+  onOperationSubmit: (operationId: string, args: Record<string, unknown>) => void
+}) {
+  const previewOperation = projection.legal_operations.find((operation) => operation.id === 'connection.preview')
+  const activateOperation = projection.legal_operations.find((operation) => operation.id === 'connection.activate')
+
+  return (
+    <InfoSurface
+      title="Connect an API"
+      description="Enter the SaaS API connection details here. Preview validates the OpenAPI schema; save and activate creates the connection, generated actions, tools, and catalog context."
+      icon={<KeyRound className="h-5 w-5" />}
+    >
+      <div className="grid gap-4" data-testid="connection-setup-surface">
+        {previewOperation && (
+          <div className="rounded-[0.85rem] border border-border/35 bg-background/70 p-4">
+            <div className="mb-3">
+              <h4 className="text-sm font-semibold">Preview schema</h4>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Use this first when you only want to verify the OpenAPI URL and endpoint count.
+              </p>
+            </div>
+            <OperationForm
+              operation={previewOperation}
+              busy={busy}
+              submitLabel="Preview schema"
+              onSubmit={(args) => onOperationSubmit(previewOperation.id, args)}
+            />
+          </div>
+        )}
+
+        {activateOperation && (
+          <div className="rounded-[0.85rem] border border-secondary/35 bg-secondary/5 p-4">
+            <div className="mb-3">
+              <h4 className="text-sm font-semibold">Save and activate API</h4>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Provide the base URL, OpenAPI URL, and auth metadata. Credentials are stored separately from visitor auth.
+              </p>
+            </div>
+            <OperationForm
+              operation={activateOperation}
+              busy={busy}
+              submitLabel="Save and activate API"
+              onSubmit={(args) => onOperationSubmit(activateOperation.id, args)}
+            />
+          </div>
+        )}
+
+        {!previewOperation && !activateOperation && (
+          <p className="text-sm text-muted-foreground">
+            Connection actions are not currently available from this graph node.
+          </p>
+        )}
+      </div>
+    </InfoSurface>
+  )
+}
+
 function ActiveSurfacePanel({
   projection,
   graphState,
+  busy,
+  onOperationSubmit,
 }: {
   projection: RouteDeckProjection
   graphState: AppGraphState | null
+  busy: boolean
+  onOperationSubmit: (operationId: string, args: Record<string, unknown>) => void
 }) {
   const contextLens = contextLensFromProjection(projection)
   const activeSurface = useMemo(
@@ -1058,7 +1210,14 @@ function ActiveSurfacePanel({
             Active surface
           </span>
         </div>
-        <SurfaceRenderer surface={activeSurface} contextLens={contextLens} graphState={graphState} />
+        <SurfaceRenderer
+          surface={activeSurface}
+          contextLens={contextLens}
+          graphState={graphState}
+          projection={projection}
+          busy={busy}
+          onOperationSubmit={onOperationSubmit}
+        />
       </div>
     </section>
   )
@@ -1068,10 +1227,16 @@ function SurfaceRenderer({
   surface,
   contextLens,
   graphState,
+  projection,
+  busy,
+  onOperationSubmit,
 }: {
   surface: RouteDeckSurface
   contextLens: AppGraphContextLens | null
   graphState: AppGraphState | null
+  projection: RouteDeckProjection
+  busy: boolean
+  onOperationSubmit: (operationId: string, args: Record<string, unknown>) => void
 }) {
   if (surface.component === 'CorpusAuthSurface') {
     return <AuthSurfaceCard surface={surface} />
@@ -1116,9 +1281,7 @@ function SurfaceRenderer({
     )
   }
   if (surface.component === 'ConnectionSetupSurface') {
-    return (
-      <InfoSurface title="Connect an API" description="Use Corpus proposals to preview a schema and activate a connection from this node." icon={<KeyRound className="h-5 w-5" />} />
-    )
+    return <ConnectionSetupSurface projection={projection} busy={busy} onOperationSubmit={onOperationSubmit} />
   }
   if (surface.component === 'ExecutionSurface') {
     return (
@@ -1297,7 +1460,100 @@ function ContextPanel({
         <LensRow label="Recent event" value={displayWork(projection.graph_node)} />
         {lens?.pending_trace_id && <LensRow label="Pending approval" value={lens.pending_trace_status || 'Waiting'} />}
       </dl>
+      {lens?.selected_saas_agent_id && lens.selected_saas_agent_slug && (
+        <DeploymentCard
+          saasAgentId={lens.selected_saas_agent_id}
+          slug={lens.selected_saas_agent_slug}
+        />
+      )}
     </section>
+  )
+}
+
+function DeploymentCard({ saasAgentId, slug }: { saasAgentId: string; slug: string }) {
+  const [draft, setDraft] = useState<SaaSAgentDeployment | null>(null)
+  const deployUrl = `${window.location.origin}/a/${slug}`
+  const query = useQuery({
+    queryKey: ['saas-agent-deployment', saasAgentId],
+    queryFn: () => api.get<SaaSAgentDeployment>(`/saas-agents/${saasAgentId}/deployment`),
+    enabled: Boolean(saasAgentId),
+  })
+  const save = useMutation({
+    mutationFn: (body: SaaSAgentDeployment) =>
+      api.put<SaaSAgentDeployment>(`/saas-agents/${saasAgentId}/deployment`, {
+        enabled: body.enabled,
+        visitor_auth_mode: body.visitor_auth_mode,
+        execution_mode: body.execution_mode,
+        default_write_policy: body.default_write_policy,
+        welcome_message: body.welcome_message,
+      }),
+    onSuccess: (next) => setDraft(next),
+  })
+
+  useEffect(() => {
+    if (query.data) setDraft(query.data)
+  }, [query.data])
+
+  if (query.isLoading || !draft) {
+    return (
+      <div className="mt-4 rounded-xl border border-border/25 bg-card/70 p-3 text-xs text-muted-foreground">
+        Loading deployment settings...
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-border/25 bg-card/80 p-3 text-xs shadow-sm">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <div className="font-semibold text-foreground">Deployed chat URL</div>
+          <a className="mt-1 block truncate font-mono text-[11px] text-primary" href={deployUrl} target="_blank" rel="noreferrer">
+            {deployUrl}
+          </a>
+        </div>
+        <label className="flex items-center gap-2 text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={draft.enabled}
+            onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })}
+          />
+          Enabled
+        </label>
+      </div>
+      <label className="mt-3 block">
+        <span className="text-muted-foreground">Access</span>
+        <select
+          className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1"
+          value={draft.visitor_auth_mode}
+          onChange={(event) => setDraft({ ...draft, visitor_auth_mode: event.target.value as SaaSAgentDeployment['visitor_auth_mode'] })}
+        >
+          <option value="inherit_from_connection">Inherit from connection</option>
+          <option value="anonymous">Anonymous allowed</option>
+          <option value="login_required">Login required</option>
+        </select>
+      </label>
+      <label className="mt-3 block">
+        <span className="text-muted-foreground">Welcome message</span>
+        <textarea
+          className="mt-1 min-h-16 w-full rounded-md border border-input bg-background px-2 py-1"
+          value={draft.welcome_message}
+          onChange={(event) => setDraft({ ...draft, welcome_message: event.target.value })}
+        />
+      </label>
+      {save.error && (
+        <div className="mt-2 rounded-md bg-red-50 px-2 py-1 text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {save.error instanceof Error ? save.error.message : 'Deployment save failed.'}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => save.mutate(draft)}
+        disabled={save.isPending}
+        className="surface-solid-button mt-3 w-full rounded-md px-3 py-2"
+      >
+        {save.isPending ? 'Saving...' : 'Save deployment'}
+      </button>
+    </div>
   )
 }
 

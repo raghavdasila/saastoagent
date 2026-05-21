@@ -318,39 +318,53 @@ class CorpusGraphRuntime:
             db=db,
             projection_version=projection_version,
         )
-        api_key = settings.openai_api_key if openai_api_key is None else openai_api_key
-        if not api_key:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Corpus graph requires a configured LLM. Set STA_OPENAI_API_KEY before using Corpus.",
-            )
-        yield {"event_type": "corpus_status", "projection_version": projection.projection_version, "payload": {"status": "thinking"}}
-        decision_task = asyncio.create_task(
-            self._corpus_turn_plan(
-                api_key=api_key,
-                user_input=request.user_input or "",
-                projection=projection.model_dump(mode="json"),
-            )
+        decision = self._deterministic_turn_plan(
+            user_input=request.user_input or "",
+            state=turn_state,
+            projection=projection,
         )
-        decision: dict[str, Any] | None = None
         streamed_before_decision = False
-        try:
-            decision = await asyncio.wait_for(
-                asyncio.shield(decision_task),
-                timeout=CORPUS_ROUTER_FIRST_TOKEN_BUDGET_SECONDS,
+        if decision is not None:
+            yield {"event_type": "corpus_status", "projection_version": projection.projection_version, "payload": {"status": "thinking"}}
+        else:
+            api_key = settings.openai_api_key if openai_api_key is None else openai_api_key
+            if not api_key:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Corpus graph requires a configured LLM. Set STA_OPENAI_API_KEY before using Corpus.",
+                )
+            yield {"event_type": "corpus_status", "projection_version": projection.projection_version, "payload": {"status": "thinking"}}
+            decision_task = asyncio.create_task(
+                self._corpus_turn_plan(
+                    api_key=api_key,
+                    user_input=request.user_input or "",
+                    projection=projection.model_dump(mode="json"),
+                )
             )
-        except asyncio.TimeoutError:
-            streamed_before_decision = True
-            async for event in self._stream_reply_events(
-                api_key=api_key,
-                user_input=request.user_input or "",
-                projection=projection.model_dump(mode="json"),
-                projection_version=projection.projection_version,
-                fallback_message="",
-            ):
-                yield event
             try:
-                decision = await decision_task
+                decision = await asyncio.wait_for(
+                    asyncio.shield(decision_task),
+                    timeout=CORPUS_ROUTER_FIRST_TOKEN_BUDGET_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                streamed_before_decision = True
+                async for event in self._stream_reply_events(
+                    api_key=api_key,
+                    user_input=request.user_input or "",
+                    projection=projection.model_dump(mode="json"),
+                    projection_version=projection.projection_version,
+                    fallback_message="",
+                ):
+                    yield event
+                try:
+                    decision = await decision_task
+                except Exception as exc:
+                    yield {
+                        "event_type": "corpus_error",
+                        "projection_version": projection.projection_version,
+                        "payload": {"message": "Corpus could not complete the model turn.", "error": exc.__class__.__name__},
+                    }
+                    return
             except Exception as exc:
                 yield {
                     "event_type": "corpus_error",
@@ -358,13 +372,6 @@ class CorpusGraphRuntime:
                     "payload": {"message": "Corpus could not complete the model turn.", "error": exc.__class__.__name__},
                 }
                 return
-        except Exception as exc:
-            yield {
-                "event_type": "corpus_error",
-                "projection_version": projection.projection_version,
-                "payload": {"message": "Corpus could not complete the model turn.", "error": exc.__class__.__name__},
-            }
-            return
         surface_intent_changed = self._store_surface_intent(turn_state, user, decision.get("surface_intent"))
         if surface_intent_changed:
             projection = await self.route_deck_projection(
@@ -473,6 +480,11 @@ class CorpusGraphRuntime:
                         expected_active_surface=expected_active_surface,
                     ),
                 },
+            }
+            yield {
+                "event_type": "corpus_done",
+                "projection_version": response.projection.projection_version,
+                "payload": {"status": "committed"},
             }
             return
         proposal = CorpusProposal(
@@ -901,7 +913,9 @@ class CorpusGraphRuntime:
     ) -> dict[str, Any] | None:
         if expected_active_surface is None:
             return None
-        content = decision_message.strip()
+        content = self._deterministic_surface_prompt(operation)
+        if not content:
+            content = decision_message.strip()
         if not content and response.messages:
             content = str(response.messages[0].content or "").strip()
         if not content:
@@ -912,6 +926,47 @@ class CorpusGraphRuntime:
             "expected_active_surface": expected_active_surface,
             "content": content,
         }
+
+    def _deterministic_surface_prompt(self, operation: RouteDeckOperation) -> str:
+        prompts = {
+            AppActionIds.CONNECTION_CONFIGURE: (
+                "Connection setup is open. Enter the API name, base URL, OpenAPI schema URL, and auth details, "
+                "then preview or save and activate the connection."
+            ),
+            AppActionIds.SAAS_AGENT_CREATE: "The SaaS Agent creation form is open. Enter a name and slug to continue.",
+            AppActionIds.KNOWLEDGE_OPEN: "Knowledge is open. Add documents or review generated catalog context for this agent.",
+            AppActionIds.MEMORY_OPEN: "Memory is open. Add durable facts or instructions for this SaaS Agent.",
+            AppActionIds.LEARNING_OPEN: "Learning is open. Review sandbox learning candidates before applying them.",
+            AppActionIds.QA_OPEN: "QA is open. Run scenarios to validate this agent configuration.",
+            AppActionIds.EXECUTION_OPEN: "Execution planning is open. Describe the API task you want to run.",
+        }
+        return prompts.get(operation.id, "")
+
+    def _deterministic_turn_plan(
+        self,
+        *,
+        user_input: str,
+        state: AppGraphState,
+        projection: Any,
+    ) -> dict[str, Any] | None:
+        legal_operation_ids = {getattr(operation, "id", None) for operation in getattr(projection, "legal_operations", [])}
+        if (
+            state.active_saas_agent_id
+            and AppActionIds.CONNECTION_CONFIGURE in legal_operation_ids
+            and _looks_like_api_setup_request(user_input)
+        ):
+            return {
+                "intent": "open_surface",
+                "message": self._deterministic_surface_prompt(
+                    next(operation for operation in projection.legal_operations if operation.id == AppActionIds.CONNECTION_CONFIGURE)
+                ),
+                "operation_id": AppActionIds.CONNECTION_CONFIGURE,
+                "args": {},
+                "surface_intent": None,
+                "confidence": 1.0,
+                "preamble": None,
+            }
+        return None
 
     def _blocked_actions(self, state: AppGraphState, user: User | None, lens: AppGraphContextLens) -> list[dict[str, str]]:
         blocked: list[dict[str, str]] = []
@@ -1280,6 +1335,14 @@ class CorpusGraphRuntime:
 
 
 corpus_graph_runtime = CorpusGraphRuntime()
+
+
+def _looks_like_api_setup_request(user_input: str) -> bool:
+    normalized = user_input.lower().replace("-", " ").replace("_", " ")
+    tokens = {token.strip(".,!?;:()[]{}") for token in normalized.split()}
+    api_tokens = {"api", "openapi", "schema", "connection", "credentials", "credential"}
+    setup_tokens = {"connect", "setup", "set", "configure", "add", "integrate", "link", "onboard", "activate"}
+    return bool(tokens & api_tokens) and bool(tokens & setup_tokens)
 
 
 def _openai_latency_options() -> dict[str, Any]:

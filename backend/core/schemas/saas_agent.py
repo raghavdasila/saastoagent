@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -30,3 +31,42 @@ class SaaSAgentStats(BaseModel):
     tools_with_learnings: int = 0
     avg_confidence: float = 0.0
     maturity: float = 0.0
+
+
+VisitorAuthMode = Literal["inherit_from_connection", "anonymous", "login_required"]
+ExecutionMode = Literal["sandbox", "live"]
+DefaultWritePolicy = Literal["confirm", "owner_approval", "block"]
+
+
+class SaaSAgentDeploymentRead(BaseModel):
+    id: uuid.UUID
+    saas_agent_id: uuid.UUID
+    enabled: bool
+    visitor_auth_mode: VisitorAuthMode
+    execution_mode: ExecutionMode
+    default_write_policy: DefaultWritePolicy
+    welcome_message: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class SaaSAgentDeploymentUpdate(BaseModel):
+    enabled: bool = False
+    visitor_auth_mode: VisitorAuthMode = "inherit_from_connection"
+    execution_mode: ExecutionMode = "sandbox"
+    default_write_policy: DefaultWritePolicy = "confirm"
+    welcome_message: str = Field(default="How can I help?", min_length=1, max_length=2000)
+
+
+class DeployedAgentProfile(BaseModel):
+    saas_agent_id: uuid.UUID
+    slug: str
+    name: str
+    enabled: bool
+    auth_required: bool
+    visitor_auth_mode: VisitorAuthMode
+    execution_mode: ExecutionMode
+    default_write_policy: DefaultWritePolicy
+    welcome_message: str
