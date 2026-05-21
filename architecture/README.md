@@ -20,6 +20,12 @@ The current architecture direction is:
 
 ## Current State
 
-- Slice 1 backend, frontend, and Docker Compose foundation are implemented and runtime-validated.
-- The current implementation proves auth, workspace, tenancy, and shell plumbing.
-- The visible product surface still needs an agentic reset before further slice expansion.
+- The RouteDeck runtime-store foundation is implemented and now drives the
+  current Corpus-centered workbench shell.
+- The visible product surface has moved past the initial agentic reset into a
+  validated workbench/debugger pass: inline auth/surfaces, fixed composer, and
+  read-only docked/fullscreen diagnostics are all implemented.
+- The shared RouteDeck debugger now uses compact lane-separated focus routing
+  and a root-centered radial hub full map.
+- The next architecture follow-through is semantic hub-map grouping, browser
+  automation, and removal of remaining compatibility `/api/app/graph/*` usage.

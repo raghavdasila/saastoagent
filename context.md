@@ -1,22 +1,30 @@
 # SaaStoAgent v0.1 Context
 
-Last Updated: May 19, 2026 21:23
+Last Updated: May 21, 2026 11:07
 Project: SaaStoAgent v0.1
-Status: RouteDeck runtime-store foundation implemented; continue from the RouteDeck/Corpus anti-drift docs, not the older action-router shell assumptions.
+Status: The Corpus-centered workbench shell and the shared RouteDeck debugger
+pass are implemented and documented. Continue from semantic hub-map grouping,
+browser automation, and remaining RouteDeck compatibility cleanup, not from the
+rejected sitemap or page-replacing auth-shell assumptions.
 Repository: `agent-lab-powered-projects/saastoagent-v0.1`
 
 ## Start Here
 
-- Latest checkpoint: `context_checkpoints/context_checkpoint_19-05-2026-9-23PM.md`
-- Previous context archived at: `context_history/20260519_2123_context_before_routedeck_runtime_store_closeout.md`
-- Closeout log: `logs/20260519_2123_routedeck_runtime_store_closeout.md`
+- Latest checkpoint: `context_checkpoints/context_checkpoint_21-05-2026-11-07AM.md`
+- Previous context archived at:
+  `context_history/20260521_1107_context_before_corpus_workbench_and_routedeck_debugger_closeout.md`
+- Closeout log:
+  `logs/20260521_1107_corpus_workbench_and_routedeck_debugger_closeout.md`
+- Validated architecture note:
+  `architecture/dev_validated_docs/2026-05-21_corpus_workbench_and_routedeck_debugger_validation.md`
 - Framework RouteDeck anchor: `../routedeck/docs/agentic-ui-state-runtime.md`
 - Product anti-drift vision: `architecture/route-deck-corpus-vision.md`
 - Current plan/status: `plans/routedeck_runtime_store_reset_plan.md`
 
 ## Current Architecture
 
-RouteDeck is graph-backed state management for agentic UI.
+RouteDeck is graph-backed state management for agentic UI, and SaaStoAgent now
+consumes it through a single Corpus workbench shell.
 
 ```text
 CorpusGraphRuntime
@@ -24,9 +32,10 @@ CorpusGraphRuntime
     -> generic RouteDeckRuntime
       -> RouteDeckStore
         -> AppGraphShell
-          -> Corpus chat
-          -> contextual surfaces
-          -> read-only diagnostics
+          -> topbar and rails
+          -> Corpus conversation with fixed composer
+          -> inline active surfaces
+          -> docked or fullscreen diagnostics
 ```
 
 The core rules are:
@@ -34,63 +43,67 @@ The core rules are:
 - Graph owns truth, guards, and commits.
 - RouteDeck owns the generic runtime/store over the graph.
 - Corpus is the central SaaStoAgent product agent and consumes RouteDeck state.
-- Corpus can choose typed legal operations and allowed surface variants.
+- Auth and active surfaces stay inside the single workbench shell.
 - Legal operations are not rendered as raw product UI.
-- Visible choices are Corpus-authored proposals, initiated surfaces, or diagnostics.
+- Visible choices are Corpus-authored proposals, initiated surfaces, or
+  diagnostics.
 - Diagnostics is read-only and exposes graph/runtime internals when opened.
+- The focus debugger uses lane-separated routing; the full map uses a
+  root-centered radial hub layout around `home`.
 
 ## Implemented This Session
 
-- Added RouteDeck runtime/store contracts and frontend store hooks.
-- Added a generic HTTP/SSE RouteDeck store factory.
-- Added SaaStoAgent RouteDeck adapter around `CorpusGraphRuntime`.
-- Rewired `AppGraphShell` to use a configured RouteDeck store.
-- Split Corpus chat/proposal streaming from RouteDeck projection/state streaming.
-- Added richer diagnostics and graph introspection surfaces.
-- Changed the full diagnostics nav map to a sitemap/star layout.
-- Changed the manifest graph to semantic navigation routes instead of action edges.
-- Removed raw legal-operation chips from the product shell.
-- Fixed transition jitter by avoiding full route remounts on graph state transitions.
-- Cleanup audit was started, then corrected to stay scoped inside `saastoagent-v0.1`.
+- Refined the Corpus workbench shell, including auth/signup/login flow and
+  authenticated topbar/surface behavior.
+- Tightened the visual system across the shell, surfaces, buttons, fields, and
+  composer container.
+- Added fullscreen diagnostics and aligned the graph theme with the new shell.
+- Added compact lane-separated routing in shared RouteDeck debugger code so
+  sibling and opposite-direction edges do not overlap on the same path.
+- Replaced the rejected sitemap full-map layout with a root-centered radial hub
+  map.
+- Added debugger routing/topology tests in `../routedeck/react/tests/`.
+- Updated the RouteDeck runtime doc, plan, flow index, test note, architecture
+  validation note, and closeout artifacts.
 
 ## Verification
 
-- `python -m pytest tests -q` in `agent-lab-powered-projects/routedeck`: 14 passed.
-- `python -m pytest backend/tests/test_app_graph_contract.py -q`: 12 passed.
+- `python -m pytest backend/tests/test_app_graph_contract.py -q`: 16 passed.
+- `npm test` in `agent-lab-powered-projects/routedeck/react`: 6 passed.
 - SaaStoAgent frontend `npm run type-check`: passed.
-- SaaStoAgent frontend `npm run build`: passed.
-- Browser smoke on Docker frontend `http://localhost:3007/app/home`: diagnostics full map showed `22` nodes and `29` routes, no console errors, and no action controls on the nav canvas.
+- SaaStoAgent frontend `npx tsc -p tsconfig.json && npx vite build --outDir dist_verify`:
+  passed.
+- Session browser QA showed:
+  - signup/login stayed inside the workbench shell
+  - diagnostics fullscreen did not break the composer
+  - `auth_register <-> home` rendered as separate focus-graph paths
+  - the radial hub full map rendered `29` unique routed paths
 
-## Current Cleanup Audit
-
-Deletion candidates inside `saastoagent-v0.1` only:
-
-- `.pytest_cache/`
-- backend `__pycache__/` folders
-- `frontend/dist/`
-- `frontend/node_modules/.vite/`
-
-No SaaStoAgent v0.1 source files were identified as deletion targets.
-
-Correction note:
-
-- A root-level `test_targets/` folder and root `.codex-artifacts/` folder were deleted during the first cleanup pass. That was outside the requested SaaStoAgent v0.1 audit scope. `test_targets/` was untracked and must be recreated from its source fixture repos if still needed.
+## Current Cleanup Status
 
 Keep for now:
 
-- Legacy `/api/app/graph/*` code remains compatibility debt because tests and older code may still reference it.
-- Older `OperatorGateway` sections in `SYSTEM_FLOW_INDEX.md` remain historical compatibility documentation, but the active status section now points to the RouteDeck runtime-store model.
+- Compatibility `/api/app/graph/*` paths remain debt until tests and remaining
+  callers are migrated.
+- Historical `OperatorGateway` sections in `SYSTEM_FLOW_INDEX.md` remain as
+  compatibility notes, with the active status section superseding them.
 
 ## Next Concrete Step
 
-Continue the purge from `plans/routedeck_runtime_store_reset_plan.md`:
+Continue from `plans/routedeck_runtime_store_reset_plan.md`:
 
-1. Remove remaining product UI dependence on compatibility `/api/app/graph/*` paths.
-2. Add focused browser tests for diagnostics full map and selected-node actions.
-3. Add LLM meta-tool adapters backed by the same introspection service as diagnostics.
-4. Tighten tests around `frame`, `active`, and `diagnostic` surface roles.
-5. Continue product-literal guard coverage for RouteDeck framework source.
+1. Add semantic branch labels/grouping to the radial hub map.
+2. Add repo-native browser coverage for auth surface opening, inline proposal
+   widgets, and docked/fullscreen diagnostics.
+3. Remove remaining product-path dependence on compatibility `/api/app/graph/*`
+   endpoints.
+4. Add LLM/meta-tool adapters backed by the same RouteDeck introspection source
+   as diagnostics.
+5. Keep tightening shell polish without breaking the permanent central-chat
+   model.
 
 ## Anti-Drift Reminder
 
-If future implementation makes RouteDeck feel like only a projection DTO or hides RouteDeck state management inside Corpus, stop and return to `../routedeck/docs/agentic-ui-state-runtime.md`.
+If future implementation reintroduces page-replacing auth shells, raw
+legal-operation chips, or sitemap assumptions for the full map, stop and return
+to `../routedeck/docs/agentic-ui-state-runtime.md`.

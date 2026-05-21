@@ -13,7 +13,23 @@ End-of-session handoff snapshots live here.
 
 ## Checkpoints
 
+- `context_checkpoint_21-05-2026-11-07AM.md` - Corpus workbench shell and RouteDeck debugger closeout
+- `context_checkpoint_19-05-2026-9-23PM.md` - RouteDeck runtime-store closeout
+- `context_checkpoint_17-05-2026-12-14PM.md` - RouteDeck/Corpus architecture reframe closeout
+- `context_checkpoint_16-05-2026-6-26PM.md` - agent-first RouteDeck reset
+- `context_checkpoint_16-05-2026-05-15PM.md` - graph-first app reset
+- `context_checkpoint_14-05-2026-06-16AM.md` - essential validation pass and QA fixes
+- `context_checkpoint_14-05-2026-12-01AM.md` - QA observability slice 9 final
+- `context_checkpoint_13-05-2026-11-55PM.md` - sandbox learning slice 8
+- `context_checkpoint_13-05-2026-11-49PM.md` - memory systems slice 7
+- `context_checkpoint_13-05-2026-11-43PM.md` - RAG generation slice 6
+- `context_checkpoint_13-05-2026-11-36PM.md` - execution surface slice 5
+- `context_checkpoint_13-05-2026-11-29PM.md` - SaaS Agent RouteDeck slice 4
+- `context_checkpoint_13-05-2026-10-45PM.md` - SaaS Agent creation and Medusa presets slice 3
+- `context_checkpoint_13-05-2026-10-30PM.md` - SaaS Agent backend/frontend rename
+- `context_checkpoint_13-05-2026-9-58PM.md` - SaaS Agent domain authority slice 0
 - `context_checkpoint_13-05-2026-9-18PM.md` - Stream-aware collapsibles, embedded QA execution coverage, REST catalog/operator smoke, and workspace-name contract correction
+- `context_checkpoint_13-05-2026-1-01PM.md` - LangGraph-owned entry runtime and RouteDeck parity closeout
 - `context_checkpoint_12-05-2026-2-47PM.md` - RouteDeck sibling framework extraction, package/Docker rewiring, clean default UI, and REST/OpenAPI handoff
 - `context_checkpoint_10-05-2026-06-53PM.md` - RouteDeck contract, framework package shape, and graph debugger validation
 - `context_checkpoint_09-05-2026-09-25PM.md` - UX research knowledgebase note, final SaaStoAgent/Corpus naming cleanup, and closeout

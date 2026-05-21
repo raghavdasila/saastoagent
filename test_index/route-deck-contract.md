@@ -1,64 +1,61 @@
 # RouteDeck Contract And Debugger Validation
 
-Date: 2026-05-12
+Date: 2026-05-21
 
 ## Scope
 
-Validation for the RouteDeck contract layer, sibling framework packaging path, LangGraph adapter boundary, action validation, Docker dependency wiring, and frontend navigation/debugger widget.
+Validation for the RouteDeck contract layer, sibling framework packaging,
+graph-owned legality, and the current shared debugger behavior used by
+SaaStoAgent diagnostics.
 
 ## What To Validate
 
-- RouteDeck manifest validates every node, edge, action, field, policy, and test path.
-- Existing entry API response shapes remain compatible while `graph_manifest` and `route_deck_snapshot` are populated from RouteDeck.
-- The optional `routedeck_langgraph` adapter validates handler parity, condition resolver parity, and allowed transition assertions for LangGraph apps.
-- Submitted `selected_action_id` values are validated against the current node before stage handlers run.
-- Invalid actions return a recoverable assistant response with visible valid alternatives.
-- Sensitive auth/API credential fields are marked sensitive and masked in stage artifacts.
-- Anonymous entry keeps Sign In and Create Account visible.
-- Signup exposes display name, email, and password steps without losing actions.
-- Direct `/w/:workspaceId` anonymous routes keep chat available and expose backend-owned auth actions.
-- RouteDeck map opens from the standalone nav widget, not the evidence drawer.
-- Focus graph highlights current, incoming, and outgoing nodes.
-- Full graph renders a top-to-bottom lane layout, uses a manifest-sized scrollable canvas, avoids node/title/badge overlap, and lists allowed actions below.
-- Docker frontend serves the preview build without Vite HMR websocket or host `@fs` path failures.
-- SaaStoAgent imports framework primitives from sibling package `routedeck_core`, not an in-project framework folder.
-- SaaStoAgent frontend consumes sibling local package `@routedeck/react`.
-- Docker builds use named sibling RouteDeck contexts and avoid sending unrelated projects into the build context.
-- Standalone RouteDeck minimal example builds and runs outside SaaStoAgent on ports `5190` and `8096`.
+- RouteDeck manifest/runtime legality remains authoritative over graph
+  transitions.
+- Existing SaaStoAgent graph contract tests continue to pass after the shell and
+  debugger work.
+- SaaStoAgent frontend still consumes sibling local package `@routedeck/react`.
+- Focus diagnostics use deterministic lane-separated routing:
+  - multiple incoming edges do not collapse into one path
+  - multiple outgoing edges do not collapse into one path
+  - opposite-direction node pairs do not reuse the same geometry
+- Full-map diagnostics use a root-centered radial hub topology around `home`
+  when present.
+- Docked and fullscreen diagnostics render the same shared debugger behavior.
+- Navigation canvases stay topology-only; actions/details remain outside the
+  canvas until a node/operation is inspected.
 
 ## Current Evidence
 
-- `python -m backend.services.route_deck.validate`: passed.
-- `python -m compileall backend`: passed.
-- `npm run type-check`: passed.
-- `npm run build`: passed.
-- RouteDeck sibling import check: `from routedeck_core import RouteDeckManifest` passed.
-- RouteDeck sibling tests: `python -m pytest tests` passed.
-- RouteDeck LangGraph adapter tests: `python -m pytest tests` passed.
-- RouteDeck minimal example `npm run type-check`: passed.
-- RouteDeck minimal example `npm run build`: passed.
-- RouteDeck minimal example Docker build/up: passed.
-- Docker rebuild: `docker compose up -d --build backend frontend`: passed.
-- Playwright against `http://localhost:3007`: clean default entry, opened `Map`, switched to `Full graph`, confirmed 11 node groups and no console errors.
-- Playwright against `http://127.0.0.1:5190`: standalone RouteDeck minimal example rendered the styled debugger.
+- `python -m pytest backend/tests/test_app_graph_contract.py -q`: passed, 16
+  tests.
+- `npm test` in `agent-lab-powered-projects/routedeck/react`: passed, 6 tests.
+- `npm run type-check` in SaaStoAgent frontend: passed.
+- `npx tsc -p tsconfig.json && npx vite build --outDir dist_verify` in
+  SaaStoAgent frontend: passed.
+- Session browser QA against the local app confirmed:
+  - diagnostics fullscreen opened and remained usable
+  - focus view rendered separate `auth_register <-> home` paths
+  - full map rendered a root-centered hub layout
+  - `29` painted edges resolved to `29` unique routed paths
 
 ## How To Run Current Checks
 
 ```powershell
-python -m backend.services.route_deck.validate
-python -m compileall backend
-cd frontend
+python -m pytest backend/tests/test_app_graph_contract.py -q
+cd ..\routedeck\react
+npm test
+cd ..\..\saastoagent-v0.1\frontend
 npm run type-check
-npm run build
-cd ..
-docker compose up -d --build backend frontend
-cd ..\routedeck
-python -m pytest tests
-cd examples\minimal-fastapi-react\frontend
-npm run type-check
-npm run build
-cd ..
-docker compose up -d --build
+npx tsc -p tsconfig.json
+npx vite build --outDir dist_verify
 ```
 
-Add repo-native browser tests for sign in, signup, invalid action recovery, direct workspace auth actions, and RouteDeck map rendering before treating this as automated end-to-end coverage.
+## Follow-Up
+
+Add repo-native browser tests for:
+
+- auth surface opening inside the main shell
+- inline proposal/surface rendering
+- docked diagnostics focus view
+- fullscreen diagnostics radial hub map

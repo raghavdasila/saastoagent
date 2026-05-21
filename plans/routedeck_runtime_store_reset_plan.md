@@ -1,7 +1,7 @@
 # RouteDeck Runtime Store Reset Plan
 
-Status: Implemented foundation; continue from this plan for the next RouteDeck/Corpus slice
-Date: 2026-05-19
+Status: Foundation implemented; current shell/debugger follow-through validated
+Date: 2026-05-21
 
 Canonical framework doc: `../../routedeck/docs/agentic-ui-state-runtime.md`
 Canonical product vision doc: `../architecture/route-deck-corpus-vision.md`
@@ -28,10 +28,14 @@ React renders Corpus plus RouteDeck-projected contextual surfaces.
 - Kept Corpus text/proposal streaming separate from RouteDeck projection/state streaming.
 - Added split endpoints for Corpus, RouteDeck projection/stream, and diagnostics.
 - Removed product-path dependence on raw eligible actions as default UI chips.
-- Added richer RouteDeck diagnostics with a focused graph and full sitemap-style map.
+- Added richer RouteDeck diagnostics with a compact lane-separated focus graph
+  and a root-centered radial hub full map.
 - Changed the navigation graph manifest to semantic route topology instead of drawing every action as an edge.
 - Fixed transition jitter by keeping the store/shell stable and replacing browser history without remounting the page.
 - Added regression tests for RouteDeck runtime contracts, store behavior, adapter behavior, Corpus behavior, and semantic manifest edges.
+- Carried the product shell into a single Corpus workbench with anchored
+  composer, inline auth/active surfaces, fullscreen diagnostics, and updated
+  debugger theming.
 
 ## Current Runtime Shape
 
@@ -78,10 +82,12 @@ The diagnostics navigation graph must not draw actions as graph edges. Actions a
 
 1. Finish purging stale `/api/app/graph/*` product references where tests no longer require them.
 2. Add direct tests for `RouteDeckStore.connectStream()` against projection update events.
-3. Add a focused browser test for diagnostics:
-   - Focus map opens on current node.
-   - Full map shows all nodes/routes.
-   - Actions are absent from the canvas and present only in selected-node details.
+3. Add focused browser tests for diagnostics and inline surfaces:
+   - Focus map opens on current node with non-overlapping edge geometry.
+   - Full map shows the radial hub topology around the root node.
+   - Actions are absent from the canvas and present only in selected-node
+     details.
+   - Auth and inline surfaces stay inside the main Corpus shell.
 4. Add LLM meta-tool adapters backed by the same introspection service as diagnostics.
 5. Tighten surface role tests:
    - `frame` renders around Corpus.
@@ -97,4 +103,6 @@ The diagnostics navigation graph must not draw actions as graph edges. Actions a
 - Graph commits state; LLMs choose typed operations.
 - Diagnostics is read-only and richer than JSON.
 - Navigation maps show navigation topology only.
+- Focus maps use lane-separated routing; full maps use root-centered hub
+  topology, not sitemap assumptions.
 - Presentation state is ephemeral.

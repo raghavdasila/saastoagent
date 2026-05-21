@@ -1,10 +1,10 @@
 # System Flow Index - SaaStoAgent v0.1
 
-Last Updated: May 19, 2026
+Last Updated: May 21, 2026
 
 This file is the source of truth for the currently implemented runtime and UX flows.
 
-## Active Architecture Status - May 19, 2026
+## Active Architecture Status - May 21, 2026
 
 The RouteDeck/Corpus architecture has been reset around the accepted runtime-store
 model.
@@ -28,6 +28,10 @@ Current rules:
 - Visible user choices are Corpus-authored proposals or initiated surfaces.
 - Diagnostics is read-only and may expose graph internals.
 - Navigation diagnostics draw semantic route topology, not action edges.
+- The active product shell is one Corpus workbench with a fixed bottom composer
+  and inline active surfaces.
+- Diagnostics can dock in the workbench or expand fullscreen while reusing the
+  same shared RouteDeck debugger.
 
 ## Graph-First Reset Implemented
 
@@ -144,7 +148,10 @@ This section documents compatibility debt from the pre-reset shell. Primary rout
 9. Canvas artifacts remain closed by default and mount only after the user opens a canvas-capable artifact.
 10. `operator_ready` changes mode and SaaS Agent context inside the same shell; it does not replace the page with another layout.
 11. The next action dock ranks backend-owned actions and shows one recommended next step plus secondary persistent actions.
-12. RouteDeck diagnostics expose a focused current-node graph and a full sitemap-style navigation map. The full map shows all semantic navigation nodes and route edges, keeps actions out of the canvas, and shows action details only when inspecting a selected node.
+12. RouteDeck diagnostics expose a focused current-node graph with compact
+lane-separated routing and a full root-centered hub map. The full map shows all
+semantic navigation nodes and route edges, keeps actions out of the canvas, and
+shows action details only when inspecting a selected node.
 13. The evidence drawer is collapsed by default and exposes graph/session/run ids, readiness evidence, emitted trace/tool/learning widgets, and an advisory autonomy ladder.
 14. The context lens shows selected SaaS Agent identity, current SaaS Agent RouteDeck state, working-on summary, and connection/action/tool counts when operator mode is active.
 15. Direct `/agents/:SaaS AgentId` can show backend-provided anonymous auth actions without blocking SaaS Agent chat.
