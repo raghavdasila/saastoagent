@@ -1,10 +1,10 @@
 # System Flow Index - SaaStoAgent v0.1
 
-Last Updated: May 21, 2026
+Last Updated: May 22, 2026
 
 This file is the source of truth for the currently implemented runtime and UX flows.
 
-## Active Architecture Status - May 21, 2026
+## Active Architecture Status - May 22, 2026
 
 The RouteDeck/Corpus architecture has been reset around the accepted runtime-store
 model.
@@ -25,8 +25,15 @@ Current rules:
 - RouteDeck owns the generic runtime/store over the graph.
 - Corpus reads RouteDeck state and chooses legal operations.
 - Legal operations are not raw product UI.
+- Legal operations are not necessarily ready to dispatch. Operation metadata
+  must distinguish `invocation_kind`, `can_dispatch_now`, required args, and
+  missing args.
 - Visible user choices are Corpus-authored proposals or initiated surfaces.
 - Diagnostics is read-only and may expose graph internals.
+- Deployed visitor chat is public-safe and must not expose router internals,
+  paths, operation IDs, scores, trace IDs, approval IDs, or raw tool labels.
+- Product runtime is OpenAPI/user-config driven. Medusa is an acceptance
+  fixture only, not hardcoded product behavior.
 - Navigation diagnostics draw semantic route topology, not action edges.
 - The active product shell is one Corpus workbench with a fixed bottom composer
   and inline active surfaces.
@@ -96,11 +103,18 @@ rename slices land. New work should target the SaaS Agent contract:
 
 1. Agent-first app shell: central chat + backend-provided next steps + quiet context lens + closed diagnostics.
 2. App graph flow: home -> auth -> SaaS Agent select/create -> agent home -> connection setup -> schema preview -> catalog activation -> catalog/actions/entities -> execution/input/approval/result -> knowledge/memory/learning/QA/recovery.
-3. REST connection onboarding and activation through backend-provided actions, including Medusa Storefront, Medusa Admin, and Custom API targets.
+3. REST connection onboarding and activation through backend-provided actions,
+   raw OpenAPI/schema URL configuration, and user-provided credentials. The
+   setup surface must not hardcode Medusa or expose a product-target dropdown.
 4. SaaS Agent operator surfaces for catalog, entities, actions, knowledge, memory, learning, and QA as backend-selected renderers.
 5. RouteDeck contract and debugger framework for graph/manifest parity, hidden from product UI unless diagnostics are opened.
 6. Existing SaaS Agent chat, attachments, admin, learning, RAG, and execution services remain domain utilities behind graph handlers.
-7. Next: legacy hardcoding purge, graph-authored QA, SSE graph turns, live browser QA against Medusa Storefront/Admin, migration hardening, production approval policy, tuning, and governed learnings.
+7. Current verified horizontal path: Docker UI E2E covers signup, SaaSAgent
+   creation, OpenAPI connection, activation, deployment, public chat, Storefront
+   read execution, and Admin/write approval fixtures.
+8. Next: split RouteDeck framework concerns from Corpus product concerns, add
+   collapsible public JSON result rendering, fix conversation-grounded
+   product/variant/cart follow-up, then rerun both Docker E2E commands.
 
 ## RouteDeck Layers
 

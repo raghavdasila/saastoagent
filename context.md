@@ -1,30 +1,37 @@
 # SaaStoAgent v0.1 Context
 
-Last Updated: May 21, 2026 15:30
+Last Updated: May 22, 2026 14:18 IST
 Project: SaaStoAgent v0.1
-Status: The Corpus-centered builder workbench remains the RouteDeck surface, and
-the first deployed-agent web-chat slice is now implemented at `/a/:slug`.
-Continue by deepening deployed-agent acceptance fixtures and execution policy,
-not by replacing the builder shell or hardcoding Medusa behavior.
+Status: Horizontal sandbox slice is verified against Docker UI E2E and a real
+Medusa target. The next session should not deepen modules until the remaining
+horizontal architecture issues below are addressed.
 Repository: `agent-lab-powered-projects/saastoagent-v0.1`
 
 ## Start Here
 
-- Latest checkpoint: `context_checkpoints/context_checkpoint_21-05-2026-11-07AM.md`
+- Latest checkpoint: `context_checkpoints/context_checkpoint_22-05-2026-2-18PM.md`
 - Previous context archived at:
-  `context_history/20260521_1107_context_before_corpus_workbench_and_routedeck_debugger_closeout.md`
+  `context_history/20260522_1418_context_before_medusa_hardening_closeout.md`
 - Closeout log:
-  `logs/20260521_1107_corpus_workbench_and_routedeck_debugger_closeout.md`
-- Validated architecture note:
-  `architecture/dev_validated_docs/2026-05-21_corpus_workbench_and_routedeck_debugger_validation.md`
+  `logs/20260522_1418_sandbox_hardening_medusa_e2e_closeout.md`
 - Framework RouteDeck anchor: `../routedeck/docs/agentic-ui-state-runtime.md`
 - Product anti-drift vision: `architecture/route-deck-corpus-vision.md`
+- ADR: `decisions/ADR-012-openapi-driven-target-fixtures.md`
+- ADR: `decisions/ADR-013-routedeck-corpus-boundary.md`
+- Dev validation:
+  `architecture/dev_validated_docs/2026-05-22_openapi_driven_medusa_e2e_validation.md`
+- Knowledgebase:
+  `knowledgebase/patterns/openapi-driven-fixture-validation.md`
+- Known gap:
+  `knowledgebase/patterns/deployed-chat-result-continuity-gap.md`
 - Current plan/status: `plans/routedeck_runtime_store_reset_plan.md`
+- Horizontal E2E guide: `docs/horizontal-e2e.md`
 
 ## Current Architecture
 
-RouteDeck is graph-backed state management for agentic UI, and SaaStoAgent now
-consumes it through a single Corpus workbench shell.
+RouteDeck is graph-backed state management for agentic UI. SaaStoAgent consumes
+RouteDeck through the Corpus workbench, while deployed visitor chat at
+`/a/:slug` remains a separate chat-only surface.
 
 ```text
 CorpusGraphRuntime
@@ -32,113 +39,193 @@ CorpusGraphRuntime
     -> generic RouteDeckRuntime
       -> RouteDeckStore
         -> AppGraphShell
-          -> topbar and rails
-          -> Corpus conversation with fixed composer
-          -> inline active surfaces
-          -> docked or fullscreen diagnostics
+          -> Corpus conversation
+          -> inline setup/execution surfaces
+          -> docked/fullscreen diagnostics
+
+Deployed visitor chat
+  -> /api/deployed-agents/{slug}
+  -> /api/deployed-agents/{slug}/chat
+  -> public-safe session event stream
+  -> shared chat/runtime/execution services
 ```
 
-The core rules are:
+Core rules:
 
 - Graph owns truth, guards, and commits.
-- RouteDeck owns the generic runtime/store over the graph.
-- Corpus is the central SaaStoAgent product agent and consumes RouteDeck state.
-- Auth and active surfaces stay inside the single workbench shell.
-- Legal operations are not rendered as raw product UI.
-- Visible choices are Corpus-authored proposals, initiated surfaces, or
-  diagnostics.
-- Diagnostics is read-only and exposes graph/runtime internals when opened.
-- The focus debugger uses lane-separated routing; the full map uses a
-  root-centered radial hub layout around `home`.
-- Deployed agent chat is a separate visitor surface, not a RouteDeck workbench.
-  It resolves by SaaSAgent slug, fetches deployment policy, and streams through
-  the same agent chat/SSE runtime.
-- ToolRouter is now represented by a backend-local adapter. It owns route/top-k/
-  missing-param/policy/unsafe decisions; existing REST execution traces remain
-  the executor of record.
+- RouteDeck owns generic operation/state metadata over the graph.
+- Corpus owns SaaStoAgent-specific conversation, surfaces, and proposals.
+- RouteDeck operations expose `invocation_kind`, `can_dispatch_now`,
+  `required_args`, and `missing_args`; UI must not dispatch unbound operations.
+- Builder diagnostics may expose graph internals, tool IDs, paths, traces, and
+  approval metadata.
+- Public deployed chat must not expose router internals, scores, endpoint paths,
+  operation IDs, trace IDs, approval IDs, or raw tool labels.
+- ToolRouter is a backend-local adapter. It owns route/top-k/missing-param/
+  policy/unsafe decisions; REST execution traces remain the executor of record.
+- Product runtime must remain OpenAPI/user-config driven. Medusa is an
+  acceptance fixture only, not hardcoded product logic.
 
-## Implemented This Session
+## Implemented Since Last Closeout
 
-- Added deployed-agent deployment state with owner-managed settings:
-  `enabled`, `visitor_auth_mode`, `execution_mode`, `default_write_policy`, and
-  `welcome_message`.
-- Added public deployed-agent APIs:
-  `GET /api/deployed-agents/{slug}` and
-  `POST /api/deployed-agents/{slug}/chat`.
-- Added the `/a/:slug` chat-only frontend surface with inline visitor auth gate,
-  existing chat bubbles/tool cards, and no RouteDeck rail/debugger.
-- Added a deployment card to the builder context panel so owners can enable and
-  configure the public URL from the current SaaSAgent context.
-- Added backend-local `ToolRouterAdapter` and wired it into the existing
-  `rest_operator` path for route, top-k, missing-parameter, policy-confirmation,
-  and unsafe destructive decisions.
-- Added tests covering deployed access policy, public route registration,
-  ToolRouter decisions, and REST-operator top-k formatting.
+- Removed Medusa hardcoding from product runtime and UI:
+  - generic connection placeholders and labels in app graph manifests/surfaces
+  - removed the API target dropdown from setup
+  - added raw OpenAPI schema textarea support
+  - kept Medusa references only in fixtures, scripts, datasets, and E2E names
+- Added generic raw OpenAPI activation:
+  - connection config persists `raw_spec`
+  - REST adapter discovers from `raw_spec` before `spec_url`
+  - RouteDeck/form schemas support textarea fields
+- Fixed credential/header leakage in generated tool inputs:
+  - OpenAPI header/cookie params are excluded from generated tool schemas
+  - REST missing-input prompts no longer ask for credential headers directly
+- Fixed bare list query extraction:
+  - `list products` no longer binds the full utterance into optional search
+    fields like `q`
+  - explicit search utterances can still bind search/query text
+- Stabilized route/surface hydration:
+  - browser path replacement now emits navigation state changes
+  - E2E setup can reliably open `connection_configure`
+  - existing/incomplete agents can be resumed through bound agent actions
+- Added `npm run e2e:medusa:docker`:
+  - starts/uses the real Medusa Docker target under `test_targets`
+  - serves the Medusa Store OpenAPI fixture locally on port `9110`
+  - uploads/configures schema through the UI
+  - executes deployed chat through SaaStoAgent only
+  - does not validate by direct target API calls
 
-## Previous Implemented Session
+Earlier horizontal work in this slice remains active:
 
-- Refined the Corpus workbench shell, including auth/signup/login flow and
-  authenticated topbar/surface behavior.
-- Tightened the visual system across the shell, surfaces, buttons, fields, and
-  composer container.
-- Added fullscreen diagnostics and aligned the graph theme with the new shell.
-- Added compact lane-separated routing in shared RouteDeck debugger code so
-  sibling and opposite-direction edges do not overlap on the same path.
-- Replaced the rejected sitemap full-map layout with a root-centered radial hub
-  map.
-- Added debugger routing/topology tests in `../routedeck/react/tests/`.
-- Updated the RouteDeck runtime doc, plan, flow index, test note, architecture
-  validation note, and closeout artifacts.
+- deployed chat at `/a/:slug`
+- public-safe approval event stream
+- owner approval/cancel delivery back to visitor sessions
+- RouteDeck dispatch-readiness metadata
+- `saas_agent.list` selector surface and bound `saas_agent.open`
+- Docker UI E2E for signup -> create agent -> connect OpenAPI -> activate ->
+  deploy -> public chat -> guarded approval
 
 ## Verification
 
-- `python -m pytest backend/tests`: 65 passed.
-- SaaStoAgent frontend `npm run type-check`: passed.
-- SaaStoAgent frontend `npm run build`: passed, with the existing Vite large
-  chunk warning.
-- `docker compose up -d --build`: backend/frontend/db started successfully.
-- Docker smoke:
-  - `GET http://localhost:8085/api/health`: `{"status":"ok"}`
-  - `GET http://localhost:3007/a/not-enabled-yet`: returned the SPA.
-  - Browser smoke on `/a/not-enabled-yet`: rendered “Agent unavailable” with no
-    console errors.
+- `python -m pytest backend/tests/test_rest_catalog.py backend/tests/test_app_graph_contract.py -q`
+  - Result: `45 passed in 19.28s`
+- SaaStoAgent frontend `npm run type-check`
+  - Result: passed
+- `docker compose up -d --build frontend`
+  - Result: rebuilt/restarted frontend/backend successfully
+  - Existing Vite large chunk warning remains
+- SaaStoAgent UI E2E:
+  - Command: `npm run e2e:docker` from `frontend`
+  - Result: passed
+  - Account: `ui-e2e-1779437248299@example.com`
+  - Password: `SaaStoAgent123!`
+  - Slug: `ui-e2e-1779437248299`
+  - Evidence dir:
+    `C:\Users\ragha\AppData\Local\Temp\saastoagent-ui-e2e-1779437248116`
+  - Screenshots: `builder-activated.png`, `public-storefront-read.png`,
+    `builder-approval-approved.png`
+- Real Medusa UI E2E:
+  - Command: `npm run e2e:medusa:docker` from `frontend`
+  - Result: passed
+  - SaaStoAgent account: `medusa-ui-e2e-1779437277860@example.com`
+  - SaaStoAgent password: `SaaStoAgent123!`
+  - Slug: `live-medusa-1779437277860`
+  - Deployed URL: `http://localhost:3007/a/live-medusa-1779437277860`
+  - Medusa backend: `http://host.docker.internal:9000`
+  - Medusa schema served for UI upload:
+    `http://host.docker.internal:9110/medusa-store.yaml`
+  - Evidence dir:
+    `C:\Users\ragha\AppData\Local\Temp\saastoagent-medusa-ui-e2e-1779437277844`
+  - Screenshots: `builder-medusa-activated.png`,
+    `public-medusa-products.png`
+- Latest DB trace check for real Medusa:
+  - status: `succeeded`
+  - approval: `not_required`
+  - request inputs: `{"limit": 5}`
+  - returned 4 seeded products including `Medusa T-Shirt`
+- Product code scan for `medusa|Medusa|MEDUSA` under backend services/providers
+  and frontend source returned no product-runtime matches.
 
-### Previous Verification
+Important rule: future claims of "E2E passed" for this slice must include the
+Docker UI harness or an equivalent browser-driven replacement. Backend tests
+alone are not sufficient.
 
-- `python -m pytest backend/tests/test_app_graph_contract.py -q`: 16 passed.
-- `npm test` in `agent-lab-powered-projects/routedeck/react`: 6 passed.
-- SaaStoAgent frontend `npm run type-check`: passed.
-- SaaStoAgent frontend `npx tsc -p tsconfig.json && npx vite build --outDir dist_verify`:
-  passed.
-- Session browser QA showed:
-  - signup/login stayed inside the workbench shell
-  - diagnostics fullscreen did not break the composer
-  - `auth_register <-> home` rendered as separate focus-graph paths
-  - the radial hub full map rendered `29` unique routed paths
+## Known Issues To Carry Forward
 
-## Current Cleanup Status
+### RouteDeck/Corpus Boundary
 
-Keep for now:
+RouteDeck is still too tied into Corpus in implementation. This should be fixed
+architecturally before more module depth:
 
-- Compatibility `/api/app/graph/*` paths remain debt until tests and remaining
-  callers are migrated.
-- Historical `OperatorGateway` sections in `SYSTEM_FLOW_INDEX.md` remain as
-  compatibility notes, with the active status section superseding them.
+- RouteDeck should remain a framework/runtime layer for graph state, legal
+  operations, dispatch readiness, diagnostics, and generic surface contracts.
+- Corpus should integrate RouteDeck but own SaaStoAgent-specific conversation,
+  proposal wording, agent list/search rendering, setup surfaces, and recovery
+  UX.
+- Avoid pushing Corpus domain concepts into RouteDeck core just because Corpus
+  is the first consumer.
+
+### Raw JSON Public Result UX
+
+Deployed chat still exposes raw JSON directly for product results. Do not solve
+the final product-card flow yet, but the next pass should add a collapsible UI
+as a stopgap:
+
+- show a natural summary first
+- hide raw JSON behind an expandable detail control
+- keep builder diagnostics free to expose full raw payloads
+- keep public chat free of operation IDs, paths, scores, trace IDs, and tool
+  labels
+
+### Query Continuity And Cart Follow-Up Bug
+
+Observed real Medusa conversation failure:
+
+1. Visitor asked `what products do we have`.
+2. Agent returned raw product JSON including `Medusa T-Shirt`.
+3. Visitor asked `i want to buy medusa tshirt`.
+4. Agent asked for internal `id`.
+5. Visitor said `idk`.
+6. Agent recovered partially and identified the T-shirt plus sizes.
+7. Visitor asked `add the L size to cart`.
+8. Agent fell back to a generic missing-detail prompt asking about unrelated
+   routes and `x publishable api key`.
+
+Do not fix this in the closeout. Next session should treat it as a runtime
+query/action-continuity issue:
+
+- use prior tool results as conversation-grounded entity candidates
+- resolve product title -> product ID -> variant/option
+- orchestrate cart creation/add-item steps instead of asking for internal IDs
+- suppress credential/header names from public clarifications
+- ask natural missing details only, such as size, quantity, region, shipping, or
+  confirmation
+- keep the flow OpenAPI-driven and avoid Medusa-specific runtime logic
 
 ## Next Concrete Step
 
-Continue the deployed-agent sandbox slice:
+Start the next session with horizontal cleanup, not feature depth:
 
-1. Seed deterministic Storefront and Admin OpenAPI fixture flows without
-   hardcoding product routing logic.
-2. Add end-to-end tests that create a SaaSAgent, activate Storefront, enable
-   deployment, chat through `/a/:slug`, then repeat with Admin write approval.
-3. Deepen visitor-auth policy into per-action and per-connection overrides.
-4. Add richer deployed result/approval cards after the text-first flow is stable.
-5. Keep RouteDeck as the builder/workbench surface and keep `/a/:slug` chat-only.
+1. Split RouteDeck framework concerns from Corpus product concerns.
+2. Add collapsible public result rendering for JSON payloads.
+3. Fix query continuity for list -> select product -> choose variant -> cart
+   action.
+4. Re-run `npm run e2e:docker` and `npm run e2e:medusa:docker` after the fixes.
+
+## Credentials From Latest Verified Runs
+
+- SaaStoAgent Medusa E2E owner:
+  `medusa-ui-e2e-1779437277860@example.com` / `SaaStoAgent123!`
+- SaaStoAgent mock E2E owner:
+  `ui-e2e-1779437248299@example.com` / `SaaStoAgent123!`
+- Medusa fixture admin:
+  `admin@saastoagent.local` / `Admin123!`
+- Medusa publishable API key used by the fixture:
+  `pk_b876cb7077c42ef6e7506b2b64a57f21a6f80db392bfd2e962e6690a242f732b`
 
 ## Anti-Drift Reminder
 
-If future implementation reintroduces page-replacing auth shells, raw
-legal-operation chips, or sitemap assumptions for the full map, stop and return
-to `../routedeck/docs/agentic-ui-state-runtime.md`.
+If future implementation reintroduces hardcoded Medusa routing, raw
+legal-operation chips, direct unbound `saas_agent.open`, or public router
+internals, stop and return to the RouteDeck/Corpus architecture before adding
+more features.

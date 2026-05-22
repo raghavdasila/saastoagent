@@ -6,17 +6,17 @@ from routedeck_core import RouteDeckDispatchInput, RouteDeckRuntime, RouteDeckRu
 
 from backend.core.schemas import AppGraphRequest, AppGraphState
 from backend.services.app_graph import corpus_graph_runtime
-from backend.services.app_graph.routedeck_adapter import SaaStoAgentRouteDeckAdapter
+from backend.services.app_graph.corpus_routedeck_runtime import CorpusRouteDeckRuntime
 
 
-def test_saastoagent_adapter_implements_routedeck_runtime_protocol():
-    adapter = SaaStoAgentRouteDeckAdapter(corpus_graph_runtime)
+def test_corpus_routedeck_runtime_implements_routedeck_runtime_protocol():
+    adapter = CorpusRouteDeckRuntime(corpus_graph_runtime)
 
     assert isinstance(adapter, RouteDeckRuntime)
 
 
 def test_adapter_snapshot_returns_runtime_state_with_graph_state_and_projection():
-    adapter = SaaStoAgentRouteDeckAdapter(corpus_graph_runtime)
+    adapter = CorpusRouteDeckRuntime(corpus_graph_runtime)
 
     state = asyncio.run(
         adapter.snapshot(
@@ -35,7 +35,7 @@ def test_adapter_snapshot_returns_runtime_state_with_graph_state_and_projection(
 
 
 def test_adapter_dispatch_delegates_to_graph_runtime_and_returns_new_projection():
-    adapter = SaaStoAgentRouteDeckAdapter(corpus_graph_runtime)
+    adapter = CorpusRouteDeckRuntime(corpus_graph_runtime)
 
     result = asyncio.run(
         adapter.dispatch(
@@ -59,7 +59,7 @@ def test_adapter_dispatch_delegates_to_graph_runtime_and_returns_new_projection(
 
 
 def test_adapter_inspect_exposes_read_only_introspection():
-    adapter = SaaStoAgentRouteDeckAdapter(corpus_graph_runtime)
+    adapter = CorpusRouteDeckRuntime(corpus_graph_runtime)
 
     introspection = asyncio.run(
         adapter.inspect(

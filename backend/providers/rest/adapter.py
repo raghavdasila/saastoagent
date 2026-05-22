@@ -55,8 +55,9 @@ class RestApiAdapter(ConnectionAdapter):
         _ = session
         config = connection.config or {}
         spec_url = config.get("spec_url")
-        if not spec_url:
-            raise ValueError("REST API connection has no spec_url configured")
+        raw_spec = config.get("raw_spec")
+        if not spec_url and not raw_spec:
+            raise ValueError("REST API connection needs an OpenAPI URL or pasted OpenAPI schema")
 
         headers: dict[str, str] = {}
         if connection.credentials:
@@ -68,11 +69,11 @@ class RestApiAdapter(ConnectionAdapter):
             )
             headers.update(auth["headers"])
 
-        raw = await fetch_spec(spec_url, headers=headers or None)
+        raw = raw_spec if isinstance(raw_spec, str) and raw_spec.strip() else await fetch_spec(spec_url, headers=headers or None)
         spec = parse_and_validate_spec(raw)
         endpoints = extract_endpoints(spec)
         return [
-            build_action_node_data(endpoint, connection.id, connection.saas_agent_id, spec_url)
+            build_action_node_data(endpoint, connection.id, connection.saas_agent_id, str(spec_url or "inline-openapi-schema"))
             for endpoint in endpoints
         ]
 

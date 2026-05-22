@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from backend.core.credentials import decrypt_value, inject_credentials
-from backend.core.models import ActionNode, AgentExecutionTrace, Connection, GeneratedTool, RiskLevel
+from backend.core.models import ActionNode, AgentExecutionTrace, AgentMessage, Connection, GeneratedTool, RiskLevel
 from backend.services.toolrouter.adapter import ToolRouterAdapter, ToolRouterDecision, ToolRouterDecisionType
 
 _TOKEN_RE = re.compile(r"[a-z0-9_/-]+", re.IGNORECASE)
@@ -278,6 +278,77 @@ async def finalize_execution_trace(trace: AgentExecutionTrace, result: dict[str,
             pass
 
 
+async def list_pending_approval_traces(
+    *,
+    saas_agent_id: uuid.UUID,
+    db: AsyncSession,
+) -> list[AgentExecutionTrace]:
+    result = await db.execute(
+        select(AgentExecutionTrace)
+        .where(
+            AgentExecutionTrace.saas_agent_id == saas_agent_id,
+            AgentExecutionTrace.status == "approval_required",
+            AgentExecutionTrace.approval_state == "pending",
+        )
+        .order_by(AgentExecutionTrace.created_at.desc())
+        .limit(25)
+    )
+    return list(result.scalars().all())
+
+
+async def approve_pending_execution_trace(
+    *,
+    trace: AgentExecutionTrace,
+    approved_by: uuid.UUID | None,
+    db: AsyncSession,
+) -> tuple[str, dict[str, Any] | None]:
+    if trace.status != "approval_required" or trace.approval_state != "pending":
+        return f"This request is not waiting for approval. Current status: {trace.status}.", trace.result
+    candidate = await _candidate_from_trace(db, trace)
+    if candidate is None:
+        trace.status = "failed"
+        trace.approval_state = "approved"
+        trace.error = "Trace candidate no longer exists."
+        trace.route_node = "result_review"
+        trace.approved_by = approved_by
+        await db.commit()
+        return "This request can no longer run because the generated action is missing.", trace.result
+
+    trace.status = "executing"
+    trace.approval_state = "approved"
+    trace.route_node = "executing"
+    trace.approved_by = approved_by
+    await db.commit()
+
+    result = await execute_rest_tool(candidate, trace.inputs or {}, db)
+    await finalize_execution_trace(trace, result, db)
+    message = (
+        "The approved request ran but the connected API returned an error."
+        if result.get("error")
+        else "The approved request ran successfully."
+    )
+    await _append_public_approval_message(trace, message, result, db)
+    return message, result
+
+
+async def cancel_pending_execution_trace(
+    *,
+    trace: AgentExecutionTrace,
+    canceled_by: uuid.UUID | None,
+    db: AsyncSession,
+) -> str:
+    if trace.status != "approval_required" or trace.approval_state != "pending":
+        return f"This request is not waiting for approval. Current status: {trace.status}."
+    trace.status = "canceled"
+    trace.approval_state = "rejected"
+    trace.route_node = "result_review"
+    trace.approved_by = canceled_by
+    await db.commit()
+    message = "The agent owner canceled this request. No API call was made."
+    await _append_public_approval_message(trace, message, None, db)
+    return message
+
+
 async def _maybe_handle_trace_control(
     *,
     message: str,
@@ -395,9 +466,9 @@ async def execute_rest_tool(candidate: ToolCandidate, inputs: dict[str, Any], db
     if connection.auth_type and connection.credentials:
         for credential in connection.credentials:
             injected = await inject_credentials(
-                connection.auth_type.value if hasattr(connection.auth_type, "value") else str(connection.auth_type),
-                decrypt_value(credential.encrypted_value),
-                credential.metadata_ or {},
+                auth_type=connection.auth_type.value if hasattr(connection.auth_type, "value") else str(connection.auth_type),
+                decrypted_value=decrypt_value(credential.encrypted_value),
+                metadata=credential.metadata_ or {},
             )
             headers.update(injected.get("headers") or {})
             params.update(injected.get("params") or {})
@@ -465,10 +536,14 @@ def _build_inputs(message: str, action: ActionNode, tool: GeneratedTool) -> tupl
         elif lowered in {"limit", "per_page", "page_size", "count", "top_k"}:
             inputs[name] = 5
         elif lowered in {"q", "query", "search", "search_query", "keyword", "name"}:
-            inputs[name] = message
+            search_value = _extract_search_value(message, lowered)
+            if search_value is not None:
+                inputs[name] = search_value
 
     for param in action.parameters or []:
         if not isinstance(param, dict) or not param.get("name"):
+            continue
+        if str(param.get("in") or "").lower() in {"header", "cookie"}:
             continue
         name = str(param["name"])
         if name not in inputs and name in required:
@@ -511,6 +586,35 @@ def _extract_status_value(message: str) -> str | None:
         if value in tokens:
             return value
     return None
+
+
+def _extract_search_value(message: str, name: str) -> str | None:
+    named_value = _extract_named_value(message, name)
+    if named_value is not None:
+        return named_value
+    patterns = [
+        r"\b(?:search|find|filter)\s+(?:for|by)?\s+(.+)$",
+        r"\b(?:named|called|matching)\s+(.+)$",
+        r"\bwith\s+(?:name|keyword|query|search)\s+(.+)$",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, message, re.IGNORECASE)
+        if not match:
+            continue
+        value = _clean_search_value(match.group(1))
+        if value:
+            return value
+    return None
+
+
+def _clean_search_value(value: str) -> str | None:
+    cleaned = value.strip().strip(".,;:!?\"'")
+    if not cleaned:
+        return None
+    tokens = _tokens(cleaned)
+    if tokens and set(tokens) <= {"product", "products", "item", "items", "order", "orders", "customer", "customers"}:
+        return None
+    return cleaned
 
 
 def _format_candidate_summary(candidates: list[ToolCandidate]) -> str:
@@ -612,6 +716,35 @@ def _preview_body(body: Any) -> Any:
     if isinstance(body, dict):
         return {key: body[key] for key in list(body.keys())[:20]}
     return body
+
+
+async def _append_public_approval_message(
+    trace: AgentExecutionTrace,
+    message: str,
+    result: dict[str, Any] | None,
+    db: AsyncSession,
+) -> None:
+    if trace.session_id is None:
+        return
+    from backend.services.deployed_agent_events import publish_public_agent_message
+
+    content = message
+    if result and not result.get("error"):
+        content = (
+            f"{message}\n\n"
+            f"Result preview:\n```json\n{json.dumps(_preview_body(result.get('body')), indent=2, default=str)[:2500]}\n```"
+        )
+    agent_message = AgentMessage(
+        session_id=trace.session_id,
+        saas_agent_id=trace.saas_agent_id,
+        role="assistant",
+        content=content,
+        metadata_={"channel": "deployed_web", "approval_event": True, "approval_trace_id": str(trace.id)},
+    )
+    db.add(agent_message)
+    await db.commit()
+    await db.refresh(agent_message)
+    await publish_public_agent_message(agent_message)
 
 
 def _tokens(value: str) -> list[str]:

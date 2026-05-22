@@ -17,6 +17,8 @@ from .entry import (
     EntryUIArtifact,
 )
 from .saas_agent import (
+    AgentApprovalDecisionRead,
+    AgentApprovalRead,
     DeployedAgentProfile,
     SaaSAgentCreate,
     SaaSAgentDeploymentRead,
@@ -88,6 +90,8 @@ __all__ = [
     "SaaSAgentDeploymentRead",
     "SaaSAgentDeploymentUpdate",
     "DeployedAgentProfile",
+    "AgentApprovalRead",
+    "AgentApprovalDecisionRead",
     "ChatRequest",
     "AppGraphContextLens",
     "AppGraphRequest",

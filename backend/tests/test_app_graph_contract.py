@@ -98,18 +98,42 @@ def test_app_graph_free_text_policy_is_not_phrase_list_routing():
     assert "approve:*" not in action_ids
 
 
-def test_app_graph_connection_options_include_medusa_targets():
+def test_app_graph_connection_activation_is_user_configured_not_target_preset():
     action = next(action for action in ACTION_SPECS if action.id == AppActionIds.CONNECTION_ACTIVATE)
-    target_field = next(field for field in action.fields if field.key == "api_target")
-    option_values = {option["value"] for option in target_field.options or []}
+    field_by_key = {field.key: field for field in action.fields}
 
-    assert {"medusa_storefront", "medusa_admin", "custom_api"} <= option_values
+    assert "api_target" not in field_by_key
+    assert field_by_key["name"].placeholder == "Production API"
+    assert field_by_key["base_url"].placeholder == "https://api.example.com"
+    assert field_by_key["spec_url"].placeholder == "https://api.example.com/openapi.json"
+    assert field_by_key["spec_url"].required is False
+    assert field_by_key["raw_spec"].field_type == "textarea"
+    assert field_by_key["auth_type"].default == "none"
+
+
+def test_product_runtime_has_no_medusa_presets_or_defaults():
+    root = Path(__file__).parents[2]
+    product_paths = [
+        root / "backend" / "services" / "app_graph" / "manifest.py",
+        root / "backend" / "services" / "saas_agent_route_deck.py",
+        root / "backend" / "services" / "route_deck" / "catalog.py",
+        root / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx",
+        root / "frontend" / "src" / "components" / "appGraph" / "corpusRouteDeckClient.ts",
+        root / "frontend" / "src" / "components" / "appGraph" / "corpusOperations.tsx",
+        root / "frontend" / "src" / "components" / "appGraph" / "corpusSurfaces.tsx",
+        root / "frontend" / "src" / "components" / "appGraph" / "CorpusRouteDeckDiagnostics.tsx",
+        root / "frontend" / "src" / "components" / "saasAgent" / "ConnectSetupView.tsx",
+    ]
+    for path in product_paths:
+        source = path.read_text(encoding="utf-8").lower()
+        assert "medusa" not in source, path
 
 
 def test_app_graph_product_shell_hides_internal_route_deck_copy():
-    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
-    source = shell_path.read_text(encoding="utf-8")
-    product_source = source.split("function DiagnosticsPanel", 1)[0]
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
+    source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    diagnostics_source = (app_graph_path / "CorpusRouteDeckDiagnostics.tsx").read_text(encoding="utf-8")
+    product_source = source
 
     forbidden_visible_copy = [
         "SaaStoAgent RouteDeck",
@@ -123,13 +147,14 @@ def test_app_graph_product_shell_hides_internal_route_deck_copy():
     for text in forbidden_visible_copy:
         assert text not in product_source
 
-    assert "RouteDeck diagnostics" in source
+    assert "RouteDeck navgraph diagnostics" in diagnostics_source
 
 
 def test_product_shell_uses_corpus_and_routedeck_contracts_not_legacy_app_graph_endpoints():
-    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
-    source = shell_path.read_text(encoding="utf-8")
-    product_source = source.split("function DiagnosticsPanel", 1)[0]
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
+    shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    client_source = (app_graph_path / "corpusRouteDeckClient.ts").read_text(encoding="utf-8")
+    product_source = shell_source + "\n" + client_source
 
     assert "/corpus/state" in product_source
     assert "/corpus/stream" in product_source
@@ -152,9 +177,9 @@ def test_product_shell_uses_corpus_and_routedeck_contracts_not_legacy_app_graph_
 
 
 def test_auth_surface_completion_does_not_force_page_reload():
-    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
-    source = shell_path.read_text(encoding="utf-8")
-    auth_surface_source = source.split("function AuthSurfaceCard", 1)[1].split("function ContextPanel", 1)[0]
+    surface_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "corpusSurfaces.tsx"
+    source = surface_path.read_text(encoding="utf-8")
+    auth_surface_source = source.split("export function AuthSurfaceCard", 1)[1].split("export function Fact", 1)[0]
 
     assert "window.location.assign" not in auth_surface_source
     assert "window.location.reload" not in auth_surface_source
@@ -190,7 +215,7 @@ def test_material_workbench_rail_is_node_switcher_not_disabled_action_dock():
 def test_material_workbench_proposal_surface_has_real_card_boundary():
     shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
     source = shell_path.read_text(encoding="utf-8")
-    proposal_source = source.split("function ProposalPanel", 1)[1].split("function ActiveSurfacePanel", 1)[0]
+    proposal_source = source.split("function ProposalPanel", 1)[1].split("function QuickActionChips", 1)[0]
 
     assert 'data-testid="corpus-proposal-surface"' in proposal_source
     assert "border border-border" in proposal_source
@@ -199,9 +224,9 @@ def test_material_workbench_proposal_surface_has_real_card_boundary():
 
 
 def test_connection_setup_surface_renders_real_api_forms():
-    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
-    source = shell_path.read_text(encoding="utf-8")
-    connection_source = source.split("function ConnectionSetupSurface", 1)[1].split("function ActiveSurfacePanel", 1)[0]
+    surface_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "corpusSurfaces.tsx"
+    source = surface_path.read_text(encoding="utf-8")
+    connection_source = source.split("export function ConnectionSetupSurface", 1)[1].split("export function ActiveSurfacePanel", 1)[0]
 
     assert 'data-testid="connection-setup-surface"' in connection_source
     assert "connection.preview" in connection_source
@@ -210,15 +235,66 @@ def test_connection_setup_surface_renders_real_api_forms():
     assert "OperationForm" in connection_source
 
 
-def test_agent_route_without_node_uses_agent_home_state_not_home():
+def test_builder_surface_exposes_owner_approval_controls():
     shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
     source = shell_path.read_text(encoding="utf-8")
-    corpus_state_path_source = source.split("function corpusStatePath", 1)[1].split("function createSaaStoAgentRouteDeckStore", 1)[0]
-    turn_source = source.split("const turn = useMutation", 1)[1].split("const hasStreamingCorpusMessage", 1)[0]
+
+    assert "PendingApprovalsCard" in source
+    assert "/approvals/pending" in source
+    assert "/approve" in source
+    assert "/cancel" in source
+    assert 'data-testid="pending-approvals-card"' in source
+
+
+def test_deployed_chat_subscribes_to_public_session_events():
+    page_path = Path(__file__).parents[2] / "frontend" / "src" / "pages" / "DeployedAgentChatPage.tsx"
+    source = page_path.read_text(encoding="utf-8")
+
+    assert "useDeployedSessionEvents" in source
+    assert "/sessions/${sessionId}/events" in source
+    assert "appendPublicAssistantMessage" in source
+
+
+def test_docker_e2e_harness_is_first_class_and_uses_external_artifacts():
+    frontend_path = Path(__file__).parents[2] / "frontend"
+    package_source = (frontend_path / "package.json").read_text(encoding="utf-8")
+    harness_path = frontend_path / "scripts" / "e2e-docker.mjs"
+    fixture_path = frontend_path / "scripts" / "mock-storefront-api.mjs"
+
+    harness_source = harness_path.read_text(encoding="utf-8")
+    fixture_source = fixture_path.read_text(encoding="utf-8")
+
+    assert '"e2e:docker": "node scripts/e2e-docker.mjs"' in package_source
+    assert "SAASTOAGENT_E2E_ARTIFACT_DIR" in harness_source
+    assert "os.tmpdir()" in harness_source
+    assert "http://localhost:3007" in harness_source
+    assert "host.docker.internal:9109" in harness_source
+    assert "Sandbox Hoodie" in harness_source
+    assert "forbiddenPublicLeaks" in harness_source
+    assert "Sandbox Hoodie" in fixture_source
+    assert "/openapi.json" in fixture_source
+
+
+def test_agent_route_without_node_uses_agent_home_state_not_home():
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
+    shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    client_source = (app_graph_path / "corpusRouteDeckClient.ts").read_text(encoding="utf-8")
+    corpus_state_path_source = client_source.split("function corpusStatePath", 1)[1].split("function createSaaStoAgentRouteDeckStore", 1)[0]
+    turn_source = shell_source.split("const turn = useMutation", 1)[1].split("const hasStreamingCorpusMessage", 1)[0]
 
     assert "saasAgentId ? 'agent_home'" in corpus_state_path_source
     assert "currentGraphState?.node === 'home' && saasAgentId" in turn_source
     assert "params.set('node_id', streamNodeId)" in turn_source
+
+
+def test_routedeck_location_sync_does_not_trigger_browser_navigation():
+    client_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "corpusRouteDeckClient.ts"
+    source = client_path.read_text(encoding="utf-8")
+    sync_source = source.split("function syncBrowserPathWithoutNavigation", 1)[1]
+
+    assert "window.history.replaceState" in sync_source
+    assert "PopStateEvent" not in sync_source
+    assert "window.dispatchEvent" not in sync_source
 
 
 def test_surface_opening_prompt_for_connection_is_deterministic_not_a_choice_question():
@@ -246,6 +322,94 @@ def test_api_setup_request_routes_to_connection_surface_when_agent_is_active():
     assert decision["operation_id"] == AppActionIds.CONNECTION_CONFIGURE
     assert "Connection setup is open" in decision["message"]
     assert "what would you like" not in decision["message"].lower()
+
+
+def test_saas_agent_list_is_dispatchable_surface_and_open_is_bound_only():
+    list_action = next(action for action in ACTION_SPECS if action.id == AppActionIds.SAAS_AGENT_LIST)
+    open_action = next(action for action in ACTION_SPECS if action.id == AppActionIds.SAAS_AGENT_OPEN)
+    list_operation = corpus_graph_runtime._operation_for_action(list_action)
+    open_operation = corpus_graph_runtime._operation_for_action(open_action)
+
+    assert ACTION_TARGETS[AppActionIds.SAAS_AGENT_LIST] == "saas_agent_select"
+    assert list_action.invocation_kind == "surface"
+    assert list_operation.invocation_kind == "surface"
+    assert list_operation.can_dispatch_now is True
+    assert open_action.invocation_kind == "entity_selector"
+    assert open_operation.invocation_kind == "entity_selector"
+    assert open_operation.required_args == ["saas_agent_id"]
+    assert open_operation.missing_args == ["saas_agent_id"]
+    assert open_operation.can_dispatch_now is False
+
+
+def test_saas_agent_select_node_uses_list_surface():
+    assert corpus_graph_runtime._active_surface_component_for_node("saas_agent_select") == "SaaSAgentListSurface"
+
+
+def test_saas_agent_open_is_selector_not_one_click_dispatch_without_agent_id():
+    action = next(action for action in ACTION_SPECS if action.id == AppActionIds.SAAS_AGENT_OPEN)
+    operation = corpus_graph_runtime._operation_for_action(action)
+
+    assert action.invocation_kind == "entity_selector"
+    assert operation.invocation_kind == "entity_selector"
+    assert operation.required_args == ["saas_agent_id"]
+    assert operation.missing_args == ["saas_agent_id"]
+    assert operation.can_dispatch_now is False
+
+
+def test_material_workbench_only_one_click_dispatches_ready_operations():
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
+    source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    operations_source = (app_graph_path / "corpusOperations.tsx").read_text(encoding="utf-8")
+    quick_actions_source = operations_source.split("function corpusQuickActions", 1)[1].split("function operationToQuickAction", 1)[0]
+    quick_action_handler_source = source.split("const handleQuickAction", 1)[1].split("const handleRailSelect", 1)[0]
+    dashboard_markup_source = source.split("if (surface.component === 'CorpusDashboardSurface')", 1)[1].split("return (", 1)[1].split("return (", 1)[0]
+
+    assert "operation.can_dispatch_now" in quick_actions_source
+    assert "operation.invocation_kind" in quick_actions_source
+    assert "operation.can_dispatch_now === false" in quick_action_handler_source
+    assert "saas_agent_id: agent.id" in source
+    assert "onOpenSaaSAgent" in source
+    assert "onOpenSaaSAgent(agent)" in dashboard_markup_source
+
+
+def test_surface_opening_state_comes_from_routedeck_hook():
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
+    shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    routedeck_provider_source = (
+        Path(__file__).parents[3] / "routedeck" / "react" / "src" / "RouteDeckProvider.tsx"
+    ).read_text(encoding="utf-8")
+
+    assert "useRouteDeckSurfaceOpening" in routedeck_provider_source
+    assert "useRouteDeckSurfaceOpening()" in shell_source
+    assert "activeSurfaceOpening" in shell_source
+    assert "'Opening surface'" in shell_source
+    assert "Opening ${activeSurfaceOpening.label}" in shell_source
+
+
+def test_material_workbench_dashboard_limits_agents_and_routes_to_list_surface():
+    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
+    source = shell_path.read_text(encoding="utf-8")
+    frame_source = source.split("function FrameSurfacePanel", 1)[1].split("function ProposalPanel", 1)[0]
+    dashboard_source = source.split("if (surface.component === 'CorpusDashboardSurface')", 1)[1].split("return (", 1)[1].split("return (", 1)[0]
+
+    assert "saasAgents.slice(0, 2)" in dashboard_source
+    assert "saas_agent.list" in frame_source
+    assert "List agents" in dashboard_source
+    assert "agent_count" in frame_source
+
+
+def test_material_workbench_agent_list_surface_binds_agent_open_operation():
+    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
+    surface_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "corpusSurfaces.tsx"
+    source = shell_path.read_text(encoding="utf-8") + "\n" + surface_path.read_text(encoding="utf-8")
+
+    assert "SaaSAgentListSurface" in source
+    list_surface_source = source.split("export function SaaSAgentListSurface", 1)[1].split("export function AuthSurfaceCard", 1)[0]
+    assert 'data-testid="saas-agent-list-surface"' in list_surface_source
+    assert "search" in list_surface_source
+    assert "filteredAgents" in list_surface_source
+    assert "operation_id: 'saas_agent.open'" in list_surface_source
+    assert "saas_agent_id: agent.id" in list_surface_source
 
 
 def test_auto_operation_stream_emits_done_after_operation_completed():
@@ -285,9 +449,8 @@ def test_material_tokens_share_primary_and_secondary_across_themes():
 
 
 def test_product_diagnostics_are_read_only():
-    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
-    source = shell_path.read_text(encoding="utf-8")
-    diagnostics_source = source.split("function DiagnosticsPanel", 1)[1]
+    diagnostics_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "CorpusRouteDeckDiagnostics.tsx"
+    diagnostics_source = diagnostics_path.read_text(encoding="utf-8")
 
     assert "onActionSelect" not in diagnostics_source
     assert "executeOperation" not in diagnostics_source

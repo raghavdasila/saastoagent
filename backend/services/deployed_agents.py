@@ -14,6 +14,11 @@ from backend.core.schemas import DeployedAgentProfile
 VISITOR_AUTH_INHERIT = "inherit_from_connection"
 VISITOR_AUTH_ANONYMOUS = "anonymous"
 VISITOR_AUTH_LOGIN_REQUIRED = "login_required"
+POLICY_ALLOWED_READ = "allowed_read"
+POLICY_NEEDS_VISITOR_AUTH = "needs_visitor_auth"
+POLICY_NEEDS_OWNER_APPROVAL = "needs_owner_approval"
+POLICY_BLOCKED = "blocked"
+POLICY_FAILED_WITH_RECOVERY = "failed_with_recovery"
 
 
 def deployment_requires_login(deployment: Any, connections: Iterable[Any]) -> bool:
@@ -23,6 +28,14 @@ def deployment_requires_login(deployment: Any, connections: Iterable[Any]) -> bo
     if mode == VISITOR_AUTH_LOGIN_REQUIRED:
         return True
     return any(_connection_requires_auth(connection) for connection in connections)
+
+
+def deployment_policy_state(*, enabled: bool, auth_required: bool) -> str:
+    if not enabled:
+        return POLICY_BLOCKED
+    if auth_required:
+        return POLICY_NEEDS_VISITOR_AUTH
+    return POLICY_ALLOWED_READ
 
 
 def build_deployed_handoff_context(
@@ -41,6 +54,7 @@ def build_deployed_handoff_context(
             "visitor_auth_mode": visitor_auth_mode,
             "execution_mode": execution_mode,
             "default_write_policy": default_write_policy,
+            "policy_state": deployment_policy_state(enabled=True, auth_required=auth_required),
         },
     }
 
@@ -89,6 +103,7 @@ async def deployment_profile_for_slug(
         visitor_auth_mode=deployment.visitor_auth_mode,
         execution_mode=deployment.execution_mode,
         default_write_policy=deployment.default_write_policy,
+        policy_state=deployment_policy_state(enabled=bool(deployment.enabled), auth_required=auth_required),
         welcome_message=deployment.welcome_message,
     )
     return agent, deployment, profile

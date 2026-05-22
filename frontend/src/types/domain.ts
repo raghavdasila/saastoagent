@@ -42,6 +42,7 @@ export interface DeployedAgentProfile {
   visitor_auth_mode: 'inherit_from_connection' | 'anonymous' | 'login_required'
   execution_mode: 'sandbox' | 'live'
   default_write_policy: 'confirm' | 'owner_approval' | 'block'
+  policy_state: 'allowed_read' | 'needs_visitor_auth' | 'needs_owner_approval' | 'blocked' | 'failed_with_recovery'
   welcome_message: string
 }
 
@@ -55,6 +56,29 @@ export interface SaaSAgentDeployment {
   welcome_message: string
   created_at: string
   updated_at: string
+}
+
+export interface AgentApproval {
+  trace_id: string
+  trace_token: string
+  status: string
+  approval_state: string
+  tool_name: string
+  action_name?: string | null
+  method?: string | null
+  path?: string | null
+  risk_level?: string | null
+  inputs: Record<string, unknown>
+  requested_by?: string | null
+  created_at: string
+}
+
+export interface AgentApprovalDecision {
+  trace_id: string
+  status: string
+  approval_state: string
+  message: string
+  result?: Record<string, unknown> | null
 }
 
 export interface ConnectionRead {

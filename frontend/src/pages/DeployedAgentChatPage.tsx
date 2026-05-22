@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Bot, Lock, LogOut, RotateCcw } from 'lucide-react'
 import { useParams } from 'react-router-dom'
@@ -8,7 +8,16 @@ import { MessageBubble } from '@/components/agent/MessageBubble'
 import { useAuth } from '@/context/AuthContext'
 import { useSSEChat } from '@/hooks/useSSEChat'
 import { api } from '@/lib/api'
+import { storage } from '@/lib/storage'
 import type { DeployedAgentProfile } from '@/types/domain'
+import type { ChatUIMessage } from '@/types/agent'
+
+interface PublicAssistantMessageEvent {
+  message_id: string
+  session_id: string
+  role: 'assistant'
+  content: string
+}
 
 export function DeployedAgentChatPage() {
   const { slug } = useParams<{ slug: string }>()
@@ -29,9 +38,32 @@ export function DeployedAgentChatPage() {
     sessionId,
     sendMessage,
     clearMessages,
+    setMessages,
   } = useSSEChat({
     saasAgentId: profile?.saas_agent_id ?? null,
     chatPath,
+    onError: setError,
+  })
+
+  const appendPublicAssistantMessage = useCallback((event: PublicAssistantMessageEvent) => {
+    setMessages((current) => {
+      if (current.some((message) => message.id === event.message_id)) return current
+      const message: ChatUIMessage = {
+        id: event.message_id,
+        role: 'assistant',
+        content: event.content,
+        timestamp: Date.now(),
+        source: 'agent',
+      }
+      return [...current, message]
+    })
+  }, [setMessages])
+
+  useDeployedSessionEvents({
+    slug: slug || null,
+    sessionId,
+    enabled: Boolean((slug && sessionId && !profile?.auth_required) || user),
+    onMessage: appendPublicAssistantMessage,
     onError: setError,
   })
 
@@ -147,6 +179,69 @@ export function DeployedAgentChatPage() {
       </main>
     </div>
   )
+}
+
+function useDeployedSessionEvents({
+  slug,
+  sessionId,
+  enabled,
+  onMessage,
+  onError,
+}: {
+  slug: string | null
+  sessionId: string | null
+  enabled: boolean
+  onMessage: (event: PublicAssistantMessageEvent) => void
+  onError: (message: string | null) => void
+}) {
+  const lastMessageIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!slug || !sessionId || !enabled) return undefined
+    const params = new URLSearchParams()
+    if (lastMessageIdRef.current) {
+      params.set('after_message_id', lastMessageIdRef.current)
+    }
+    const path = `/api/deployed-agents/${slug}/sessions/${sessionId}/events${params.toString() ? `?${params.toString()}` : ''}`
+    const xhr = new XMLHttpRequest()
+    let canceled = false
+    let cursor = 0
+    let buffer = ''
+    xhr.open('GET', path)
+    const token = storage.getToken()
+    if (token && token !== 'undefined' && token !== 'null') {
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    }
+    xhr.onprogress = () => {
+      const chunk = xhr.responseText.slice(cursor)
+      cursor = xhr.responseText.length
+      buffer += chunk
+      const events = buffer.split('\n\n')
+      buffer = events.pop() || ''
+      for (const eventText of events) {
+        const lines = eventText.split('\n')
+        const eventLine = lines.find((line) => line.startsWith('event: '))
+        const dataLine = lines.find((line) => line.startsWith('data: '))
+        if (eventLine?.slice(7).trim() !== 'assistant_message' || !dataLine) continue
+        try {
+          const event = JSON.parse(dataLine.slice(6)) as PublicAssistantMessageEvent
+          if (!event.message_id || !event.content) continue
+          lastMessageIdRef.current = event.message_id
+          onMessage(event)
+        } catch {
+          // Keep waiting for a complete SSE frame.
+        }
+      }
+    }
+    xhr.onerror = () => {
+      if (!canceled) onError('Live chat updates disconnected.')
+    }
+    xhr.send()
+    return () => {
+      canceled = true
+      xhr.abort()
+    }
+  }, [slug, sessionId, enabled, onMessage, onError])
 }
 
 function PublicShell({ title, children }: { title: string; children?: ReactNode }) {

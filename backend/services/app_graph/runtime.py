@@ -41,7 +41,6 @@ from backend.core.schemas import (
     EntryUIArtifact,
     SaaSAgentRead,
 )
-from backend.services.app_graph.introspection import build_graph_introspection
 from backend.core.tenancy import create_tenant_schema
 from backend.services.agent.learning_service import learning_service
 from backend.services.agent.memory_service import memory_service
@@ -65,9 +64,12 @@ from backend.services.app_graph.manifest import (
     build_app_graph_manifest,
     route_action_to_card,
 )
+from backend.services.app_graph.corpus_operations import CorpusOperationPolicy
+from backend.services.app_graph.corpus_routedeck_state import CorpusRouteDeckStateProjector
+from backend.services.app_graph.corpus_surfaces import CorpusSurfaceRegistry
 from backend.services.catalog import SaaSAgent_catalog, preview_openapi_spec
 from backend.services.discovery.activation import ActivationService
-from routedeck_core import RouteDeckOperation, RouteDeckSurface, build_projection, build_runtime_snapshot
+from routedeck_core import RouteDeckOperation, RouteDeckSurface, build_runtime_snapshot
 
 
 CORPUS_TURN_ROUTER_PROMPT = """You are Corpus, the central SaaStoAgent platform graph agent.
@@ -108,6 +110,14 @@ class CorpusGraphRuntime:
         self._action_by_id = {action.id: action for action in ACTION_SPECS}
         self._node_by_id = {node.id: node for node in self.manifest.nodes}
         self._presentation_state_by_key: dict[str, dict[str, Any]] = {}
+        self._operation_policy = CorpusOperationPolicy()
+        self._surface_registry = CorpusSurfaceRegistry()
+        self._route_deck_projector = CorpusRouteDeckStateProjector(
+            manifest=self.manifest,
+            node_by_id=self._node_by_id,
+            operation_policy=self._operation_policy,
+            surface_registry=self._surface_registry,
+        )
 
     async def snapshot(self, *, request: AppGraphRequest, user: User | None, db: AsyncSession) -> AppGraphResponse:
         state = await self._initial_state(request, user, db)
@@ -129,57 +139,21 @@ class CorpusGraphRuntime:
         saas_agents = await self._list_saas_agents(user, db)
         context = self._projection_context(state, user)
         presentation_state = self._presentation_state_by_key.get(self._presentation_key(state, user), {})
-        frame_surface = self._frame_surface(
+        replace_path = self._path_for_state(state)
+        blocked_actions = self._blocked_actions(state, user, lens)
+        return self._route_deck_projector.project(
             state=state,
+            user=user,
             lens=lens,
+            actions=actions,
             saas_agents=saas_agents,
             context=context,
             presentation_state=presentation_state,
-        )
-        active_surface = self._active_surface(state=state, lens=lens, saas_agents=saas_agents, context=context)
-        replace_path = self._path_for_state(state)
-        projection = build_projection(
-            self.manifest,
-            current_node=state.node,
-            operations=[self._operation_for_action(action) for action in actions],
-            surfaces=[
-                frame_surface,
-                RouteDeckSurface(
-                    name="side",
-                    component="CorpusContextLens",
-                    variant="default",
-                    role="frame",
-                    props=lens.model_dump(mode="json"),
-                    lifecycle="stable",
-                ),
-                *([active_surface] if active_surface is not None else []),
-            ],
-            presentation_state={"context": context, **presentation_state},
+            replace_path=replace_path,
             projection_version=projection_version,
-            diagnostics={
-                "source": "corpus_graph",
-                "graph_version": APP_GRAPH_VERSION,
-                "selected_saas_agent_id": str(state.active_saas_agent_id) if state.active_saas_agent_id else None,
-            },
-        )
-        blocked_actions = self._blocked_actions(state, user, lens)
-        introspection = build_graph_introspection(
-            self.manifest,
-            state=state,
-            lens=lens,
-            projection=projection,
-            valid_actions=[action.model_dump(mode="json") for action in actions],
             blocked_actions=blocked_actions,
             guard_explanations=self._guard_explanations(state, user, lens),
-            diagnostics={
-                "source": "corpus_graph",
-                "graph_version": APP_GRAPH_VERSION,
-                "selected_saas_agent_id": str(state.active_saas_agent_id) if state.active_saas_agent_id else None,
-                "replace_path": replace_path,
-            },
         )
-        diagnostics = {**projection.diagnostics, "introspection": introspection}
-        return projection.model_copy(update={"current_context": context, "diagnostics": diagnostics})
 
     async def corpus_state(
         self,
@@ -587,7 +561,7 @@ class CorpusGraphRuntime:
             return True
         if user is None:
             return False
-        if action_id in {AppActionIds.SAAS_AGENT_CREATE, AppActionIds.SAAS_AGENT_OPEN}:
+        if action_id in {AppActionIds.SAAS_AGENT_CREATE, AppActionIds.SAAS_AGENT_LIST, AppActionIds.SAAS_AGENT_OPEN}:
             return True
         if not state.active_saas_agent_id:
             return False
@@ -733,30 +707,7 @@ class CorpusGraphRuntime:
                 yield content
 
     def _operation_for_action(self, action: Any) -> RouteDeckOperation:
-        side_effect_categories = {"execution", "feedback", "learning"}
-        execution_mode = "review" if action.kind == "form" or action.category in side_effect_categories else "auto"
-        safety_class = "navigation"
-        if action.category == "execution":
-            safety_class = "write_external"
-        elif action.category in {"feedback", "learning"}:
-            safety_class = "draft"
-        elif action.category == "auth":
-            safety_class = "credential"
-        return RouteDeckOperation(
-            id=action.id,
-            label=action.label,
-            description=action.description,
-            category=action.category,
-            kind=action.kind,
-            placement=action.placement,
-            emphasis=action.emphasis,
-            safety_class=safety_class,
-            execution_mode=execution_mode,
-            input_schema={"fields": [field.model_dump(mode="json") for field in action.fields]},
-            payload=action.payload or {},
-            guard=action.disabled_reason,
-            target_node=ACTION_TARGETS.get(action.id),
-        )
+        return self._operation_policy.operation_for_action(action)
 
     def _projection_context(self, state: AppGraphState, user: User | None) -> str:
         return "lounge" if user is None and state.node == AppNodeIds.HOME else state.node
@@ -774,76 +725,27 @@ class CorpusGraphRuntime:
         context: str,
         presentation_state: dict[str, Any],
     ) -> RouteDeckSurface:
-        if context == "lounge":
-            return RouteDeckSurface(
-                name="main",
-                component="CorpusLoungeSurface",
-                variant=self._surface_variant(state, presentation_state, "main", "lounge"),
-                role="frame",
-                props={
-                    "title": "Explore SaaStoAgent",
-                    "subtitle": "Ask about the platform and let Corpus guide the next step when you are ready.",
-                },
-                lifecycle="stable",
-            )
-        if state.node == AppNodeIds.HOME:
-            return RouteDeckSurface(
-                name="main",
-                component="CorpusDashboardSurface",
-                variant=self._surface_variant(state, presentation_state, "main", "dashboard"),
-                role="frame",
-                props={
-                    "title": "Dashboard",
-                    "saas_agents": [agent.model_dump(mode="json") for agent in saas_agents],
-                    "working_on": lens.working_on,
-                },
-                lifecycle="stable",
-            )
-        return RouteDeckSurface(
-            name="main",
-            component="CorpusNodeFrame",
-            variant=self._surface_variant(state, presentation_state, "main", state.node),
-            role="frame",
-            props={
-                "title": lens.working_on,
-                "node_id": state.node,
-                "selected_saas_agent_name": lens.selected_saas_agent_name,
-                "working_on": lens.working_on,
-            },
-            lifecycle="stable",
+        return self._surface_registry.frame_surface(
+            state=state,
+            lens=lens,
+            saas_agents=saas_agents,
+            context=context,
+            presentation_state=presentation_state,
+            node_by_id=self._node_by_id,
         )
 
     def _surface_variant(self, state: AppGraphState, presentation_state: dict[str, Any], surface_name: str, default: str) -> str:
-        variants = presentation_state.get("surface_variants")
-        requested = variants.get(surface_name) if isinstance(variants, dict) else None
-        if not isinstance(requested, str):
-            return default
-        node = self._node_by_id.get(state.node)
-        allowed = node.allowed_surfaces.get(surface_name) if node else None
-        return requested if not allowed or requested in allowed else default
+        return self._surface_registry.surface_variant(state, presentation_state, surface_name, default, self._node_by_id)
 
     def _store_surface_intent(self, state: AppGraphState, user: User | None, surface_intent: Any) -> bool:
-        if not isinstance(surface_intent, dict):
-            return False
-        node = self._node_by_id.get(state.node)
-        if node is None:
-            return False
-        accepted: dict[str, str] = {}
-        for surface_name, variant in surface_intent.items():
-            if not isinstance(surface_name, str) or not isinstance(variant, str):
-                continue
-            allowed = node.allowed_surfaces.get(surface_name)
-            if allowed and variant not in allowed:
-                continue
-            accepted[surface_name] = variant
-        if not accepted:
-            return False
         key = self._presentation_key(state, user)
         current = self._presentation_state_by_key.setdefault(key, {})
-        variants = dict(current.get("surface_variants") or {})
-        variants.update(accepted)
-        current["surface_variants"] = variants
-        return True
+        return self._surface_registry.store_surface_intent(
+            state=state,
+            surface_intent=surface_intent,
+            node_by_id=self._node_by_id,
+            presentation_state=current,
+        )
 
     def _active_surface(
         self,
@@ -853,55 +755,13 @@ class CorpusGraphRuntime:
         saas_agents: list[SaaSAgentRead],
         context: str,
     ) -> RouteDeckSurface | None:
-        component = self._active_surface_component_for_node(state.node)
-        if component is None:
-            return None
-        return RouteDeckSurface(
-            name="active",
-            component=component,
-            variant=state.node,
-            role="active",
-            props={
-                "title": lens.working_on,
-                "node_id": state.node,
-                "saas_agents": [agent.model_dump(mode="json") for agent in saas_agents],
-                "lens": lens.model_dump(mode="json"),
-                **state.graph_context,
-            },
-        )
+        return self._surface_registry.active_surface(state=state, lens=lens, saas_agents=saas_agents, context=context)
 
     def _active_surface_component_for_node(self, node_id: str | None) -> str | None:
-        active_components = {
-            AppNodeIds.AUTH_SIGN_IN: "CorpusAuthSurface",
-            AppNodeIds.AUTH_REGISTER: "CorpusAuthSurface",
-            AppNodeIds.CONNECTION_CONFIGURE: "ConnectionSetupSurface",
-            AppNodeIds.SCHEMA_PREVIEW: "SchemaPreviewSurface",
-            AppNodeIds.CATALOG: "CatalogSurface",
-            AppNodeIds.CATALOG_ACTIVATION: "CatalogSurface",
-            AppNodeIds.ENTITIES: "EntitiesSurface",
-            AppNodeIds.ACTIONS: "ActionsSurface",
-            AppNodeIds.EXECUTION_PLANNING: "ExecutionSurface",
-            AppNodeIds.NEEDS_INPUT: "ExecutionSurface",
-            AppNodeIds.APPROVAL_REQUIRED: "ExecutionSurface",
-            AppNodeIds.RESULT_REVIEW: "ExecutionSurface",
-            AppNodeIds.KNOWLEDGE: "KnowledgeSurface",
-            AppNodeIds.MEMORY: "MemorySurface",
-            AppNodeIds.LEARNING: "LearningSurface",
-            AppNodeIds.QA: "QASurface",
-            AppNodeIds.RECOVERY: "RecoverySurface",
-        }
-        return active_components.get(node_id or "")
+        return self._surface_registry.active_surface_component_for_node(node_id)
 
     def _expected_active_surface_for_operation(self, operation: RouteDeckOperation) -> dict[str, Any] | None:
-        component = self._active_surface_component_for_node(operation.target_node)
-        if component is None:
-            return None
-        return {
-            "name": "active",
-            "component": component,
-            "variant": operation.target_node,
-            "role": "active",
-        }
+        return self._surface_registry.expected_active_surface_for_operation(operation)
 
     def _surface_prompt_payload(
         self,
@@ -911,36 +771,15 @@ class CorpusGraphRuntime:
         decision_message: str,
         expected_active_surface: dict[str, Any] | None,
     ) -> dict[str, Any] | None:
-        if expected_active_surface is None:
-            return None
-        content = self._deterministic_surface_prompt(operation)
-        if not content:
-            content = decision_message.strip()
-        if not content and response.messages:
-            content = str(response.messages[0].content or "").strip()
-        if not content:
-            return None
-        return {
-            "operation_id": operation.id,
-            "target_node": operation.target_node,
-            "expected_active_surface": expected_active_surface,
-            "content": content,
-        }
+        return self._surface_registry.surface_prompt_payload(
+            operation=operation,
+            response=response,
+            decision_message=decision_message,
+            expected_active_surface=expected_active_surface,
+        )
 
     def _deterministic_surface_prompt(self, operation: RouteDeckOperation) -> str:
-        prompts = {
-            AppActionIds.CONNECTION_CONFIGURE: (
-                "Connection setup is open. Enter the API name, base URL, OpenAPI schema URL, and auth details, "
-                "then preview or save and activate the connection."
-            ),
-            AppActionIds.SAAS_AGENT_CREATE: "The SaaS Agent creation form is open. Enter a name and slug to continue.",
-            AppActionIds.KNOWLEDGE_OPEN: "Knowledge is open. Add documents or review generated catalog context for this agent.",
-            AppActionIds.MEMORY_OPEN: "Memory is open. Add durable facts or instructions for this SaaS Agent.",
-            AppActionIds.LEARNING_OPEN: "Learning is open. Review sandbox learning candidates before applying them.",
-            AppActionIds.QA_OPEN: "QA is open. Run scenarios to validate this agent configuration.",
-            AppActionIds.EXECUTION_OPEN: "Execution planning is open. Describe the API task you want to run.",
-        }
-        return prompts.get(operation.id, "")
+        return self._surface_registry.deterministic_surface_prompt(operation)
 
     def _deterministic_turn_plan(
         self,
@@ -994,7 +833,7 @@ class CorpusGraphRuntime:
             return None
         if user is None:
             return "Authentication required"
-        if action_id in {AppActionIds.SAAS_AGENT_CREATE, AppActionIds.SAAS_AGENT_OPEN}:
+        if action_id in {AppActionIds.SAAS_AGENT_CREATE, AppActionIds.SAAS_AGENT_LIST, AppActionIds.SAAS_AGENT_OPEN}:
             return None
         if not state.active_saas_agent_id:
             return "SaaS Agent selection required"
@@ -1171,7 +1010,19 @@ class CorpusGraphRuntime:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connection not found")
         else:
             auth_type = str(payload.get("auth_type") or "none")
-            connection = Connection(saas_agent_id=state.active_saas_agent_id, name=str(payload.get("name") or "Primary API"), type=ConnectionType.rest_api, provider="rest_api", config={"base_url": payload.get("base_url"), "spec_url": payload.get("spec_url"), "auth_type": auth_type}, auth_type=AuthType(auth_type))
+            connection = Connection(
+                saas_agent_id=state.active_saas_agent_id,
+                name=str(payload.get("name") or "Primary API"),
+                type=ConnectionType.rest_api,
+                provider="rest_api",
+                config={
+                    "base_url": payload.get("base_url"),
+                    "spec_url": payload.get("spec_url"),
+                    "raw_spec": payload.get("raw_spec"),
+                    "auth_type": auth_type,
+                },
+                auth_type=AuthType(auth_type),
+            )
             db.add(connection)
             await db.flush()
             credential_value = str(payload.get("credential_value") or "")

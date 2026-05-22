@@ -26,3 +26,5 @@ Verified research findings, implementation notes, and reusable technical pattern
 ## Pattern Index
 
 - `patterns/agentic-workbench-ux-research.md` - sourced UX/UI research basis for the SaaStoAgent workbench, Corpus interaction model, approvals, evidence, feedback, and progressive disclosure
+- `patterns/openapi-driven-fixture-validation.md` - reusable pattern for validating real SaaS targets as fixtures without hardcoding target behavior into product runtime
+- `patterns/deployed-chat-result-continuity-gap.md` - known deployed-chat gap for list-result grounding, product/variant follow-up, cart orchestration, and collapsible public JSON details

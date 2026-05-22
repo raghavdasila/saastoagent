@@ -66,7 +66,7 @@ REST_CONNECTION_FIELDS = [
         key="name",
         label="Connection name",
         required=True,
-        placeholder="Medusa Storefront API",
+        placeholder="Production API",
         validation_hint="Short name for this SaaS Agent API connection.",
     ),
     _field(
@@ -74,7 +74,7 @@ REST_CONNECTION_FIELDS = [
         label="Base URL",
         field_type="url",
         required=True,
-        placeholder="http://localhost:9000",
+        placeholder="https://api.example.com",
         validation_hint="Must start with http:// or https://.",
     ),
     _field(
@@ -82,8 +82,8 @@ REST_CONNECTION_FIELDS = [
         label="OpenAPI spec URL",
         field_type="url",
         required=True,
-        placeholder="http://localhost:9000/store/openapi.json",
-        validation_hint="Medusa Storefront and Admin specs are both supported as separate SaaS Agents.",
+        placeholder="https://api.example.com/openapi.json",
+        validation_hint="Must point to a reachable OpenAPI JSON or YAML document.",
     ),
     _field(
         key="auth_type",

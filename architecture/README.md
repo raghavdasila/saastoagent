@@ -26,6 +26,10 @@ The current architecture direction is:
   validated workbench/debugger pass: inline auth/surfaces, fixed composer, and
   read-only docked/fullscreen diagnostics are all implemented.
 - The shared RouteDeck debugger now uses compact lane-separated focus routing
-  and a root-centered radial hub full map.
-- The next architecture follow-through is semantic hub-map grouping, browser
-  automation, and removal of remaining compatibility `/api/app/graph/*` usage.
+  and a root-centered navgraph full map.
+- The horizontal sandbox path is now verified through Docker UI E2E and a real
+  Medusa fixture, with product runtime kept OpenAPI/user-config driven.
+- The next architecture follow-through is RouteDeck/Corpus boundary cleanup,
+  collapsible public result details, conversation-grounded product/cart
+  continuity, semantic navgraph grouping, browser automation, and removal of
+  remaining compatibility `/api/app/graph/*` usage.

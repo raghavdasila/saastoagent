@@ -97,14 +97,14 @@ SAAS_AGENT_CONFIG_FIELDS = [
         key="name",
         label="SaaS Agent name",
         required=True,
-        placeholder="Medusa Storefront Agent",
+        placeholder="Customer Support Agent",
         validation_hint="Human-readable name for this SaaS Agent.",
     ),
     _field(
         key="slug",
         label="Slug",
         required=True,
-        placeholder="medusa-storefront-agent",
+        placeholder="customer-support-agent",
         validation_hint="Lowercase letters, numbers, and hyphens only.",
     ),
 ]

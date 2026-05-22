@@ -188,7 +188,7 @@ export type EntryActionKind = 'button' | 'chip' | 'form' | 'nav' | 'summary'
 export interface EntryActionField {
   key: string
   label: string
-  field_type?: 'text' | 'password' | 'select' | 'url'
+  field_type?: 'text' | 'password' | 'select' | 'url' | 'textarea'
   required?: boolean
   placeholder?: string | null
   default?: unknown

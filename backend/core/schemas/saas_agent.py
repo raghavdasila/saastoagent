@@ -36,6 +36,13 @@ class SaaSAgentStats(BaseModel):
 VisitorAuthMode = Literal["inherit_from_connection", "anonymous", "login_required"]
 ExecutionMode = Literal["sandbox", "live"]
 DefaultWritePolicy = Literal["confirm", "owner_approval", "block"]
+DeploymentPolicyState = Literal[
+    "allowed_read",
+    "needs_visitor_auth",
+    "needs_owner_approval",
+    "blocked",
+    "failed_with_recovery",
+]
 
 
 class SaaSAgentDeploymentRead(BaseModel):
@@ -69,4 +76,28 @@ class DeployedAgentProfile(BaseModel):
     visitor_auth_mode: VisitorAuthMode
     execution_mode: ExecutionMode
     default_write_policy: DefaultWritePolicy
+    policy_state: DeploymentPolicyState
     welcome_message: str
+
+
+class AgentApprovalRead(BaseModel):
+    trace_id: uuid.UUID
+    trace_token: str
+    status: str
+    approval_state: str
+    tool_name: str
+    action_name: str | None = None
+    method: str | None = None
+    path: str | None = None
+    risk_level: str | None = None
+    inputs: dict = Field(default_factory=dict)
+    requested_by: uuid.UUID | None = None
+    created_at: datetime
+
+
+class AgentApprovalDecisionRead(BaseModel):
+    trace_id: uuid.UUID
+    status: str
+    approval_state: str
+    message: str
+    result: dict | None = None

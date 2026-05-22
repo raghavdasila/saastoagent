@@ -29,7 +29,7 @@ React renders Corpus plus RouteDeck-projected contextual surfaces.
 - Added split endpoints for Corpus, RouteDeck projection/stream, and diagnostics.
 - Removed product-path dependence on raw eligible actions as default UI chips.
 - Added richer RouteDeck diagnostics with a compact lane-separated focus graph
-  and a root-centered radial hub full map.
+  and a root-centered navgraph full map.
 - Changed the navigation graph manifest to semantic route topology instead of drawing every action as an edge.
 - Fixed transition jitter by keeping the store/shell stable and replacing browser history without remounting the page.
 - Added regression tests for RouteDeck runtime contracts, store behavior, adapter behavior, Corpus behavior, and semantic manifest edges.
@@ -84,7 +84,7 @@ The diagnostics navigation graph must not draw actions as graph edges. Actions a
 2. Add direct tests for `RouteDeckStore.connectStream()` against projection update events.
 3. Add focused browser tests for diagnostics and inline surfaces:
    - Focus map opens on current node with non-overlapping edge geometry.
-   - Full map shows the radial hub topology around the root node.
+   - Full map shows the navgraph topology around the root node.
    - Actions are absent from the canvas and present only in selected-node
      details.
    - Auth and inline surfaces stay inside the main Corpus shell.
@@ -103,6 +103,6 @@ The diagnostics navigation graph must not draw actions as graph edges. Actions a
 - Graph commits state; LLMs choose typed operations.
 - Diagnostics is read-only and richer than JSON.
 - Navigation maps show navigation topology only.
-- Focus maps use lane-separated routing; full maps use root-centered hub
+- Focus maps use lane-separated routing; full maps use root-centered navgraph
   topology, not sitemap assumptions.
 - Presentation state is ephemeral.

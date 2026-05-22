@@ -5,6 +5,7 @@ from backend.core.schemas import ActionNodeRead
 from backend.services.agent.rest_operator import _build_inputs, _format_execution_failure, _format_router_decision, _maybe_handle_trace_control, _parse_trace_control, _tokens
 from backend.services.toolrouter.adapter import ToolRouterDecision, ToolRouterDecisionType
 from backend.services.catalog import infer_entities, preview_openapi_spec
+from backend.services.tools.generator import build_function_schema
 
 
 def test_preview_openapi_spec_summarizes_methods_tags_and_samples():
@@ -113,6 +114,96 @@ def test_rest_operator_infers_status_from_natural_language():
     assert missing == []
 
 
+def test_generated_tool_schema_excludes_connection_level_header_inputs():
+    action = SimpleNamespace(
+        name="listProducts",
+        method="GET",
+        path="/store/products",
+        description="List products",
+        parameters=[
+            {
+                "name": "x-publishable-api-key",
+                "in": "header",
+                "required": True,
+                "schema": {"type": "string"},
+            },
+            {"name": "limit", "in": "query", "schema": {"type": "integer"}},
+        ],
+        request_body={},
+    )
+
+    schema = build_function_schema(action)
+
+    params = schema["parameters"]
+    assert "x-publishable-api-key" not in params["properties"]
+    assert "x-publishable-api-key" not in params["required"]
+    assert "limit" in params["properties"]
+
+
+def test_rest_operator_does_not_ask_visitor_for_connection_headers():
+    class Action:
+        parameters = [
+            {
+                "name": "x-publishable-api-key",
+                "in": "header",
+                "required": True,
+                "schema": {"type": "string"},
+            }
+        ]
+
+    class Tool:
+        function_schema = {
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            }
+        }
+
+    inputs, missing = _build_inputs("list products", Action(), Tool())
+
+    assert inputs == {}
+    assert missing == []
+
+
+def test_rest_operator_does_not_fill_optional_search_with_bare_list_request():
+    class Action:
+        parameters = [{"name": "q", "in": "query", "schema": {"type": "string"}}]
+
+    class Tool:
+        function_schema = {
+            "parameters": {
+                "type": "object",
+                "properties": {"q": {"type": "string"}, "limit": {"type": "integer"}},
+                "required": [],
+            }
+        }
+
+    inputs, missing = _build_inputs("list products", Action(), Tool())
+
+    assert inputs == {"limit": 5}
+    assert missing == []
+
+
+def test_rest_operator_fills_optional_search_only_when_filter_is_explicit():
+    class Action:
+        parameters = [{"name": "q", "in": "query", "schema": {"type": "string"}}]
+
+    class Tool:
+        function_schema = {
+            "parameters": {
+                "type": "object",
+                "properties": {"q": {"type": "string"}},
+                "required": [],
+            }
+        }
+
+    inputs, missing = _build_inputs("search for hoodie", Action(), Tool())
+
+    assert inputs == {"q": "hoodie"}
+    assert missing == []
+
+
 def test_rest_operator_parses_approval_resume_controls():
     assert _parse_trace_control("approve abcdef12") == ("approve", "abcdef12")
     assert _parse_trace_control("cancel abcdef12") == ("cancel", "abcdef12")
@@ -183,3 +274,15 @@ def test_rest_operator_public_trace_control_does_not_expose_trace_details():
     assert "agent owner" in content
     assert "abcdef12" not in content
     assert "trace" not in content.lower()
+
+
+def test_public_chat_service_suppresses_all_tool_events_from_sse():
+    from pathlib import Path
+
+    service_path = Path(__file__).parents[1] / "services" / "agent" / "chat_service.py"
+    source = service_path.read_text(encoding="utf-8")
+    runtime_source = source.split("async def _run_agent", 1)[1].split("def _is_deployed_channel", 1)[0]
+
+    assert 'public_response and event_name in {"tool_start", "tool_end"}' in runtime_source
+    assert 'if public_response:' in runtime_source.split('kind == "on_tool_start"', 1)[1].split('elif kind == "on_tool_end"', 1)[0]
+    assert 'if public_response:' in runtime_source.split('kind == "on_tool_end"', 1)[1].split("# Extract follow-ups", 1)[0]

@@ -41,6 +41,28 @@ The following are explicitly out of scope for v0.1:
 5. Keep QA as an operator-facing product capability, not an afterthought
 6. Make failure capture, tuning, and learning simple enough to use continuously
 
+## RouteDeck And Corpus Rule
+
+RouteDeck is the reusable state management solution for agentic apps. It is not
+just navigation, a debugger, or a UI helper. SaaStoAgent should import and use
+RouteDeck the way applications use Redux, MobX, or React Query: as the shared
+state layer that connects backend agent graph state to frontend React state.
+
+The intended ownership is:
+
+- LangGraph and backend services execute the agent flow and produce authoritative graph/runtime state.
+- RouteDeck owns the generic agentic state contract: projections, operations,
+  operation readiness, blocked state, surfaces, events, runtime snapshots,
+  diagnostics, and React-facing store/hooks/debugger bindings.
+- Corpus is the SaaStoAgent product/application layer that consumes RouteDeck.
+  Corpus owns SaaStoAgent-specific conversation, setup behavior, SaaS Agent
+  selection, recovery wording, public chat behavior, and product surface copy.
+
+Do not move Corpus/SaaStoAgent product semantics into reusable RouteDeck
+framework code. Do not bypass RouteDeck when exposing agentic graph state to the
+frontend. Corpus should use RouteDeck on both backend and frontend as its
+agentic application state spine.
+
 ## Continuous Improvement Loop
 
 SaaStoAgent v0.1 must not stop at execution. It needs a simple closed loop for:

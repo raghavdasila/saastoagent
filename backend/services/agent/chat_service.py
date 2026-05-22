@@ -262,6 +262,8 @@ class ChatService:
                                 full_content += clean
 
                 elif kind == "on_tool_start":
+                    if public_response:
+                        continue
                     tool_name = event.get("name", "unknown")
                     run_id = event.get("run_id", str(uuid.uuid4()))
                     inputs = data.get("input", {})
@@ -274,6 +276,8 @@ class ChatService:
                         sources_data.append(inputs)
 
                 elif kind == "on_tool_end":
+                    if public_response:
+                        continue
                     run_id = event.get("run_id", "")
                     call_id = str(run_id)[:8]
                     output = data.get("output", "")

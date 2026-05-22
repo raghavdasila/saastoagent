@@ -6,15 +6,16 @@ from .manifest import (
     build_app_graph_manifest,
     validate_app_graph_manifest,
 )
+from .corpus_routedeck_runtime import CorpusRouteDeckRuntime, SaaStoAgentRouteDeckAdapter
 from .runtime import CorpusGraphRuntime, corpus_graph_runtime
-from .routedeck_adapter import SaaStoAgentRouteDeckAdapter
 
-route_deck_runtime = SaaStoAgentRouteDeckAdapter(corpus_graph_runtime)
+route_deck_runtime = CorpusRouteDeckRuntime(corpus_graph_runtime)
 
 __all__ = [
     "ACTION_TARGETS",
     "APP_GRAPH_GROUPS",
     "APP_GRAPH_VERSION",
+    "CorpusRouteDeckRuntime",
     "CorpusGraphRuntime",
     "NODE_HANDLERS",
     "SaaStoAgentRouteDeckAdapter",

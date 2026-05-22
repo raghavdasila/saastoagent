@@ -21,26 +21,6 @@ const authOptions = [
   { value: 'custom_header', label: 'Custom header' },
 ]
 
-const medusaApiBase = import.meta.env.VITE_MEDUSA_API_BASE_URL || 'http://localhost:9000'
-const medusaConnectionPresets = [
-  {
-    id: 'medusa-storefront',
-    label: 'Medusa Storefront API',
-    name: 'Medusa Storefront API',
-    baseUrl: medusaApiBase,
-    specUrl: `${medusaApiBase}/store/openapi.json`,
-    authType: 'none',
-  },
-  {
-    id: 'medusa-admin',
-    label: 'Medusa Admin API',
-    name: 'Medusa Admin API',
-    baseUrl: medusaApiBase,
-    specUrl: `${medusaApiBase}/admin/openapi.json`,
-    authType: 'bearer',
-  },
-]
-
 export function ConnectSetupView({ saasAgent, stats }: ConnectSetupViewProps) {
   const saasAgentId = useSaaSAgentStore((state) => state.saasAgentId)
   const setActiveView = useSaaSAgentStore((state) => state.setActiveView)
@@ -48,6 +28,7 @@ export function ConnectSetupView({ saasAgent, stats }: ConnectSetupViewProps) {
   const [name, setName] = useState('Primary API')
   const [baseUrl, setBaseUrl] = useState('')
   const [specUrl, setSpecUrl] = useState('')
+  const [rawSpec, setRawSpec] = useState('')
   const [authType, setAuthType] = useState('none')
   const [credential, setCredential] = useState('')
   const [headerName, setHeaderName] = useState('')
@@ -74,6 +55,7 @@ export function ConnectSetupView({ saasAgent, stats }: ConnectSetupViewProps) {
     mutationFn: () =>
       api.post<ConnectionPreview>(`/saas-agents/${saasAgentId}/connections/preview`, {
         spec_url: specUrl,
+        raw_spec: rawSpec,
       }),
     onSuccess: () => setError(null),
     onError: (e) => setError(e instanceof ApiError ? e.message : 'Preview failed'),
@@ -86,7 +68,7 @@ export function ConnectSetupView({ saasAgent, stats }: ConnectSetupViewProps) {
         type: 'rest_api',
         provider: 'rest_api',
         auth_type: authType,
-        config: { base_url: baseUrl, spec_url: specUrl, auth_type: authType },
+        config: { base_url: baseUrl, spec_url: specUrl, raw_spec: rawSpec, auth_type: authType },
         credentials: credential
           ? {
               credential_value: credential,
@@ -117,18 +99,7 @@ export function ConnectSetupView({ saasAgent, stats }: ConnectSetupViewProps) {
     }
   }
 
-  const canSubmit = Boolean(saasAgentId && name.trim() && baseUrl.trim() && specUrl.trim())
-
-  const applyConnectionPreset = (preset: (typeof medusaConnectionPresets)[number]) => {
-    setName(preset.name)
-    setBaseUrl(preset.baseUrl)
-    setSpecUrl(preset.specUrl)
-    setAuthType(preset.authType)
-    setCredential('')
-    setHeaderName('')
-    setQueryParamName('')
-    setError(null)
-  }
+  const canSubmit = Boolean(saasAgentId && name.trim() && baseUrl.trim() && (specUrl.trim() || rawSpec.trim()))
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] bg-slate-50 px-4 py-6 dark:bg-background sm:px-6 lg:px-8">
@@ -146,20 +117,6 @@ export function ConnectSetupView({ saasAgent, stats }: ConnectSetupViewProps) {
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">
             {saasAgentName} becomes useful when its OpenAPI catalog is tested, activated, and exposed as actions. This view handles the operator setup path without sending the user into the graph debugger.
           </p>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            {medusaConnectionPresets.map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => applyConnectionPreset(preset)}
-                className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-
           {error && (
             <div className="mt-4 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
               {error}
@@ -187,6 +144,10 @@ export function ConnectSetupView({ saasAgent, stats }: ConnectSetupViewProps) {
               <span className="font-medium text-slate-700 dark:text-slate-200">OpenAPI URL</span>
               <input className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-white/[0.04]" placeholder="https://api.example.com/openapi.json" value={specUrl} onChange={(e) => setSpecUrl(e.target.value)} data-qa-field="spec-url" />
             </label>
+            <label className="grid gap-1 text-sm md:col-span-2">
+              <span className="font-medium text-slate-700 dark:text-slate-200">Paste OpenAPI schema</span>
+              <textarea className="min-h-36 rounded-md border border-slate-200 bg-white px-3 py-2 font-mono text-xs dark:border-white/10 dark:bg-white/[0.04]" placeholder="Paste OpenAPI JSON or YAML when the schema is not publicly hosted." value={rawSpec} onChange={(e) => setRawSpec(e.target.value)} data-qa-field="raw-spec" />
+            </label>
             {authType !== 'none' && (
               <>
                 <label className="grid gap-1 text-sm md:col-span-2">
@@ -212,7 +173,7 @@ export function ConnectSetupView({ saasAgent, stats }: ConnectSetupViewProps) {
           <div className="mt-6 flex flex-wrap gap-2">
             <button
               className="surface-outline-button inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium"
-              disabled={!specUrl || preview.isPending}
+              disabled={(!specUrl && !rawSpec) || preview.isPending}
               onClick={() => preview.mutate()}
               type="button"
               data-qa-action="preview-api"

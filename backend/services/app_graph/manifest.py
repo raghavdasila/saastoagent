@@ -45,6 +45,7 @@ class AppActionIds:
     HOME = "navigate.home"
     AUTH_SIGN_IN = "auth.sign_in"
     AUTH_REGISTER = "auth.register"
+    SAAS_AGENT_LIST = "saas_agent.list"
     SAAS_AGENT_OPEN = "saas_agent.open"
     SAAS_AGENT_CREATE = "saas_agent.create"
     AGENT_HOME = "navigate.agent_home"
@@ -100,6 +101,7 @@ ACTION_TARGETS = {
     AppActionIds.HOME: AppNodeIds.HOME,
     AppActionIds.AUTH_SIGN_IN: AppNodeIds.AUTH_SIGN_IN,
     AppActionIds.AUTH_REGISTER: AppNodeIds.AUTH_REGISTER,
+    AppActionIds.SAAS_AGENT_LIST: AppNodeIds.SAAS_AGENT_SELECT,
     AppActionIds.SAAS_AGENT_OPEN: AppNodeIds.AGENT_HOME,
     AppActionIds.SAAS_AGENT_CREATE: AppNodeIds.AGENT_HOME,
     AppActionIds.AGENT_HOME: AppNodeIds.AGENT_HOME,
@@ -166,6 +168,7 @@ def _action(
     category: str = "navigation",
     emphasis: str = "secondary",
     fields: list[RouteDeckFieldSpec] | None = None,
+    invocation_kind: str | None = None,
     allowed_nodes: list[str] | None = None,
     placement: str = "next_best",
 ) -> RouteDeckActionSpec:
@@ -177,6 +180,7 @@ def _action(
         category=category,
         emphasis=emphasis,
         fields=fields or [],
+        invocation_kind=invocation_kind,
         allowed_nodes=allowed_nodes or [],
         placement=placement,
     )
@@ -197,7 +201,7 @@ AGENT_REQUIRED_ACTIONS = [
 ALL_NAV_ACTIONS = [AppActionIds.HOME, *AGENT_REQUIRED_ACTIONS]
 
 NODE_SPECS = [
-    _node(AppNodeIds.HOME, "Home", lane="system", description="Root application node. Lists eligible SaaS Agents and creates the next graph-owned action.", actions=[AppActionIds.AUTH_SIGN_IN, AppActionIds.AUTH_REGISTER, AppActionIds.SAAS_AGENT_OPEN, AppActionIds.SAAS_AGENT_CREATE], recovery="Sign in, create an account, open a SaaS Agent, or create a SaaS Agent.", allowed_surfaces={"main": ["lounge", "dashboard", "compact"], "active": ["home"]}, default_surfaces={"main": "dashboard", "active": "home"}),
+    _node(AppNodeIds.HOME, "Home", lane="system", description="Root application node. Lists eligible SaaS Agents and creates the next graph-owned action.", actions=[AppActionIds.AUTH_SIGN_IN, AppActionIds.AUTH_REGISTER, AppActionIds.SAAS_AGENT_LIST, AppActionIds.SAAS_AGENT_CREATE], recovery="Sign in, create an account, list SaaS Agents, or create a SaaS Agent.", allowed_surfaces={"main": ["lounge", "dashboard", "compact"], "active": ["home"]}, default_surfaces={"main": "dashboard", "active": "home"}),
     _node(AppNodeIds.AUTH_SIGN_IN, "Sign In", lane="auth", description="Authentication surface for existing users.", actions=[AppActionIds.HOME], recovery="Use the sign-in form or return home."),
     _node(AppNodeIds.AUTH_REGISTER, "Register", lane="auth", description="Authentication surface for account creation.", actions=[AppActionIds.HOME], recovery="Use the registration form or return home."),
     _node(AppNodeIds.SAAS_AGENT_SELECT, "SaaS Agent Select", description="Select an eligible SaaS Agent.", actions=[AppActionIds.HOME, AppActionIds.SAAS_AGENT_OPEN, AppActionIds.SAAS_AGENT_CREATE]),
@@ -225,12 +229,13 @@ ACTION_SPECS = [
     _action(AppActionIds.HOME, "Home", allowed_nodes=["*"]),
     _action(AppActionIds.AUTH_SIGN_IN, "Sign in", category="auth", emphasis="primary", allowed_nodes=[AppNodeIds.HOME]),
     _action(AppActionIds.AUTH_REGISTER, "Create account", category="auth", allowed_nodes=[AppNodeIds.HOME]),
-    _action(AppActionIds.SAAS_AGENT_OPEN, "Open SaaS Agent", category="setup", fields=[_field(key="saas_agent_id", label="SaaS Agent ID", required=True)], allowed_nodes=[AppNodeIds.HOME, AppNodeIds.SAAS_AGENT_SELECT]),
-    _action(AppActionIds.SAAS_AGENT_CREATE, "Create SaaS Agent", category="setup", kind="form", emphasis="primary", fields=[_field(key="name", label="Name", required=True, placeholder="Medusa Storefront Agent"), _field(key="slug", label="Slug", required=True, placeholder="medusa-storefront-agent")], allowed_nodes=[AppNodeIds.HOME, AppNodeIds.SAAS_AGENT_SELECT, AppNodeIds.SAAS_AGENT_CREATE]),
+    _action(AppActionIds.SAAS_AGENT_LIST, "List agents", category="setup", invocation_kind="surface", allowed_nodes=[AppNodeIds.HOME, AppNodeIds.SAAS_AGENT_SELECT]),
+    _action(AppActionIds.SAAS_AGENT_OPEN, "Open SaaS Agent", category="setup", invocation_kind="entity_selector", fields=[_field(key="saas_agent_id", label="SaaS Agent ID", required=True)], allowed_nodes=[AppNodeIds.SAAS_AGENT_SELECT]),
+    _action(AppActionIds.SAAS_AGENT_CREATE, "Create SaaS Agent", category="setup", kind="form", emphasis="primary", fields=[_field(key="name", label="Name", required=True, placeholder="Customer Support Agent"), _field(key="slug", label="Slug", required=True, placeholder="customer-support-agent")], allowed_nodes=[AppNodeIds.HOME, AppNodeIds.SAAS_AGENT_SELECT, AppNodeIds.SAAS_AGENT_CREATE]),
     _action(AppActionIds.AGENT_HOME, "Agent home", allowed_nodes=["*"]),
     _action(AppActionIds.CONNECTION_CONFIGURE, "Configure connection", category="setup", allowed_nodes=["*"]),
-    _action(AppActionIds.CONNECTION_PREVIEW, "Preview schema", category="setup", kind="form", fields=[_field(key="spec_url", label="OpenAPI URL", field_type="url", required=True, placeholder="https://api.example.com/openapi.json")], allowed_nodes=[AppNodeIds.CONNECTION_CONFIGURE]),
-    _action(AppActionIds.CONNECTION_ACTIVATE, "Save and activate API", category="setup", kind="form", emphasis="primary", fields=[_field(key="api_target", label="API target", field_type="select", required=True, default="medusa_storefront", options=[{"value": "medusa_storefront", "label": "Medusa Storefront API"}, {"value": "medusa_admin", "label": "Medusa Admin API"}, {"value": "custom_api", "label": "Custom API"}]), _field(key="name", label="Connection name", required=True, default="Medusa Storefront API", placeholder="Medusa Storefront API"), _field(key="base_url", label="Base URL", field_type="url", required=True, default="http://localhost:9000", placeholder="http://localhost:9000"), _field(key="spec_url", label="OpenAPI URL", field_type="url", required=True, default="http://localhost:9000/store/openapi.json", placeholder="http://localhost:9000/store/openapi.json"), _field(key="auth_type", label="Auth type", field_type="select", required=True, default="none", options=[{"value": "none", "label": "No auth"}, {"value": "bearer", "label": "Bearer token"}, {"value": "api_key_header", "label": "API key header"}, {"value": "api_key_query", "label": "API key query param"}, {"value": "basic", "label": "Basic auth"}, {"value": "custom_header", "label": "Custom header"}]), _field(key="credential_value", label="Credential", field_type="password", sensitive=True), _field(key="header_name", label="Header name", placeholder="X-API-Key"), _field(key="query_param_name", label="Query param name", placeholder="api_key")], allowed_nodes=[AppNodeIds.CONNECTION_CONFIGURE, AppNodeIds.SCHEMA_PREVIEW]),
+    _action(AppActionIds.CONNECTION_PREVIEW, "Preview schema", category="setup", kind="form", fields=[_field(key="spec_url", label="OpenAPI URL", field_type="url", placeholder="https://api.example.com/openapi.json"), _field(key="raw_spec", label="Paste OpenAPI schema", field_type="textarea", placeholder="Paste OpenAPI JSON or YAML when the schema is not publicly hosted.")], allowed_nodes=[AppNodeIds.CONNECTION_CONFIGURE]),
+    _action(AppActionIds.CONNECTION_ACTIVATE, "Save and activate API", category="setup", kind="form", emphasis="primary", fields=[_field(key="name", label="Connection name", required=True, placeholder="Production API"), _field(key="base_url", label="Base URL", field_type="url", required=True, placeholder="https://api.example.com"), _field(key="spec_url", label="OpenAPI URL", field_type="url", placeholder="https://api.example.com/openapi.json"), _field(key="raw_spec", label="Paste OpenAPI schema", field_type="textarea", placeholder="Paste OpenAPI JSON or YAML when the schema is not publicly hosted."), _field(key="auth_type", label="Auth type", field_type="select", required=True, default="none", options=[{"value": "none", "label": "No auth"}, {"value": "bearer", "label": "Bearer token"}, {"value": "api_key_header", "label": "API key header"}, {"value": "api_key_query", "label": "API key query param"}, {"value": "basic", "label": "Basic auth"}, {"value": "custom_header", "label": "Custom header"}]), _field(key="credential_value", label="Credential", field_type="password", sensitive=True), _field(key="header_name", label="Header name", placeholder="X-API-Key"), _field(key="query_param_name", label="Query param name", placeholder="api_key")], allowed_nodes=[AppNodeIds.CONNECTION_CONFIGURE, AppNodeIds.SCHEMA_PREVIEW]),
     _action(AppActionIds.CATALOG_OPEN, "Catalog", category="setup", allowed_nodes=["*"]),
     _action(AppActionIds.ENTITIES_OPEN, "Entities", category="setup", allowed_nodes=["*"]),
     _action(AppActionIds.ACTIONS_OPEN, "Actions", category="setup", allowed_nodes=["*"]),
@@ -263,7 +268,7 @@ def _build_edges() -> list[RouteDeckEdgeSpec]:
         _edge(AppNodeIds.HOME, AppNodeIds.AUTH_REGISTER, AppActionIds.AUTH_REGISTER),
         _edge(AppNodeIds.AUTH_SIGN_IN, AppNodeIds.HOME, AppActionIds.HOME),
         _edge(AppNodeIds.AUTH_REGISTER, AppNodeIds.HOME, AppActionIds.HOME),
-        _edge(AppNodeIds.HOME, AppNodeIds.SAAS_AGENT_SELECT, AppActionIds.SAAS_AGENT_OPEN),
+        _edge(AppNodeIds.HOME, AppNodeIds.SAAS_AGENT_SELECT, AppActionIds.SAAS_AGENT_LIST),
         _edge(AppNodeIds.HOME, AppNodeIds.SAAS_AGENT_CREATE, AppActionIds.SAAS_AGENT_CREATE),
         _edge(AppNodeIds.SAAS_AGENT_SELECT, AppNodeIds.AGENT_HOME, AppActionIds.SAAS_AGENT_OPEN),
         _edge(AppNodeIds.SAAS_AGENT_SELECT, AppNodeIds.SAAS_AGENT_CREATE, AppActionIds.SAAS_AGENT_CREATE),

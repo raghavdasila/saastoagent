@@ -27,6 +27,8 @@ def build_function_schema(action_node: ActionNode) -> dict:
     for param in action_node.parameters or []:
         if not isinstance(param, dict) or not param.get("name"):
             continue
+        if str(param.get("in") or "").lower() in {"header", "cookie"}:
+            continue
         name = str(param["name"])
         schema = param.get("schema") if isinstance(param.get("schema"), dict) else {}
         properties[name] = _map_schema(schema)

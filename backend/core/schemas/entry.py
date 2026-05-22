@@ -24,7 +24,7 @@ EntryActionEmphasis = Literal["primary", "secondary"]
 EntryActionKind = Literal["button", "chip", "form", "nav", "summary"]
 EntryActionCategory = Literal["auth", "setup", "navigation", "execution", "feedback", "learning"]
 EntryActionPlacement = Literal["next_best", "rail", "inline", "evidence"]
-EntryActionFieldType = Literal["text", "password", "select", "url"]
+EntryActionFieldType = Literal["text", "password", "select", "url", "textarea"]
 EntryUIArtifactKind = Literal["widget", "markup"]
 EntryUIArtifactSurface = Literal["inline", "canvas", "both"]
 
