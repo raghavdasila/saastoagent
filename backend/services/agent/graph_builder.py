@@ -62,6 +62,8 @@ def build_agent_graph(
     saas_agent_name: str = "this SaaS Agent",
     reasoning_mode: str = "balanced",
     memory_context: str = "",
+    custom_system_prompt: str = "",
+    custom_instructions: str = "",
     rag_svc=None,
     memory_svc=None,
     session_id=None,
@@ -92,6 +94,10 @@ def build_agent_graph(
         saas_agent_name=saas_agent_name,
         memory_context=memory_context,
     )
+    if custom_system_prompt.strip():
+        system_prompt = f"{system_prompt}\n\nOwner-authored system prompt:\n{custom_system_prompt.strip()}"
+    if custom_instructions.strip():
+        system_prompt = f"{system_prompt}\n\nOwner-authored operating instructions:\n{custom_instructions.strip()}"
 
     def agent_node(state: MessagesState) -> dict[str, Any]:
         messages = state["messages"]

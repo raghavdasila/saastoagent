@@ -30,6 +30,8 @@ class SaaSAgent(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
     name = Column(String(255), nullable=False)
     slug = Column(String(255), nullable=False, unique=True)
+    system_prompt = Column(Text, nullable=True)
+    instructions = Column(Text, nullable=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

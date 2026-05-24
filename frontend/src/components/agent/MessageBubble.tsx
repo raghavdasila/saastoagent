@@ -6,6 +6,7 @@ import type { ChatUIMessage } from '@/types/agent'
 import { CollapsibleJsonMessage } from './CollapsibleJsonMessage'
 import { CollapsibleMarkdown } from './CollapsibleMarkdown'
 import { FollowUpChips } from './FollowUpChips'
+import { MessageTimingDetails } from './MessageTimingDetails'
 import { SourceCitations } from './SourceCitations'
 import { ThinkingIndicator } from './ThinkingIndicator'
 import { ToolCard } from './ToolCard'
@@ -79,6 +80,10 @@ export function MessageBubble({ message, onFollowUp, showToolCalls = true, colla
 
         {!message.isStreaming && message.followUps && message.followUps.length > 0 && (
           <FollowUpChips questions={message.followUps} onSelect={onFollowUp} />
+        )}
+
+        {!isUser && !message.isStreaming && (
+          <MessageTimingDetails metadata={message.metadata} />
         )}
 
         <span className="text-xs text-muted-foreground">

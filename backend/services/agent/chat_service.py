@@ -13,11 +13,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
+from backend.core.database import async_session
 from backend.core.models import AgentMessage, AgentSession, SaaSAgent
 from backend.core.protocol import (
     SSEEvent,
     agent_end,
     agent_start,
+    debug_timing,
     error,
     follow_ups,
     keepalive,
@@ -33,6 +35,7 @@ from backend.services.agent.graph_builder import build_agent_graph
 from backend.services.agent.memory_service import memory_service
 from backend.services.agent.rag_service import rag_service
 from backend.services.agent.rest_operator import run_rest_operator_turn
+from backend.services.agent.timing import RequestTiming
 
 logger = structlog.get_logger()
 
@@ -52,49 +55,60 @@ class ChatService:
         handoff_context: dict[str, Any] | None,
         db: AsyncSession,
     ) -> AsyncGenerator[str, None]:
-        session = await self._resolve_session(session_id, saas_agent_id, user_id, db, handoff_context=handoff_context)
+        timing = RequestTiming()
+        timing.mark("chat.request_received")
+        with timing.span("chat.resolve_session"):
+            session = await self._resolve_session(session_id, saas_agent_id, user_id, db, handoff_context=handoff_context)
         session_id = session.id
         public_response = _is_deployed_channel(session.metadata_ or {})
 
         # Resolve SaaSAgent name for prompt context
-        ws = await db.get(SaaSAgent, saas_agent_id)
+        with timing.span("chat.load_saas_agent"):
+            ws = await db.get(SaaSAgent, saas_agent_id)
         saas_agent_name = ws.name if ws else "this SaaS Agent"
+        custom_system_prompt = ws.system_prompt if ws and ws.system_prompt else ""
+        custom_instructions = ws.instructions if ws and ws.instructions else ""
 
         # Persist user message
-        db.add(
-            AgentMessage(
-                session_id=session_id,
-                saas_agent_id=saas_agent_id,
-                role="user",
-                content=message,
+        with timing.span("chat.persist_user_message"):
+            db.add(
+                AgentMessage(
+                    session_id=session_id,
+                    saas_agent_id=saas_agent_id,
+                    role="user",
+                    content=message,
+                )
             )
-        )
-        await db.commit()
+            await db.commit()
 
-        memory_context = await memory_service.get_session_context(
-            session_id, saas_agent_id, db
-        )
+        with timing.span("chat.load_memory_context"):
+            memory_context = await memory_service.get_session_context(
+                session_id, saas_agent_id, db
+            )
         handoff_summary = _handoff_summary(session.metadata_ or {})
         if handoff_summary:
             memory_context = f"{handoff_summary}\n\n{memory_context}".strip()
 
-        history_result = await db.execute(
-            select(AgentMessage)
-            .where(AgentMessage.session_id == session_id)
-            .order_by(AgentMessage.created_at.desc())
-            .limit(20)
-        )
-        history = list(reversed(history_result.scalars().all()))
+        with timing.span("chat.load_history"):
+            history_result = await db.execute(
+                select(AgentMessage)
+                .where(AgentMessage.session_id == session_id)
+                .order_by(AgentMessage.created_at.desc())
+                .limit(20)
+            )
+            history = list(reversed(history_result.scalars().all()))
 
-        lc_messages = []
-        for msg in history:
-            if msg.role == "user":
-                lc_messages.append(HumanMessage(content=msg.content))
-            elif msg.role == "assistant" and msg.content:
-                lc_messages.append(AIMessage(content=msg.content))
+        with timing.span("chat.build_langchain_messages"):
+            lc_messages = []
+            for msg in history:
+                if msg.role == "user":
+                    lc_messages.append(HumanMessage(content=msg.content))
+                elif msg.role == "assistant" and msg.content:
+                    lc_messages.append(AIMessage(content=msg.content))
 
         queue: asyncio.Queue = asyncio.Queue()
 
+        timing.mark("sse.stream_start")
         yield stream_start(session_id)
         yield agent_start()
 
@@ -103,6 +117,8 @@ class ChatService:
                 queue=queue,
                 saas_agent_id=saas_agent_id,
                 saas_agent_name=saas_agent_name,
+                custom_system_prompt=custom_system_prompt,
+                custom_instructions=custom_instructions,
                 user_id=user_id,
                 messages=lc_messages,
                 reasoning_mode=reasoning_mode,
@@ -111,6 +127,7 @@ class ChatService:
                 memory_context=memory_context,
                 public_response=public_response,
                 db=db,
+                timing=timing,
             )
         )
 
@@ -126,8 +143,8 @@ class ChatService:
                 except asyncio.TimeoutError:
                     yield keepalive()
         except Exception as e:  # pragma: no cover - defensive
-            logger.error("stream_error", error=str(e))
-            yield error(str(e))
+            logger.exception("stream_error", error=str(e) or repr(e), error_type=e.__class__.__name__)
+            yield error(str(e) or "The agent hit an internal error while streaming the response.")
         finally:
             if not task.done():
                 task.cancel()
@@ -141,6 +158,8 @@ class ChatService:
         queue: asyncio.Queue,
         saas_agent_id: uuid.UUID,
         saas_agent_name: str,
+        custom_system_prompt: str,
+        custom_instructions: str,
         user_id: uuid.UUID | None,
         messages: list,
         reasoning_mode: str,
@@ -149,18 +168,22 @@ class ChatService:
         memory_context: str,
         public_response: bool,
         db: AsyncSession,
+        timing: RequestTiming,
     ) -> None:
         try:
-            graph = build_agent_graph(
-                saas_agent_id=saas_agent_id,
-                saas_agent_name=saas_agent_name,
-                reasoning_mode=reasoning_mode,
-                memory_context=memory_context,
-                rag_svc=rag_service,
-                memory_svc=memory_service,
-                session_id=session_id,
-                user_id=user_id,
-            )
+            with timing.span("agent.build_graph"):
+                graph = build_agent_graph(
+                    saas_agent_id=saas_agent_id,
+                    saas_agent_name=saas_agent_name,
+                    reasoning_mode=reasoning_mode,
+                    memory_context=memory_context,
+                    custom_system_prompt=custom_system_prompt,
+                    custom_instructions=custom_instructions,
+                    rag_svc=rag_service,
+                    memory_svc=memory_service,
+                    session_id=session_id,
+                    user_id=user_id,
+                )
 
             full_content = ""
             full_thinking = ""
@@ -185,108 +208,124 @@ class ChatService:
                     return
                 await queue.put(SSEEvent(event=event_name, data=payload).encode())
 
-            memory_content = await self._maybe_handle_memory_command(
-                message=messages[-1].content if messages else "",
-                saas_agent_id=saas_agent_id,
-                session_id=session_id,
-                user_id=user_id,
-                db=db,
-            )
+            with timing.span("agent.memory_command_check"):
+                memory_content = await self._maybe_handle_memory_command(
+                    message=messages[-1].content if messages else "",
+                    saas_agent_id=saas_agent_id,
+                    session_id=session_id,
+                    user_id=user_id,
+                    db=db,
+                )
             if memory_content is not None:
                 full_content = memory_content
-                await queue.put(message_delta(full_content))
+                with timing.span("sse.enqueue_first_message"):
+                    await queue.put(message_delta(full_content))
                 memory_follow_ups = ["Show saved memories", "Recall memory for this SaaS Agent"]
                 await queue.put(follow_ups(memory_follow_ups))
-                db.add(
-                    AgentMessage(
-                        session_id=session_id,
-                        saas_agent_id=saas_agent_id,
-                        role="assistant",
-                        content=full_content,
-                        follow_ups=memory_follow_ups,
-                    )
+                assistant_message = AgentMessage(
+                    session_id=session_id,
+                    saas_agent_id=saas_agent_id,
+                    role="assistant",
+                    content=full_content,
+                    follow_ups=memory_follow_ups,
+                    metadata_={"timing": timing.snapshot()},
                 )
-                await db.commit()
+                with timing.span("chat.persist_assistant_message"):
+                    db.add(assistant_message)
+                    await db.commit()
+                final_timing = timing.snapshot()
+                schedule_message_metadata_update(assistant_message.id, {"timing": final_timing})
+                if not public_response:
+                    await queue.put(debug_timing(final_timing))
                 return
 
-            rest_content = await run_rest_operator_turn(
-                message=messages[-1].content if messages else "",
-                saas_agent_id=saas_agent_id,
-                session_id=session_id,
-                user_id=user_id,
-                session=session,
-                db=db,
-                emit=emit_runtime_event,
-                public_response=public_response,
-            )
+            with timing.span("rest_operator.total"):
+                rest_content = await run_rest_operator_turn(
+                    message=messages[-1].content if messages else "",
+                    saas_agent_id=saas_agent_id,
+                    session_id=session_id,
+                    user_id=user_id,
+                    session=session,
+                    db=db,
+                    emit=emit_runtime_event,
+                    public_response=public_response,
+                    timing=timing,
+                )
             if rest_content is not None:
                 full_content = rest_content
-                await queue.put(message_delta(full_content))
+                with timing.span("sse.enqueue_first_message"):
+                    await queue.put(message_delta(full_content))
                 rest_follow_ups = _rest_follow_ups(full_content)
                 if rest_follow_ups:
                     await queue.put(follow_ups(rest_follow_ups))
-                db.add(
-                    AgentMessage(
-                        session_id=session_id,
-                        saas_agent_id=saas_agent_id,
-                        role="assistant",
-                        content=full_content,
-                        thinking=None,
-                        tool_calls=tool_calls_data or None,
-                        sources=None,
-                        follow_ups=rest_follow_ups
-                        or [
-                            "Inspect the generated actions",
-                            "Connect or activate another API",
-                            "Ask me to run a read-only API action",
-                        ],
-                    )
+                assistant_message = AgentMessage(
+                    session_id=session_id,
+                    saas_agent_id=saas_agent_id,
+                    role="assistant",
+                    content=full_content,
+                    thinking=None,
+                    tool_calls=tool_calls_data or None,
+                    sources=None,
+                    follow_ups=rest_follow_ups
+                    or [
+                        "Inspect the generated actions",
+                        "Connect or activate another API",
+                        "Ask me to run a read-only API action",
+                    ],
+                    metadata_={"timing": timing.snapshot()},
                 )
-                await db.commit()
+                with timing.span("chat.persist_assistant_message"):
+                    db.add(assistant_message)
+                    await db.commit()
+                final_timing = timing.snapshot()
+                schedule_message_metadata_update(assistant_message.id, {"timing": final_timing})
+                if not public_response:
+                    await queue.put(debug_timing(final_timing))
                 return
 
-            async for event in graph.astream_events({"messages": messages}, version="v2"):
-                kind = event.get("event", "")
-                data = event.get("data", {})
+            with timing.span("agent.langgraph_stream"):
+                async for event in graph.astream_events({"messages": messages}, version="v2"):
+                    kind = event.get("event", "")
+                    data = event.get("data", {})
 
-                if kind == "on_chat_model_stream":
-                    chunk = data.get("chunk")
-                    if chunk and getattr(chunk, "content", None):
-                        content = chunk.content
-                        if reasoning_mode == "thorough" and (
-                            "<think>" in content or "</think>" in content
-                        ):
-                            await queue.put(thinking_delta(content))
-                            full_thinking += content
-                        else:
-                            clean = _THINK_PATTERN.sub("", content)
-                            if clean:
-                                await queue.put(message_delta(clean))
-                                full_content += clean
+                    if kind == "on_chat_model_stream":
+                        chunk = data.get("chunk")
+                        if chunk and getattr(chunk, "content", None):
+                            content = chunk.content
+                            if reasoning_mode == "thorough" and (
+                                "<think>" in content or "</think>" in content
+                            ):
+                                await queue.put(thinking_delta(content))
+                                full_thinking += content
+                            else:
+                                clean = _THINK_PATTERN.sub("", content)
+                                if clean:
+                                    await queue.put(message_delta(clean))
+                                    full_content += clean
 
-                elif kind == "on_tool_start":
-                    if public_response:
-                        continue
-                    tool_name = event.get("name", "unknown")
-                    run_id = event.get("run_id", str(uuid.uuid4()))
-                    inputs = data.get("input", {})
-                    call_id = str(run_id)[:8]
-                    await queue.put(tool_start(tool_name, call_id, inputs))
-                    tool_calls_data.append(
-                        {"tool_name": tool_name, "call_id": call_id, "inputs": inputs}
-                    )
-                    if tool_name == "rag_search":
-                        sources_data.append(inputs)
+                    elif kind == "on_tool_start":
+                        if public_response:
+                            continue
+                        tool_name = event.get("name", "unknown")
+                        run_id = event.get("run_id", str(uuid.uuid4()))
+                        inputs = data.get("input", {})
+                        call_id = str(run_id)[:8]
+                        await queue.put(tool_start(tool_name, call_id, inputs))
+                        tool_calls_data.append(
+                            {"tool_name": tool_name, "call_id": call_id, "inputs": inputs}
+                        )
+                        if tool_name == "rag_search":
+                            sources_data.append(inputs)
 
-                elif kind == "on_tool_end":
-                    if public_response:
-                        continue
-                    run_id = event.get("run_id", "")
-                    call_id = str(run_id)[:8]
-                    output = data.get("output", "")
-                    if hasattr(output, "content"):
-                        output = output.content
-                    await queue.put(tool_end(call_id, str(output)[:5000]))
+                    elif kind == "on_tool_end":
+                        if public_response:
+                            continue
+                        run_id = event.get("run_id", "")
+                        call_id = str(run_id)[:8]
+                        output = data.get("output", "")
+                        if hasattr(output, "content"):
+                            output = output.content
+                        await queue.put(tool_end(call_id, str(output)[:5000]))
 
             # Extract follow-ups
             follow_up_lines: list[str] = []
@@ -324,19 +363,24 @@ class ChatService:
                         for r in rag_results
                     ]
 
-            db.add(
-                AgentMessage(
-                    session_id=session_id,
-                    saas_agent_id=saas_agent_id,
-                    role="assistant",
-                    content=full_content,
-                    thinking=full_thinking or None,
-                    tool_calls=tool_calls_data or None,
-                    sources=persisted_sources,
-                    follow_ups=follow_up_lines or None,
-                )
+            assistant_message = AgentMessage(
+                session_id=session_id,
+                saas_agent_id=saas_agent_id,
+                role="assistant",
+                content=full_content,
+                thinking=full_thinking or None,
+                tool_calls=tool_calls_data or None,
+                sources=persisted_sources,
+                follow_ups=follow_up_lines or None,
+                metadata_={"timing": timing.snapshot()},
             )
-            await db.commit()
+            with timing.span("chat.persist_assistant_message"):
+                db.add(assistant_message)
+                await db.commit()
+            final_timing = timing.snapshot()
+            schedule_message_metadata_update(assistant_message.id, {"timing": final_timing})
+            if not public_response:
+                await queue.put(debug_timing(final_timing))
 
             session_obj = await db.get(AgentSession, session_id)
             if session_obj and not session_obj.title and full_content:
@@ -344,8 +388,8 @@ class ChatService:
                 await db.commit()
 
         except Exception as e:
-            logger.error("agent_error", error=str(e), session_id=str(session_id))
-            await queue.put(error(str(e)))
+            logger.exception("agent_error", error=str(e) or repr(e), error_type=e.__class__.__name__, session_id=str(session_id))
+            await queue.put(error(str(e) or "The agent hit an internal error while handling that request."))
         finally:
             await queue.put(_STREAM_DONE)
 
@@ -417,6 +461,29 @@ class ChatService:
 
 
 chat_service = ChatService()
+
+
+def schedule_message_metadata_update(message_id: uuid.UUID | None, metadata: dict[str, Any]) -> None:
+    if message_id is None:
+        return
+    try:
+        asyncio.get_running_loop().create_task(
+            _update_message_metadata(message_id=message_id, metadata=metadata)
+        )
+    except RuntimeError:
+        logger.warning("message_metadata_update_not_scheduled", message_id=str(message_id))
+
+
+async def _update_message_metadata(*, message_id: uuid.UUID, metadata: dict[str, Any]) -> None:
+    try:
+        async with async_session() as update_db:
+            message = await update_db.get(AgentMessage, message_id)
+            if message is None:
+                return
+            message.metadata_ = {**(message.metadata_ or {}), **metadata}
+            await update_db.commit()
+    except Exception:
+        logger.exception("message_metadata_update_failed", message_id=str(message_id))
 
 
 def _handoff_summary(metadata: dict[str, Any]) -> str:

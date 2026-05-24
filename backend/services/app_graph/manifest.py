@@ -23,6 +23,7 @@ class AppNodeIds:
     SAAS_AGENT_SELECT = "saas_agent_select"
     SAAS_AGENT_CREATE = "saas_agent_create"
     AGENT_HOME = "agent_home"
+    INSTRUCTIONS = "instructions"
     CONNECTION_CONFIGURE = "connection_configure"
     SCHEMA_PREVIEW = "schema_preview"
     CATALOG_ACTIVATION = "catalog_activation"
@@ -49,6 +50,7 @@ class AppActionIds:
     SAAS_AGENT_OPEN = "saas_agent.open"
     SAAS_AGENT_CREATE = "saas_agent.create"
     AGENT_HOME = "navigate.agent_home"
+    INSTRUCTIONS_OPEN = "instructions.open"
     CONNECTION_CONFIGURE = "navigate.connection_configure"
     CONNECTION_PREVIEW = "connection.preview"
     CONNECTION_ACTIVATE = "connection.activate"
@@ -76,7 +78,7 @@ class AppActionIds:
 APP_GRAPH_GROUPS = {
     "home": {AppNodeIds.HOME},
     "auth": {AppNodeIds.AUTH_SIGN_IN, AppNodeIds.AUTH_REGISTER},
-    "saas_agent": {AppNodeIds.SAAS_AGENT_SELECT, AppNodeIds.SAAS_AGENT_CREATE, AppNodeIds.AGENT_HOME},
+    "saas_agent": {AppNodeIds.SAAS_AGENT_SELECT, AppNodeIds.SAAS_AGENT_CREATE, AppNodeIds.AGENT_HOME, AppNodeIds.INSTRUCTIONS},
     "connection": {
         AppNodeIds.CONNECTION_CONFIGURE,
         AppNodeIds.SCHEMA_PREVIEW,
@@ -105,6 +107,7 @@ ACTION_TARGETS = {
     AppActionIds.SAAS_AGENT_OPEN: AppNodeIds.AGENT_HOME,
     AppActionIds.SAAS_AGENT_CREATE: AppNodeIds.AGENT_HOME,
     AppActionIds.AGENT_HOME: AppNodeIds.AGENT_HOME,
+    AppActionIds.INSTRUCTIONS_OPEN: AppNodeIds.INSTRUCTIONS,
     AppActionIds.CONNECTION_CONFIGURE: AppNodeIds.CONNECTION_CONFIGURE,
     AppActionIds.CONNECTION_PREVIEW: AppNodeIds.SCHEMA_PREVIEW,
     AppActionIds.CONNECTION_ACTIVATE: AppNodeIds.CATALOG,
@@ -188,6 +191,7 @@ def _action(
 
 AGENT_REQUIRED_ACTIONS = [
     AppActionIds.AGENT_HOME,
+    AppActionIds.INSTRUCTIONS_OPEN,
     AppActionIds.CONNECTION_CONFIGURE,
     AppActionIds.CATALOG_OPEN,
     AppActionIds.ENTITIES_OPEN,
@@ -207,6 +211,7 @@ NODE_SPECS = [
     _node(AppNodeIds.SAAS_AGENT_SELECT, "SaaS Agent Select", description="Select an eligible SaaS Agent.", actions=[AppActionIds.HOME, AppActionIds.SAAS_AGENT_OPEN, AppActionIds.SAAS_AGENT_CREATE]),
     _node(AppNodeIds.SAAS_AGENT_CREATE, "Create SaaS Agent", description="Create a SaaS Agent from name and slug only.", actions=[AppActionIds.HOME, AppActionIds.SAAS_AGENT_CREATE]),
     _node(AppNodeIds.AGENT_HOME, "SaaS Agent Home", description="Current SaaS Agent overview and graph route map.", actions=ALL_NAV_ACTIONS),
+    _node(AppNodeIds.INSTRUCTIONS, "Instructions", description="Manage this SaaS Agent's system prompt and operating instructions.", actions=ALL_NAV_ACTIONS),
     _node(AppNodeIds.CONNECTION_CONFIGURE, "Connection Configure", description="Configure an API connection from graph-provided fields.", actions=[*ALL_NAV_ACTIONS, AppActionIds.CONNECTION_PREVIEW, AppActionIds.CONNECTION_ACTIVATE]),
     _node(AppNodeIds.SCHEMA_PREVIEW, "Schema Preview", description="Preview OpenAPI schema metadata before activation.", actions=[*ALL_NAV_ACTIONS, AppActionIds.CONNECTION_ACTIVATE]),
     _node(AppNodeIds.CATALOG_ACTIVATION, "Catalog Activation", description="Run catalog, tool, RAG activation through graph handlers.", actions=ALL_NAV_ACTIONS),
@@ -233,6 +238,7 @@ ACTION_SPECS = [
     _action(AppActionIds.SAAS_AGENT_OPEN, "Open SaaS Agent", category="setup", invocation_kind="entity_selector", fields=[_field(key="saas_agent_id", label="SaaS Agent ID", required=True)], allowed_nodes=[AppNodeIds.SAAS_AGENT_SELECT]),
     _action(AppActionIds.SAAS_AGENT_CREATE, "Create SaaS Agent", category="setup", kind="form", emphasis="primary", fields=[_field(key="name", label="Name", required=True, placeholder="Customer Support Agent"), _field(key="slug", label="Slug", required=True, placeholder="customer-support-agent")], allowed_nodes=[AppNodeIds.HOME, AppNodeIds.SAAS_AGENT_SELECT, AppNodeIds.SAAS_AGENT_CREATE]),
     _action(AppActionIds.AGENT_HOME, "Agent home", allowed_nodes=["*"]),
+    _action(AppActionIds.INSTRUCTIONS_OPEN, "Instructions", category="setup", allowed_nodes=["*"]),
     _action(AppActionIds.CONNECTION_CONFIGURE, "Configure connection", category="setup", allowed_nodes=["*"]),
     _action(AppActionIds.CONNECTION_PREVIEW, "Preview schema", category="setup", kind="form", fields=[_field(key="spec_url", label="OpenAPI URL", field_type="url", placeholder="https://api.example.com/openapi.json"), _field(key="raw_spec", label="Paste OpenAPI schema", field_type="textarea", placeholder="Paste OpenAPI JSON or YAML when the schema is not publicly hosted.")], allowed_nodes=[AppNodeIds.CONNECTION_CONFIGURE]),
     _action(AppActionIds.CONNECTION_ACTIVATE, "Save and activate API", category="setup", kind="form", emphasis="primary", fields=[_field(key="name", label="Connection name", required=True, placeholder="Production API"), _field(key="base_url", label="Base URL", field_type="url", required=True, placeholder="https://api.example.com"), _field(key="spec_url", label="OpenAPI URL", field_type="url", placeholder="https://api.example.com/openapi.json"), _field(key="raw_spec", label="Paste OpenAPI schema", field_type="textarea", placeholder="Paste OpenAPI JSON or YAML when the schema is not publicly hosted."), _field(key="auth_type", label="Auth type", field_type="select", required=True, default="none", options=[{"value": "none", "label": "No auth"}, {"value": "bearer", "label": "Bearer token"}, {"value": "api_key_header", "label": "API key header"}, {"value": "api_key_query", "label": "API key query param"}, {"value": "basic", "label": "Basic auth"}, {"value": "custom_header", "label": "Custom header"}]), _field(key="credential_value", label="Credential", field_type="password", sensitive=True), _field(key="header_name", label="Header name", placeholder="X-API-Key"), _field(key="query_param_name", label="Query param name", placeholder="api_key")], allowed_nodes=[AppNodeIds.CONNECTION_CONFIGURE, AppNodeIds.SCHEMA_PREVIEW]),
@@ -273,7 +279,9 @@ def _build_edges() -> list[RouteDeckEdgeSpec]:
         _edge(AppNodeIds.SAAS_AGENT_SELECT, AppNodeIds.AGENT_HOME, AppActionIds.SAAS_AGENT_OPEN),
         _edge(AppNodeIds.SAAS_AGENT_SELECT, AppNodeIds.SAAS_AGENT_CREATE, AppActionIds.SAAS_AGENT_CREATE),
         _edge(AppNodeIds.SAAS_AGENT_CREATE, AppNodeIds.AGENT_HOME, AppActionIds.SAAS_AGENT_CREATE),
+        _edge(AppNodeIds.AGENT_HOME, AppNodeIds.INSTRUCTIONS, AppActionIds.INSTRUCTIONS_OPEN),
         _edge(AppNodeIds.AGENT_HOME, AppNodeIds.CONNECTION_CONFIGURE, AppActionIds.CONNECTION_CONFIGURE),
+        _edge(AppNodeIds.INSTRUCTIONS, AppNodeIds.CONNECTION_CONFIGURE, AppActionIds.CONNECTION_CONFIGURE),
         _edge(AppNodeIds.CONNECTION_CONFIGURE, AppNodeIds.SCHEMA_PREVIEW, AppActionIds.CONNECTION_PREVIEW),
         _edge(AppNodeIds.SCHEMA_PREVIEW, AppNodeIds.CATALOG_ACTIVATION, AppActionIds.CONNECTION_ACTIVATE),
         _edge(AppNodeIds.CATALOG_ACTIVATION, AppNodeIds.CATALOG),

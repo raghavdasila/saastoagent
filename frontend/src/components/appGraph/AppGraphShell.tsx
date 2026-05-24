@@ -6,7 +6,6 @@ import {
   routeDeckOperationInteraction,
   useRouteDeckDispatch,
   useRouteDeckProjection,
-  useRouteDeckSurfaceOpening,
   useRouteDeckState,
   useRouteDeckStore,
   useRouteDeckSurface,
@@ -160,7 +159,6 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
   const routeDeckStore = useRouteDeckStore()
   const dispatchRouteDeck = useRouteDeckDispatch()
   const projection = useRouteDeckProjection()
-  const routeDeckSurfaceOpening = useRouteDeckSurfaceOpening()
   const { user, logout } = useAuth()
   const graphState = graphStateFromRouteDeckState(routeDeckState)
   const activeSaaSAgentId = activeSaaSAgentIdFromRouteDeckState(routeDeckState)
@@ -181,15 +179,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
   const activeSurface = activeSurfaceFromProjection(projection)
   const quickActions = useMemo(() => corpusQuickActions(projection), [projection])
   const contextLens = contextLensFromProjection(projection)
-  const activeSurfaceOpening = pendingSurfaceOpening || (
-    routeDeckSurfaceOpening
-      ? {
-          operation_id: routeDeckSurfaceOpening.operation_id,
-          label: routeDeckSurfaceOpening.label,
-          expected_active_surface: null,
-        }
-      : null
-  )
+  const activeSurfaceOpening = pendingSurfaceOpening
 
   useEffect(() => {
     if (!projection || !graphState) return
@@ -431,6 +421,15 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
       setPendingProposal(operationToProposal(operation))
       setCorpusStatus('Ready')
       return
+    }
+    if (operation.target_node && operation.target_node !== projection.graph_node) {
+      const confirmed = window.confirm(
+        'Changing node will change active surface, continue? Please save any changes from this surface.',
+      )
+      if (!confirmed) {
+        setCorpusStatus('Ready')
+        return
+      }
     }
     setCorpusStatus(operation.target_node && operation.target_node !== projection.graph_node ? 'Navigating' : 'Committing')
     executeOperation.mutate({ operationId: operation.id, args: operation.payload || {} })

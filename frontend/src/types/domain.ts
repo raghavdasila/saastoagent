@@ -11,6 +11,8 @@ export interface SaaSAgent {
   id: string
   name: string
   slug: string
+  system_prompt?: string | null
+  instructions?: string | null
   created_by: string
   created_at: string
   role?: string

@@ -266,14 +266,23 @@ Then:
 add the L size to cart
 ```
 
-Expected current v1 behavior:
+Expected before approving the generated policy candidate:
 
 - the agent should not ask for a bare `id`
 - the agent should not ask for `variant_id`
 - the agent should not ask for `quantity`
-- the agent should ask only for `cart id`
+- the agent should not ask for `cart id`
+- the agent should say that an owner-approved automation policy is needed before it can manage carts for visitors
+- Sandbox Learning should contain a `domain_policy_gap` candidate for the generated create-cart -> add-line-item action chain
 
-That means the system resolved the selected product and size into the generated API call inputs, but did not yet perform full cart orchestration. Automatic cart creation and multi-action checkout flow are future product-flow work.
+Approve the `domain_policy_gap` candidate from the owner/admin Sandbox Learning review flow, then repeat the same public chat sequence in a new visitor session.
+
+Expected after approval:
+
+- the agent should create or reuse the internal cart dependency without exposing it
+- the agent should call the generated add-line-item action with the selected variant and quantity
+- the public chat should say that the action was handled
+- the public chat should not show endpoint paths, operation ids, trace ids, raw internal slot names, or cart ids
 
 ## 9. Verify Backend Trace For The Add-To-Cart Turn
 
@@ -284,7 +293,7 @@ cd "D:\Dev\AI Projects\agent-core\agent-lab-powered-projects\saastoagent-v0.1"
 docker compose exec -T db psql -U postgres -d saastoagent_v0_1 -c "select tool_name, status, method, path, inputs, missing_inputs from agent_execution_traces order by created_at desc limit 5;"
 ```
 
-For the `add the L size to cart` turn, expected trace shape:
+Before policy approval, the `add the L size to cart` turn should create a policy-gap trace and learning candidate:
 
 ```text
 tool_name: postcartsidlineitems
@@ -293,14 +302,34 @@ method: POST
 path: /store/carts/{id}/line-items
 inputs: {"quantity": 1, "variant_id": "..."}
 missing_inputs: ["id"]
+route_node: internal_dependency_policy
 ```
 
-The exact `variant_id` can change if the Medusa seed data changes. The important assertions are:
+After policy approval, a repeat of the same flow should show the generated internal dependency chain:
+
+```text
+tool_name: postcarts
+status: succeeded
+method: POST
+path: /store/carts
+missing_inputs: []
+
+tool_name: postcartsidlineitems
+status: succeeded
+method: POST
+path: /store/carts/{id}/line-items
+inputs: {"id": "cart_...", "quantity": 1, "variant_id": "..."}
+missing_inputs: []
+approval_state: approved_by_policy
+```
+
+The exact `cart_...` and `variant_id` values can change if the Medusa seed data changes. The important assertions are:
 
 - `variant_id` is present
 - `quantity` is present
-- only the cart path id remains missing
+- the cart path id is resolved internally after approval
 - product id is not used as the cart id
+- no internal ids are exposed in the public transcript
 
 ## 10. Run The Automated Medusa Browser Harness
 

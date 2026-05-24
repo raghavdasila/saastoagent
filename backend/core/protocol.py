@@ -55,6 +55,10 @@ def source_citations(sources: list[dict[str, Any]]) -> str:
     return SSEEvent(event="source_citations", data={"sources": sources}).encode()
 
 
+def debug_timing(timing: dict[str, Any]) -> str:
+    return SSEEvent(event="debug_timing", data={"timing": timing}).encode()
+
+
 def agent_end() -> str:
     return SSEEvent(event="agent_end", data={}).encode()
 

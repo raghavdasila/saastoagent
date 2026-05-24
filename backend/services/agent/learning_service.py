@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.models import AgentExecutionTrace, AgentLearningCandidate
+from backend.services.agent.api_orchestration import policy_allows_action_paths, policy_gap_payload
 
 
 def learning_payload_from_trace(trace: AgentExecutionTrace) -> dict[str, Any] | None:
@@ -100,6 +101,77 @@ class LearningService:
             .limit(50)
         )
         return list(result.scalars().all())
+
+    async def propose_domain_policy_gap(
+        self,
+        *,
+        trace: AgentExecutionTrace,
+        target_candidate: Any,
+        dependency_candidate: Any,
+        missing_internal_inputs: list[str],
+        db: AsyncSession,
+    ) -> AgentLearningCandidate:
+        payload = policy_gap_payload(
+            target_candidate=target_candidate,
+            dependency_candidate=dependency_candidate,
+            missing_internal_inputs=missing_internal_inputs,
+            session_id=trace.session_id,
+            trace_id=trace.id,
+        )
+        action_paths = payload["evidence"]["allowed_action_paths"]
+        existing_result = await db.execute(
+            select(AgentLearningCandidate)
+            .where(
+                AgentLearningCandidate.saas_agent_id == trace.saas_agent_id,
+                AgentLearningCandidate.trigger_type == "domain_policy_gap",
+                AgentLearningCandidate.status.in_(["proposed", "approved", "active"]),
+            )
+            .order_by(AgentLearningCandidate.created_at.desc())
+            .limit(50)
+        )
+        for existing in existing_result.scalars().all():
+            if policy_allows_action_paths(existing, action_paths) or _candidate_matches_policy_gap(existing, action_paths):
+                return existing
+        candidate = AgentLearningCandidate(
+            saas_agent_id=trace.saas_agent_id,
+            source_trace_id=trace.id,
+            status="proposed",
+            **payload,
+        )
+        db.add(candidate)
+        await db.commit()
+        await db.refresh(candidate)
+        return candidate
+
+    async def approved_domain_policy(
+        self,
+        *,
+        saas_agent_id: uuid.UUID,
+        action_paths: list[str],
+        db: AsyncSession,
+    ) -> AgentLearningCandidate | None:
+        result = await db.execute(
+            select(AgentLearningCandidate)
+            .where(
+                AgentLearningCandidate.saas_agent_id == saas_agent_id,
+                AgentLearningCandidate.trigger_type == "domain_policy_gap",
+                AgentLearningCandidate.status.in_(["approved", "active"]),
+            )
+            .order_by(AgentLearningCandidate.created_at.desc())
+            .limit(50)
+        )
+        for candidate in result.scalars().all():
+            if policy_allows_action_paths(candidate, action_paths):
+                return candidate
+        return None
+
+
+def _candidate_matches_policy_gap(candidate: AgentLearningCandidate, action_paths: list[str]) -> bool:
+    evidence = candidate.evidence or {}
+    allowed = evidence.get("allowed_action_paths") if isinstance(evidence, dict) else None
+    if not isinstance(allowed, list):
+        return False
+    return {str(path) for path in allowed} == {str(path) for path in action_paths}
 
 
 learning_service = LearningService()

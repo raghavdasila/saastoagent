@@ -423,7 +423,7 @@ def test_material_workbench_only_one_click_dispatches_ready_operations():
     assert "onOpenSaaSAgent(agent)" in dashboard_markup_source
 
 
-def test_surface_opening_state_comes_from_routedeck_hook():
+def test_node_switch_confirms_before_committed_surface_replacement():
     app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
     shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
     routedeck_provider_source = (
@@ -431,10 +431,10 @@ def test_surface_opening_state_comes_from_routedeck_hook():
     ).read_text(encoding="utf-8")
 
     assert "useRouteDeckSurfaceOpening" in routedeck_provider_source
-    assert "useRouteDeckSurfaceOpening()" in shell_source
-    assert "activeSurfaceOpening" in shell_source
-    assert "'Opening surface'" in shell_source
-    assert "Opening ${activeSurfaceOpening.label}" in shell_source
+    assert "useRouteDeckSurfaceOpening()" not in shell_source
+    assert "Changing node will change active surface, continue?" in shell_source
+    assert "Please save any changes from this surface." in shell_source
+    assert "operation.target_node && operation.target_node !== projection.graph_node" in shell_source
 
 
 def test_builder_surfaces_do_not_use_zustand_as_agent_source_of_truth():

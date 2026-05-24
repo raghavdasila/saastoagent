@@ -91,6 +91,7 @@ class CorpusSurfaceRegistry:
             AppNodeIds.AUTH_SIGN_IN: "CorpusAuthSurface",
             AppNodeIds.AUTH_REGISTER: "CorpusAuthSurface",
             AppNodeIds.SAAS_AGENT_SELECT: "SaaSAgentListSurface",
+            AppNodeIds.INSTRUCTIONS: "InstructionsSurface",
             AppNodeIds.CONNECTION_CONFIGURE: "ConnectionSetupSurface",
             AppNodeIds.SCHEMA_PREVIEW: "SchemaPreviewSurface",
             AppNodeIds.CATALOG: "CatalogSurface",
@@ -151,6 +152,7 @@ class CorpusSurfaceRegistry:
                 "then preview or save and activate the connection."
             ),
             AppActionIds.SAAS_AGENT_CREATE: "The SaaS Agent creation form is open. Enter a name and slug to continue.",
+            AppActionIds.INSTRUCTIONS_OPEN: "Instructions are open. Update the agent prompt and operating guidance, then save changes.",
             AppActionIds.KNOWLEDGE_OPEN: "Knowledge is open. Add documents or review generated catalog context for this agent.",
             AppActionIds.MEMORY_OPEN: "Memory is open. Add durable facts or instructions for this SaaS Agent.",
             AppActionIds.LEARNING_OPEN: "Learning is open. Review sandbox learning candidates before applying them.",

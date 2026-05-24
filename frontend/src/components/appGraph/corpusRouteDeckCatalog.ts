@@ -16,6 +16,7 @@ export const corpusSurfaceComponents = {
   auth: 'CorpusAuthSurface',
   lounge: 'CorpusLoungeSurface',
   dashboard: 'CorpusDashboardSurface',
+  instructions: 'InstructionsSurface',
   entities: 'EntitiesSurface',
   actions: 'ActionsSurface',
   knowledge: 'KnowledgeSurface',

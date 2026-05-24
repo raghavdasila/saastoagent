@@ -40,6 +40,7 @@ class AgentMessageRead(BaseModel):
     thinking: Optional[str] = None
     sources: Optional[list] = None
     follow_ups: Optional[list] = None
+    metadata_: Optional[dict[str, Any]] = Field(default=None, serialization_alias="metadata")
     created_at: datetime
 
     model_config = {"from_attributes": True}

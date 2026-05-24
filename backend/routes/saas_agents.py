@@ -13,6 +13,7 @@ from backend.core.schemas import (
     SaaSAgentCreate,
     SaaSAgentDeploymentRead,
     SaaSAgentDeploymentUpdate,
+    SaaSAgentInstructionsUpdate,
     SaaSAgentRead,
     SaaSAgentStats,
 )
@@ -64,6 +65,8 @@ async def create_saas_agent(
         id=saas_agent.id,
         name=saas_agent.name,
         slug=saas_agent.slug,
+        system_prompt=saas_agent.system_prompt,
+        instructions=saas_agent.instructions,
         created_by=saas_agent.created_by,
         created_at=saas_agent.created_at,
         role=SaaSAgentRole.owner.value,
@@ -89,6 +92,8 @@ async def list_saas_agents(
             id=saas_agent.id,
             name=saas_agent.name,
             slug=saas_agent.slug,
+            system_prompt=saas_agent.system_prompt,
+            instructions=saas_agent.instructions,
             created_by=saas_agent.created_by,
             created_at=saas_agent.created_at,
             role=role.value,
@@ -121,9 +126,60 @@ async def get_saas_agent(
         id=saas_agent.id,
         name=saas_agent.name,
         slug=saas_agent.slug,
+        system_prompt=saas_agent.system_prompt,
+        instructions=saas_agent.instructions,
         created_by=saas_agent.created_by,
         created_at=saas_agent.created_at,
         role=role.value,
+    )
+
+
+@router.get("/{saas_agent_id}/instructions", response_model=SaaSAgentRead)
+async def get_saas_agent_instructions(
+    saas_agent_id: uuid.UUID,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    member = await _require_saas_agent_admin(saas_agent_id, user, session)
+    saas_agent = await session.get(SaaSAgent, saas_agent_id)
+    if saas_agent is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SaaS Agent not found")
+    return SaaSAgentRead(
+        id=saas_agent.id,
+        name=saas_agent.name,
+        slug=saas_agent.slug,
+        system_prompt=saas_agent.system_prompt,
+        instructions=saas_agent.instructions,
+        created_by=saas_agent.created_by,
+        created_at=saas_agent.created_at,
+        role=member.role.value,
+    )
+
+
+@router.put("/{saas_agent_id}/instructions", response_model=SaaSAgentRead)
+async def update_saas_agent_instructions(
+    saas_agent_id: uuid.UUID,
+    body: SaaSAgentInstructionsUpdate,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    member = await _require_saas_agent_admin(saas_agent_id, user, session)
+    saas_agent = await session.get(SaaSAgent, saas_agent_id)
+    if saas_agent is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SaaS Agent not found")
+    saas_agent.system_prompt = (body.system_prompt or "").strip() or None
+    saas_agent.instructions = (body.instructions or "").strip() or None
+    await session.commit()
+    await session.refresh(saas_agent)
+    return SaaSAgentRead(
+        id=saas_agent.id,
+        name=saas_agent.name,
+        slug=saas_agent.slug,
+        system_prompt=saas_agent.system_prompt,
+        instructions=saas_agent.instructions,
+        created_by=saas_agent.created_by,
+        created_at=saas_agent.created_at,
+        role=member.role.value,
     )
 
 

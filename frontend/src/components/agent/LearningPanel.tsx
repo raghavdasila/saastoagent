@@ -33,7 +33,7 @@ export function LearningPanel({ saasAgentId = null }: LearningPanelProps) {
             Sandbox learning
           </h1>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-            Review proposed learnings from failed executions and missing-input traces before they affect future action ranking.
+            Review failed-execution learnings, missing-input hints, and owner policy proposals before they affect public automation.
           </p>
         </header>
 

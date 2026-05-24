@@ -23,6 +23,7 @@ from .saas_agent import (
     SaaSAgentCreate,
     SaaSAgentDeploymentRead,
     SaaSAgentDeploymentUpdate,
+    SaaSAgentInstructionsUpdate,
     SaaSAgentRead,
     SaaSAgentStats,
 )
@@ -89,6 +90,7 @@ __all__ = [
     "SaaSAgentStats",
     "SaaSAgentDeploymentRead",
     "SaaSAgentDeploymentUpdate",
+    "SaaSAgentInstructionsUpdate",
     "DeployedAgentProfile",
     "AgentApprovalRead",
     "AgentApprovalDecisionRead",

@@ -25,6 +25,7 @@ export interface ChatUIMessage {
   toolCalls?: ToolCallState[]
   sources?: SourceCitation[]
   followUps?: string[]
+  metadata?: Record<string, unknown> | null
   isStreaming?: boolean
 }
 
@@ -37,6 +38,7 @@ export type SSEEventType =
   | 'tool_end'
   | 'follow_ups'
   | 'source_citations'
+  | 'debug_timing'
   | 'agent_end'
   | 'stream_end'
   | 'error'
@@ -60,6 +62,7 @@ export interface AgentMessageRow {
   thinking?: string | null
   sources?: Array<Record<string, unknown>> | null
   follow_ups?: string[] | null
+  metadata?: Record<string, unknown> | null
   created_at: string
 }
 

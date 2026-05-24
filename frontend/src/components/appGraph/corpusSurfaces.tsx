@@ -24,6 +24,7 @@ import { EntitiesCanvas } from '@/components/saasAgent/EntitiesCanvas'
 import { QAAgentPanel } from '@/components/qa/QAAgentPanel'
 import { useAuth } from '@/context/AuthContext'
 import { isValidEmail } from '@/lib/entryGraph'
+import { api } from '@/lib/api'
 import { useSaaSAgentUiStore } from '@/stores/saasAgentUiStore'
 import type { AppGraphContextLens, AppGraphState } from '@/types/appGraph'
 import type { CorpusExpectedActiveSurface } from '@/types/corpus'
@@ -255,6 +256,9 @@ export function SurfaceRenderer({
   if (surface.component === corpusSurfaceComponents.knowledge) return <AttachmentsPanel saasAgentId={activeSaaSAgentId} />
   if (surface.component === corpusSurfaceComponents.learning) return <LearningPanel saasAgentId={activeSaaSAgentId} />
   if (surface.component === corpusSurfaceComponents.qa) return <QAAgentPanel onResetRuntime={async () => undefined} />
+  if (surface.component === corpusSurfaceComponents.instructions) {
+    return <InstructionsSurface saasAgentId={activeSaaSAgentId} />
+  }
   if (surface.component === corpusSurfaceComponents.memory) {
     const agents = Array.isArray(surface.props?.saas_agents) ? (surface.props?.saas_agents as SaaSAgent[]) : []
     const activeAgent = agents.find((agent) => agent.id === activeSaaSAgentId)
@@ -308,6 +312,115 @@ export function SurfaceRenderer({
   }
   return (
     <InfoSurface title={surfaceTitle(surface, contextLens)} description="This surface is available from the current node." icon={<Boxes className="h-5 w-5" />} />
+  )
+}
+
+export function InstructionsSurface({ saasAgentId }: { saasAgentId: string | null }) {
+  const [systemPrompt, setSystemPrompt] = useState('')
+  const [instructions, setInstructions] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    if (!saasAgentId) return
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    api.get<SaaSAgent>(`/saas-agents/${saasAgentId}/instructions`)
+      .then((agent) => {
+        if (cancelled) return
+        setSystemPrompt(agent.system_prompt || '')
+        setInstructions(agent.instructions || '')
+      })
+      .catch((loadError: unknown) => {
+        if (cancelled) return
+        setError(loadError instanceof Error ? loadError.message : 'Failed to load instructions.')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [saasAgentId])
+
+  const save = async () => {
+    if (!saasAgentId) return
+    setSaving(true)
+    setError(null)
+    setSaved(false)
+    try {
+      const agent = await api.put<SaaSAgent>(`/saas-agents/${saasAgentId}/instructions`, {
+        system_prompt: systemPrompt,
+        instructions,
+      })
+      setSystemPrompt(agent.system_prompt || '')
+      setInstructions(agent.instructions || '')
+      setSaved(true)
+      window.setTimeout(() => setSaved(false), 1800)
+    } catch (saveError: unknown) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to save instructions.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!saasAgentId) {
+    return <InfoSurface title="Instructions" description="Open a SaaS Agent before editing instructions." icon={<FileText className="h-5 w-5" />} />
+  }
+
+  return (
+    <div className="grid gap-4" data-testid="instructions-surface">
+      <div className="grid gap-3 lg:grid-cols-2">
+        <label className="grid gap-1.5 text-sm">
+          <span className="text-xs font-medium text-muted-foreground">System prompt</span>
+          <textarea
+            value={systemPrompt}
+            disabled={loading || saving}
+            onChange={(event) => setSystemPrompt(event.target.value)}
+            className="md3-field min-h-64 resize-y font-mono text-xs"
+            placeholder="High-level identity, role, and boundaries for this SaaS Agent"
+            data-testid="saas-agent-system-prompt"
+          />
+        </label>
+        <label className="grid gap-1.5 text-sm">
+          <span className="text-xs font-medium text-muted-foreground">Operating instructions</span>
+          <textarea
+            value={instructions}
+            disabled={loading || saving}
+            onChange={(event) => setInstructions(event.target.value)}
+            className="md3-field min-h-64 resize-y font-mono text-xs"
+            placeholder="Workflow guidance, tone, policies, and store-specific behavior"
+            data-testid="saas-agent-instructions"
+          />
+        </label>
+      </div>
+
+      {error && (
+        <div className="rounded-[0.625rem] bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {error}
+        </div>
+      )}
+      {saved && (
+        <div className="rounded-[0.625rem] bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
+          Saved.
+        </div>
+      )}
+
+      <div>
+        <button
+          type="button"
+          onClick={() => void save()}
+          disabled={loading || saving}
+          className="surface-solid-button inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+          Save instructions
+        </button>
+      </div>
+    </div>
   )
 }
 

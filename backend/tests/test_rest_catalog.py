@@ -2,7 +2,8 @@ import asyncio
 from types import SimpleNamespace
 
 from backend.core.schemas import ActionNodeRead
-from backend.services.agent.rest_operator import _build_inputs, _format_execution_failure, _format_missing_input_names, _format_router_decision, _maybe_handle_trace_control, _operation_intent_bonus, _parse_trace_control, _rerank_candidates_for_frame, _tokens
+from backend.services.agent import rest_operator
+from backend.services.agent.rest_operator import _build_inputs, _format_execution_failure, _format_missing_input_names, _format_router_decision, _maybe_handle_trace_control, _operation_intent_bonus, _parse_trace_control, _preview_body_json, _rerank_candidates_for_frame, _tokens
 from backend.services.toolrouter.adapter import ToolRouterDecision, ToolRouterDecisionType
 from backend.services.catalog import infer_entities, preview_openapi_spec
 from backend.services.tools.generator import build_function_schema
@@ -93,6 +94,27 @@ def test_rest_operator_tokens_split_generated_openapi_names():
     tokens = set(_tokens("List available pets with findPetsByStatus from /pet/findByStatus"))
 
     assert {"list", "available", "pets", "pet", "find", "by", "status"} <= tokens
+
+
+def test_public_json_details_include_full_read_result_for_dev_use():
+    body = {
+        "products": [
+            {
+                "id": f"prod_{index}",
+                "title": f"Product {index}",
+                "description": "x" * 1200,
+                "options": [{"title": "Size", "values": [{"value": "S"}, {"value": "M"}, {"value": "L"}]}],
+            }
+            for index in range(8)
+        ],
+        "count": 8,
+    }
+
+    details = _preview_body_json(body)
+
+    assert '"Product 0"' in details
+    assert '"Product 7"' in details
+    assert '"__preview_truncated"' not in details
 
 
 def test_rest_operator_infers_status_from_natural_language():
@@ -363,7 +385,21 @@ def test_rest_operator_public_failure_omits_debug_trace():
     assert "listproducts" not in content
     assert "Trace:" not in content
     assert "Status:" not in content
+    assert "All connection attempts failed" not in content
     assert "could not reach" in content.lower()
+
+
+def test_rest_operator_public_credential_failure_is_owner_safe():
+    content = _format_execution_failure(
+        tool_name="listproducts",
+        result={"error": "Stored API credentials could not be decrypted. Reconnect this API credential.", "error_type": "InvalidToken", "status_code": 0},
+        trace_token="abcdef12",
+        public_response=True,
+    )
+
+    assert "decrypt" not in content.lower()
+    assert "InvalidToken" not in content
+    assert "reconnect the API credentials" in content
 
 
 def test_rest_operator_public_trace_control_does_not_expose_trace_details():
@@ -385,6 +421,33 @@ def test_rest_operator_public_trace_control_does_not_expose_trace_details():
     assert "agent owner" in content
     assert "abcdef12" not in content
     assert "trace" not in content.lower()
+
+
+def test_execute_rest_tool_returns_structured_error_for_bad_credentials(monkeypatch):
+    class InvalidToken(Exception):
+        pass
+
+    def fail_decrypt(_value):
+        raise InvalidToken()
+
+    monkeypatch.setattr(rest_operator, "decrypt_value", fail_decrypt)
+    candidate = rest_operator.ToolCandidate(
+        tool=SimpleNamespace(name="listProducts"),
+        action=SimpleNamespace(method="GET", path="/products", parameters=[]),
+        connection=SimpleNamespace(
+            auth_type=SimpleNamespace(value="bearer"),
+            credentials=[SimpleNamespace(encrypted_value="bad-token", metadata_={})],
+            config={"base_url": "https://example.test"},
+        ),
+        score=10,
+        reason="test",
+    )
+
+    result = asyncio.run(rest_operator.execute_rest_tool(candidate, {}, db=None))
+
+    assert result["status_code"] == 0
+    assert result["error"] == "Stored API credentials could not be decrypted. Reconnect this API credential."
+    assert result["error_type"] == "InvalidToken"
 
 
 def test_public_chat_service_suppresses_all_tool_events_from_sse():

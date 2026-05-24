@@ -17,6 +17,7 @@ async def create_tables():
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await _migrate_workspace_columns(conn)
+        await _migrate_saas_agent_instruction_columns(conn)
         await conn.run_sync(Base.metadata.create_all)
 
 
@@ -137,3 +138,37 @@ async def _migrate_workspace_columns(conn) -> None:
         ).scalar()
         if old_exists and not new_exists:
             await conn.execute(text(f'ALTER TABLE "{old_name}" RENAME TO "{new_name}"'))
+
+
+async def _migrate_saas_agent_instruction_columns(conn) -> None:
+    exists = (
+        await conn.execute(
+            text(
+                """
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = 'saas_agents'
+                )
+                """
+            )
+        )
+    ).scalar()
+    if not exists:
+        return
+
+    columns = set(
+        (
+            await conn.execute(
+                text(
+                    """
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = 'saas_agents'
+                    """
+                )
+            )
+        ).scalars()
+    )
+    if "system_prompt" not in columns:
+        await conn.execute(text('ALTER TABLE "saas_agents" ADD COLUMN system_prompt TEXT'))
+    if "instructions" not in columns:
+        await conn.execute(text('ALTER TABLE "saas_agents" ADD COLUMN instructions TEXT'))

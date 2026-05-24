@@ -107,3 +107,57 @@ Backend-only validation is insufficient for this slice. A claim that the
 horizontal sandbox path works must include `npm run e2e:docker` or an equivalent
 browser-driven replacement. Claims about real target behavior must include
 `npm run e2e:medusa:docker` or another UI-driven target fixture run.
+
+## 2026-05-24 Policy-Orchestration Update
+
+The product-to-cart continuity limit above has a first generic implementation:
+
+- public missing path identifiers are classified as internal orchestration
+  dependencies
+- the parent resource collection is derived from the OpenAPI path
+- a generated parent `POST` action can create the internal dependency after an
+  owner-approved `domain_policy_gap` Sandbox Learning candidate
+- public chat does not expose cart/resource IDs, endpoint paths, operation IDs,
+  or trace IDs
+
+Validated commands:
+
+- `python -m pytest backend/tests -q`
+  - `133 passed`
+- `npm run type-check` in `frontend`
+  - passed
+- `npm run e2e:medusa:docker` in `frontend`
+  - passed
+
+Manual browser validation against the generated Medusa deployment:
+
+- deployed URL:
+  `http://localhost:3007/a/live-medusa-1779615126428`
+- pre-approval flow:
+  `what products do we have` -> `i want to buy medusa tshirt` ->
+  `add the L size to cart`
+  - public response: owner-approved policy needed
+  - leak scan: no `cart id`, endpoint path, operation ID, trace text, or tool
+    event text
+  - screenshot:
+    `C:\Users\ragha\AppData\Local\Temp\saastoagent-medusa-policy-flow-1779615126418\public-medusa-policy-needed.png`
+- owner-approved flow:
+  - approved learning candidate:
+    `trigger_type=domain_policy_gap`
+  - repeated public buyer flow returned only:
+    `Done. I handled that for you.`
+  - leak scan: no `cart id`, generated cart ID, endpoint path, operation ID,
+    trace text, or tool event text
+  - screenshot:
+    `C:\Users\ragha\AppData\Local\Temp\saastoagent-medusa-policy-flow-1779615126418\public-medusa-policy-approved.png`
+
+Trace check for the approved run:
+
+```text
+postcarts            POST /store/carts                 succeeded approved_by_policy
+postcartsidlineitems POST /store/carts/{id}/line-items succeeded approved_by_policy
+```
+
+Remaining limit: the first pass supports one internal dependency step. Checkout,
+shipping, payment, and multi-step dependency planning remain later orchestration
+work.

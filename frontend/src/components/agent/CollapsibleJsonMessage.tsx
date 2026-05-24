@@ -96,6 +96,11 @@ function findLikelyAfterTextStart(content: string, bodyStart: number): number | 
 }
 
 function summarizeJsonPayload(parsed: unknown, rawText: string): string[] {
+  const collectionLabels = summarizePrimaryCollection(parsed)
+  if (collectionLabels.length > 0) {
+    return collectionLabels
+  }
+
   const labels = new Set<string>()
   collectLabels(parsed, labels)
   if (labels.size === 0) {
@@ -108,6 +113,53 @@ function summarizeJsonPayload(parsed: unknown, rawText: string): string[] {
     return []
   }
   return Array.from(labels).slice(0, 5)
+}
+
+function summarizePrimaryCollection(parsed: unknown): string[] {
+  const collection = findPrimaryCollection(parsed)
+  if (!collection) {
+    return []
+  }
+  return collection
+    .map((item) => firstString(item.title, item.name, item.label, item.display_name))
+    .filter((label): label is string => Boolean(label))
+    .slice(0, 5)
+}
+
+function findPrimaryCollection(value: unknown): Array<Record<string, unknown>> | null {
+  if (Array.isArray(value)) {
+    const objectItems = value.filter(isRecord)
+    return objectItems.length > 0 ? objectItems : null
+  }
+  if (!isRecord(value)) {
+    return null
+  }
+
+  const entries = Object.entries(value)
+  const namedCollections = entries.filter(([, item]) => isLabeledObjectArray(item))
+  if (namedCollections.length === 0) {
+    return null
+  }
+
+  namedCollections.sort(([leftKey, leftValue], [rightKey, rightValue]) => {
+    const leftScore = collectionScore(leftKey, leftValue)
+    const rightScore = collectionScore(rightKey, rightValue)
+    return rightScore - leftScore
+  })
+  return namedCollections[0][1] as Array<Record<string, unknown>>
+}
+
+function isLabeledObjectArray(value: unknown): value is Array<Record<string, unknown>> {
+  return Array.isArray(value) && value.some((item) => isRecord(item) && firstString(item.title, item.name, item.label, item.display_name))
+}
+
+function collectionScore(key: string, value: unknown): number {
+  const arrayValue = Array.isArray(value) ? value : []
+  let score = arrayValue.length
+  const normalizedKey = key.toLowerCase()
+  if (!normalizedKey.startsWith('_') && !normalizedKey.includes('option')) score += 10
+  if (normalizedKey.endsWith('s')) score += 5
+  return score
 }
 
 function collectLabels(value: unknown, labels: Set<string>) {
@@ -134,6 +186,10 @@ function collectLabels(value: unknown, labels: Set<string>) {
     collectLabels(item, labels)
     if (labels.size >= 5) return
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value != null && !Array.isArray(value)
 }
 
 function firstString(...values: unknown[]): string | null {
@@ -180,7 +236,7 @@ export function CollapsibleJsonMessage({ content, forcePlain = false }: Props) {
         onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
       >
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium marker:hidden [&::-webkit-details-marker]:hidden">
-          <span>View technical details</span>
+          <span>View full JSON</span>
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
         </summary>
         {detailsOpen && (

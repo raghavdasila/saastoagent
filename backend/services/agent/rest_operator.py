@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
 import uuid
+from contextlib import nullcontext
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ContextManager
 
 import httpx
 from sqlalchemy import select
@@ -24,6 +26,15 @@ from backend.services.agent.execution_frames import (
     preserve_selected_entity,
     save_execution_frame,
 )
+from backend.services.agent.api_orchestration import (
+    classify_missing_inputs,
+    derive_parent_collection_path,
+    extract_resource_id_from_result,
+    remember_dependency_id,
+    resolve_dependency_id_from_frame,
+)
+from backend.services.agent.learning_service import learning_service
+from backend.services.agent.timing import RequestTiming
 from backend.services.toolrouter.adapter import ToolRouterAdapter, ToolRouterDecision, ToolRouterDecisionType
 
 _TOKEN_RE = re.compile(r"[a-z0-9_/-]+", re.IGNORECASE)
@@ -54,6 +65,10 @@ class ToolCandidate:
     reason: str
 
 
+def _timing_span(timing: RequestTiming | None, name: str, **metadata: Any) -> ContextManager[None]:
+    return timing.span(name, **metadata) if timing is not None else nullcontext()
+
+
 async def run_rest_operator_turn(
     *,
     message: str,
@@ -64,33 +79,38 @@ async def run_rest_operator_turn(
     db: AsyncSession,
     emit,
     public_response: bool = False,
+    timing: RequestTiming | None = None,
 ) -> str | None:
-    approval_result = await _maybe_handle_trace_control(
-        message=message,
-        saas_agent_id=saas_agent_id,
-        session_id=session_id,
-        user_id=user_id,
-        db=db,
-        emit=emit,
-        public_response=public_response,
-    )
+    with _timing_span(timing, "rest.approval_control_check"):
+        approval_result = await _maybe_handle_trace_control(
+            message=message,
+            saas_agent_id=saas_agent_id,
+            session_id=session_id,
+            user_id=user_id,
+            db=db,
+            emit=emit,
+            public_response=public_response,
+        )
     if approval_result is not None:
         return approval_result
 
-    frame_result = await _maybe_resume_execution_frame(
-        message=message,
-        saas_agent_id=saas_agent_id,
-        session_id=session_id,
-        user_id=user_id,
-        session=session,
-        db=db,
-        emit=emit,
-        public_response=public_response,
-    )
+    with _timing_span(timing, "rest.execution_frame_resume_check"):
+        frame_result = await _maybe_resume_execution_frame(
+            message=message,
+            saas_agent_id=saas_agent_id,
+            session_id=session_id,
+            user_id=user_id,
+            session=session,
+            db=db,
+            emit=emit,
+            public_response=public_response,
+            timing=timing,
+        )
     if frame_result is not None:
         return frame_result
 
-    candidates = await find_tool_candidates(message=message, saas_agent_id=saas_agent_id, db=db, limit=5)
+    with _timing_span(timing, "rest.candidate_search", limit=5):
+        candidates = await find_tool_candidates(message=message, saas_agent_id=saas_agent_id, db=db, limit=5)
     if not candidates:
         return None
 
@@ -108,6 +128,7 @@ async def run_rest_operator_turn(
         db=db,
         emit=emit,
         public_response=public_response,
+        timing=timing,
     )
 
 
@@ -121,13 +142,16 @@ async def _maybe_resume_execution_frame(
     db: AsyncSession,
     emit,
     public_response: bool,
+    timing: RequestTiming | None = None,
 ) -> str | None:
-    frame = load_execution_frame(session)
-    entity = find_entity_reference(message, frame)
+    with _timing_span(timing, "frame.load_and_entity_resolution"):
+        frame = load_execution_frame(session)
+        entity = find_entity_reference(message, frame)
     if frame is None or entity is None:
         return None
     routed_message = augment_message_with_frame_context(message, entity, frame)
-    candidates = await find_tool_candidates(message=routed_message, saas_agent_id=saas_agent_id, db=db, limit=50)
+    with _timing_span(timing, "rest.frame_candidate_search", limit=50):
+        candidates = await find_tool_candidates(message=routed_message, saas_agent_id=saas_agent_id, db=db, limit=50)
     if not candidates:
         return None
     return await _route_and_maybe_execute(
@@ -143,6 +167,7 @@ async def _maybe_resume_execution_frame(
         public_response=public_response,
         frame=frame,
         selected_entity=entity,
+        timing=timing,
     )
 
 
@@ -160,32 +185,55 @@ async def _route_and_maybe_execute(
     routed_message: str | None = None,
     frame: dict[str, Any] | None = None,
     selected_entity: dict[str, Any] | None = None,
+    timing: RequestTiming | None = None,
 ) -> str:
     if frame is not None:
-        candidates = _rerank_candidates_for_frame(message=message, candidates=candidates, frame=frame)
+        with _timing_span(timing, "rest.frame_candidate_rerank"):
+            candidates = _rerank_candidates_for_frame(message=message, candidates=candidates, frame=frame)
     top = candidates[0]
     candidate_summary_rows = _candidate_summary_rows(candidates)
     risk = _risk_value(top.tool.risk_level)
-    inputs, missing = _build_inputs(message, top.action, top.tool)
+    with _timing_span(timing, "rest.build_inputs"):
+        inputs, missing = _build_inputs(message, top.action, top.tool)
     if frame is not None:
-        inputs, missing = build_inputs_from_frame(
-            message=message,
-            action=top.action,
-            tool=top.tool,
-            frame=frame,
-            base_inputs=inputs,
+        with _timing_span(timing, "rest.inputs.frame_fill"):
+            inputs, missing = build_inputs_from_frame(
+                message=message,
+                action=top.action,
+                tool=top.tool,
+                frame=frame,
+                base_inputs=inputs,
+            )
+    with _timing_span(timing, "router.decision"):
+        decision = ToolRouterAdapter().decide(
+            message=routed_message or message,
+            candidates=candidates,
+            inputs=inputs,
+            missing=missing,
         )
-    decision = ToolRouterAdapter().decide(
-        message=routed_message or message,
-        candidates=candidates,
-        inputs=inputs,
-        missing=missing,
-    )
 
     if decision.type in {ToolRouterDecisionType.SHOW_TOPK, ToolRouterDecisionType.BLOCK_UNSAFE}:
         return _format_router_decision(decision)
 
     if decision.type == ToolRouterDecisionType.ASK_PARAM:
+        if public_response:
+            public_missing_result = await _handle_public_missing_inputs(
+                message=message,
+                top=top,
+                inputs=inputs,
+                missing=missing,
+                candidate_summary_rows=candidate_summary_rows,
+                saas_agent_id=saas_agent_id,
+                session_id=session_id,
+                user_id=user_id,
+                session=session,
+                db=db,
+                frame=frame,
+                selected_entity=selected_entity,
+                timing=timing,
+            )
+            if public_missing_result is not None:
+                return public_missing_result
         trace = await create_execution_trace(
             candidate=top,
             inputs=inputs,
@@ -274,19 +322,20 @@ async def _route_and_maybe_execute(
             f"Reply `approve {trace_token}` to execute it, or `cancel {trace_token}` to reject it."
         )
 
-    trace = await create_execution_trace(
-        candidate=top,
-        inputs=inputs,
-        missing=[],
-        candidate_summary=candidate_summary_rows,
-        status="executing",
-        approval_state="not_required",
-        route_node="executing",
-        saas_agent_id=saas_agent_id,
-        session_id=session_id,
-        user_id=user_id,
-        db=db,
-    )
+    with _timing_span(timing, "trace.create"):
+        trace = await create_execution_trace(
+            candidate=top,
+            inputs=inputs,
+            missing=[],
+            candidate_summary=candidate_summary_rows,
+            status="executing",
+            approval_state="not_required",
+            route_node="executing",
+            saas_agent_id=saas_agent_id,
+            session_id=session_id,
+            user_id=user_id,
+            db=db,
+        )
     if not public_response:
         await emit(
             "execution_planned",
@@ -301,8 +350,10 @@ async def _route_and_maybe_execute(
     call_id = uuid.uuid4().hex[:8]
     if not public_response:
         await emit("tool_start", {"tool_name": top.tool.name, "call_id": call_id, "inputs": inputs})
-    result = await execute_rest_tool(top, inputs, db)
-    await finalize_execution_trace(trace, result, db)
+    with _timing_span(timing, "api.execute", method=str(top.action.method or ""), path=str(top.action.path or "")):
+        result = await execute_rest_tool(top, inputs, db)
+    with _timing_span(timing, "trace.finalize"):
+        await finalize_execution_trace(trace, result, db)
     if result.get("error"):
         if selected_entity is not None:
             await save_execution_frame(
@@ -337,7 +388,7 @@ async def _route_and_maybe_execute(
     if public_response:
         return (
             "Here’s what I found.\n\n"
-            f"```json\n{json.dumps(_preview_body(result.get('body')), indent=2, default=str)[:2500]}\n```\n\n"
+            f"```json\n{_preview_body_json(result.get('body'))}\n```\n\n"
             "You can ask me to check another item or narrow the result."
         )
 
@@ -346,7 +397,403 @@ async def _route_and_maybe_execute(
         f"Status: {result.get('status_code')}\n"
         f"Duration: {result.get('duration_ms')} ms\n\n"
         f"Trace: `{str(trace.id)[:8]}`\n\n"
-        f"Result preview:\n```json\n{json.dumps(_preview_body(result.get('body')), indent=2, default=str)[:2500]}\n```\n\n"
+        f"Result preview:\n```json\n{_preview_body_json(result.get('body'))}\n```\n\n"
+        "You can ask me to check another item or narrow the result."
+    )
+
+
+async def _handle_public_missing_inputs(
+    *,
+    message: str,
+    top: ToolCandidate,
+    inputs: dict[str, Any],
+    missing: list[str],
+    candidate_summary_rows: list[dict[str, Any]],
+    saas_agent_id: uuid.UUID,
+    session_id: uuid.UUID | None,
+    user_id: uuid.UUID | None,
+    session: AgentSession | None,
+    db: AsyncSession,
+    frame: dict[str, Any] | None,
+    selected_entity: dict[str, Any] | None,
+    timing: RequestTiming | None = None,
+) -> str | None:
+    with _timing_span(timing, "inputs.missing_classification"):
+        classified = classify_missing_inputs(missing, action=top.action)
+    if not classified.internal:
+        return None
+
+    if classified.user_facing:
+        public_missing = [item.name for item in classified.user_facing]
+        await create_execution_trace(
+            candidate=top,
+            inputs=inputs,
+            missing=public_missing,
+            candidate_summary=candidate_summary_rows,
+            status="needs_input",
+            approval_state="not_required",
+            route_node="needs_input",
+            saas_agent_id=saas_agent_id,
+            session_id=session_id,
+            user_id=user_id,
+            db=db,
+        )
+        await _save_operation_frame(
+            session=session,
+            frame=frame,
+            selected_entity=selected_entity,
+            tool=top.tool,
+            action=top.action,
+            inputs=inputs,
+            missing=missing,
+            db=db,
+        )
+        requested = ", ".join(item.public_label for item in classified.user_facing)
+        return (
+            "I need one more detail before I can do that.\n\n"
+            f"Please provide: {requested}.\n\n"
+            "Once you provide that, I can continue."
+        )
+
+    internal_names = [item.name for item in classified.internal]
+    parent_collection_path = _first_parent_collection_path(top.action.path, internal_names)
+    if parent_collection_path is None:
+        await _record_public_policy_gap_trace(
+            top=top,
+            inputs=inputs,
+            missing=missing,
+            candidate_summary_rows=candidate_summary_rows,
+            saas_agent_id=saas_agent_id,
+            session_id=session_id,
+            user_id=user_id,
+            session=session,
+            frame=frame,
+            selected_entity=selected_entity,
+            db=db,
+        )
+        return _public_policy_needed_message()
+
+    with _timing_span(timing, "dependency.find_candidate", parent_collection_path=parent_collection_path):
+        dependency_candidate = await find_dependency_candidate_for_path(
+            saas_agent_id=saas_agent_id,
+            db=db,
+            parent_collection_path=parent_collection_path,
+        )
+    action_paths = [getattr(getattr(dependency_candidate, "action", None), "path", parent_collection_path), top.action.path]
+    with _timing_span(timing, "policy.lookup"):
+        approved_policy = await learning_service.approved_domain_policy(saas_agent_id=saas_agent_id, action_paths=action_paths, db=db)
+
+    with _timing_span(timing, "dependency.frame_reuse_check"):
+        stored_dependency_id = resolve_dependency_id_from_frame(frame, parent_collection_path)
+    if stored_dependency_id and approved_policy is not None:
+        return await _execute_public_target_with_internal_id(
+            message=message,
+            top=top,
+            inputs={**inputs, internal_names[0]: stored_dependency_id},
+            candidate_summary_rows=candidate_summary_rows,
+            saas_agent_id=saas_agent_id,
+            session_id=session_id,
+            user_id=user_id,
+            session=session,
+            db=db,
+            frame=frame,
+            selected_entity=selected_entity,
+            timing=timing,
+        )
+
+    if dependency_candidate is None:
+        await _record_public_policy_gap_trace(
+            top=top,
+            inputs=inputs,
+            missing=missing,
+            candidate_summary_rows=candidate_summary_rows,
+            saas_agent_id=saas_agent_id,
+            session_id=session_id,
+            user_id=user_id,
+            session=session,
+            frame=frame,
+            selected_entity=selected_entity,
+            db=db,
+        )
+        return _public_policy_needed_message()
+
+    trace = await create_execution_trace(
+        candidate=top,
+        inputs=inputs,
+        missing=missing,
+        candidate_summary=candidate_summary_rows,
+        status="needs_input" if approved_policy is None else "executing",
+        approval_state="not_required",
+        route_node="internal_dependency_policy" if approved_policy is None else "executing",
+        saas_agent_id=saas_agent_id,
+        session_id=session_id,
+        user_id=user_id,
+        db=db,
+    )
+    await _save_operation_frame(
+        session=session,
+        frame=frame,
+        selected_entity=selected_entity,
+        tool=top.tool,
+        action=top.action,
+        inputs=inputs,
+        missing=missing,
+        db=db,
+    )
+    if approved_policy is None:
+        with _timing_span(timing, "policy.candidate_create"):
+            await learning_service.propose_domain_policy_gap(
+                trace=trace,
+                target_candidate=top,
+                dependency_candidate=dependency_candidate,
+                missing_internal_inputs=internal_names,
+                db=db,
+            )
+        return _public_policy_needed_message()
+
+    with _timing_span(timing, "dependency.execute"):
+        dependency_result = await _execute_public_dependency_candidate(
+            dependency_candidate=dependency_candidate,
+            candidate_summary_rows=candidate_summary_rows,
+            saas_agent_id=saas_agent_id,
+            session_id=session_id,
+            user_id=user_id,
+            db=db,
+            timing=timing,
+        )
+    if dependency_result.get("error"):
+        return _format_execution_failure(
+            tool_name=dependency_candidate.tool.name,
+            result=dependency_result,
+            trace_token=str(trace.id)[:8],
+            public_response=True,
+        )
+    dependency_id = extract_resource_id_from_result(dependency_result)
+    if not dependency_id:
+        return "I could not complete that because the connected API did not return the internal resource I needed."
+    next_frame = remember_dependency_id(frame, parent_collection_path, dependency_id)
+    if selected_entity is not None:
+        next_frame = preserve_selected_entity(next_frame, selected_entity)
+    await save_execution_frame(session, next_frame, db)
+    return await _execute_public_target_with_internal_id(
+        message=message,
+        top=top,
+        inputs={**inputs, internal_names[0]: dependency_id},
+        candidate_summary_rows=candidate_summary_rows,
+        saas_agent_id=saas_agent_id,
+        session_id=session_id,
+        user_id=user_id,
+        session=session,
+        db=db,
+        frame=next_frame,
+        selected_entity=selected_entity,
+        existing_trace=trace,
+        timing=timing,
+    )
+
+
+async def find_dependency_candidate_for_path(
+    *,
+    saas_agent_id: uuid.UUID,
+    db: AsyncSession,
+    parent_collection_path: str,
+) -> ToolCandidate | None:
+    result = await db.execute(
+        select(GeneratedTool, ActionNode, Connection)
+        .join(ActionNode, GeneratedTool.action_node_id == ActionNode.id)
+        .join(Connection, GeneratedTool.connection_id == Connection.id)
+        .options(selectinload(Connection.credentials))
+        .where(
+            GeneratedTool.saas_agent_id == saas_agent_id,
+            ActionNode.path == parent_collection_path,
+        )
+    )
+    rows = result.all()
+    candidates = [
+        ToolCandidate(tool=tool, action=action, connection=connection, score=0, reason="internal_dependency")
+        for tool, action, connection in rows
+        if str(getattr(action, "method", "") or "").upper() == "POST"
+    ]
+    if not candidates:
+        return None
+    return sorted(candidates, key=lambda row: (_required_count(row.tool), row.tool.name))[0]
+
+
+async def _execute_public_dependency_candidate(
+    *,
+    dependency_candidate: ToolCandidate,
+    candidate_summary_rows: list[dict[str, Any]],
+    saas_agent_id: uuid.UUID,
+    session_id: uuid.UUID | None,
+    user_id: uuid.UUID | None,
+    db: AsyncSession,
+    timing: RequestTiming | None = None,
+) -> dict[str, Any]:
+    dependency_inputs, dependency_missing = _build_inputs("", dependency_candidate.action, dependency_candidate.tool)
+    if dependency_missing:
+        return {
+            "status_code": 0,
+            "body": None,
+            "duration_ms": 0,
+            "error": "Internal dependency action has unresolved required inputs.",
+        }
+    dependency_trace = await create_execution_trace(
+        candidate=dependency_candidate,
+        inputs=dependency_inputs,
+        missing=[],
+        candidate_summary=candidate_summary_rows,
+        status="executing",
+        approval_state="approved_by_policy",
+        route_node="internal_dependency",
+        saas_agent_id=saas_agent_id,
+        session_id=session_id,
+        user_id=user_id,
+        db=db,
+    )
+    with _timing_span(timing, "api.execute", method=str(dependency_candidate.action.method or ""), path=str(dependency_candidate.action.path or "")):
+        result = await execute_rest_tool(dependency_candidate, dependency_inputs, db)
+    with _timing_span(timing, "trace.finalize", tool=str(dependency_candidate.tool.name or "")):
+        await finalize_execution_trace(dependency_trace, result, db)
+    return result
+
+
+async def _execute_public_target_with_internal_id(
+    *,
+    message: str,
+    top: ToolCandidate,
+    inputs: dict[str, Any],
+    candidate_summary_rows: list[dict[str, Any]],
+    saas_agent_id: uuid.UUID,
+    session_id: uuid.UUID | None,
+    user_id: uuid.UUID | None,
+    session: AgentSession | None,
+    db: AsyncSession,
+    frame: dict[str, Any] | None,
+    selected_entity: dict[str, Any] | None,
+    existing_trace: AgentExecutionTrace | None = None,
+    timing: RequestTiming | None = None,
+) -> str:
+    trace = existing_trace or await create_execution_trace(
+        candidate=top,
+        inputs=inputs,
+        missing=[],
+        candidate_summary=candidate_summary_rows,
+        status="executing",
+        approval_state="approved_by_policy",
+        route_node="executing",
+        saas_agent_id=saas_agent_id,
+        session_id=session_id,
+        user_id=user_id,
+        db=db,
+    )
+    if existing_trace is not None:
+        trace.inputs = inputs
+        trace.missing_inputs = []
+        trace.status = "executing"
+        trace.approval_state = "approved_by_policy"
+        trace.route_node = "executing"
+        await db.commit()
+    with _timing_span(timing, "api.execute", method=str(top.action.method or ""), path=str(top.action.path or "")):
+        result = await execute_rest_tool(top, inputs, db)
+    with _timing_span(timing, "trace.finalize", tool=str(top.tool.name or "")):
+        await finalize_execution_trace(trace, result, db)
+    if result.get("error"):
+        return _format_execution_failure(tool_name=top.tool.name, result=result, trace_token=str(trace.id)[:8], public_response=True)
+    next_frame = capture_result_frame(message=message, tool=top.tool, action=top.action, result=result)
+    if selected_entity is not None:
+        next_frame = preserve_selected_entity(next_frame or frame or {}, selected_entity)
+    await save_execution_frame(session, next_frame or frame, db)
+    return _format_public_execution_success(result=result, method=top.action.method)
+
+
+async def _record_public_policy_gap_trace(
+    *,
+    top: ToolCandidate,
+    inputs: dict[str, Any],
+    missing: list[str],
+    candidate_summary_rows: list[dict[str, Any]],
+    saas_agent_id: uuid.UUID,
+    session_id: uuid.UUID | None,
+    user_id: uuid.UUID | None,
+    session: AgentSession | None,
+    frame: dict[str, Any] | None,
+    selected_entity: dict[str, Any] | None,
+    db: AsyncSession,
+) -> AgentExecutionTrace:
+    trace = await create_execution_trace(
+        candidate=top,
+        inputs=inputs,
+        missing=missing,
+        candidate_summary=candidate_summary_rows,
+        status="needs_input",
+        approval_state="not_required",
+        route_node="internal_dependency_policy",
+        saas_agent_id=saas_agent_id,
+        session_id=session_id,
+        user_id=user_id,
+        db=db,
+    )
+    await _save_operation_frame(
+        session=session,
+        frame=frame,
+        selected_entity=selected_entity,
+        tool=top.tool,
+        action=top.action,
+        inputs=inputs,
+        missing=missing,
+        db=db,
+    )
+    return trace
+
+
+async def _save_operation_frame(
+    *,
+    session: AgentSession | None,
+    frame: dict[str, Any] | None,
+    selected_entity: dict[str, Any] | None,
+    tool: GeneratedTool,
+    action: ActionNode,
+    inputs: dict[str, Any],
+    missing: list[str],
+    db: AsyncSession,
+) -> None:
+    if selected_entity is None:
+        return
+    await save_execution_frame(
+        session,
+        operation_frame_from_candidate(
+            base_frame=frame,
+            selected_entity=selected_entity,
+            tool=tool,
+            action=action,
+            inputs=inputs,
+            missing=missing,
+        ),
+        db,
+    )
+
+
+def _first_parent_collection_path(path: str, internal_names: list[str]) -> str | None:
+    for name in internal_names:
+        parent_path = derive_parent_collection_path(path, name)
+        if parent_path:
+            return parent_path
+    return None
+
+
+def _public_policy_needed_message() -> str:
+    return (
+        "I found the item details, but this connected app needs an owner-approved automation policy before I can manage this for visitors.\n\n"
+        "I sent this to Sandbox learning for review."
+    )
+
+
+def _format_public_execution_success(*, result: dict[str, Any], method: str | None) -> str:
+    if str(method or "").upper() in {"POST", "PUT", "PATCH", "DELETE"}:
+        return "Done. I handled that for you."
+    return (
+        "Here's what I found.\n\n"
+        f"```json\n{_preview_body_json(result.get('body'))}\n```\n\n"
         "You can ask me to check another item or narrow the result."
     )
 
@@ -387,7 +834,7 @@ async def create_execution_trace(
     db.add(trace)
     await db.commit()
     await db.refresh(trace)
-    if status == "needs_input":
+    if status == "needs_input" and route_node != "internal_dependency_policy":
         try:
             from backend.services.agent.learning_service import learning_service
 
@@ -404,13 +851,7 @@ async def finalize_execution_trace(trace: AgentExecutionTrace, result: dict[str,
     trace.status = "failed" if result.get("error") else "succeeded"
     trace.route_node = "result_review"
     await db.commit()
-    try:
-        from backend.services.agent.rag_service import rag_service
-
-        await rag_service.ingest_generated_knowledge(saas_agent_id=trace.saas_agent_id, db=db)
-    except Exception:
-        # Execution should not fail because retrieval refresh failed.
-        pass
+    schedule_generated_knowledge_refresh(trace.saas_agent_id)
     if trace.status == "failed":
         try:
             from backend.services.agent.learning_service import learning_service
@@ -418,6 +859,27 @@ async def finalize_execution_trace(trace: AgentExecutionTrace, result: dict[str,
             await learning_service.propose_from_trace(trace, db)
         except Exception:
             pass
+
+
+def schedule_generated_knowledge_refresh(saas_agent_id: uuid.UUID) -> None:
+    try:
+        asyncio.get_running_loop().create_task(_refresh_generated_knowledge(saas_agent_id))
+    except RuntimeError:
+        # There is no loop to schedule on. Execution persistence should still
+        # complete; the next activation/manual refresh can rebuild knowledge.
+        return
+
+
+async def _refresh_generated_knowledge(saas_agent_id: uuid.UUID) -> None:
+    try:
+        from backend.core.database import async_session
+        from backend.services.agent.rag_service import rag_service
+
+        async with async_session() as refresh_db:
+            await rag_service.ingest_generated_knowledge(saas_agent_id=saas_agent_id, db=refresh_db)
+    except Exception:
+        # Retrieval refresh is opportunistic and must not affect the chat turn.
+        return
 
 
 async def list_pending_approval_traces(
@@ -552,7 +1014,7 @@ async def _maybe_handle_trace_control(
         f"Tool: `{trace.tool_name}`\n"
         f"Status: {result.get('status_code')}\n"
         f"Duration: {result.get('duration_ms')} ms\n\n"
-        f"Result preview:\n```json\n{json.dumps(_preview_body(result.get('body')), indent=2, default=str)[:2500]}\n```"
+        f"Result preview:\n```json\n{_preview_body_json(result.get('body'))}\n```"
     )
 
 
@@ -662,42 +1124,42 @@ def _has_write_intent(message: str) -> bool:
 async def execute_rest_tool(candidate: ToolCandidate, inputs: dict[str, Any], db: AsyncSession) -> dict[str, Any]:
     action = candidate.action
     connection = candidate.connection
+    started = time.monotonic()
     headers: dict[str, str] = {}
     params: dict[str, Any] = {}
-    if connection.auth_type and connection.credentials:
-        for credential in connection.credentials:
-            injected = await inject_credentials(
-                auth_type=connection.auth_type.value if hasattr(connection.auth_type, "value") else str(connection.auth_type),
-                decrypted_value=decrypt_value(credential.encrypted_value),
-                metadata=credential.metadata_ or {},
-            )
-            headers.update(injected.get("headers") or {})
-            params.update(injected.get("params") or {})
-
-    method = (action.method or "GET").upper()
-    base_url = str((connection.config or {}).get("base_url") or "").rstrip("/")
-    path = action.path or ""
-    payload = dict(inputs)
-    for param in action.parameters or []:
-        if isinstance(param, dict) and param.get("in") == "path" and param.get("name") in payload:
-            name = str(param["name"])
-            path = path.replace(f"{{{name}}}", str(payload.pop(name)))
-    for name in re.findall(r"\{(\w+)\}", path):
-        if name in payload:
-            path = path.replace(f"{{{name}}}", str(payload.pop(name)))
-    url = f"{base_url}{path}" if base_url else path
-
-    body: dict[str, Any] = {}
-    for param in action.parameters or []:
-        if isinstance(param, dict) and param.get("in") == "query" and param.get("name") in payload:
-            params[str(param["name"])] = payload.pop(str(param["name"]))
-    if method in {"GET", "DELETE", "HEAD", "OPTIONS"}:
-        params.update({key: value for key, value in payload.items() if _is_scalar(value)})
-    else:
-        body = payload
-
-    started = time.monotonic()
     try:
+        if connection.auth_type and connection.credentials:
+            for credential in connection.credentials:
+                injected = await inject_credentials(
+                    auth_type=connection.auth_type.value if hasattr(connection.auth_type, "value") else str(connection.auth_type),
+                    decrypted_value=decrypt_value(credential.encrypted_value),
+                    metadata=credential.metadata_ or {},
+                )
+                headers.update(injected.get("headers") or {})
+                params.update(injected.get("params") or {})
+
+        method = (action.method or "GET").upper()
+        base_url = str((connection.config or {}).get("base_url") or "").rstrip("/")
+        path = action.path or ""
+        payload = dict(inputs)
+        for param in action.parameters or []:
+            if isinstance(param, dict) and param.get("in") == "path" and param.get("name") in payload:
+                name = str(param["name"])
+                path = path.replace(f"{{{name}}}", str(payload.pop(name)))
+        for name in re.findall(r"\{(\w+)\}", path):
+            if name in payload:
+                path = path.replace(f"{{{name}}}", str(payload.pop(name)))
+        url = f"{base_url}{path}" if base_url else path
+
+        body: dict[str, Any] = {}
+        for param in action.parameters or []:
+            if isinstance(param, dict) and param.get("in") == "query" and param.get("name") in payload:
+                params[str(param["name"])] = payload.pop(str(param["name"]))
+        if method in {"GET", "DELETE", "HEAD", "OPTIONS"}:
+            params.update({key: value for key, value in payload.items() if _is_scalar(value)})
+        else:
+            body = payload
+
         async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
             response = await client.request(method, url, headers=headers, params=params, json=body or None)
         duration_ms = round((time.monotonic() - started) * 1000, 2)
@@ -712,7 +1174,16 @@ async def execute_rest_tool(candidate: ToolCandidate, inputs: dict[str, Any], db
             "error": None if response.status_code < 400 else f"HTTP {response.status_code}",
         }
     except Exception as exc:
-        return {"status_code": 0, "body": None, "duration_ms": round((time.monotonic() - started) * 1000, 2), "error": str(exc)}
+        error_text = str(exc) or exc.__class__.__name__
+        if exc.__class__.__name__ in {"InvalidToken", "InvalidSignature"}:
+            error_text = "Stored API credentials could not be decrypted. Reconnect this API credential."
+        return {
+            "status_code": 0,
+            "body": None,
+            "duration_ms": round((time.monotonic() - started) * 1000, 2),
+            "error": error_text,
+            "error_type": exc.__class__.__name__,
+        }
 
 
 def _build_inputs(message: str, action: ActionNode, tool: GeneratedTool) -> tuple[dict[str, Any], list[str]]:
@@ -848,9 +1319,13 @@ def _format_execution_failure(*, tool_name: str, result: dict[str, Any], trace_t
     else:
         summary = "The connected API returned an error."
     if public_response:
+        if "credential" in error_text.lower() or result.get("error_type") in {"InvalidToken", "InvalidSignature"}:
+            detail = "The store owner needs to reconnect the API credentials before I can use this integration."
+        else:
+            detail = "The store owner may need to check the connected API configuration."
         return (
             f"{summary}\n\n"
-            f"Error: {error_text}\n\n"
+            f"{detail}\n\n"
             "Try again after the API is reachable, or ask for a narrower request."
         )
     return (
@@ -930,11 +1405,33 @@ def _singular_label(value: str) -> str:
 
 
 def _preview_body(body: Any) -> Any:
-    if isinstance(body, list):
-        return body[:5]
-    if isinstance(body, dict):
-        return {key: body[key] for key in list(body.keys())[:20]}
-    return body
+    return _bounded_preview(body)
+
+
+def _preview_body_json(body: Any) -> str:
+    return json.dumps(body, indent=2, default=str)
+
+
+def _bounded_preview(value: Any, *, depth: int = 0) -> Any:
+    if depth >= 5:
+        if isinstance(value, dict):
+            return {"__preview_truncated": "nested object omitted"}
+        if isinstance(value, list):
+            return [{"__preview_truncated": "nested list omitted"}]
+    if isinstance(value, list):
+        items = [_bounded_preview(item, depth=depth + 1) for item in value[:5]]
+        if len(value) > 5:
+            items.append({"__preview_truncated": f"{len(value) - 5} more items"})
+        return items
+    if isinstance(value, dict):
+        keys = list(value.keys())
+        preview = {key: _bounded_preview(value[key], depth=depth + 1) for key in keys[:20]}
+        if len(keys) > 20:
+            preview["__preview_truncated"] = f"{len(keys) - 20} more fields"
+        return preview
+    if isinstance(value, str) and len(value) > 600:
+        return f"{value[:600]}... [truncated {len(value) - 600} chars]"
+    return value
 
 
 async def _append_public_approval_message(
@@ -951,7 +1448,7 @@ async def _append_public_approval_message(
     if result and not result.get("error"):
         content = (
             f"{message}\n\n"
-            f"Result preview:\n```json\n{json.dumps(_preview_body(result.get('body')), indent=2, default=str)[:2500]}\n```"
+            f"Result preview:\n```json\n{_preview_body_json(result.get('body'))}\n```"
         )
     agent_message = AgentMessage(
         session_id=trace.session_id,

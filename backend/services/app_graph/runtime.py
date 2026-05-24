@@ -606,7 +606,7 @@ class CorpusGraphRuntime:
             return []
         ids = [AppActionIds.HOME]
         if state.active_saas_agent_id:
-            ids.extend([AppActionIds.AGENT_HOME, AppActionIds.CONNECTION_CONFIGURE, AppActionIds.KNOWLEDGE_OPEN, AppActionIds.MEMORY_OPEN, AppActionIds.LEARNING_OPEN, AppActionIds.QA_OPEN])
+            ids.extend([AppActionIds.AGENT_HOME, AppActionIds.INSTRUCTIONS_OPEN, AppActionIds.CONNECTION_CONFIGURE, AppActionIds.KNOWLEDGE_OPEN, AppActionIds.MEMORY_OPEN, AppActionIds.LEARNING_OPEN, AppActionIds.QA_OPEN])
             if lens.connection_count > 0:
                 ids.extend([AppActionIds.CATALOG_OPEN, AppActionIds.ENTITIES_OPEN, AppActionIds.ACTIONS_OPEN, AppActionIds.EXECUTION_OPEN])
         return [route_action_to_card(self._action_by_id[action_id]) for action_id in ids]
@@ -853,6 +853,7 @@ class CorpusGraphRuntime:
             "auth_sign_in": "CorpusAuthSurface",
             "auth_register": "CorpusAuthSurface",
             "agent_home": "SaaSAgentOverviewSurface",
+            "instructions": "InstructionsSurface",
             "connection_configure": "ConnectionSetupSurface",
             "schema_preview": "SchemaPreviewSurface",
             "catalog_activation": "CatalogActivationSurface",
@@ -876,6 +877,7 @@ class CorpusGraphRuntime:
             AppNodeIds.SAAS_AGENT_SELECT: ("home", "Select SaaS Agent"),
             AppNodeIds.SAAS_AGENT_CREATE: ("home", "Create SaaS Agent"),
             AppNodeIds.AGENT_HOME: ("agent_home", "SaaS Agent Home"),
+            AppNodeIds.INSTRUCTIONS: ("instructions", "Instructions"),
             AppNodeIds.CONNECTION_CONFIGURE: ("connection_configure", "Connection Setup"),
             AppNodeIds.SCHEMA_PREVIEW: ("schema_preview", "Schema Preview"),
             AppNodeIds.CATALOG_ACTIVATION: ("catalog_activation", "Catalog Activation"),
@@ -932,7 +934,19 @@ class CorpusGraphRuntime:
         if user is None:
             return []
         result = await db.execute(select(SaaSAgent, SaaSAgentMember.role).join(SaaSAgentMember, SaaSAgentMember.saas_agent_id == SaaSAgent.id).where(SaaSAgentMember.user_id == user.id).order_by(SaaSAgent.created_at.desc()))
-        return [SaaSAgentRead(id=agent.id, name=agent.name, slug=agent.slug, created_by=agent.created_by, created_at=agent.created_at, role=role.value if hasattr(role, "value") else str(role)) for agent, role in result.all()]
+        return [
+            SaaSAgentRead(
+                id=agent.id,
+                name=agent.name,
+                slug=agent.slug,
+                system_prompt=agent.system_prompt,
+                instructions=agent.instructions,
+                created_by=agent.created_by,
+                created_at=agent.created_at,
+                role=role.value if hasattr(role, "value") else str(role),
+            )
+            for agent, role in result.all()
+        ]
 
     async def _require_member(self, saas_agent_id: uuid.UUID, user: User, db: AsyncSession) -> SaaSAgentMember:
         member = (await db.execute(select(SaaSAgentMember).where(SaaSAgentMember.saas_agent_id == saas_agent_id, SaaSAgentMember.user_id == user.id))).scalar_one_or_none()
@@ -1127,6 +1141,10 @@ class CorpusGraphRuntime:
 
     async def _handle_knowledge_open(self, state, payload, user, db):
         state.node = AppNodeIds.KNOWLEDGE
+        return state, [], []
+
+    async def _handle_instructions_open(self, state, payload, user, db):
+        state.node = AppNodeIds.INSTRUCTIONS
         return state, [], []
 
     async def _handle_knowledge_generate(self, state, payload, user, db):

@@ -87,6 +87,7 @@ export function AgentChat({ saasAgent, saasAgentId: saasAgentIdProp }: AgentChat
             documentId: ((s as Record<string, unknown>).document_id as string) ?? '',
           })),
           followUps: r.follow_ups ?? undefined,
+          metadata: r.metadata ?? undefined,
         }))
         setMessages(ui)
         setSessionId(sid)

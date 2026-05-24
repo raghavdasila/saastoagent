@@ -14,11 +14,18 @@ class SaaSAgentRead(BaseModel):
     id: uuid.UUID
     name: str
     slug: str
+    system_prompt: str | None = None
+    instructions: str | None = None
     created_by: uuid.UUID
     created_at: datetime
     role: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class SaaSAgentInstructionsUpdate(BaseModel):
+    system_prompt: str | None = Field(default=None, max_length=20000)
+    instructions: str | None = Field(default=None, max_length=20000)
 
 
 class SaaSAgentStats(BaseModel):
