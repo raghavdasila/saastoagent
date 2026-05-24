@@ -288,6 +288,24 @@ def test_deployed_chat_subscribes_to_public_session_events():
     assert "appendPublicAssistantMessage" in source
 
 
+def test_deployed_chat_collapses_raw_json_payloads_without_hiding_builder_diagnostics():
+    frontend_root = Path(__file__).parents[2] / "frontend" / "src"
+    page_source = (frontend_root / "pages" / "DeployedAgentChatPage.tsx").read_text(encoding="utf-8")
+    message_source = (frontend_root / "components" / "agent" / "MessageBubble.tsx").read_text(encoding="utf-8")
+    json_source = (frontend_root / "components" / "agent" / "CollapsibleJsonMessage.tsx").read_text(encoding="utf-8")
+    diagnostics_source = (
+        frontend_root / "components" / "appGraph" / "CorpusRouteDeckDiagnostics.tsx"
+    ).read_text(encoding="utf-8")
+
+    assert "collapseJsonPayloads" in page_source
+    assert "CollapsibleJsonMessage" in message_source
+    assert 'data-testid="assistant-json-payload"' in json_source
+    assert "<details" in json_source
+    assert "open={false}" in json_source
+    assert "JSON.stringify(parsed, null, 2)" in json_source
+    assert "Raw RouteDeck navgraph JSON" in diagnostics_source
+
+
 def test_docker_e2e_harness_is_first_class_and_uses_external_artifacts():
     frontend_path = Path(__file__).parents[2] / "frontend"
     package_source = (frontend_path / "package.json").read_text(encoding="utf-8")

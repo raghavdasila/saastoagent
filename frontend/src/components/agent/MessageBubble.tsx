@@ -3,6 +3,7 @@ import { Bot, User } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import type { ChatUIMessage } from '@/types/agent'
 
+import { CollapsibleJsonMessage } from './CollapsibleJsonMessage'
 import { CollapsibleMarkdown } from './CollapsibleMarkdown'
 import { FollowUpChips } from './FollowUpChips'
 import { SourceCitations } from './SourceCitations'
@@ -13,9 +14,10 @@ interface Props {
   message: ChatUIMessage
   onFollowUp?: (question: string) => void
   showToolCalls?: boolean
+  collapseJsonPayloads?: boolean
 }
 
-export function MessageBubble({ message, onFollowUp, showToolCalls = true }: Props) {
+export function MessageBubble({ message, onFollowUp, showToolCalls = true, collapseJsonPayloads = false }: Props) {
   const isUser = message.role === 'user'
 
   return (
@@ -61,7 +63,11 @@ export function MessageBubble({ message, onFollowUp, showToolCalls = true }: Pro
               )}
 
               {message.content && (
-                <CollapsibleMarkdown content={message.content} forcePlain={message.isStreaming} />
+                collapseJsonPayloads ? (
+                  <CollapsibleJsonMessage content={message.content} forcePlain={message.isStreaming} />
+                ) : (
+                  <CollapsibleMarkdown content={message.content} forcePlain={message.isStreaming} />
+                )
               )}
             </>
           )}

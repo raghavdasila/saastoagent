@@ -2,6 +2,10 @@
 
 End-user and operator-facing documentation should be added here as features become usable.
 
+## Guides
+
+- [Medusa API Agent Test Guide](medusa-api-agent-test-guide.md)
+
 ## Typical Contents
 
 - feature overviews
@@ -9,4 +13,4 @@ End-user and operator-facing documentation should be added here as features beco
 - operator guides
 - troubleshooting notes
 
-No feature docs yet.
+Add setup and operator guides here as flows become repeatable.

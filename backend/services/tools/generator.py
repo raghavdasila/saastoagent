@@ -45,9 +45,10 @@ def build_function_schema(action_node: ActionNode) -> dict:
             if isinstance(json_content, dict):
                 schema = json_content.get("schema")
                 if isinstance(schema, dict):
-                    for prop_name, prop_schema in list((schema.get("properties") or {}).items())[:30]:
+                    body_properties, body_required = _flatten_object_schema(schema)
+                    for prop_name, prop_schema in list(body_properties.items())[:30]:
                         properties[str(prop_name)] = _map_schema(prop_schema if isinstance(prop_schema, dict) else {})
-                    for name in schema.get("required") or []:
+                    for name in body_required:
                         required.append(str(name))
 
     for path_param in re.findall(r"\{(\w+)\}", action_node.path or ""):
@@ -76,6 +77,25 @@ def _map_schema(schema: dict) -> dict:
     if raw_type == "object":
         return {"type": "object"}
     return {"type": raw_type if raw_type in {"string", "integer", "number", "boolean"} else "string"}
+
+
+def _flatten_object_schema(schema: dict) -> tuple[dict[str, dict], list[str]]:
+    properties: dict[str, dict] = {}
+    required: list[str] = []
+
+    nested_schemas: list[dict] = [schema]
+    for key in ("allOf", "anyOf", "oneOf"):
+        values = schema.get(key)
+        if isinstance(values, list):
+            nested_schemas.extend(item for item in values if isinstance(item, dict))
+
+    for item in nested_schemas:
+        for prop_name, prop_schema in (item.get("properties") or {}).items():
+            properties[str(prop_name)] = prop_schema if isinstance(prop_schema, dict) else {}
+        for name in item.get("required") or []:
+            required.append(str(name))
+
+    return properties, list(dict.fromkeys(required))
 
 
 async def generate_tools_for_connection(connection_id, saas_agent_id, session: AsyncSession) -> dict[str, int]:

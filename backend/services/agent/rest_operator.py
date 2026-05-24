@@ -13,7 +13,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from backend.core.credentials import decrypt_value, inject_credentials
-from backend.core.models import ActionNode, AgentExecutionTrace, AgentMessage, Connection, GeneratedTool, RiskLevel
+from backend.core.models import ActionNode, AgentExecutionTrace, AgentMessage, AgentSession, Connection, GeneratedTool, RiskLevel
+from backend.services.agent.execution_frames import (
+    augment_message_with_frame_context,
+    build_inputs_from_frame,
+    capture_result_frame,
+    find_entity_reference,
+    load_execution_frame,
+    operation_frame_from_candidate,
+    preserve_selected_entity,
+    save_execution_frame,
+)
 from backend.services.toolrouter.adapter import ToolRouterAdapter, ToolRouterDecision, ToolRouterDecisionType
 
 _TOKEN_RE = re.compile(r"[a-z0-9_/-]+", re.IGNORECASE)
@@ -50,6 +60,7 @@ async def run_rest_operator_turn(
     saas_agent_id: uuid.UUID,
     session_id: uuid.UUID | None = None,
     user_id: uuid.UUID | None = None,
+    session: AgentSession | None = None,
     db: AsyncSession,
     emit,
     public_response: bool = False,
@@ -66,6 +77,19 @@ async def run_rest_operator_turn(
     if approval_result is not None:
         return approval_result
 
+    frame_result = await _maybe_resume_execution_frame(
+        message=message,
+        saas_agent_id=saas_agent_id,
+        session_id=session_id,
+        user_id=user_id,
+        session=session,
+        db=db,
+        emit=emit,
+        public_response=public_response,
+    )
+    if frame_result is not None:
+        return frame_result
+
     candidates = await find_tool_candidates(message=message, saas_agent_id=saas_agent_id, db=db, limit=5)
     if not candidates:
         return None
@@ -74,12 +98,85 @@ async def run_rest_operator_turn(
     if top.score < 2 and not _looks_like_api_task(message):
         return None
 
-    candidate_summary = _format_candidate_summary(candidates)
+    return await _route_and_maybe_execute(
+        message=message,
+        candidates=candidates,
+        saas_agent_id=saas_agent_id,
+        session_id=session_id,
+        user_id=user_id,
+        session=session,
+        db=db,
+        emit=emit,
+        public_response=public_response,
+    )
+
+
+async def _maybe_resume_execution_frame(
+    *,
+    message: str,
+    saas_agent_id: uuid.UUID,
+    session_id: uuid.UUID | None,
+    user_id: uuid.UUID | None,
+    session: AgentSession | None,
+    db: AsyncSession,
+    emit,
+    public_response: bool,
+) -> str | None:
+    frame = load_execution_frame(session)
+    entity = find_entity_reference(message, frame)
+    if frame is None or entity is None:
+        return None
+    routed_message = augment_message_with_frame_context(message, entity, frame)
+    candidates = await find_tool_candidates(message=routed_message, saas_agent_id=saas_agent_id, db=db, limit=50)
+    if not candidates:
+        return None
+    return await _route_and_maybe_execute(
+        message=message,
+        routed_message=routed_message,
+        candidates=candidates,
+        saas_agent_id=saas_agent_id,
+        session_id=session_id,
+        user_id=user_id,
+        session=session,
+        db=db,
+        emit=emit,
+        public_response=public_response,
+        frame=frame,
+        selected_entity=entity,
+    )
+
+
+async def _route_and_maybe_execute(
+    *,
+    message: str,
+    candidates: list[ToolCandidate],
+    saas_agent_id: uuid.UUID,
+    session_id: uuid.UUID | None,
+    user_id: uuid.UUID | None,
+    session: AgentSession | None,
+    db: AsyncSession,
+    emit,
+    public_response: bool,
+    routed_message: str | None = None,
+    frame: dict[str, Any] | None = None,
+    selected_entity: dict[str, Any] | None = None,
+) -> str:
+    if frame is not None:
+        candidates = _rerank_candidates_for_frame(message=message, candidates=candidates, frame=frame)
+    top = candidates[0]
     candidate_summary_rows = _candidate_summary_rows(candidates)
     risk = _risk_value(top.tool.risk_level)
     inputs, missing = _build_inputs(message, top.action, top.tool)
+    if frame is not None:
+        inputs, missing = build_inputs_from_frame(
+            message=message,
+            action=top.action,
+            tool=top.tool,
+            frame=frame,
+            base_inputs=inputs,
+        )
     decision = ToolRouterAdapter().decide(
-        message=message,
+        message=routed_message or message,
         candidates=candidates,
         inputs=inputs,
         missing=missing,
@@ -102,9 +199,22 @@ async def run_rest_operator_turn(
             user_id=user_id,
             db=db,
         )
+        if selected_entity is not None:
+            await save_execution_frame(
+                session,
+                operation_frame_from_candidate(
+                    base_frame=frame,
+                    selected_entity=selected_entity,
+                    tool=top.tool,
+                    action=top.action,
+                    inputs=inputs,
+                    missing=missing,
+                ),
+                db,
+            )
         content = (
             "I need one more detail before I can do that.\n\n"
-            f"Please provide: {', '.join(_humanize_name(name) for name in missing)}.\n\n"
+            f"Please provide: {_format_missing_input_names(missing, top.action)}.\n\n"
             "Once you provide that, I can continue."
         )
         if not public_response:
@@ -125,6 +235,19 @@ async def run_rest_operator_turn(
             user_id=user_id,
             db=db,
         )
+        if selected_entity is not None:
+            await save_execution_frame(
+                session,
+                operation_frame_from_candidate(
+                    base_frame=frame,
+                    selected_entity=selected_entity,
+                    tool=top.tool,
+                    action=top.action,
+                    inputs=inputs,
+                    missing=missing,
+                ),
+                db,
+            )
         trace_token = str(trace.id)[:8]
         if not public_response:
             await emit(
@@ -180,6 +303,25 @@ async def run_rest_operator_turn(
         await emit("tool_start", {"tool_name": top.tool.name, "call_id": call_id, "inputs": inputs})
     result = await execute_rest_tool(top, inputs, db)
     await finalize_execution_trace(trace, result, db)
+    if result.get("error"):
+        if selected_entity is not None:
+            await save_execution_frame(
+                session,
+                operation_frame_from_candidate(
+                    base_frame=frame,
+                    selected_entity=selected_entity,
+                    tool=top.tool,
+                    action=top.action,
+                    inputs=inputs,
+                    missing=[],
+                ),
+                db,
+            )
+    else:
+        next_frame = capture_result_frame(message=message, tool=top.tool, action=top.action, result=result)
+        if selected_entity is not None:
+            next_frame = preserve_selected_entity(next_frame or frame or {}, selected_entity)
+        await save_execution_frame(session, next_frame, db)
     output_text = json.dumps(result, default=str)[:5000]
     if not public_response:
         await emit("tool_end", {"call_id": call_id, "output": output_text})
@@ -452,10 +594,69 @@ async def find_tool_candidates(
             score += 1
         if score <= 0:
             continue
+        score += _operation_intent_bonus(message, action, tool)
         score += _learning_bonus(tokens, tool.name, action.path, learning_hints)
         reason = ", ".join(sorted(list(tokens & hay_tokens))[:5]) or action.method
         candidates.append(ToolCandidate(tool=tool, action=action, connection=connection, score=score, reason=reason))
     return sorted(candidates, key=lambda row: (-row.score, _required_count(row.tool), row.tool.name))[:limit]
+
+
+def _operation_intent_bonus(message: str, action: ActionNode, tool: GeneratedTool) -> int:
+    tokens = set(_tokens(message))
+    haystack = " ".join(
+        [
+            getattr(tool, "name", "") or "",
+            getattr(action, "name", "") or "",
+            getattr(action, "path", "") or "",
+            getattr(action, "description", "") or "",
+        ]
+    ).lower()
+    hay_tokens = set(_tokens(haystack))
+    method = str(getattr(action, "method", "") or "").upper()
+    bonus = 0
+    write_intent = tokens & {"add", "create", "update", "delete", "remove", "send", "submit", "buy", "purchase", "order"}
+    read_intent = tokens & {"list", "show", "find", "fetch", "search", "get"}
+    if write_intent:
+        if method in {"POST", "PUT", "PATCH", "DELETE"}:
+            bonus += 3
+        if method == "GET":
+            bonus -= 3
+        if write_intent & hay_tokens:
+            bonus += 1
+    if read_intent and method in {"GET", "HEAD", "OPTIONS"}:
+        bonus += 1
+    return bonus
+
+
+def _rerank_candidates_for_frame(*, message: str, candidates: list[ToolCandidate], frame: dict[str, Any]) -> list[ToolCandidate]:
+    if not _has_write_intent(message):
+        return candidates
+    return sorted(
+        candidates,
+        key=lambda row: (
+            -_context_candidate_score(message=message, candidate=row, frame=frame),
+            _required_count(row.tool),
+            row.tool.name,
+        ),
+    )
+
+
+def _context_candidate_score(*, message: str, candidate: ToolCandidate, frame: dict[str, Any]) -> int:
+    base_inputs, _base_missing = _build_inputs(message, candidate.action, candidate.tool)
+    inputs, _missing = build_inputs_from_frame(
+        message=message,
+        action=candidate.action,
+        tool=candidate.tool,
+        frame=frame,
+        base_inputs=base_inputs,
+    )
+    required = ((candidate.tool.function_schema or {}).get("parameters") or {}).get("required") or []
+    filled_required = sum(1 for name in required if str(name) in inputs and str(name) not in base_inputs)
+    return candidate.score + (filled_required * 8)
+
+
+def _has_write_intent(message: str) -> bool:
+    return bool(set(_tokens(message)) & {"add", "create", "update", "delete", "remove", "send", "submit", "buy", "purchase", "order"})
 
 
 async def execute_rest_tool(candidate: ToolCandidate, inputs: dict[str, Any], db: AsyncSession) -> dict[str, Any]:
@@ -708,6 +909,24 @@ def _entity_label_from_path(path: str) -> str:
 
 def _humanize_name(value: str) -> str:
     return str(value).replace("_", " ").replace("-", " ")
+
+
+def _format_missing_input_names(missing: list[str], action: ActionNode) -> str:
+    return ", ".join(_humanize_missing_input(name, action) for name in missing)
+
+
+def _humanize_missing_input(name: str, action: ActionNode) -> str:
+    if name == "id":
+        path = str(getattr(action, "path", "") or "")
+        match = re.search(r"/([^/{]+)/\{id\}", path)
+        if match:
+            return f"{_singular_label(match.group(1))} id"
+    return _humanize_name(name)
+
+
+def _singular_label(value: str) -> str:
+    label = _humanize_name(value).strip()
+    return label[:-1] if label.endswith("s") and len(label) > 3 else label
 
 
 def _preview_body(body: Any) -> Any:

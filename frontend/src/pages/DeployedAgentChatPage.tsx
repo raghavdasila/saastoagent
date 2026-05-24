@@ -141,7 +141,7 @@ export function DeployedAgentChatPage() {
               ) : (
                 <div className="mx-auto max-w-4xl py-4">
                   {messages.map((message) => (
-                    <MessageBubble key={message.id} message={message} showToolCalls={false} />
+                    <MessageBubble key={message.id} message={message} showToolCalls={false} collapseJsonPayloads />
                   ))}
                 </div>
               )}

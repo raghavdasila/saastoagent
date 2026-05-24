@@ -25,6 +25,7 @@ services:
     environment:
       STA_DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/saastoagent_v0_1
       STA_AUTH_SECRET: ${STA_AUTH_SECRET:-dev-secret-change-in-prod}
+      STA_ENCRYPTION_KEY: ${STA_ENCRYPTION_KEY:-0Lt3JGYQeIksb9AHMPufENz340jtapPPx5my7TYhLDQ=}
       STA_AUTH_TOKEN_LIFETIME_SECONDS: 31536000
       STA_CORS_ORIGINS: '["http://localhost:3007"]'
       STA_OPENAI_API_KEY: ${STA_OPENAI_API_KEY:-}

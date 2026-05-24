@@ -2,7 +2,7 @@ import asyncio
 from types import SimpleNamespace
 
 from backend.core.schemas import ActionNodeRead
-from backend.services.agent.rest_operator import _build_inputs, _format_execution_failure, _format_router_decision, _maybe_handle_trace_control, _parse_trace_control, _tokens
+from backend.services.agent.rest_operator import _build_inputs, _format_execution_failure, _format_missing_input_names, _format_router_decision, _maybe_handle_trace_control, _operation_intent_bonus, _parse_trace_control, _rerank_candidates_for_frame, _tokens
 from backend.services.toolrouter.adapter import ToolRouterDecision, ToolRouterDecisionType
 from backend.services.catalog import infer_entities, preview_openapi_spec
 from backend.services.tools.generator import build_function_schema
@@ -138,6 +138,117 @@ def test_generated_tool_schema_excludes_connection_level_header_inputs():
     assert "x-publishable-api-key" not in params["properties"]
     assert "x-publishable-api-key" not in params["required"]
     assert "limit" in params["properties"]
+
+
+def test_generated_tool_schema_includes_json_request_body_allof_fields():
+    action = SimpleNamespace(
+        name="addLineItem",
+        method="POST",
+        path="/store/carts/{id}/line-items",
+        description="Add a product variant as a line item in the cart.",
+        parameters=[
+            {
+                "name": "id",
+                "in": "path",
+                "required": True,
+                "description": "The cart's ID.",
+                "schema": {"type": "string"},
+            }
+        ],
+        request_body={
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "allOf": [
+                            {
+                                "type": "object",
+                                "required": ["variant_id", "quantity"],
+                                "properties": {
+                                    "variant_id": {"type": "string", "description": "Variant ID"},
+                                    "quantity": {"type": "number", "description": "Quantity"},
+                                },
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+    )
+
+    params = build_function_schema(action)["parameters"]
+
+    assert {"id", "variant_id", "quantity"} <= set(params["properties"])
+    assert {"id", "variant_id", "quantity"} <= set(params["required"])
+
+
+def test_write_intent_bonus_prefers_mutating_action_over_read_action():
+    cart_action = SimpleNamespace(method="POST", path="/store/carts/{id}/line-items", description="Add a product variant as a line item in the cart.")
+    product_action = SimpleNamespace(method="GET", path="/store/products", description="Retrieve a list of products.")
+    tool = SimpleNamespace(name="tool")
+
+    assert _operation_intent_bonus("add the L size to cart", cart_action, tool) > _operation_intent_bonus(
+        "add the L size to cart",
+        product_action,
+        tool,
+    )
+
+
+def test_frame_rerank_prefers_action_with_entity_fillable_required_inputs():
+    frame = {
+        "kind": "result_context",
+        "selected_entity": {
+            "entity_type": "products",
+            "id": "prod_1",
+            "label": "Starter Shirt",
+            "aliases": ["starter shirt"],
+            "raw": {
+                "id": "prod_1",
+                "title": "Starter Shirt",
+                "variants": [{"id": "var_l", "options": {"Size": "L"}}],
+            },
+        },
+        "entities": [],
+    }
+    read_candidate = SimpleNamespace(
+        score=11,
+        tool=SimpleNamespace(
+            name="readItems",
+            function_schema={"parameters": {"type": "object", "properties": {}, "required": []}},
+        ),
+        action=SimpleNamespace(method="GET", path="/items", parameters=[]),
+    )
+    write_candidate = SimpleNamespace(
+        score=9,
+        tool=SimpleNamespace(
+            name="addItem",
+            function_schema={
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "variant_id": {"type": "string"},
+                        "quantity": {"type": "integer"},
+                    },
+                    "required": ["id", "variant_id", "quantity"],
+                }
+            },
+        ),
+        action=SimpleNamespace(method="POST", path="/orders/{id}/items", parameters=[]),
+    )
+
+    ranked = _rerank_candidates_for_frame(
+        message="add the L size",
+        candidates=[read_candidate, write_candidate],
+        frame=frame,
+    )
+
+    assert ranked[0] is write_candidate
+
+
+def test_missing_path_id_prompt_uses_resource_context():
+    action = SimpleNamespace(path="/store/carts/{id}/line-items")
+
+    assert _format_missing_input_names(["id"], action) == "cart id"
 
 
 def test_rest_operator_does_not_ask_visitor_for_connection_headers():
@@ -286,3 +397,25 @@ def test_public_chat_service_suppresses_all_tool_events_from_sse():
     assert 'public_response and event_name in {"tool_start", "tool_end"}' in runtime_source
     assert 'if public_response:' in runtime_source.split('kind == "on_tool_start"', 1)[1].split('elif kind == "on_tool_end"', 1)[0]
     assert 'if public_response:' in runtime_source.split('kind == "on_tool_end"', 1)[1].split("# Extract follow-ups", 1)[0]
+
+
+def test_chat_service_threads_session_into_rest_operator_runtime():
+    from pathlib import Path
+
+    service_path = Path(__file__).parents[1] / "services" / "agent" / "chat_service.py"
+    source = service_path.read_text(encoding="utf-8")
+    run_call = source.split("self._run_agent(", 1)[1].split(")", 1)[0]
+    run_signature = source.split("async def _run_agent(", 1)[1].split(") -> None", 1)[0]
+    rest_call = source.split("run_rest_operator_turn(", 1)[1].split(")", 1)[0]
+
+    assert "session=session" in run_call
+    assert "session: AgentSession" in run_signature
+    assert "session=session," in rest_call
+
+
+def test_docker_runtime_uses_stable_dev_encryption_key():
+    from pathlib import Path
+
+    compose_source = (Path(__file__).parents[2] / "docker-compose.yml").read_text(encoding="utf-8")
+
+    assert "STA_ENCRYPTION_KEY" in compose_source
