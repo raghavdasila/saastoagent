@@ -9,14 +9,20 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = storage.getToken()
-  const saasAgentId = storage.getSaaSAgentId()
+interface ApiContext {
+  saasAgentId?: string | null
+}
 
-  const isFormData = options.body instanceof FormData
+type ApiRequestInit = RequestInit & ApiContext
+
+async function request<T>(path: string, options: ApiRequestInit = {}): Promise<T> {
+  const token = storage.getToken()
+  const { saasAgentId, ...fetchOptions } = options
+
+  const isFormData = fetchOptions.body instanceof FormData
 
   const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string>),
+    ...(fetchOptions.headers as Record<string, string>),
   }
 
   if (!isFormData && !headers['Content-Type']) {
@@ -32,7 +38,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   const response = await fetch(`/api${path}`, {
-    ...options,
+    ...fetchOptions,
     credentials: 'same-origin',
     headers,
   })
@@ -49,27 +55,33 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return response.json()
 }
 
-export const api = {
-  get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
-  put: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
-  patch: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
-  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
-  upload: <T>(path: string, file: File, fieldName: string = 'file') => {
-    const fd = new FormData()
-    fd.append(fieldName, file)
-    return request<T>(path, { method: 'POST', body: fd })
-  },
-  postStream: (
-    path: string,
-    onEvent: (eventType: string, data: Record<string, unknown>) => void,
-  ) =>
-    new Promise<void>((resolve, reject) => {
+function createApi(context: ApiContext = {}) {
+  const withContext = (options: ApiRequestInit = {}): ApiRequestInit => ({
+    ...options,
+    saasAgentId: options.saasAgentId ?? context.saasAgentId,
+  })
+
+  return {
+    get: <T>(path: string) => request<T>(path, withContext()),
+    post: <T>(path: string, body?: unknown) =>
+      request<T>(path, withContext({ method: 'POST', body: body ? JSON.stringify(body) : undefined })),
+    put: <T>(path: string, body?: unknown) =>
+      request<T>(path, withContext({ method: 'PUT', body: body ? JSON.stringify(body) : undefined })),
+    patch: <T>(path: string, body?: unknown) =>
+      request<T>(path, withContext({ method: 'PATCH', body: body ? JSON.stringify(body) : undefined })),
+    delete: <T>(path: string) => request<T>(path, withContext({ method: 'DELETE' })),
+    upload: <T>(path: string, file: File, fieldName: string = 'file') => {
+      const fd = new FormData()
+      fd.append(fieldName, file)
+      return request<T>(path, withContext({ method: 'POST', body: fd }))
+    },
+    postStream: (
+      path: string,
+      onEvent: (eventType: string, data: Record<string, unknown>) => void,
+    ) =>
+      new Promise<void>((resolve, reject) => {
       const token = storage.getToken()
-      const saasAgentId = storage.getSaaSAgentId()
+      const saasAgentId = context.saasAgentId
       const xhr = new XMLHttpRequest()
       let cursor = 0
       let buffer = ''
@@ -117,14 +129,14 @@ export const api = {
       }
       xhr.onerror = () => reject(new ApiError('Connection failed', 0))
       xhr.send()
-    }),
-  getStream: (
-    path: string,
-    onEvent: (eventType: string, data: Record<string, unknown>) => void,
-  ) =>
-    new Promise<void>((resolve, reject) => {
+      }),
+    getStream: (
+      path: string,
+      onEvent: (eventType: string, data: Record<string, unknown>) => void,
+    ) =>
+      new Promise<void>((resolve, reject) => {
       const token = storage.getToken()
-      const saasAgentId = storage.getSaaSAgentId()
+      const saasAgentId = context.saasAgentId
       const xhr = new XMLHttpRequest()
       let cursor = 0
       let buffer = ''
@@ -159,5 +171,11 @@ export const api = {
       }
       xhr.onerror = () => reject(new ApiError('Connection failed', 0))
       xhr.send()
-    }),
+      }),
+  }
+}
+
+export const api = {
+  ...createApi(),
+  withSaaSAgent: (saasAgentId: string | null | undefined) => createApi({ saasAgentId }),
 }

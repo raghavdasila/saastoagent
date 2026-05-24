@@ -161,6 +161,3 @@ class CorpusRouteDeckRuntime:
     def _projection_version_from_context(self, context: dict[str, Any]) -> int:
         raw = context.get("projection_version")
         return raw if isinstance(raw, int) and raw >= 1 else 1
-
-
-SaaStoAgentRouteDeckAdapter = CorpusRouteDeckRuntime

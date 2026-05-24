@@ -24,15 +24,16 @@ interface SaaSAgentShellProps {
 }
 
 function SaaSAgentContent({ saasAgentId }: SaaSAgentShellProps) {
+  const agentApi = api.withSaaSAgent(saasAgentId)
   const { data: saasAgent } = useQuery({
     queryKey: ['saasAgent', saasAgentId],
-    queryFn: () => api.get<SaaSAgent>(`/saas-agents/${saasAgentId}`),
+    queryFn: () => agentApi.get<SaaSAgent>(`/saas-agents/${saasAgentId}`),
     enabled: !!saasAgentId,
   })
 
   const { data: stats } = useQuery({
     queryKey: ['saasAgent-stats', saasAgentId],
-    queryFn: () => api.get<SaaSAgentStats>(`/saas-agents/${saasAgentId}/stats`),
+    queryFn: () => agentApi.get<SaaSAgentStats>(`/saas-agents/${saasAgentId}/stats`),
     enabled: !!saasAgentId,
   })
 

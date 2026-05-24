@@ -1,4 +1,4 @@
-import { capabilityItems, type CapabilityStatus } from '@/stores/saasAgentStore'
+import { capabilityItems, type CapabilityStatus } from '@/stores/saasAgentUiStore'
 import type { SaaSAgentStats } from '@/types/domain'
 
 const statusLabel: Record<CapabilityStatus, string> = {

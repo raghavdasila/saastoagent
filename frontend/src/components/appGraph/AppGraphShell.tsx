@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
@@ -40,7 +40,7 @@ import { MessageBubble } from '@/components/agent/MessageBubble'
 import { ThemeToggleButton } from '@/components/theme/ThemeToggleButton'
 import { useAuth } from '@/context/AuthContext'
 import { api } from '@/lib/api'
-import { useSaaSAgentStore } from '@/stores/saasAgentStore'
+import { useSaaSAgentUiStore } from '@/stores/saasAgentUiStore'
 import type { ChatUIMessage } from '@/types/agent'
 import type { AppGraphContextLens, AppGraphState } from '@/types/appGraph'
 import type {
@@ -67,11 +67,13 @@ import {
   type CorpusQuickAction,
 } from './corpusOperations'
 import {
+  activeSaaSAgentIdFromRouteDeckState,
   corpusStatePath,
   createSaaStoAgentRouteDeckStore,
   graphStateFromRouteDeckState,
   syncBrowserPathWithoutNavigation,
 } from './corpusRouteDeckClient'
+import { corpusNodeIds, corpusOperationIds, corpusSurfaceComponents } from './corpusRouteDeckCatalog'
 import { displayWork } from './workbenchDisplay'
 
 interface AppGraphShellProps {
@@ -161,8 +163,9 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
   const routeDeckSurfaceOpening = useRouteDeckSurfaceOpening()
   const { user, logout } = useAuth()
   const graphState = graphStateFromRouteDeckState(routeDeckState)
+  const activeSaaSAgentId = activeSaaSAgentIdFromRouteDeckState(routeDeckState)
   const replacePath = routeDeckState.location || null
-  const setSaaSAgentId = useSaaSAgentStore((state) => state.setSaaSAgentId)
+  const setMirroredSaaSAgentId = useSaaSAgentUiStore((state) => state.setMirroredSaaSAgentId)
   const [chatMessages, setChatMessages] = useState<ChatUIMessage[]>(() => [
     makeAgentMessage(
       'assistant',
@@ -190,11 +193,11 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
 
   useEffect(() => {
     if (!projection || !graphState) return
-    setSaaSAgentId(graphState.active_saas_agent_id || null)
+    setMirroredSaaSAgentId(activeSaaSAgentId)
     if (replacePath && replacePath !== window.location.pathname) {
       syncBrowserPathWithoutNavigation(replacePath)
     }
-  }, [graphState, projection, replacePath, setSaaSAgentId])
+  }, [activeSaaSAgentId, graphState, projection, replacePath, setMirroredSaaSAgentId])
 
   useEffect(() => {
     if (!queuedSurfacePrompt) return
@@ -224,7 +227,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
       const nextGraphState = graphStateFromRouteDeckState(response.state)
       setPendingProposal(null)
       setCorpusStatus('Ready')
-      setSaaSAgentId(nextGraphState?.active_saas_agent_id || null)
+      setMirroredSaaSAgentId(nextGraphState?.active_saas_agent_id || null)
       if (response.messages && response.messages.length > 0) {
         setChatMessages((current) => [
           ...current,
@@ -242,12 +245,14 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
     mutationFn: async (userInput: string) => {
       const currentGraphState = graphStateFromRouteDeckState(routeDeckStore.getState()) || graphState
       const params = new URLSearchParams({ user_input: userInput })
-      const streamNodeId = currentGraphState?.node === 'home' && saasAgentId
-        ? 'agent_home'
+      const streamNodeId = currentGraphState?.node === corpusNodeIds.home && saasAgentId
+        ? corpusNodeIds.agentHome
         : currentGraphState?.node
       if (streamNodeId) params.set('node_id', streamNodeId)
       if (currentGraphState?.active_saas_agent_id) {
         params.set('saas_agent_id', currentGraphState.active_saas_agent_id)
+      } else if (activeSaaSAgentId) {
+        params.set('saas_agent_id', activeSaaSAgentId)
       } else if (saasAgentId) {
         params.set('saas_agent_id', saasAgentId)
       }
@@ -334,7 +339,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
           if (nextProjection) {
             const nextState = payload.state as AppGraphState | undefined
             routeDeckStore.receiveEvent(routeDeckEvent)
-            setSaaSAgentId(nextState?.active_saas_agent_id || null)
+            setMirroredSaaSAgentId(nextState?.active_saas_agent_id || null)
           }
           const surfacePrompt = payload.surface_prompt as CorpusSurfacePrompt | null | undefined
           if (surfacePrompt?.content) {
@@ -375,7 +380,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
   })
 
   const hasStreamingCorpusMessage = chatMessages.some((message) => message.isStreaming)
-  const authSurfaceActive = activeSurface?.component === 'CorpusAuthSurface'
+  const authSurfaceActive = activeSurface?.component === corpusSurfaceComponents.auth
   const composerDisabled = executeOperation.isPending || turn.isPending || Boolean(activeSurfaceOpening) || authSurfaceActive
   const visibleStatus: WorkbenchStatus = activeSurfaceOpening
     ? 'Opening surface'
@@ -449,7 +454,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
 
   const handleLogout = () => {
     logout()
-    setSaaSAgentId(null)
+    setMirroredSaaSAgentId(null)
     void routeDeckStore.refresh().catch(() => undefined)
   }
 
@@ -827,7 +832,7 @@ function FrameSurfacePanel() {
   const routeDeckStore = useRouteDeckStore()
   const surface = useRouteDeckSurface('main')
   const contextLens = contextLensFromProjection(projection)
-  const setSaaSAgentId = useSaaSAgentStore((state) => state.setSaaSAgentId)
+  const setMirroredSaaSAgentId = useSaaSAgentUiStore((state) => state.setMirroredSaaSAgentId)
   const [openingAgentId, setOpeningAgentId] = useState<string | null>(null)
   if (!surface) return null
 
@@ -835,11 +840,11 @@ function FrameSurfacePanel() {
     setOpeningAgentId(agent.id)
     try {
       const response = await routeDeckStore.dispatch({
-        operation_id: 'saas_agent.open',
+        operation_id: corpusOperationIds.openSaaSAgent,
         args: { saas_agent_id: agent.id },
       })
       const nextGraphState = graphStateFromRouteDeckState(response.state)
-      setSaaSAgentId(nextGraphState?.active_saas_agent_id || agent.id)
+      setMirroredSaaSAgentId(nextGraphState?.active_saas_agent_id || agent.id)
       const nextPath = response.state.location || null
       if (nextPath && nextPath !== window.location.pathname) {
         syncBrowserPathWithoutNavigation(nextPath)
@@ -851,7 +856,7 @@ function FrameSurfacePanel() {
 
   const onListSaaSAgents = async () => {
     const response = await routeDeckStore.dispatch({
-      operation_id: 'saas_agent.list',
+      operation_id: corpusOperationIds.listSaaSAgents,
       args: {},
     })
     const nextPath = response.state.location || null
@@ -860,7 +865,7 @@ function FrameSurfacePanel() {
     }
   }
 
-  if (surface.component === 'CorpusLoungeSurface') {
+  if (surface.component === corpusSurfaceComponents.lounge) {
     return (
       <div className="md3-surface-low p-5">
         <div className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="h-4 w-4 text-primary" />{String(surface.props?.title || 'Explore SaaStoAgent')}</div>
@@ -874,7 +879,7 @@ function FrameSurfacePanel() {
     )
   }
 
-  if (surface.component === 'CorpusDashboardSurface') {
+  if (surface.component === corpusSurfaceComponents.dashboard) {
     const saasAgents = Array.isArray(surface.props?.saas_agents)
       ? (surface.props?.saas_agents as SaaSAgent[])
       : []
@@ -1084,16 +1089,17 @@ function ContextPanel({
 }
 
 function DeploymentCard({ saasAgentId, slug }: { saasAgentId: string; slug: string }) {
+  const agentApi = api.withSaaSAgent(saasAgentId)
   const [draft, setDraft] = useState<SaaSAgentDeployment | null>(null)
   const deployUrl = `${window.location.origin}/a/${slug}`
   const query = useQuery({
     queryKey: ['saas-agent-deployment', saasAgentId],
-    queryFn: () => api.get<SaaSAgentDeployment>(`/saas-agents/${saasAgentId}/deployment`),
+    queryFn: () => agentApi.get<SaaSAgentDeployment>(`/saas-agents/${saasAgentId}/deployment`),
     enabled: Boolean(saasAgentId),
   })
   const save = useMutation({
     mutationFn: (body: SaaSAgentDeployment) =>
-      api.put<SaaSAgentDeployment>(`/saas-agents/${saasAgentId}/deployment`, {
+      agentApi.put<SaaSAgentDeployment>(`/saas-agents/${saasAgentId}/deployment`, {
         enabled: body.enabled,
         visitor_auth_mode: body.visitor_auth_mode,
         execution_mode: body.execution_mode,
@@ -1171,9 +1177,10 @@ function DeploymentCard({ saasAgentId, slug }: { saasAgentId: string; slug: stri
 }
 
 function PendingApprovalsCard({ saasAgentId }: { saasAgentId: string }) {
+  const agentApi = api.withSaaSAgent(saasAgentId)
   const query = useQuery({
     queryKey: ['saas-agent-approvals', saasAgentId],
-    queryFn: () => api.get<AgentApproval[]>(`/saas-agents/${saasAgentId}/approvals/pending`),
+    queryFn: () => agentApi.get<AgentApproval[]>(`/saas-agents/${saasAgentId}/approvals/pending`),
     enabled: Boolean(saasAgentId),
     refetchInterval: 2000,
   })
@@ -1183,7 +1190,7 @@ function PendingApprovalsCard({ saasAgentId }: { saasAgentId: string }) {
         decision === 'approve'
           ? `/saas-agents/${saasAgentId}/approvals/${traceId}/approve`
           : `/saas-agents/${saasAgentId}/approvals/${traceId}/cancel`
-      return api.post<AgentApprovalDecision>(path)
+      return agentApi.post<AgentApprovalDecision>(path)
     },
     onSuccess: () => {
       void query.refetch()
@@ -1280,8 +1287,14 @@ function lockedCapabilityReason(item: CapabilityItem, lens: AppGraphContextLens 
 
 function capabilityItems(): CapabilityItem[] {
   return [
-    { id: 'home', label: 'Home', icon: <Home className="h-4 w-4" />, nodes: ['home'], operationId: 'navigate.home' },
-    { id: 'agent', label: 'Create Agent', icon: <Sparkles className="h-4 w-4" />, nodes: ['saas_agent_select', 'saas_agent_create', 'agent_home'], operationId: 'saas_agent.create' },
+    { id: 'home', label: 'Home', icon: <Home className="h-4 w-4" />, nodes: [corpusNodeIds.home], operationId: corpusOperationIds.navigateHome },
+    {
+      id: 'agent',
+      label: 'Create Agent',
+      icon: <Sparkles className="h-4 w-4" />,
+      nodes: [corpusNodeIds.saasAgentSelect, corpusNodeIds.saasAgentCreate, corpusNodeIds.agentHome],
+      operationId: corpusOperationIds.createSaaSAgent,
+    },
     { id: 'connect', label: 'Connect API', icon: <Plug className="h-4 w-4" />, nodes: ['connection_configure', 'schema_preview'], operationId: 'navigate.connection_configure' },
     { id: 'catalog', label: 'Catalog', icon: <Database className="h-4 w-4" />, nodes: ['catalog_activation', 'catalog'], operationId: 'catalog.open' },
     { id: 'actions', label: 'Actions', icon: <Wrench className="h-4 w-4" />, nodes: ['entities', 'actions'], operationId: 'actions.open' },

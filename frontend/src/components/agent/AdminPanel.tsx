@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FileText, MessageSquare, Plus, Shield, Sparkles, Trash2, Users } from 'lucide-react'
 
 import { api } from '@/lib/api'
-import { useSaaSAgentStore } from '@/stores/saasAgentStore'
 import type {
   AgentAdminStats,
   AgentDocument,
@@ -16,12 +15,14 @@ import type { SaaSAgent } from '@/types/domain'
 
 interface AdminPanelProps {
   saasAgent?: SaaSAgent
+  saasAgentId?: string | null
 }
 
 type Tab = 'sessions' | 'documents' | 'memories'
 
-export function AdminPanel({ saasAgent }: AdminPanelProps) {
-  const saasAgentId = useSaaSAgentStore((state) => state.saasAgentId)
+export function AdminPanel({ saasAgent, saasAgentId: saasAgentIdProp }: AdminPanelProps) {
+  const saasAgentId = saasAgentIdProp || saasAgent?.id || null
+  const agentApi = api.withSaaSAgent(saasAgentId)
   const queryClient = useQueryClient()
   const [tab, setTab] = useState<Tab>('sessions')
   const [openSessionId, setOpenSessionId] = useState<string | null>(null)
@@ -34,14 +35,14 @@ export function AdminPanel({ saasAgent }: AdminPanelProps) {
   const { data: stats } = useQuery({
     queryKey: ['agent-admin-stats', saasAgentId],
     queryFn: () =>
-      api.get<AgentAdminStats>(`/saas-agents/${saasAgentId}/agent/admin/stats`),
+      agentApi.get<AgentAdminStats>(`/saas-agents/${saasAgentId}/agent/admin/stats`),
     enabled: !!saasAgentId && isAdmin,
   })
 
   const { data: sessionsData } = useQuery({
     queryKey: ['agent-sessions', saasAgentId],
     queryFn: () =>
-      api.get<{ sessions: AgentSession[]; total: number }>(
+      agentApi.get<{ sessions: AgentSession[]; total: number }>(
         `/saas-agents/${saasAgentId}/agent/sessions`,
       ),
     enabled: !!saasAgentId && isAdmin && tab === 'sessions',
@@ -50,21 +51,21 @@ export function AdminPanel({ saasAgent }: AdminPanelProps) {
   const { data: documents } = useQuery({
     queryKey: ['agent-documents', saasAgentId],
     queryFn: () =>
-      api.get<AgentDocument[]>(`/saas-agents/${saasAgentId}/agent/documents`),
+      agentApi.get<AgentDocument[]>(`/saas-agents/${saasAgentId}/agent/documents`),
     enabled: !!saasAgentId && isAdmin && tab === 'documents',
   })
 
   const { data: memories } = useQuery({
     queryKey: ['agent-memories', saasAgentId],
     queryFn: () =>
-      api.get<AgentMemoryRow[]>(`/saas-agents/${saasAgentId}/agent/memories`),
+      agentApi.get<AgentMemoryRow[]>(`/saas-agents/${saasAgentId}/agent/memories`),
     enabled: !!saasAgentId && isAdmin && tab === 'memories',
   })
 
   const { data: openMessages } = useQuery({
     queryKey: ['agent-session-messages', saasAgentId, openSessionId],
     queryFn: () =>
-      api.get<AgentMessageRow[]>(
+      agentApi.get<AgentMessageRow[]>(
         `/saas-agents/${saasAgentId}/agent/sessions/${openSessionId}/messages`,
       ),
     enabled: !!saasAgentId && !!openSessionId,
@@ -73,7 +74,7 @@ export function AdminPanel({ saasAgent }: AdminPanelProps) {
   const { data: openChunks } = useQuery({
     queryKey: ['agent-document-chunks', saasAgentId, openDocumentId],
     queryFn: () =>
-      api.get<AgentDocumentChunk[]>(
+      agentApi.get<AgentDocumentChunk[]>(
         `/saas-agents/${saasAgentId}/agent/admin/documents/${openDocumentId}/chunks`,
       ),
     enabled: !!saasAgentId && !!openDocumentId,
@@ -81,7 +82,7 @@ export function AdminPanel({ saasAgent }: AdminPanelProps) {
 
   const deleteSession = useMutation({
     mutationFn: (sid: string) =>
-      api.delete<{ status: string }>(
+      agentApi.delete<{ status: string }>(
         `/saas-agents/${saasAgentId}/agent/admin/sessions/${sid}`,
       ),
     onSuccess: () => {
@@ -93,7 +94,7 @@ export function AdminPanel({ saasAgent }: AdminPanelProps) {
 
   const deleteMemory = useMutation({
     mutationFn: (mid: string) =>
-      api.delete<{ status: string }>(`/saas-agents/${saasAgentId}/agent/memories/${mid}`),
+      agentApi.delete<{ status: string }>(`/saas-agents/${saasAgentId}/agent/memories/${mid}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agent-memories', saasAgentId] })
       queryClient.invalidateQueries({ queryKey: ['agent-admin-stats', saasAgentId] })
@@ -102,7 +103,7 @@ export function AdminPanel({ saasAgent }: AdminPanelProps) {
 
   const createMemory = useMutation({
     mutationFn: () =>
-      api.post<AgentMemoryRow>(`/saas-agents/${saasAgentId}/agent/memories`, {
+      agentApi.post<AgentMemoryRow>(`/saas-agents/${saasAgentId}/agent/memories`, {
         content: memoryContent,
         category: memoryCategory,
       }),

@@ -4,12 +4,13 @@ import { ArrowRight, CheckCircle2, Loader2, PlugZap, SearchCheck, ShieldCheck } 
 
 import { api, ApiError } from '@/lib/api'
 import { formatSaaSAgentDisplayName } from '@/lib/entryGraph'
-import { useSaaSAgentStore } from '@/stores/saasAgentStore'
+import { useSaaSAgentUiStore } from '@/stores/saasAgentUiStore'
 import type { ConnectionPreview, ConnectionRead, SaaSAgent, SaaSAgentStats } from '@/types/domain'
 
 interface ConnectSetupViewProps {
   saasAgent?: SaaSAgent
   stats?: SaaSAgentStats
+  saasAgentId?: string | null
 }
 
 const authOptions = [
@@ -21,9 +22,10 @@ const authOptions = [
   { value: 'custom_header', label: 'Custom header' },
 ]
 
-export function ConnectSetupView({ saasAgent, stats }: ConnectSetupViewProps) {
-  const saasAgentId = useSaaSAgentStore((state) => state.saasAgentId)
-  const setActiveView = useSaaSAgentStore((state) => state.setActiveView)
+export function ConnectSetupView({ saasAgent, stats, saasAgentId: saasAgentIdProp }: ConnectSetupViewProps) {
+  const saasAgentId = saasAgentIdProp || saasAgent?.id || null
+  const agentApi = api.withSaaSAgent(saasAgentId)
+  const setActiveView = useSaaSAgentUiStore((state) => state.setActiveView)
   const queryClient = useQueryClient()
   const [name, setName] = useState('Primary API')
   const [baseUrl, setBaseUrl] = useState('')
@@ -42,7 +44,7 @@ export function ConnectSetupView({ saasAgent, stats }: ConnectSetupViewProps) {
 
   const { data: connections = [] } = useQuery({
     queryKey: ['connections', saasAgentId],
-    queryFn: () => api.get<ConnectionRead[]>(`/saas-agents/${saasAgentId}/connections`),
+    queryFn: () => agentApi.get<ConnectionRead[]>(`/saas-agents/${saasAgentId}/connections`),
     enabled: !!saasAgentId,
   })
 
@@ -53,7 +55,7 @@ export function ConnectSetupView({ saasAgent, stats }: ConnectSetupViewProps) {
 
   const preview = useMutation({
     mutationFn: () =>
-      api.post<ConnectionPreview>(`/saas-agents/${saasAgentId}/connections/preview`, {
+      agentApi.post<ConnectionPreview>(`/saas-agents/${saasAgentId}/connections/preview`, {
         spec_url: specUrl,
         raw_spec: rawSpec,
       }),
@@ -63,7 +65,7 @@ export function ConnectSetupView({ saasAgent, stats }: ConnectSetupViewProps) {
 
   const createConnection = useMutation({
     mutationFn: () =>
-      api.post<ConnectionRead>(`/saas-agents/${saasAgentId}/connections`, {
+      agentApi.post<ConnectionRead>(`/saas-agents/${saasAgentId}/connections`, {
         name,
         type: 'rest_api',
         provider: 'rest_api',
@@ -87,7 +89,7 @@ export function ConnectSetupView({ saasAgent, stats }: ConnectSetupViewProps) {
 
   async function activateConnection(connectionId: string) {
     try {
-      await api.postStream(`/saas-agents/${saasAgentId}/connections/${connectionId}/activate`, (eventType, data) => {
+      await agentApi.postStream(`/saas-agents/${saasAgentId}/connections/${connectionId}/activate`, (eventType, data) => {
         const label = typeof data.message === 'string' ? data.message : eventType
         setActivationLog((prev) => [...prev, `${eventType}: ${label}`])
       })

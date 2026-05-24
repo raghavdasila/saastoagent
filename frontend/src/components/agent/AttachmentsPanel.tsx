@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { DatabaseZap, FileText, Trash2, Upload } from 'lucide-react'
 
 import { api, ApiError } from '@/lib/api'
-import { useSaaSAgentStore } from '@/stores/saasAgentStore'
 import type { AgentDocument } from '@/types/agent'
 
 function formatBytes(n: number) {
@@ -12,8 +11,12 @@ function formatBytes(n: number) {
   return `${(n / (1024 * 1024)).toFixed(2)} MB`
 }
 
-export function AttachmentsPanel() {
-  const saasAgentId = useSaaSAgentStore((state) => state.saasAgentId)
+interface AttachmentsPanelProps {
+  saasAgentId?: string | null
+}
+
+export function AttachmentsPanel({ saasAgentId = null }: AttachmentsPanelProps) {
+  const agentApi = api.withSaaSAgent(saasAgentId)
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
@@ -22,13 +25,13 @@ export function AttachmentsPanel() {
   const { data: documents = [], isLoading } = useQuery({
     queryKey: ['agent-documents', saasAgentId],
     queryFn: () =>
-      api.get<AgentDocument[]>(`/saas-agents/${saasAgentId}/agent/documents`),
+      agentApi.get<AgentDocument[]>(`/saas-agents/${saasAgentId}/agent/documents`),
     enabled: !!saasAgentId,
   })
 
   const upload = useMutation({
     mutationFn: (file: File) =>
-      api.upload<AgentDocument>(`/saas-agents/${saasAgentId}/agent/documents`, file),
+      agentApi.upload<AgentDocument>(`/saas-agents/${saasAgentId}/agent/documents`, file),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agent-documents', saasAgentId] })
       setError(null)
@@ -40,7 +43,7 @@ export function AttachmentsPanel() {
 
   const generateKnowledge = useMutation({
     mutationFn: () =>
-      api.post<{ documents: number; chunks: number }>(`/saas-agents/${saasAgentId}/agent/rag/generate`, {}),
+      agentApi.post<{ documents: number; chunks: number }>(`/saas-agents/${saasAgentId}/agent/rag/generate`, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agent-documents', saasAgentId] })
       setError(null)
@@ -52,7 +55,7 @@ export function AttachmentsPanel() {
 
   const remove = useMutation({
     mutationFn: (docId: string) =>
-      api.delete<{ status: string }>(`/saas-agents/${saasAgentId}/agent/documents/${docId}`),
+      agentApi.delete<{ status: string }>(`/saas-agents/${saasAgentId}/agent/documents/${docId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agent-documents', saasAgentId] })
     },

@@ -21,6 +21,7 @@ import {
 } from '@routedeck/react'
 
 import type { CorpusProposal } from '@/types/corpus'
+import { corpusOperationIds } from './corpusRouteDeckCatalog'
 
 export interface ProposalField {
   key: string
@@ -43,7 +44,7 @@ export interface CorpusQuickAction {
 
 export function corpusQuickActions(projection: RouteDeckProjection): CorpusQuickAction[] {
   return projection.legal_operations
-    .filter((operation) => operation.id !== 'navigate.home')
+    .filter((operation) => operation.id !== corpusOperationIds.navigateHome)
     .filter((operation) => {
       const interaction = operation.invocation_kind || routeDeckOperationInteraction(operation)
       if (operation.can_dispatch_now && isRouteDeckOperationDispatchable(operation)) return true
@@ -80,8 +81,8 @@ export function corpusActionLabel(operation: RouteDeckOperation) {
   const labels: Record<string, string> = {
     'auth.sign_in': 'Sign in',
     'auth.register': 'Create account',
-    'saas_agent.create': 'Create SaaS Agent',
-    'saas_agent.open': 'Open SaaS Agent',
+    [corpusOperationIds.createSaaSAgent]: 'Create SaaS Agent',
+    [corpusOperationIds.openSaaSAgent]: 'Open SaaS Agent',
     'navigate.connection_configure': 'Connect API',
     'connection.preview': 'Preview schema',
     'connection.activate': 'Activate API',
@@ -100,8 +101,8 @@ export function corpusActionLabel(operation: RouteDeckOperation) {
 
 export function operationIcon(operationId: string): ReactNode {
   if (operationId.includes('auth')) return <User className="h-4 w-4" />
-  if (operationId.includes('saas_agent.create')) return <PlusCircleIcon />
-  if (operationId.includes('saas_agent.open')) return <Home className="h-4 w-4" />
+  if (operationId.includes(corpusOperationIds.createSaaSAgent)) return <PlusCircleIcon />
+  if (operationId.includes(corpusOperationIds.openSaaSAgent)) return <Home className="h-4 w-4" />
   if (operationId.includes('connection')) return <Plug className="h-4 w-4" />
   if (operationId.includes('catalog')) return <Database className="h-4 w-4" />
   if (operationId.includes('entities')) return <Boxes className="h-4 w-4" />

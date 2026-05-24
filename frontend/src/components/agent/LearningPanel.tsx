@@ -2,21 +2,24 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, FlaskConical, X } from 'lucide-react'
 
 import { api } from '@/lib/api'
-import { useSaaSAgentStore } from '@/stores/saasAgentStore'
 import type { AgentLearningCandidate } from '@/types/agent'
 
-export function LearningPanel() {
-  const saasAgentId = useSaaSAgentStore((state) => state.saasAgentId)
+interface LearningPanelProps {
+  saasAgentId?: string | null
+}
+
+export function LearningPanel({ saasAgentId = null }: LearningPanelProps) {
+  const agentApi = api.withSaaSAgent(saasAgentId)
   const queryClient = useQueryClient()
   const { data: candidates = [], isLoading } = useQuery({
     queryKey: ['agent-learnings', saasAgentId],
-    queryFn: () => api.get<AgentLearningCandidate[]>(`/saas-agents/${saasAgentId}/agent/learnings`),
+    queryFn: () => agentApi.get<AgentLearningCandidate[]>(`/saas-agents/${saasAgentId}/agent/learnings`),
     enabled: !!saasAgentId,
   })
 
   const review = useMutation({
     mutationFn: ({ id, action }: { id: string; action: 'approve' | 'reject' }) =>
-      api.post<AgentLearningCandidate>(`/saas-agents/${saasAgentId}/agent/learnings/${id}/${action}`, {}),
+      agentApi.post<AgentLearningCandidate>(`/saas-agents/${saasAgentId}/agent/learnings/${id}/${action}`, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agent-learnings', saasAgentId] })
     },

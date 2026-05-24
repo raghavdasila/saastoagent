@@ -6,7 +6,7 @@ from .manifest import (
     build_app_graph_manifest,
     validate_app_graph_manifest,
 )
-from .corpus_routedeck_runtime import CorpusRouteDeckRuntime, SaaStoAgentRouteDeckAdapter
+from .corpus_routedeck_runtime import CorpusRouteDeckRuntime
 from .runtime import CorpusGraphRuntime, corpus_graph_runtime
 
 route_deck_runtime = CorpusRouteDeckRuntime(corpus_graph_runtime)
@@ -18,7 +18,6 @@ __all__ = [
     "CorpusRouteDeckRuntime",
     "CorpusGraphRuntime",
     "NODE_HANDLERS",
-    "SaaStoAgentRouteDeckAdapter",
     "corpus_graph_runtime",
     "route_deck_runtime",
     "build_app_graph_manifest",

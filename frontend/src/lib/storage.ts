@@ -6,7 +6,7 @@ export const storage = {
   setToken: (token: string) => localStorage.setItem(TOKEN_KEY, token),
   removeToken: () => localStorage.removeItem(TOKEN_KEY),
 
-  getSaaSAgentId: () => localStorage.getItem(SAAS_AGENT_KEY),
-  setSaaSAgentId: (id: string) => localStorage.setItem(SAAS_AGENT_KEY, id),
-  removeSaaSAgentId: () => localStorage.removeItem(SAAS_AGENT_KEY),
+  getMirroredSaaSAgentId: () => localStorage.getItem(SAAS_AGENT_KEY),
+  setMirroredSaaSAgentId: (id: string) => localStorage.setItem(SAAS_AGENT_KEY, id),
+  removeMirroredSaaSAgentId: () => localStorage.removeItem(SAAS_AGENT_KEY),
 }

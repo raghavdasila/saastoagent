@@ -1,14 +1,17 @@
 # RouteDeck Runtime Store Reset Plan
 
-Status: Foundation implemented; current shell/debugger follow-through validated
-Date: 2026-05-21
+Status: Boundary cleanup implemented; browser E2E rerun pending
+Date: 2026-05-24
 
 Canonical framework doc: `../../routedeck/docs/agentic-ui-state-runtime.md`
 Canonical product vision doc: `../architecture/route-deck-corpus-vision.md`
 
 ## Summary
 
-RouteDeck is now treated as graph-backed state management for agentic UI, not as a passive projection/debugger package. SaaStoAgent consumes RouteDeck through a product adapter and `RouteDeckStore`; Corpus remains the central SaaStoAgent product agent.
+RouteDeck is now treated as graph-backed state management for agentic UI, not as
+a passive projection/debugger package. SaaStoAgent consumes RouteDeck through
+`CorpusRouteDeckRuntime` and `RouteDeckStore`; Corpus remains the central
+SaaStoAgent product agent.
 
 Core rule:
 
@@ -23,7 +26,7 @@ React renders Corpus plus RouteDeck-projected contextual surfaces.
 
 - Added RouteDeck runtime/store contracts in `routedeck_core`.
 - Added `RouteDeckStore`, store-backed provider support, dispatch/status/inspect hooks, and a generic HTTP/SSE store factory in `@routedeck/react`.
-- Added a SaaStoAgent RouteDeck adapter around `CorpusGraphRuntime`.
+- Added `CorpusRouteDeckRuntime` around `CorpusGraphRuntime`.
 - Rewired SaaStoAgent frontend to mount a configured RouteDeck store rather than hand-juggling projection state in the shell.
 - Kept Corpus text/proposal streaming separate from RouteDeck projection/state streaming.
 - Added split endpoints for Corpus, RouteDeck projection/stream, and diagnostics.
@@ -36,12 +39,19 @@ React renders Corpus plus RouteDeck-projected contextual surfaces.
 - Carried the product shell into a single Corpus workbench with anchored
   composer, inline auth/active surfaces, fullscreen diagnostics, and updated
   debugger theming.
+- Routed `/api/corpus/state` through `route_deck_runtime.snapshot(...)`.
+- Routed `/api/corpus/action` through `route_deck_runtime.dispatch(...)`.
+- Kept Corpus natural-language turn streaming on `CorpusGraphRuntime`, while
+  RouteDeck projection subscriptions use RouteDeck stream events.
+- Removed stale `SaaStoAgentRouteDeckAdapter` and `routedeck_adapter.py`.
+- Reworked the frontend state boundary so RouteDeck owns agentic app state and
+  `saasAgentUiStore` owns only local UI state.
 
 ## Current Runtime Shape
 
 ```text
 CorpusGraphRuntime
-  -> SaaStoAgent RouteDeck adapter
+  -> CorpusRouteDeckRuntime
     -> generic RouteDeckRuntime
       -> RouteDeckStore
         -> AppGraphShell
@@ -52,6 +62,7 @@ CorpusGraphRuntime
 
 Primary product endpoints:
 
+- `GET /api/corpus/state`
 - `GET /api/corpus/stream`
 - `POST /api/corpus/action`
 - `GET /api/routedeck/projection`
@@ -80,25 +91,32 @@ The diagnostics navigation graph must not draw actions as graph edges. Actions a
 
 ## Next Work
 
-1. Finish purging stale `/api/app/graph/*` product references where tests no longer require them.
-2. Add direct tests for `RouteDeckStore.connectStream()` against projection update events.
-3. Add focused browser tests for diagnostics and inline surfaces:
+1. Rerun Docker browser E2E after the RouteDeck boundary cleanup:
+   - `npm run e2e:docker`
+   - `npm run e2e:medusa:docker` when the Medusa target is available
+2. Add no-page-navigation/no-flicker browser tests for auth and active surface
+   opening.
+3. Add direct tests for `RouteDeckStore.connectStream()` against projection update events.
+4. Add focused browser tests for diagnostics and inline surfaces:
    - Focus map opens on current node with non-overlapping edge geometry.
    - Full map shows the navgraph topology around the root node.
    - Actions are absent from the canvas and present only in selected-node
      details.
    - Auth and inline surfaces stay inside the main Corpus shell.
-4. Add LLM meta-tool adapters backed by the same introspection service as diagnostics.
-5. Tighten surface role tests:
+5. Add LLM meta-tool adapters backed by the same introspection service as diagnostics.
+6. Tighten surface role tests:
    - `frame` renders around Corpus.
    - `active` appears only after initiation, accepted proposal, or graph-required recovery.
    - `diagnostic` remains hidden/read-only.
-6. Continue product-literal guard tests for RouteDeck framework source.
+7. Continue product-literal guard tests for RouteDeck framework source.
+8. Continue purging product use of compatibility `/api/app/graph/*` routes where
+   tests and unrelated callers no longer require them.
 
 ## Anti-Drift Checks
 
 - RouteDeck framework code stays product-neutral.
 - Corpus is a consumer of RouteDeck state, not the hidden owner of RouteDeck state management.
+- Zustand is UI-local only and must not become the graph/app source of truth.
 - Legal operations are runtime/agent context, not raw product UI.
 - Graph commits state; LLMs choose typed operations.
 - Diagnostics is read-only and richer than JSON.

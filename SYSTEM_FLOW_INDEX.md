@@ -1,17 +1,17 @@
 # System Flow Index - SaaStoAgent v0.1
 
-Last Updated: May 22, 2026
+Last Updated: May 24, 2026
 
 This file is the source of truth for the currently implemented runtime and UX flows.
 
-## Active Architecture Status - May 22, 2026
+## Active Architecture Status - May 24, 2026
 
 The RouteDeck/Corpus architecture has been reset around the accepted runtime-store
 model.
 
 RouteDeck is graph-backed state management for agentic UI. SaaStoAgent consumes
-it through a product adapter and `RouteDeckStore`; Corpus remains the central
-SaaStoAgent product agent.
+it through `CorpusRouteDeckRuntime` and `RouteDeckStore`; Corpus remains the
+central SaaStoAgent product agent.
 
 Current anchors:
 
@@ -24,6 +24,8 @@ Current rules:
 - Graph owns truth, guards, and commits.
 - RouteDeck owns the generic runtime/store over the graph.
 - Corpus reads RouteDeck state and chooses legal operations.
+- Zustand stores only UI-local state and must not be treated as the app graph
+  source of truth.
 - Legal operations are not raw product UI.
 - Legal operations are not necessarily ready to dispatch. Operation metadata
   must distinguish `invocation_kind`, `can_dispatch_now`, required args, and
@@ -52,6 +54,7 @@ graph metadata available only from an explicit diagnostics disclosure.
 
 Primary RouteDeck/Corpus endpoints:
 
+- `GET /api/corpus/state`
 - `GET /api/corpus/stream`
 - `POST /api/corpus/action`
 - `GET /api/routedeck/projection`
@@ -112,17 +115,20 @@ rename slices land. New work should target the SaaS Agent contract:
 7. Current verified horizontal path: Docker UI E2E covers signup, SaaSAgent
    creation, OpenAPI connection, activation, deployment, public chat, Storefront
    read execution, and Admin/write approval fixtures.
-8. Next: split RouteDeck framework concerns from Corpus product concerns, add
-   collapsible public JSON result rendering, fix conversation-grounded
-   product/variant/cart follow-up, then rerun both Docker E2E commands.
+8. RouteDeck/Corpus state boundary cleanup is implemented in backend routes and
+   frontend state ownership. Next: rerun Docker browser E2E, add no-navigation
+   surface transition coverage, add collapsible public JSON result rendering,
+   and fix conversation-grounded product/variant/cart follow-up.
 
 ## RouteDeck Layers
 
 1. App RouteDeck bridges public entry, auth, SaaS Agent creation/selection, selected-agent setup, execution, knowledge, memory, learning, QA, and recovery.
-2. `GET /api/app/graph/snapshot` returns the current graph manifest, runtime snapshot, valid actions, persistent actions, context lens, active surface, evidence, diagnostics, and replacement path.
-3. `POST /api/app/graph/action` validates action eligibility against graph state before running a handler.
-4. `POST /api/app/graph/turn` uses the app-owned structured router adapter. Disabled mode asks a natural clarification; OpenAI/Ollama modes can suggest typed actions, but backend eligibility remains authoritative.
-5. `GET /api/saas-agents/{saas_agent_id}/route-deck` is compatibility debt and should be wrapped or removed during the purge slice.
+2. `GET /api/corpus/state` returns RouteDeck runtime state converted into the Corpus state response shape.
+3. `POST /api/corpus/action` dispatches through `CorpusRouteDeckRuntime` and returns the Corpus action response shape.
+4. `GET /api/corpus/stream` uses RouteDeck projection events for state subscriptions and Corpus turn streaming for natural-language user input.
+5. `GET /api/diagnostics/stream` reads RouteDeck snapshot and inspect data.
+6. `GET /api/app/graph/snapshot`, `POST /api/app/graph/action`, and `POST /api/app/graph/turn` are compatibility endpoints, not the active product UI contract.
+7. `GET /api/saas-agents/{saas_agent_id}/route-deck` is compatibility debt and should be wrapped or removed during the purge slice.
 
 ## Agent-First App Shell
 

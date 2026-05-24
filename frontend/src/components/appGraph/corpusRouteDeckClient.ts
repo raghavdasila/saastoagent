@@ -7,10 +7,11 @@ import {
 import { api } from '@/lib/api'
 import type { AppGraphState } from '@/types/appGraph'
 import type { CorpusActionResponse, CorpusStateResponse } from '@/types/corpus'
+import { corpusNodeIds } from './corpusRouteDeckCatalog'
 
 export function corpusStatePath(nodeId?: string, saasAgentId?: string) {
   const params = new URLSearchParams()
-  const effectiveNodeId = nodeId || (saasAgentId ? 'agent_home' : undefined)
+  const effectiveNodeId = nodeId || (saasAgentId ? corpusNodeIds.agentHome : undefined)
   if (effectiveNodeId) params.set('node_id', effectiveNodeId)
   if (saasAgentId) params.set('saas_agent_id', saasAgentId)
   const query = params.toString()
@@ -79,6 +80,10 @@ export function graphStateFromRouteDeckState(state: RouteDeckClientState): AppGr
   const graphState = state.graph_state
   if (!graphState || typeof graphState.node !== 'string') return null
   return graphState as unknown as AppGraphState
+}
+
+export function activeSaaSAgentIdFromRouteDeckState(state: RouteDeckClientState): string | null {
+  return graphStateFromRouteDeckState(state)?.active_saas_agent_id || null
 }
 
 export function syncBrowserPathWithoutNavigation(nextPath: string) {

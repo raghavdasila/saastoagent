@@ -1,6 +1,6 @@
 # RouteDeck Contract And Debugger Validation
 
-Date: 2026-05-21
+Date: 2026-05-24
 
 ## Scope
 
@@ -24,8 +24,19 @@ SaaStoAgent diagnostics.
 - Docked and fullscreen diagnostics render the same shared debugger behavior.
 - Navigation canvases stay topology-only; actions/details remain outside the
   canvas until a node/operation is inspected.
+- Corpus state/action routes cross the RouteDeck runtime boundary instead of
+  calling Corpus graph state/action helpers directly.
+- Frontend SaaSAgent context comes from RouteDeck state, while Zustand remains
+  UI-local state.
 
 ## Current Evidence
+
+- `python -m pytest backend/tests/test_app_graph_contract.py backend/tests/test_corpus_graph_contract.py backend/tests/test_corpus_routedeck_runtime.py backend/tests/test_corpus_routedeck_state.py -q`: passed, 65 tests.
+- `npm run type-check` in SaaStoAgent frontend: passed.
+- Backend source scan confirmed no stale `SaaStoAgentRouteDeckAdapter`,
+  `routedeck_adapter`, or old adapter contract test references.
+
+Earlier debugger evidence:
 
 - `python -m pytest backend/tests/test_app_graph_contract.py -q`: passed, 16
   tests.
@@ -43,6 +54,7 @@ SaaStoAgent diagnostics.
 
 ```powershell
 python -m pytest backend/tests/test_app_graph_contract.py -q
+python -m pytest backend/tests/test_app_graph_contract.py backend/tests/test_corpus_graph_contract.py backend/tests/test_corpus_routedeck_runtime.py backend/tests/test_corpus_routedeck_state.py -q
 cd ..\routedeck\react
 npm test
 cd ..\..\saastoagent-v0.1\frontend

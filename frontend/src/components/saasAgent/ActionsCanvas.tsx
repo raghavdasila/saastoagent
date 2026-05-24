@@ -4,22 +4,26 @@ import { useQuery } from '@tanstack/react-query'
 import { Bot, Filter, MessageSquareText, ShieldAlert } from 'lucide-react'
 
 import { api } from '@/lib/api'
-import { useSaaSAgentStore } from '@/stores/saasAgentStore'
+import { useSaaSAgentUiStore } from '@/stores/saasAgentUiStore'
 import type { ActionCatalogRead, ActionNodeRead, GeneratedToolRead } from '@/types/domain'
 
 type RiskFilter = 'all' | 'read' | 'approval'
 
-export function ActionsCanvas() {
-  const saasAgentId = useSaaSAgentStore((state) => state.saasAgentId)
-  const setActiveView = useSaaSAgentStore((state) => state.setActiveView)
-  const selectedActionNodeId = useSaaSAgentStore((state) => state.selectedActionNodeId)
-  const selectActionNode = useSaaSAgentStore((state) => state.selectActionNode)
+interface ActionsCanvasProps {
+  saasAgentId?: string | null
+}
+
+export function ActionsCanvas({ saasAgentId = null }: ActionsCanvasProps) {
+  const agentApi = api.withSaaSAgent(saasAgentId)
+  const setActiveView = useSaaSAgentUiStore((state) => state.setActiveView)
+  const selectedActionNodeId = useSaaSAgentUiStore((state) => state.selectedActionNodeId)
+  const selectActionNode = useSaaSAgentUiStore((state) => state.selectActionNode)
   const [query, setQuery] = useState('')
   const [risk, setRisk] = useState<RiskFilter>('all')
 
   const { data: catalog, isLoading } = useQuery({
     queryKey: ['saasAgent-catalog', saasAgentId],
-    queryFn: () => api.get<ActionCatalogRead>(`/saas-agents/${saasAgentId}/catalog`),
+    queryFn: () => agentApi.get<ActionCatalogRead>(`/saas-agents/${saasAgentId}/catalog`),
     enabled: !!saasAgentId,
   })
 

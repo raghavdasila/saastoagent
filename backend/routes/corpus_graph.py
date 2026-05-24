@@ -6,12 +6,13 @@ from typing import Any, AsyncIterator
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
+from routedeck_core import RouteDeckDispatchInput, RouteDeckDispatchResult, RouteDeckRuntimeState
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.auth import current_optional_active_user
 from backend.core.database import get_async_session
 from backend.core.models import User
-from backend.core.schemas import AppGraphRequest, CorpusActionRequest, CorpusActionResponse, CorpusStateResponse
+from backend.core.schemas import AppGraphRequest, AppGraphState, CorpusActionRequest, CorpusActionResponse, CorpusStateResponse, EntryGraphMessage
 from backend.services.app_graph import corpus_graph_runtime, route_deck_runtime
 
 router = APIRouter(tags=["corpus-graph"])
@@ -66,12 +67,15 @@ async def get_corpus_state(
     user: User | None = Depends(current_optional_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    return await corpus_graph_runtime.corpus_state(
-        request=AppGraphRequest(node_id=node_id, saas_agent_id=saas_agent_id),
-        user=user,
-        db=db,
-        projection_version=projection_version,
+    runtime_state = await route_deck_runtime.snapshot(
+        {
+            "request": AppGraphRequest(node_id=node_id, saas_agent_id=saas_agent_id),
+            "user": user,
+            "db": db,
+            "projection_version": projection_version,
+        }
     )
+    return _corpus_state_response_from_routedeck_state(runtime_state)
 
 
 @router.get("/api/corpus/stream")
@@ -86,6 +90,18 @@ async def stream_corpus_turn(
     turn_id = str(uuid.uuid4())
 
     async def events() -> AsyncIterator[str]:
+        if not user_input.strip():
+            async for event in route_deck_runtime.stream(
+                {
+                    "request": AppGraphRequest(node_id=node_id, saas_agent_id=saas_agent_id),
+                    "user": user,
+                    "db": db,
+                    "projection_version": projection_version,
+                }
+            ):
+                yield _sse(event.event_type, {"turn_id": turn_id, **event.model_dump(mode="json")})
+            return
+
         async for event in corpus_graph_runtime.stream_corpus_turn(
             request=AppGraphRequest(user_input=user_input, node_id=node_id, saas_agent_id=saas_agent_id),
             user=user,
@@ -103,18 +119,31 @@ async def corpus_action(
     user: User | None = Depends(current_optional_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    return await corpus_graph_runtime.corpus_action(
-        request=AppGraphRequest(
-            state=body.state,
-            node_id=body.node_id,
-            saas_agent_id=body.saas_agent_id,
-        ),
-        operation_id=body.operation_id,
-        args=body.args,
-        user=user,
-        db=db,
-        projection_version=body.projection_version or 1,
+    graph_state = body.state or AppGraphState(
+        node=body.node_id or "home",
+        active_saas_agent_id=body.saas_agent_id,
     )
+    result = await route_deck_runtime.dispatch(
+        RouteDeckDispatchInput(
+            operation_id=body.operation_id,
+            args=body.args,
+            graph_state=graph_state.model_dump(mode="json"),
+            projection_version=body.projection_version or 1,
+        ),
+        {
+            "request": AppGraphRequest(
+                state=body.state,
+                node_id=body.node_id,
+                saas_agent_id=body.saas_agent_id,
+            ),
+            "user": user,
+            "db": db,
+            "node_id": body.node_id,
+            "saas_agent_id": body.saas_agent_id,
+            "projection_version": body.projection_version or 1,
+        },
+    )
+    return _corpus_action_response_from_routedeck_result(result)
 
 
 @router.get("/api/diagnostics/stream")
@@ -155,6 +184,24 @@ async def stream_diagnostics(
 
 async def _single_event(event_type: str, payload: dict[str, Any]) -> AsyncIterator[str]:
     yield _sse(event_type, payload)
+
+
+def _corpus_state_response_from_routedeck_state(state: RouteDeckRuntimeState) -> CorpusStateResponse:
+    return CorpusStateResponse(
+        state=AppGraphState.model_validate(state.graph_state or {}),
+        projection=state.projection,
+        replace_path=state.location,
+    )
+
+
+def _corpus_action_response_from_routedeck_result(result: RouteDeckDispatchResult) -> CorpusActionResponse:
+    return CorpusActionResponse(
+        state=AppGraphState.model_validate(result.state.graph_state or {}),
+        projection=result.state.projection,
+        active_surface=result.active_surface,
+        messages=[EntryGraphMessage.model_validate(message) for message in result.messages],
+        replace_path=result.state.location or result.metadata.get("replace_path"),
+    )
 
 
 def _sse(event_type: str, payload: dict[str, Any]) -> str:

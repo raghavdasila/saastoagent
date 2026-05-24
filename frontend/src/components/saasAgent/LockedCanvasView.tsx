@@ -1,4 +1,4 @@
-import { capabilityItems, type SaaSAgentView } from '@/stores/saasAgentStore'
+import { capabilityItems, type SaaSAgentView } from '@/stores/saasAgentUiStore'
 
 interface LockedCanvasViewProps {
   view: SaaSAgentView

@@ -5,6 +5,10 @@ import asyncio
 from routedeck_core import RouteDeckDispatchInput, RouteDeckRuntime, RouteDeckRuntimeState
 
 from backend.core.schemas import AppGraphRequest, AppGraphState
+from backend.routes.corpus_graph import (
+    _corpus_action_response_from_routedeck_result,
+    _corpus_state_response_from_routedeck_state,
+)
 from backend.services.app_graph import corpus_graph_runtime
 from backend.services.app_graph.corpus_routedeck_runtime import CorpusRouteDeckRuntime
 
@@ -68,3 +72,38 @@ def test_corpus_routedeck_runtime_stream_emits_projection_update():
 
     assert [event.event_type for event in events] == ["projection_update"]
     assert events[0].payload["projection"]["graph_node"] == "home"
+
+
+def test_corpus_state_route_conversion_preserves_routedeck_runtime_state():
+    runtime = CorpusRouteDeckRuntime(corpus_graph_runtime)
+    state = asyncio.run(runtime.snapshot({"request": AppGraphRequest(), "user": None, "db": None}))
+
+    response = _corpus_state_response_from_routedeck_state(state)
+
+    assert response.state.node == "home"
+    assert response.projection.graph_node == "home"
+    assert response.projection.projection_version == state.projection.projection_version
+    assert response.replace_path == "/app/home"
+
+
+def test_corpus_action_route_conversion_preserves_routedeck_dispatch_result():
+    runtime = CorpusRouteDeckRuntime(corpus_graph_runtime)
+    result = asyncio.run(
+        runtime.dispatch(
+            RouteDeckDispatchInput(
+                operation_id="auth.register",
+                graph_state=AppGraphState(node="home").model_dump(mode="json"),
+                projection_version=1,
+            ),
+            {"user": None, "db": None},
+        )
+    )
+
+    response = _corpus_action_response_from_routedeck_result(result)
+
+    assert response.state.node == "auth_register"
+    assert response.projection.graph_node == "auth_register"
+    assert response.projection.projection_version == result.state.projection.projection_version
+    assert response.replace_path == result.metadata["replace_path"]
+    assert response.active_surface == result.active_surface
+    assert [message.model_dump(mode="json") for message in response.messages] == result.messages

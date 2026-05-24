@@ -245,6 +245,9 @@ export function useSSEChat({ saasAgentId, chatPath, onError }: UseSSEChatOptions
       if (token && token !== 'undefined' && token !== 'null') {
         xhr.setRequestHeader('Authorization', `Bearer ${token}`)
       }
+      if (saasAgentId) {
+        xhr.setRequestHeader('X-SaaSAgent-ID', saasAgentId)
+      }
 
       xhr.onprogress = () => parseSSEChunk(xhr.responseText)
       xhr.onloadend = () => {

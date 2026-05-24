@@ -3,18 +3,22 @@ import { useQuery } from '@tanstack/react-query'
 import { GitBranch, MessageSquareText } from 'lucide-react'
 
 import { api } from '@/lib/api'
-import { useSaaSAgentStore } from '@/stores/saasAgentStore'
+import { useSaaSAgentUiStore } from '@/stores/saasAgentUiStore'
 import type { ActionCatalogRead, EntityRead } from '@/types/domain'
 
-export function EntitiesCanvas() {
-  const saasAgentId = useSaaSAgentStore((state) => state.saasAgentId)
-  const selectedEntityId = useSaaSAgentStore((state) => state.selectedEntityId)
-  const selectEntity = useSaaSAgentStore((state) => state.selectEntity)
-  const setActiveView = useSaaSAgentStore((state) => state.setActiveView)
+interface EntitiesCanvasProps {
+  saasAgentId?: string | null
+}
+
+export function EntitiesCanvas({ saasAgentId = null }: EntitiesCanvasProps) {
+  const agentApi = api.withSaaSAgent(saasAgentId)
+  const selectedEntityId = useSaaSAgentUiStore((state) => state.selectedEntityId)
+  const selectEntity = useSaaSAgentUiStore((state) => state.selectEntity)
+  const setActiveView = useSaaSAgentUiStore((state) => state.setActiveView)
 
   const { data: catalog, isLoading } = useQuery({
     queryKey: ['saasAgent-catalog', saasAgentId],
-    queryFn: () => api.get<ActionCatalogRead>(`/saas-agents/${saasAgentId}/catalog`),
+    queryFn: () => agentApi.get<ActionCatalogRead>(`/saas-agents/${saasAgentId}/catalog`),
     enabled: !!saasAgentId,
   })
 

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import {
   useRouteDeckStore,
@@ -24,7 +24,7 @@ import { EntitiesCanvas } from '@/components/saasAgent/EntitiesCanvas'
 import { QAAgentPanel } from '@/components/qa/QAAgentPanel'
 import { useAuth } from '@/context/AuthContext'
 import { isValidEmail } from '@/lib/entryGraph'
-import { useSaaSAgentStore } from '@/stores/saasAgentStore'
+import { useSaaSAgentUiStore } from '@/stores/saasAgentUiStore'
 import type { AppGraphContextLens, AppGraphState } from '@/types/appGraph'
 import type { CorpusExpectedActiveSurface } from '@/types/corpus'
 import type { SaaSAgent } from '@/types/domain'
@@ -37,6 +37,7 @@ import {
   proposalFields,
 } from './corpusOperations'
 import { graphStateFromRouteDeckState, syncBrowserPathWithoutNavigation } from './corpusRouteDeckClient'
+import { corpusOperationIds, corpusSurfaceComponents } from './corpusRouteDeckCatalog'
 import { displayWork } from './workbenchDisplay'
 export function OperationForm({
   operation,
@@ -245,20 +246,21 @@ export function SurfaceRenderer({
   busy: boolean
   onOperationSubmit: (operationId: string, args: Record<string, unknown>) => void
 }) {
-  if (surface.component === 'CorpusAuthSurface') {
+  if (surface.component === corpusSurfaceComponents.auth) {
     return <AuthSurfaceCard surface={surface} />
   }
-  if (surface.component === 'EntitiesSurface') return <EntitiesCanvas />
-  if (surface.component === 'ActionsSurface') return <ActionsCanvas />
-  if (surface.component === 'KnowledgeSurface') return <AttachmentsPanel />
-  if (surface.component === 'LearningSurface') return <LearningPanel />
-  if (surface.component === 'QASurface') return <QAAgentPanel onResetRuntime={async () => undefined} />
-  if (surface.component === 'MemorySurface') {
+  const activeSaaSAgentId = graphState?.active_saas_agent_id || null
+  if (surface.component === corpusSurfaceComponents.entities) return <EntitiesCanvas saasAgentId={activeSaaSAgentId} />
+  if (surface.component === corpusSurfaceComponents.actions) return <ActionsCanvas saasAgentId={activeSaaSAgentId} />
+  if (surface.component === corpusSurfaceComponents.knowledge) return <AttachmentsPanel saasAgentId={activeSaaSAgentId} />
+  if (surface.component === corpusSurfaceComponents.learning) return <LearningPanel saasAgentId={activeSaaSAgentId} />
+  if (surface.component === corpusSurfaceComponents.qa) return <QAAgentPanel onResetRuntime={async () => undefined} />
+  if (surface.component === corpusSurfaceComponents.memory) {
     const agents = Array.isArray(surface.props?.saas_agents) ? (surface.props?.saas_agents as SaaSAgent[]) : []
-    const activeAgent = agents.find((agent) => agent.id === graphState?.active_saas_agent_id)
-    return <AdminPanel saasAgent={activeAgent} />
+    const activeAgent = agents.find((agent) => agent.id === activeSaaSAgentId)
+    return <AdminPanel saasAgent={activeAgent} saasAgentId={activeSaaSAgentId} />
   }
-  if (surface.component === 'SchemaPreviewSurface') {
+  if (surface.component === corpusSurfaceComponents.schemaPreview) {
     const preview = surface.props?.schema_preview as Record<string, unknown> | undefined
     return (
       <InfoSurface title="Schema preview" description="Review the detected API shape before activation." icon={<FileText className="h-5 w-5" />}>
@@ -270,7 +272,7 @@ export function SurfaceRenderer({
       </InfoSurface>
     )
   }
-  if (surface.component === 'CatalogSurface') {
+  if (surface.component === corpusSurfaceComponents.catalog) {
     const activationEvents = Array.isArray(surface.props?.activation_events)
       ? (surface.props?.activation_events as unknown[])
       : []
@@ -287,19 +289,19 @@ export function SurfaceRenderer({
       </InfoSurface>
     )
   }
-  if (surface.component === 'ConnectionSetupSurface') {
+  if (surface.component === corpusSurfaceComponents.connectionSetup) {
     return <ConnectionSetupSurface projection={projection} busy={busy} onOperationSubmit={onOperationSubmit} />
   }
-  if (surface.component === 'SaaSAgentListSurface') {
+  if (surface.component === corpusSurfaceComponents.saaSAgentList) {
     const agents = Array.isArray(surface.props?.saas_agents) ? (surface.props?.saas_agents as SaaSAgent[]) : []
     return <SaaSAgentListSurface agents={agents} />
   }
-  if (surface.component === 'ExecutionSurface') {
+  if (surface.component === corpusSurfaceComponents.execution) {
     return (
       <InfoSurface title="Execution" description="Corpus will propose execution inputs or approvals when the graph requires them." icon={<Play className="h-5 w-5" />} />
     )
   }
-  if (surface.component === 'RecoverySurface') {
+  if (surface.component === corpusSurfaceComponents.recovery) {
     return (
       <InfoSurface title="Recovery" description="This path needs a different prerequisite. Diagnostics can explain why it is blocked." icon={<AlertTriangle className="h-5 w-5" />} />
     )
@@ -311,7 +313,7 @@ export function SurfaceRenderer({
 
 export function SaaSAgentListSurface({ agents }: { agents: SaaSAgent[] }) {
   const routeDeckStore = useRouteDeckStore()
-  const setSaaSAgentId = useSaaSAgentStore((state) => state.setSaaSAgentId)
+  const setMirroredSaaSAgentId = useSaaSAgentUiStore((state) => state.setMirroredSaaSAgentId)
   const [search, setSearch] = useState('')
   const [openingAgentId, setOpeningAgentId] = useState<string | null>(null)
   const filteredAgents = agents.filter((agent) => {
@@ -324,11 +326,11 @@ export function SaaSAgentListSurface({ agents }: { agents: SaaSAgent[] }) {
     setOpeningAgentId(agent.id)
     try {
       const response = await routeDeckStore.dispatch({
-        operation_id: 'saas_agent.open',
+        operation_id: corpusOperationIds.openSaaSAgent,
         args: { saas_agent_id: agent.id },
       })
       const nextGraphState = graphStateFromRouteDeckState(response.state)
-      setSaaSAgentId(nextGraphState?.active_saas_agent_id || agent.id)
+      setMirroredSaaSAgentId(nextGraphState?.active_saas_agent_id || agent.id)
       const nextPath = response.state.location || null
       if (nextPath && nextPath !== window.location.pathname) {
         syncBrowserPathWithoutNavigation(nextPath)
@@ -420,7 +422,7 @@ export function AuthSurfaceCard({ surface }: { surface: RouteDeckSurface }) {
         await login(cleanedEmail, password)
       }
       await routeDeckStore.dispatch({
-        operation_id: 'navigate.home',
+        operation_id: corpusOperationIds.navigateHome,
         args: {},
       })
     } catch (authError: unknown) {
@@ -504,7 +506,7 @@ export function AuthSurfaceCard({ surface }: { surface: RouteDeckSurface }) {
           type="button"
           disabled={submitting}
           onClick={() => {
-            void routeDeckStore.dispatch({ operation_id: 'navigate.home', args: {} })
+            void routeDeckStore.dispatch({ operation_id: corpusOperationIds.navigateHome, args: {} })
           }}
           className="surface-outline-button disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -565,7 +567,7 @@ export function InfoSurface({
 }
 
 export function surfaceTitle(surface: RouteDeckSurface, contextLens: AppGraphContextLens | null) {
-  if (surface.component === 'CorpusAuthSurface') {
+  if (surface.component === corpusSurfaceComponents.auth) {
     return surface.variant === 'auth_register' ? 'Create account' : 'Sign in'
   }
   return String(surface.props?.title || contextLens?.working_on || surface.variant || surface.component)

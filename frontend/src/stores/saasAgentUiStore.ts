@@ -21,8 +21,8 @@ export interface CapabilityItem {
   disabledReason?: string
 }
 
-interface SaaSAgentState {
-  saasAgentId: string | null
+interface SaaSAgentUiState {
+  mirroredSaaSAgentId: string | null
   activeView: SaaSAgentView
   lastActiveViewBySaaSAgent: Record<string, SaaSAgentView>
   shellDraftBySaaSAgent: Record<string, string>
@@ -31,8 +31,8 @@ interface SaaSAgentState {
   selectedEntityId: string | null
   selectedActionNodeId: string | null
   selectedQaRunId: string | null
-  setSaaSAgentId: (saasAgentId: string | null) => void
-  clearSaaSAgent: () => void
+  setMirroredSaaSAgentId: (saasAgentId: string | null) => void
+  clearSaaSAgentUiState: () => void
   setActiveView: (view: SaaSAgentView) => void
   setShellDraft: (saasAgentId: string, draft: string) => void
   appendShellMessage: (saasAgentId: string, message: ShellMessage) => void
@@ -114,8 +114,8 @@ export const capabilityItems: CapabilityItem[] = [
   },
 ]
 
-export const useSaaSAgentStore = create<SaaSAgentState>((set, get) => ({
-  saasAgentId: storage.getSaaSAgentId(),
+export const useSaaSAgentUiStore = create<SaaSAgentUiState>((set, get) => ({
+  mirroredSaaSAgentId: storage.getMirroredSaaSAgentId(),
   activeView: 'chat',
   lastActiveViewBySaaSAgent: readActiveViews(),
   shellDraftBySaaSAgent: {},
@@ -125,23 +125,23 @@ export const useSaaSAgentStore = create<SaaSAgentState>((set, get) => ({
   selectedActionNodeId: null,
   selectedQaRunId: null,
 
-  setSaaSAgentId: (saasAgentId) => {
+  setMirroredSaaSAgentId: (saasAgentId) => {
     const lastActiveViewBySaaSAgent = get().lastActiveViewBySaaSAgent
     const nextActiveView = saasAgentId ? lastActiveViewBySaaSAgent[saasAgentId] || 'chat' : 'chat'
 
     if (saasAgentId) {
-      storage.setSaaSAgentId(saasAgentId)
+      storage.setMirroredSaaSAgentId(saasAgentId)
     } else {
-      storage.removeSaaSAgentId()
+      storage.removeMirroredSaaSAgentId()
     }
 
-    set({ saasAgentId, activeView: nextActiveView })
+    set({ mirroredSaaSAgentId: saasAgentId, activeView: nextActiveView })
   },
 
-  clearSaaSAgent: () => {
-    storage.removeSaaSAgentId()
+  clearSaaSAgentUiState: () => {
+    storage.removeMirroredSaaSAgentId()
     set({
-      saasAgentId: null,
+      mirroredSaaSAgentId: null,
       activeView: 'chat',
       shellDraftBySaaSAgent: {},
       shellMessagesBySaaSAgent: {},
@@ -153,14 +153,14 @@ export const useSaaSAgentStore = create<SaaSAgentState>((set, get) => ({
   },
 
   setActiveView: (activeView) => {
-    const { saasAgentId, lastActiveViewBySaaSAgent } = get()
+    const { mirroredSaaSAgentId, lastActiveViewBySaaSAgent } = get()
 
-    if (!saasAgentId) {
+    if (!mirroredSaaSAgentId) {
       set({ activeView })
       return
     }
 
-    const nextViews = { ...lastActiveViewBySaaSAgent, [saasAgentId]: activeView }
+    const nextViews = { ...lastActiveViewBySaaSAgent, [mirroredSaaSAgentId]: activeView }
     writeActiveViews(nextViews)
     set({ activeView, lastActiveViewBySaaSAgent: nextViews })
   },

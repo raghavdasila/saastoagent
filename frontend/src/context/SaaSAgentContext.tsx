@@ -1,7 +1,7 @@
 import { type ReactNode, createContext, useContext, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 
-import { useSaaSAgentStore, type SaaSAgentView } from '@/stores/saasAgentStore'
+import { useSaaSAgentUiStore, type SaaSAgentView } from '@/stores/saasAgentUiStore'
 
 interface SaaSAgentContextValue {
   saasAgentId: string | null
@@ -25,17 +25,18 @@ interface SaaSAgentProviderProps {
 export function SaaSAgentProvider({ children, saasAgentId: saasAgentIdProp }: SaaSAgentProviderProps) {
   const { saasAgentId: routeSaaSAgentId } = useParams<{ saasAgentId: string }>()
   const saasAgentId = saasAgentIdProp ?? routeSaaSAgentId
-  const storedSaaSAgentId = useSaaSAgentStore((state) => state.saasAgentId)
-  const activeView = useSaaSAgentStore((state) => state.activeView)
-  const setSaaSAgentId = useSaaSAgentStore((state) => state.setSaaSAgentId)
-  const setActiveView = useSaaSAgentStore((state) => state.setActiveView)
+  const effectiveSaaSAgentId = saasAgentId || null
+  const mirroredSaaSAgentId = useSaaSAgentUiStore((state) => state.mirroredSaaSAgentId)
+  const activeView = useSaaSAgentUiStore((state) => state.activeView)
+  const setMirroredSaaSAgentId = useSaaSAgentUiStore((state) => state.setMirroredSaaSAgentId)
+  const setActiveView = useSaaSAgentUiStore((state) => state.setActiveView)
 
   useEffect(() => {
-    setSaaSAgentId(saasAgentId || null)
-  }, [setSaaSAgentId, saasAgentId])
+    setMirroredSaaSAgentId(saasAgentId || null)
+  }, [setMirroredSaaSAgentId, saasAgentId])
 
   return (
-    <SaaSAgentContext.Provider value={{ saasAgentId: storedSaaSAgentId, activeView, setActiveView }}>
+    <SaaSAgentContext.Provider value={{ saasAgentId: effectiveSaaSAgentId || mirroredSaaSAgentId, activeView, setActiveView }}>
       {children}
     </SaaSAgentContext.Provider>
   )

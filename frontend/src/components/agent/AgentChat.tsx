@@ -7,7 +7,7 @@ import { MessageBubble } from '@/components/agent/MessageBubble'
 import { useSSEChat } from '@/hooks/useSSEChat'
 import { api, ApiError } from '@/lib/api'
 import { formatSaaSAgentDisplayName, OPERATOR_NAME } from '@/lib/entryGraph'
-import { useSaaSAgentStore } from '@/stores/saasAgentStore'
+import { useSaaSAgentUiStore } from '@/stores/saasAgentUiStore'
 import type {
   AgentDocument,
   AgentMessageRow,
@@ -24,11 +24,13 @@ const STARTER_PROMPTS = [
 
 interface AgentChatProps {
   saasAgent?: SaaSAgent
+  saasAgentId?: string | null
 }
 
-export function AgentChat({ saasAgent }: AgentChatProps) {
-  const saasAgentId = useSaaSAgentStore((state) => state.saasAgentId)
-  const setActiveView = useSaaSAgentStore((state) => state.setActiveView)
+export function AgentChat({ saasAgent, saasAgentId: saasAgentIdProp }: AgentChatProps) {
+  const saasAgentId = saasAgentIdProp || saasAgent?.id || null
+  const agentApi = api.withSaaSAgent(saasAgentId)
+  const setActiveView = useSaaSAgentUiStore((state) => state.setActiveView)
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const [injectText, setInjectText] = useState('')
@@ -50,7 +52,7 @@ export function AgentChat({ saasAgent }: AgentChatProps) {
   const { data: sessionsData } = useQuery({
     queryKey: ['agent-sessions', saasAgentId],
     queryFn: () =>
-      api.get<{ sessions: AgentSession[]; total: number }>(
+      agentApi.get<{ sessions: AgentSession[]; total: number }>(
         `/saas-agents/${saasAgentId}/agent/sessions`,
       ),
     enabled: !!saasAgentId,
@@ -68,7 +70,7 @@ export function AgentChat({ saasAgent }: AgentChatProps) {
     async (sid: string) => {
       if (!saasAgentId) return
       try {
-        const rows = await api.get<AgentMessageRow[]>(
+        const rows = await agentApi.get<AgentMessageRow[]>(
           `/saas-agents/${saasAgentId}/agent/sessions/${sid}/messages`,
         )
         const ui: ChatUIMessage[] = rows.map((r) => ({
@@ -97,7 +99,7 @@ export function AgentChat({ saasAgent }: AgentChatProps) {
 
   const deleteSession = useMutation({
     mutationFn: (sid: string) =>
-      api.delete<{ status: string }>(`/saas-agents/${saasAgentId}/agent/sessions/${sid}`),
+      agentApi.delete<{ status: string }>(`/saas-agents/${saasAgentId}/agent/sessions/${sid}`),
     onSuccess: (_, sid) => {
       queryClient.invalidateQueries({ queryKey: ['agent-sessions', saasAgentId] })
       if (sid === sessionId) {
@@ -108,7 +110,7 @@ export function AgentChat({ saasAgent }: AgentChatProps) {
 
   const uploadFile = useMutation({
     mutationFn: (file: File) =>
-      api.upload<AgentDocument>(`/saas-agents/${saasAgentId}/agent/documents`, file),
+      agentApi.upload<AgentDocument>(`/saas-agents/${saasAgentId}/agent/documents`, file),
     onSuccess: (doc) => {
       queryClient.invalidateQueries({ queryKey: ['agent-documents', saasAgentId] })
       setInjectText(`Tell me what's in ${doc.original_name}`)

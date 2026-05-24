@@ -1,7 +1,7 @@
 import { Bot, Brain, FlaskConical, GitBranch, MessageSquareText, Paperclip, PlugZap, Shield } from 'lucide-react'
 
 import { PRODUCT_NAME } from '@/lib/entryGraph'
-import { capabilityItems, useSaaSAgentStore, type CapabilityStatus, type SaaSAgentView } from '@/stores/saasAgentStore'
+import { capabilityItems, useSaaSAgentUiStore, type CapabilityStatus, type SaaSAgentView } from '@/stores/saasAgentUiStore'
 
 const icons: Record<SaaSAgentView, typeof PlugZap> = {
   connect: PlugZap,
@@ -22,8 +22,8 @@ const statusClass: Record<CapabilityStatus, string> = {
 }
 
 export function ActivityBar() {
-  const activeView = useSaaSAgentStore((state) => state.activeView)
-  const setActiveView = useSaaSAgentStore((state) => state.setActiveView)
+  const activeView = useSaaSAgentUiStore((state) => state.activeView)
+  const setActiveView = useSaaSAgentUiStore((state) => state.setActiveView)
 
   return (
     <aside className="border-b border-slate-200 bg-white md:min-h-[calc(100vh-3.5rem)] md:w-72 md:shrink-0 md:border-b-0 md:border-r dark:border-white/10 dark:bg-[#09090b]">

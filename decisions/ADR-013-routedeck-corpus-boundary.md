@@ -2,7 +2,8 @@
 
 Date: 2026-05-22
 Status: Accepted
-Implementation status: Partially implemented, boundary cleanup required
+Implementation status: Backend/frontend boundary cleanup implemented on
+2026-05-24; browser E2E rerun pending
 
 ## Context
 
@@ -37,6 +38,7 @@ RouteDeck responsibilities:
 - generic dispatch legality checks
 - generic diagnostics/debugger primitives
 - generic surface contracts where they are reusable across products
+- React-facing state/store/hooks for RouteDeck-projected app state
 
 Corpus responsibilities:
 
@@ -46,6 +48,15 @@ Corpus responsibilities:
 - deployed-chat product copy and public-safe result presentation
 - decision on how an operation should appear to a user
 - binding product entities such as `saas_agent_id` before dispatch
+- keeping SaaStoAgent-specific RouteDeck ids, surfaces, and copy in
+  Corpus-owned files
+
+Frontend local state responsibilities:
+
+- Zustand may keep UI-only state such as tabs, drafts, local selections, and a
+  mirrored active SaaSAgent id.
+- Zustand must not become the source of graph truth, active RouteDeck state,
+  legal operations, active surfaces, or dispatch readiness.
 
 The UI rule is:
 
@@ -66,20 +77,37 @@ The UI rule is:
   surfaces instead of pushing all agents into conversation context.
 - Builder diagnostics can expose RouteDeck internals, but deployed chat cannot.
 
-## Current Implementation Gap
+## Current Implementation State
 
-The behavior is partially aligned:
+The behavior is now aligned for the active boundary:
 
 - `saas_agent.list` exists as a selector-style surface operation.
 - `saas_agent.open` requires a bound `saas_agent_id`.
 - recent agent cards bind `saas_agent_id` before dispatch.
 - RouteDeck operation readiness metadata exists.
+- `/api/corpus/state` calls `route_deck_runtime.snapshot(...)`.
+- `/api/corpus/action` calls `route_deck_runtime.dispatch(...)`.
+- `CorpusRouteDeckRuntime` is the only product-side RouteDeck runtime name.
+- `SaaStoAgentRouteDeckAdapter` and `routedeck_adapter.py` have been removed.
+- `AppGraphShell` derives active SaaSAgent identity from RouteDeck state.
+- `saasAgentUiStore` is named and tested as UI state, not RouteDeck state.
 
-But the implementation remains too intertwined between Corpus/app graph shell
-code and RouteDeck usage. The next session should split framework helpers and
-Corpus-specific surface/rendering code before deepening feature modules.
+Remaining implementation concerns are runtime UX and coverage rather than the
+basic boundary name/path:
+
+- Docker browser E2E needs to be rerun after the cleanup.
+- No-page-navigation/no-flicker behavior for auth and active surface opening
+  needs browser regression coverage.
+- Public result rendering and query continuity remain open runtime/product
+  issues.
 
 ## Validation
 
-Validated indirectly through the horizontal E2E path and the incomplete-agent
-recovery work. A dedicated boundary refactor and tests are still pending.
+Dedicated boundary validation added on 2026-05-24:
+
+- `python -m pytest backend/tests/test_app_graph_contract.py backend/tests/test_corpus_graph_contract.py backend/tests/test_corpus_routedeck_runtime.py backend/tests/test_corpus_routedeck_state.py -q`
+  - Result: `65 passed`
+- `npm run type-check` from `frontend`
+  - Result: passed
+- Backend source scan confirmed no `SaaStoAgentRouteDeckAdapter`,
+  `routedeck_adapter`, or old adapter contract test references.

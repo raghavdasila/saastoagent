@@ -3,23 +3,24 @@ import { ArrowRight, Bot, RotateCcw, Send } from 'lucide-react'
 
 import { buildInitialAgentMessage, buildShellAgentReply } from '@/components/saasAgent/shellAgent'
 import { formatSaaSAgentDisplayName } from '@/lib/entryGraph'
-import { useSaaSAgentStore, type ShellMessage } from '@/stores/saasAgentStore'
+import { useSaaSAgentUiStore, type ShellMessage } from '@/stores/saasAgentUiStore'
 import type { SaaSAgent, SaaSAgentStats } from '@/types/domain'
 
 interface AgentChatStubProps {
   saasAgent?: SaaSAgent
   stats?: SaaSAgentStats
+  saasAgentId?: string | null
 }
 
-export function AgentChatStub({ saasAgent, stats }: AgentChatStubProps) {
+export function AgentChatStub({ saasAgent, stats, saasAgentId: saasAgentIdProp }: AgentChatStubProps) {
   const saasAgentName = formatSaaSAgentDisplayName(saasAgent?.name) || 'this saasAgent'
-  const saasAgentId = useSaaSAgentStore((state) => state.saasAgentId)
-  const setActiveView = useSaaSAgentStore((state) => state.setActiveView)
-  const setShellDraft = useSaaSAgentStore((state) => state.setShellDraft)
-  const appendShellMessage = useSaaSAgentStore((state) => state.appendShellMessage)
-  const clearShellMessages = useSaaSAgentStore((state) => state.clearShellMessages)
-  const draft = useSaaSAgentStore((state) => (saasAgentId ? state.shellDraftBySaaSAgent[saasAgentId] || '' : ''))
-  const storedMessages = useSaaSAgentStore((state) =>
+  const saasAgentId = saasAgentIdProp || saasAgent?.id || null
+  const setActiveView = useSaaSAgentUiStore((state) => state.setActiveView)
+  const setShellDraft = useSaaSAgentUiStore((state) => state.setShellDraft)
+  const appendShellMessage = useSaaSAgentUiStore((state) => state.appendShellMessage)
+  const clearShellMessages = useSaaSAgentUiStore((state) => state.clearShellMessages)
+  const draft = useSaaSAgentUiStore((state) => (saasAgentId ? state.shellDraftBySaaSAgent[saasAgentId] || '' : ''))
+  const storedMessages = useSaaSAgentUiStore((state) =>
     saasAgentId ? state.shellMessagesBySaaSAgent[saasAgentId] || [] : [],
   )
 

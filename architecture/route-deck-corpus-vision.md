@@ -8,7 +8,7 @@ Related RouteDeck framework anchor: `../../routedeck/docs/agentic-ui-state-runti
 
 Read that document as the framework-level clarification of this vision: RouteDeck is graph-backed state management for agentic UI, not just a projection DTO or debugger package.
 
-## Current Implementation Checkpoint - 2026-05-19
+## Current Implementation Checkpoint - 2026-05-24
 
 The RouteDeck direction has been tightened further:
 
@@ -17,7 +17,25 @@ RouteDeck is the runtime/store layer for agentic UI.
 Corpus is the SaaStoAgent product agent that consumes RouteDeck.
 ```
 
-This means SaaStoAgent should mount a configured `RouteDeckStore` and read RouteDeck state through hooks. Corpus may choose legal operations and allowed surface variants, but RouteDeck owns the generic state-management contract and the graph adapter owns commits and guard enforcement.
+This means SaaStoAgent mounts a configured `RouteDeckStore` and reads RouteDeck
+state through hooks. Corpus may choose legal operations and allowed surface
+variants, but RouteDeck owns the generic state-management contract and
+`CorpusRouteDeckRuntime` mediates commits/guard enforcement over
+`CorpusGraphRuntime`.
+
+The active backend boundary is:
+
+- `/api/corpus/state` -> `route_deck_runtime.snapshot(...)`
+- `/api/corpus/action` -> `route_deck_runtime.dispatch(...)`
+- `/api/corpus/stream` -> RouteDeck projection events when subscribing to state,
+  Corpus turn streaming when natural-language input is present
+
+The active frontend boundary is:
+
+- RouteDeck owns graph state, projection, operations, active surfaces, active
+  SaaSAgent identity, and location.
+- Zustand owns only local UI state such as active tabs, drafts, selected rows,
+  and a mirrored active id for old shell ergonomics.
 
 The current reset plan is captured in `../plans/routedeck_runtime_store_reset_plan.md`.
 
