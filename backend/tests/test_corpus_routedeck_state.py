@@ -29,6 +29,23 @@ def test_corpus_operation_policy_keeps_agent_open_bound_only():
     assert operation.can_dispatch_now is False
 
 
+def test_corpus_operation_policy_keeps_learning_open_directly_dispatchable():
+    operation = CorpusOperationPolicy().operation_for_action(_action(AppActionIds.LEARNING_OPEN))
+
+    assert operation.id == "learning.open"
+    assert operation.invocation_kind == "direct"
+    assert operation.execution_mode == "auto"
+    assert operation.can_dispatch_now is True
+    assert operation.target_node == "learning"
+
+
+def test_corpus_operation_policy_keeps_learning_review_actions_review_mode():
+    operation = CorpusOperationPolicy().operation_for_action(_action(AppActionIds.LEARNING_APPROVE))
+
+    assert operation.id == "learning.approve"
+    assert operation.execution_mode == "review"
+
+
 def test_corpus_surface_registry_maps_product_nodes_to_surfaces():
     registry = CorpusSurfaceRegistry()
 
@@ -37,11 +54,11 @@ def test_corpus_surface_registry_maps_product_nodes_to_surfaces():
     assert registry.active_surface_component_for_node("connection_configure") == "ConnectionSetupSurface"
 
 
-def test_corpus_surface_registry_builds_connection_surface_prompt():
+def test_corpus_surface_registry_builds_connection_open_message():
     registry = CorpusSurfaceRegistry()
     operation = CorpusOperationPolicy().operation_for_action(_action(AppActionIds.CONNECTION_CONFIGURE))
 
-    assert registry.deterministic_surface_prompt(operation).startswith("Connection setup is open.")
+    assert registry.deterministic_open_message(operation).startswith("Connection setup is open.")
 
 
 def test_corpus_surface_registry_builds_active_surface_with_lens_and_agents():
@@ -55,3 +72,33 @@ def test_corpus_surface_registry_builds_active_surface_with_lens_and_agents():
     assert surface.name == "active"
     assert surface.component == "SaaSAgentListSurface"
     assert surface.props["lens"]["working_on"] == "Select SaaS Agent"
+
+
+def test_learning_projection_exposes_peer_surfaces_and_child_review_nodes():
+    registry = CorpusSurfaceRegistry()
+    state = AppGraphState(node="learning")
+    lens = AppGraphContextLens(current_node="learning", working_on="Learning")
+
+    surfaces = registry.active_surfaces(state=state, lens=lens, saas_agents=[], context="learning")
+
+    surface_ids = {surface.surface_id for surface in surfaces}
+    assert "learning.policy_gaps" in surface_ids
+    assert "learning.failed_executions" in surface_ids
+    assert "learning.active_policies" in surface_ids
+    assert all(surface.surface_kind == "peer" for surface in surfaces)
+
+
+def test_learning_policy_candidate_detail_surface_uses_route_params():
+    registry = CorpusSurfaceRegistry()
+    state = AppGraphState(
+        node="learning.policy_candidate",
+        route_params={"candidate_id": "candidate_123"},
+    )
+    lens = AppGraphContextLens(current_node="learning.policy_candidate", working_on="Policy Candidate")
+
+    surfaces = registry.active_surfaces(state=state, lens=lens, saas_agents=[], context="learning.policy_candidate")
+
+    assert len(surfaces) == 1
+    assert surfaces[0].surface_id == "learning.policy_candidate.review"
+    assert surfaces[0].surface_kind == "detail"
+    assert surfaces[0].props["candidate_id"] == "candidate_123"

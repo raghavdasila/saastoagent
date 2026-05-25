@@ -3,7 +3,8 @@
 Date: 2026-05-22
 Status: Accepted
 Implementation status: Backend/frontend boundary cleanup implemented on
-2026-05-24; browser E2E rerun pending
+2026-05-24; RouteDeck v2 and graph-owned Learning/instructions boundary
+hardening implemented on 2026-05-25; browser E2E rerun pending
 
 ## Context
 
@@ -87,10 +88,15 @@ The behavior is now aligned for the active boundary:
 - RouteDeck operation readiness metadata exists.
 - `/api/corpus/state` calls `route_deck_runtime.snapshot(...)`.
 - `/api/corpus/action` calls `route_deck_runtime.dispatch(...)`.
+- raw public `/api/routedeck/*` product routes are removed.
 - `CorpusRouteDeckRuntime` is the only product-side RouteDeck runtime name.
 - `SaaStoAgentRouteDeckAdapter` and `routedeck_adapter.py` have been removed.
 - `AppGraphShell` derives active SaaSAgent identity from RouteDeck state.
 - `saasAgentUiStore` is named and tested as UI state, not RouteDeck state.
+- Learning approve/reject dispatch through AppGraph/RouteDeck operations.
+- Instructions save dispatches through `instructions.save`.
+- Product UI uses workflow/surface language instead of RouteDeck-node language.
+- RouteDeck diagnostics no longer label navgraph edges with action ids.
 
 Remaining implementation concerns are runtime UX and coverage rather than the
 basic boundary name/path:

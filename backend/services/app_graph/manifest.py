@@ -38,6 +38,9 @@ class AppNodeIds:
     KNOWLEDGE = "knowledge"
     MEMORY = "memory"
     LEARNING = "learning"
+    LEARNING_POLICY_CANDIDATE = "learning.policy_candidate"
+    LEARNING_EXECUTION_TRACE = "learning.execution_trace"
+    LEARNING_ACTIVE_POLICY = "learning.active_policy"
     QA = "qa"
     RECOVERY = "recovery"
 
@@ -51,6 +54,7 @@ class AppActionIds:
     SAAS_AGENT_CREATE = "saas_agent.create"
     AGENT_HOME = "navigate.agent_home"
     INSTRUCTIONS_OPEN = "instructions.open"
+    INSTRUCTIONS_SAVE = "instructions.save"
     CONNECTION_CONFIGURE = "navigate.connection_configure"
     CONNECTION_PREVIEW = "connection.preview"
     CONNECTION_ACTIVATE = "connection.activate"
@@ -68,8 +72,16 @@ class AppActionIds:
     MEMORY_OPEN = "memory.open"
     MEMORY_SAVE = "memory.save"
     LEARNING_OPEN = "learning.open"
+    LEARNING_POLICY_CANDIDATE_OPEN = "learning.policy_candidate.open"
+    LEARNING_EXECUTION_TRACE_OPEN = "learning.execution_trace.open"
+    LEARNING_ACTIVE_POLICY_OPEN = "learning.active_policy.open"
     LEARNING_APPROVE = "learning.approve"
     LEARNING_REJECT = "learning.reject"
+    ROUTE_BACK = "route.back"
+    ROUTE_FORWARD = "route.forward"
+    ROUTE_CANCEL = "route.cancel"
+    ROUTE_OPEN_NODE = "route.open_node"
+    ROUTE_SWITCH_SURFACE = "route.switch_surface"
     QA_OPEN = "qa.open"
     QA_RUN = "qa.run"
     RECOVERY_HOME = "recovery.home"
@@ -94,10 +106,101 @@ APP_GRAPH_GROUPS = {
         AppNodeIds.EXECUTING,
         AppNodeIds.RESULT_REVIEW,
     },
-    "knowledge": {AppNodeIds.KNOWLEDGE, AppNodeIds.MEMORY, AppNodeIds.LEARNING},
+    "knowledge": {
+        AppNodeIds.KNOWLEDGE,
+        AppNodeIds.MEMORY,
+        AppNodeIds.LEARNING,
+        AppNodeIds.LEARNING_POLICY_CANDIDATE,
+        AppNodeIds.LEARNING_EXECUTION_TRACE,
+        AppNodeIds.LEARNING_ACTIVE_POLICY,
+    },
     "qa": {AppNodeIds.QA},
     "recovery": {AppNodeIds.RECOVERY},
 }
+
+CAPABILITY_RAIL_ITEMS = [
+    {
+        "id": "home",
+        "label": "Home",
+        "icon_key": "home",
+        "nodes": [AppNodeIds.HOME],
+        "operation_id": AppActionIds.HOME,
+    },
+    {
+        "id": "agent",
+        "label": "Create Agent",
+        "icon_key": "sparkles",
+        "nodes": [AppNodeIds.SAAS_AGENT_SELECT, AppNodeIds.SAAS_AGENT_CREATE, AppNodeIds.AGENT_HOME, AppNodeIds.INSTRUCTIONS],
+        "operation_id": AppActionIds.SAAS_AGENT_CREATE,
+    },
+    {
+        "id": "connect",
+        "label": "Connect API",
+        "icon_key": "plug",
+        "nodes": [AppNodeIds.CONNECTION_CONFIGURE, AppNodeIds.SCHEMA_PREVIEW],
+        "operation_id": AppActionIds.CONNECTION_CONFIGURE,
+    },
+    {
+        "id": "catalog",
+        "label": "Catalog",
+        "icon_key": "database",
+        "nodes": [AppNodeIds.CATALOG_ACTIVATION, AppNodeIds.CATALOG],
+        "operation_id": AppActionIds.CATALOG_OPEN,
+    },
+    {
+        "id": "actions",
+        "label": "Actions",
+        "icon_key": "wrench",
+        "nodes": [AppNodeIds.ENTITIES, AppNodeIds.ACTIONS],
+        "operation_id": AppActionIds.ACTIONS_OPEN,
+    },
+    {
+        "id": "execution",
+        "label": "Execution",
+        "icon_key": "play",
+        "nodes": [
+            AppNodeIds.EXECUTION_PLANNING,
+            AppNodeIds.NEEDS_INPUT,
+            AppNodeIds.APPROVAL_REQUIRED,
+            AppNodeIds.EXECUTING,
+            AppNodeIds.RESULT_REVIEW,
+        ],
+        "operation_id": AppActionIds.EXECUTION_OPEN,
+    },
+    {
+        "id": "knowledge",
+        "label": "Knowledge",
+        "icon_key": "book",
+        "nodes": [AppNodeIds.KNOWLEDGE],
+        "operation_id": AppActionIds.KNOWLEDGE_OPEN,
+    },
+    {
+        "id": "memory",
+        "label": "Memory",
+        "icon_key": "brain",
+        "nodes": [AppNodeIds.MEMORY],
+        "operation_id": AppActionIds.MEMORY_OPEN,
+    },
+    {
+        "id": "learning",
+        "label": "Learning",
+        "icon_key": "graduation",
+        "nodes": [AppNodeIds.LEARNING],
+        "child_nodes": [
+            AppNodeIds.LEARNING_POLICY_CANDIDATE,
+            AppNodeIds.LEARNING_EXECUTION_TRACE,
+            AppNodeIds.LEARNING_ACTIVE_POLICY,
+        ],
+        "operation_id": AppActionIds.LEARNING_OPEN,
+    },
+    {
+        "id": "qa",
+        "label": "QA",
+        "icon_key": "clipboard",
+        "nodes": [AppNodeIds.QA],
+        "operation_id": AppActionIds.QA_OPEN,
+    },
+]
 
 ACTION_TARGETS = {
     AppActionIds.HOME: AppNodeIds.HOME,
@@ -108,6 +211,7 @@ ACTION_TARGETS = {
     AppActionIds.SAAS_AGENT_CREATE: AppNodeIds.AGENT_HOME,
     AppActionIds.AGENT_HOME: AppNodeIds.AGENT_HOME,
     AppActionIds.INSTRUCTIONS_OPEN: AppNodeIds.INSTRUCTIONS,
+    AppActionIds.INSTRUCTIONS_SAVE: AppNodeIds.INSTRUCTIONS,
     AppActionIds.CONNECTION_CONFIGURE: AppNodeIds.CONNECTION_CONFIGURE,
     AppActionIds.CONNECTION_PREVIEW: AppNodeIds.SCHEMA_PREVIEW,
     AppActionIds.CONNECTION_ACTIVATE: AppNodeIds.CATALOG,
@@ -125,8 +229,16 @@ ACTION_TARGETS = {
     AppActionIds.MEMORY_OPEN: AppNodeIds.MEMORY,
     AppActionIds.MEMORY_SAVE: AppNodeIds.MEMORY,
     AppActionIds.LEARNING_OPEN: AppNodeIds.LEARNING,
+    AppActionIds.LEARNING_POLICY_CANDIDATE_OPEN: AppNodeIds.LEARNING_POLICY_CANDIDATE,
+    AppActionIds.LEARNING_EXECUTION_TRACE_OPEN: AppNodeIds.LEARNING_EXECUTION_TRACE,
+    AppActionIds.LEARNING_ACTIVE_POLICY_OPEN: AppNodeIds.LEARNING_ACTIVE_POLICY,
     AppActionIds.LEARNING_APPROVE: AppNodeIds.LEARNING,
     AppActionIds.LEARNING_REJECT: AppNodeIds.LEARNING,
+    AppActionIds.ROUTE_BACK: AppNodeIds.HOME,
+    AppActionIds.ROUTE_FORWARD: AppNodeIds.HOME,
+    AppActionIds.ROUTE_CANCEL: AppNodeIds.HOME,
+    AppActionIds.ROUTE_OPEN_NODE: AppNodeIds.HOME,
+    AppActionIds.ROUTE_SWITCH_SURFACE: AppNodeIds.HOME,
     AppActionIds.QA_OPEN: AppNodeIds.QA,
     AppActionIds.QA_RUN: AppNodeIds.QA,
     AppActionIds.RECOVERY_HOME: AppNodeIds.HOME,
@@ -148,6 +260,13 @@ def _node(
     recovery: str | None = None,
     allowed_surfaces: dict[str, list[str]] | None = None,
     default_surfaces: dict[str, str] | None = None,
+    parent: str | None = None,
+    node_kind: str = "workflow",
+    capability_id: str | None = None,
+    show_in_navgraph: bool = True,
+    show_in_capability_rail: bool = True,
+    cancel_target_node: str | None = None,
+    dirty_policy: str = "none",
 ) -> RouteDeckNodeSpec:
     return RouteDeckNodeSpec(
         id=node_id,
@@ -157,6 +276,13 @@ def _node(
         allowed_actions=actions,
         expected_input=expected_input,
         recovery_prompt=recovery,
+        parent=parent,
+        node_kind=node_kind,
+        capability_id=capability_id,
+        show_in_navgraph=show_in_navgraph,
+        show_in_capability_rail=show_in_capability_rail,
+        cancel_target_node=cancel_target_node,
+        dirty_policy=dirty_policy,
         allowed_surfaces=allowed_surfaces or {"main": [node_id, "compact"], "active": [node_id]},
         default_surfaces=default_surfaces or {"main": node_id, "active": node_id},
     )
@@ -203,6 +329,7 @@ AGENT_REQUIRED_ACTIONS = [
     AppActionIds.QA_OPEN,
 ]
 ALL_NAV_ACTIONS = [AppActionIds.HOME, *AGENT_REQUIRED_ACTIONS]
+ROUTE_ACTIONS = [AppActionIds.ROUTE_BACK, AppActionIds.ROUTE_FORWARD, AppActionIds.ROUTE_CANCEL]
 
 NODE_SPECS = [
     _node(AppNodeIds.HOME, "Home", lane="system", description="Root application node. Lists eligible SaaS Agents and creates the next graph-owned action.", actions=[AppActionIds.AUTH_SIGN_IN, AppActionIds.AUTH_REGISTER, AppActionIds.SAAS_AGENT_LIST, AppActionIds.SAAS_AGENT_CREATE], recovery="Sign in, create an account, list SaaS Agents, or create a SaaS Agent.", allowed_surfaces={"main": ["lounge", "dashboard", "compact"], "active": ["home"]}, default_surfaces={"main": "dashboard", "active": "home"}),
@@ -211,7 +338,7 @@ NODE_SPECS = [
     _node(AppNodeIds.SAAS_AGENT_SELECT, "SaaS Agent Select", description="Select an eligible SaaS Agent.", actions=[AppActionIds.HOME, AppActionIds.SAAS_AGENT_OPEN, AppActionIds.SAAS_AGENT_CREATE]),
     _node(AppNodeIds.SAAS_AGENT_CREATE, "Create SaaS Agent", description="Create a SaaS Agent from name and slug only.", actions=[AppActionIds.HOME, AppActionIds.SAAS_AGENT_CREATE]),
     _node(AppNodeIds.AGENT_HOME, "SaaS Agent Home", description="Current SaaS Agent overview and graph route map.", actions=ALL_NAV_ACTIONS),
-    _node(AppNodeIds.INSTRUCTIONS, "Instructions", description="Manage this SaaS Agent's system prompt and operating instructions.", actions=ALL_NAV_ACTIONS),
+    _node(AppNodeIds.INSTRUCTIONS, "Instructions", description="Manage this SaaS Agent's system prompt and operating instructions.", actions=[*ALL_NAV_ACTIONS, AppActionIds.INSTRUCTIONS_SAVE], dirty_policy="confirm"),
     _node(AppNodeIds.CONNECTION_CONFIGURE, "Connection Configure", description="Configure an API connection from graph-provided fields.", actions=[*ALL_NAV_ACTIONS, AppActionIds.CONNECTION_PREVIEW, AppActionIds.CONNECTION_ACTIVATE]),
     _node(AppNodeIds.SCHEMA_PREVIEW, "Schema Preview", description="Preview OpenAPI schema metadata before activation.", actions=[*ALL_NAV_ACTIONS, AppActionIds.CONNECTION_ACTIVATE]),
     _node(AppNodeIds.CATALOG_ACTIVATION, "Catalog Activation", description="Run catalog, tool, RAG activation through graph handlers.", actions=ALL_NAV_ACTIONS),
@@ -225,7 +352,62 @@ NODE_SPECS = [
     _node(AppNodeIds.RESULT_REVIEW, "Result Review", description="Review execution result evidence.", actions=[*ALL_NAV_ACTIONS, AppActionIds.RESULT_REVIEW, AppActionIds.EXECUTION_PLAN]),
     _node(AppNodeIds.KNOWLEDGE, "Knowledge", description="Graph surface for attachments and generated catalog RAG.", actions=[*ALL_NAV_ACTIONS, AppActionIds.KNOWLEDGE_GENERATE]),
     _node(AppNodeIds.MEMORY, "Memory", description="Graph surface for persistent agent memory.", actions=[*ALL_NAV_ACTIONS, AppActionIds.MEMORY_SAVE]),
-    _node(AppNodeIds.LEARNING, "Learning", description="Graph surface for sandbox learning proposals.", actions=[*ALL_NAV_ACTIONS, AppActionIds.LEARNING_APPROVE, AppActionIds.LEARNING_REJECT]),
+    _node(
+        AppNodeIds.LEARNING,
+        "Learning",
+        description="Graph surface for sandbox learning proposals.",
+        actions=[
+            *ALL_NAV_ACTIONS,
+            *ROUTE_ACTIONS,
+            AppActionIds.ROUTE_SWITCH_SURFACE,
+            AppActionIds.LEARNING_POLICY_CANDIDATE_OPEN,
+            AppActionIds.LEARNING_EXECUTION_TRACE_OPEN,
+            AppActionIds.LEARNING_ACTIVE_POLICY_OPEN,
+        ],
+        node_kind="section",
+        capability_id="learning",
+        allowed_surfaces={"main": ["learning", "compact"], "active": ["policy_gaps", "failed_executions", "active_policies", "rejected"]},
+        default_surfaces={"main": "learning", "active": "policy_gaps"},
+    ),
+    _node(
+        AppNodeIds.LEARNING_POLICY_CANDIDATE,
+        "Policy Candidate",
+        description="Review one sandbox learning policy candidate.",
+        actions=[*ALL_NAV_ACTIONS, *ROUTE_ACTIONS, AppActionIds.LEARNING_APPROVE, AppActionIds.LEARNING_REJECT],
+        parent=AppNodeIds.LEARNING,
+        node_kind="detail",
+        capability_id="learning",
+        show_in_capability_rail=False,
+        cancel_target_node=AppNodeIds.LEARNING,
+        allowed_surfaces={"main": ["learning.policy_candidate", "compact"], "active": ["policy_candidate_review"]},
+        default_surfaces={"main": "learning.policy_candidate", "active": "policy_candidate_review"},
+    ),
+    _node(
+        AppNodeIds.LEARNING_EXECUTION_TRACE,
+        "Execution Trace",
+        description="Review one execution trace produced by public chat or owner execution.",
+        actions=[*ALL_NAV_ACTIONS, *ROUTE_ACTIONS],
+        parent=AppNodeIds.LEARNING,
+        node_kind="detail",
+        capability_id="learning",
+        show_in_capability_rail=False,
+        cancel_target_node=AppNodeIds.LEARNING,
+        allowed_surfaces={"main": ["learning.execution_trace", "compact"], "active": ["execution_trace_review"]},
+        default_surfaces={"main": "learning.execution_trace", "active": "execution_trace_review"},
+    ),
+    _node(
+        AppNodeIds.LEARNING_ACTIVE_POLICY,
+        "Active Policy",
+        description="Review one approved learning policy.",
+        actions=[*ALL_NAV_ACTIONS, *ROUTE_ACTIONS],
+        parent=AppNodeIds.LEARNING,
+        node_kind="detail",
+        capability_id="learning",
+        show_in_capability_rail=False,
+        cancel_target_node=AppNodeIds.LEARNING,
+        allowed_surfaces={"main": ["learning.active_policy", "compact"], "active": ["active_policy_review"]},
+        default_surfaces={"main": "learning.active_policy", "active": "active_policy_review"},
+    ),
     _node(AppNodeIds.QA, "QA", description="Graph-authored QA scenario surface.", actions=[*ALL_NAV_ACTIONS, AppActionIds.QA_RUN]),
     _node(AppNodeIds.RECOVERY, "Recovery", lane="system", description="Recovery node for invalid or ineligible graph requests.", actions=[AppActionIds.RECOVERY_HOME], recovery="Return home or choose an available next step."),
 ]
@@ -239,6 +421,7 @@ ACTION_SPECS = [
     _action(AppActionIds.SAAS_AGENT_CREATE, "Create SaaS Agent", category="setup", kind="form", emphasis="primary", fields=[_field(key="name", label="Name", required=True, placeholder="Customer Support Agent"), _field(key="slug", label="Slug", required=True, placeholder="customer-support-agent")], allowed_nodes=[AppNodeIds.HOME, AppNodeIds.SAAS_AGENT_SELECT, AppNodeIds.SAAS_AGENT_CREATE]),
     _action(AppActionIds.AGENT_HOME, "Agent home", allowed_nodes=["*"]),
     _action(AppActionIds.INSTRUCTIONS_OPEN, "Instructions", category="setup", allowed_nodes=["*"]),
+    _action(AppActionIds.INSTRUCTIONS_SAVE, "Save instructions", category="setup", kind="form", emphasis="primary", fields=[_field(key="system_prompt", label="System prompt", field_type="textarea"), _field(key="instructions", label="Operating instructions", field_type="textarea")], allowed_nodes=[AppNodeIds.INSTRUCTIONS]),
     _action(AppActionIds.CONNECTION_CONFIGURE, "Configure connection", category="setup", allowed_nodes=["*"]),
     _action(AppActionIds.CONNECTION_PREVIEW, "Preview schema", category="setup", kind="form", fields=[_field(key="spec_url", label="OpenAPI URL", field_type="url", placeholder="https://api.example.com/openapi.json"), _field(key="raw_spec", label="Paste OpenAPI schema", field_type="textarea", placeholder="Paste OpenAPI JSON or YAML when the schema is not publicly hosted.")], allowed_nodes=[AppNodeIds.CONNECTION_CONFIGURE]),
     _action(AppActionIds.CONNECTION_ACTIVATE, "Save and activate API", category="setup", kind="form", emphasis="primary", fields=[_field(key="name", label="Connection name", required=True, placeholder="Production API"), _field(key="base_url", label="Base URL", field_type="url", required=True, placeholder="https://api.example.com"), _field(key="spec_url", label="OpenAPI URL", field_type="url", placeholder="https://api.example.com/openapi.json"), _field(key="raw_spec", label="Paste OpenAPI schema", field_type="textarea", placeholder="Paste OpenAPI JSON or YAML when the schema is not publicly hosted."), _field(key="auth_type", label="Auth type", field_type="select", required=True, default="none", options=[{"value": "none", "label": "No auth"}, {"value": "bearer", "label": "Bearer token"}, {"value": "api_key_header", "label": "API key header"}, {"value": "api_key_query", "label": "API key query param"}, {"value": "basic", "label": "Basic auth"}, {"value": "custom_header", "label": "Custom header"}]), _field(key="credential_value", label="Credential", field_type="password", sensitive=True), _field(key="header_name", label="Header name", placeholder="X-API-Key"), _field(key="query_param_name", label="Query param name", placeholder="api_key")], allowed_nodes=[AppNodeIds.CONNECTION_CONFIGURE, AppNodeIds.SCHEMA_PREVIEW]),
@@ -256,16 +439,24 @@ ACTION_SPECS = [
     _action(AppActionIds.MEMORY_OPEN, "Memory", category="learning", allowed_nodes=["*"]),
     _action(AppActionIds.MEMORY_SAVE, "Save memory", category="learning", kind="form", fields=[_field(key="content", label="Memory", required=True), _field(key="category", label="Category", field_type="select", default="fact", options=[{"value": "fact", "label": "Fact"}, {"value": "preference", "label": "Preference"}, {"value": "instruction", "label": "Instruction"}])], allowed_nodes=[AppNodeIds.MEMORY]),
     _action(AppActionIds.LEARNING_OPEN, "Learning", category="learning", allowed_nodes=["*"]),
-    _action(AppActionIds.LEARNING_APPROVE, "Approve learning", category="learning", fields=[_field(key="candidate_id", label="Candidate ID", required=True)], allowed_nodes=[AppNodeIds.LEARNING]),
-    _action(AppActionIds.LEARNING_REJECT, "Reject learning", category="learning", fields=[_field(key="candidate_id", label="Candidate ID", required=True)], allowed_nodes=[AppNodeIds.LEARNING]),
+    _action(AppActionIds.LEARNING_POLICY_CANDIDATE_OPEN, "Review policy candidate", category="learning", fields=[_field(key="candidate_id", label="Candidate ID", required=True)], invocation_kind="entity_selector", allowed_nodes=[AppNodeIds.LEARNING]),
+    _action(AppActionIds.LEARNING_EXECUTION_TRACE_OPEN, "Review execution trace", category="learning", fields=[_field(key="trace_id", label="Trace ID", required=True)], invocation_kind="entity_selector", allowed_nodes=[AppNodeIds.LEARNING]),
+    _action(AppActionIds.LEARNING_ACTIVE_POLICY_OPEN, "Review active policy", category="learning", fields=[_field(key="candidate_id", label="Candidate ID", required=True)], invocation_kind="entity_selector", allowed_nodes=[AppNodeIds.LEARNING]),
+    _action(AppActionIds.LEARNING_APPROVE, "Approve learning", category="learning", fields=[_field(key="candidate_id", label="Candidate ID", required=True)], allowed_nodes=[AppNodeIds.LEARNING, AppNodeIds.LEARNING_POLICY_CANDIDATE]),
+    _action(AppActionIds.LEARNING_REJECT, "Reject learning", category="learning", fields=[_field(key="candidate_id", label="Candidate ID", required=True)], allowed_nodes=[AppNodeIds.LEARNING, AppNodeIds.LEARNING_POLICY_CANDIDATE]),
+    _action(AppActionIds.ROUTE_BACK, "Back", category="navigation", invocation_kind="hidden", allowed_nodes=["*"]),
+    _action(AppActionIds.ROUTE_FORWARD, "Forward", category="navigation", invocation_kind="hidden", allowed_nodes=["*"]),
+    _action(AppActionIds.ROUTE_CANCEL, "Cancel", category="navigation", invocation_kind="hidden", allowed_nodes=["*"]),
+    _action(AppActionIds.ROUTE_OPEN_NODE, "Open node", category="navigation", invocation_kind="hidden", allowed_nodes=["*"]),
+    _action(AppActionIds.ROUTE_SWITCH_SURFACE, "Switch surface", category="navigation", invocation_kind="hidden", allowed_nodes=["*"]),
     _action(AppActionIds.QA_OPEN, "QA", category="feedback", allowed_nodes=["*"]),
     _action(AppActionIds.QA_RUN, "Run QA scenario", category="feedback", allowed_nodes=[AppNodeIds.QA]),
     _action(AppActionIds.RECOVERY_HOME, "Return home", category="navigation", allowed_nodes=[AppNodeIds.RECOVERY]),
 ]
 
 
-def _edge(from_node: str, to_node: str, action_id: str | None = None) -> RouteDeckEdgeSpec:
-    return RouteDeckEdgeSpec(from_stage=from_node, to_stage=to_node, edge_type="action" if action_id else "runtime", action_id=action_id)
+def _edge(from_node: str, to_node: str, action_id: str | None = None, edge_type: str | None = None) -> RouteDeckEdgeSpec:
+    return RouteDeckEdgeSpec(from_stage=from_node, to_stage=to_node, edge_type=edge_type or ("action" if action_id else "runtime"), action_id=action_id)
 
 
 def _build_edges() -> list[RouteDeckEdgeSpec]:
@@ -299,6 +490,12 @@ def _build_edges() -> list[RouteDeckEdgeSpec]:
         _edge(AppNodeIds.AGENT_HOME, AppNodeIds.KNOWLEDGE, AppActionIds.KNOWLEDGE_OPEN),
         _edge(AppNodeIds.KNOWLEDGE, AppNodeIds.MEMORY, AppActionIds.MEMORY_OPEN),
         _edge(AppNodeIds.KNOWLEDGE, AppNodeIds.LEARNING, AppActionIds.LEARNING_OPEN),
+        _edge(AppNodeIds.LEARNING, AppNodeIds.LEARNING_POLICY_CANDIDATE, AppActionIds.LEARNING_POLICY_CANDIDATE_OPEN),
+        _edge(AppNodeIds.LEARNING, AppNodeIds.LEARNING_EXECUTION_TRACE, AppActionIds.LEARNING_EXECUTION_TRACE_OPEN),
+        _edge(AppNodeIds.LEARNING, AppNodeIds.LEARNING_ACTIVE_POLICY, AppActionIds.LEARNING_ACTIVE_POLICY_OPEN),
+        _edge(AppNodeIds.LEARNING, AppNodeIds.LEARNING_POLICY_CANDIDATE, edge_type="contains"),
+        _edge(AppNodeIds.LEARNING, AppNodeIds.LEARNING_EXECUTION_TRACE, edge_type="contains"),
+        _edge(AppNodeIds.LEARNING, AppNodeIds.LEARNING_ACTIVE_POLICY, edge_type="contains"),
         _edge(AppNodeIds.AGENT_HOME, AppNodeIds.QA, AppActionIds.QA_OPEN),
         _edge(AppNodeIds.RECOVERY, AppNodeIds.HOME, AppActionIds.RECOVERY_HOME),
     ]

@@ -14,34 +14,12 @@ export interface CorpusProposal {
   target_node?: string | null
 }
 
-export interface CorpusExpectedActiveSurface {
-  name: string
-  component: string
-  variant?: string | null
-  role?: string | null
-}
-
-export interface CorpusSurfaceOpening {
-  operation_id: string
-  label: string
-  target_node?: string | null
-  expected_active_surface?: CorpusExpectedActiveSurface | null
-}
-
-export interface CorpusSurfacePrompt {
-  operation_id: string
-  target_node?: string | null
-  expected_active_surface?: CorpusExpectedActiveSurface | null
-  content: string
-}
-
 export interface CorpusActionResponse {
   state: AppGraphState
   projection: RouteDeckProjection
   active_surface?: RouteDeckSurface | null
   messages: EntryTurnMessage[]
   replace_path?: string | null
-  surface_prompt?: CorpusSurfacePrompt | null
 }
 
 export interface CorpusStateResponse {

@@ -7,6 +7,10 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.models import AgentSession
+from backend.services.agent.state_variables import (
+    remember_resource_id_variable,
+    resolve_input_from_variables,
+)
 
 FRAME_METADATA_KEY = "execution_frame_v1"
 
@@ -19,6 +23,19 @@ _BUY_TERMS = {
     "purchase",
     "qty",
     "quantity",
+}
+_WORKFLOW_TERMS = {
+    "checkout",
+    "complete",
+    "continue",
+    "delivery",
+    "finish",
+    "order",
+    "payment",
+    "place",
+    "ship",
+    "shipping",
+    "submit",
 }
 _ID_KEYS = ("id", "product_id", "item_id", "entity_id")
 
@@ -77,6 +94,46 @@ def preserve_selected_entity(frame: dict[str, Any], selected_entity: dict[str, A
     return updated
 
 
+def promote_active_resource(
+    frame: dict[str, Any] | None,
+    *,
+    collection_path: str,
+    resource_id: str,
+    source_action_path: str,
+) -> dict[str, Any]:
+    updated = remember_resource_id_variable(
+        frame,
+        collection_path=collection_path,
+        resource_id=resource_id,
+        origin={"source_action_path": source_action_path},
+    )
+    updated["active_resource"] = {
+        "collection_path": collection_path,
+        "id": resource_id,
+        "source_action_path": source_action_path,
+        "reason": "internal_dependency_used_successfully",
+    }
+    return updated
+
+
+def active_resource_context(frame: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(frame, dict):
+        return None
+    resource = frame.get("active_resource")
+    if not isinstance(resource, dict):
+        return None
+    collection_path = resource.get("collection_path")
+    resource_id = resource.get("id")
+    if not collection_path or not resource_id:
+        return None
+    return {
+        "collection_path": str(collection_path),
+        "id": str(resource_id),
+        "source_action_path": str(resource.get("source_action_path") or ""),
+        "reason": str(resource.get("reason") or ""),
+    }
+
+
 def operation_frame_from_candidate(
     *,
     base_frame: dict[str, Any] | None,
@@ -104,30 +161,24 @@ def operation_frame_from_candidate(
 def find_entity_reference(message: str, frame: dict[str, Any] | None) -> dict[str, Any] | None:
     if not frame:
         return None
+    if active_resource_context(frame) is not None and _looks_like_workflow_continuation(message):
+        return None
 
-    selected = frame.get("selected_entity")
-    if isinstance(selected, dict) and _looks_like_continuation(message):
-        return selected
     entities = [entity for entity in frame.get("entities") or [] if isinstance(entity, dict)]
-    if len(entities) == 1 and _looks_like_continuation(message):
-        return entities[0]
-
     normalized_message = _normalize(message)
     compact_message = _compact(normalized_message)
     for entity in entities:
-        aliases = [str(value) for value in entity.get("aliases") or [] if value]
-        label = entity.get("label")
-        entity_id = entity.get("id")
-        if label:
-            aliases.append(str(label))
-        if entity_id:
-            aliases.append(str(entity_id))
-        for alias in aliases:
-            normalized_alias = _normalize(alias)
-            if not normalized_alias:
-                continue
-            if normalized_alias in normalized_message or _compact(normalized_alias) in compact_message:
-                return entity
+        if _entity_matches_message(entity, normalized_message, compact_message):
+            return entity
+
+    selected = frame.get("selected_entity")
+    if isinstance(selected, dict):
+        if _entity_matches_message(selected, normalized_message, compact_message):
+            return selected
+        if _looks_like_continuation(message):
+            return selected
+    if len(entities) == 1 and _looks_like_continuation(message):
+        return entities[0]
     return None
 
 
@@ -136,6 +187,18 @@ def augment_message_with_frame_context(
     entity: dict[str, Any],
     frame: dict[str, Any] | None = None,
 ) -> str:
+    active_resource = active_resource_context(frame)
+    if active_resource is not None and _looks_like_workflow_continuation(message):
+        parts = [
+            message,
+            f"Active resource collection {active_resource['collection_path']}",
+            "Active resource id available internally",
+        ]
+        source_action_path = active_resource.get("source_action_path")
+        if source_action_path:
+            parts.append(f"Last workflow action {source_action_path}")
+        return " ".join(parts)
+
     parts = [message]
     label = entity.get("label")
     entity_id = entity.get("id")
@@ -168,6 +231,29 @@ def build_inputs_from_frame(
     schema = (getattr(tool, "function_schema", None) or {}).get("parameters") or {}
     props = schema.get("properties") if isinstance(schema, dict) else {}
     required = list(schema.get("required") or []) if isinstance(schema, dict) else []
+    active_resource = active_resource_context(frame)
+    if active_resource is not None:
+        for name in props or {}:
+            if name in inputs:
+                continue
+            value = resolve_input_from_variables(frame, str(name), action=action)
+            if value is None:
+                value = _value_from_active_resource_for_input(str(name), action, active_resource)
+            if value is not None:
+                inputs[str(name)] = value
+
+        for param in getattr(action, "parameters", None) or []:
+            if not isinstance(param, dict) or not param.get("name"):
+                continue
+            name = str(param["name"])
+            if name in inputs:
+                continue
+            value = resolve_input_from_variables(frame, name, action=action)
+            if value is None:
+                value = _value_from_active_resource_for_input(name, action, active_resource)
+            if value is not None:
+                inputs[name] = value
+
     if entity is not None:
         for name in props or {}:
             if name in inputs:
@@ -237,6 +323,25 @@ def _aliases_for_item(item: dict[str, Any], label: Any, entity_id: Any) -> list[
     return sorted(alias for alias in aliases if alias)
 
 
+def _entity_matches_message(entity: dict[str, Any], normalized_message: str, compact_message: str) -> bool:
+    aliases = [str(value) for value in entity.get("aliases") or [] if value]
+    message_tokens = set(normalized_message.split())
+    label = entity.get("label")
+    entity_id = entity.get("id")
+    if label:
+        aliases.append(str(label))
+    if entity_id:
+        aliases.append(str(entity_id))
+    for alias in aliases:
+        normalized_alias = _normalize(alias)
+        if not normalized_alias:
+            continue
+        compact_alias = _compact(normalized_alias)
+        if normalized_alias in normalized_message or compact_alias in message_tokens:
+            return True
+    return False
+
+
 def _first_value(item: dict[str, Any], keys: list[str]) -> Any:
     for key in keys:
         value = item.get(key)
@@ -265,6 +370,34 @@ def _value_from_entity_for_input(name: str, message: str, entity: dict[str, Any]
     if lowered in {"size", "option_size"}:
         return _extract_size(message)
     return None
+
+
+def _value_from_active_resource_for_input(name: str, action: Any, active_resource: dict[str, Any]) -> Any:
+    resource_id = active_resource.get("id")
+    if not resource_id:
+        return None
+    lowered = name.lower()
+    collection_path = str(active_resource.get("collection_path") or "")
+    resource_name = _resource_name_from_collection_path(collection_path)
+    if lowered == "id" and _action_path_targets_collection(action, collection_path):
+        return resource_id
+    if resource_name and lowered == f"{resource_name}_id":
+        return resource_id
+    return None
+
+
+def _resource_name_from_collection_path(collection_path: str) -> str:
+    segments = [segment for segment in str(collection_path or "").split("/") if segment]
+    if not segments:
+        return ""
+    return _singular(segments[-1].replace("-", "_"))
+
+
+def _action_path_targets_collection(action: Any, collection_path: str) -> bool:
+    path = str(getattr(action, "path", "") or "")
+    if not path or not collection_path:
+        return False
+    return path == collection_path or path.startswith(collection_path.rstrip("/") + "/")
 
 
 def _resolve_variant_id(message: str, raw: dict[str, Any]) -> str | None:
@@ -317,6 +450,10 @@ def _extract_quantity(message: str) -> int | None:
 
 def _looks_like_purchase(message: str) -> bool:
     return bool(set(_tokens(message)) & _BUY_TERMS)
+
+
+def _looks_like_workflow_continuation(message: str) -> bool:
+    return bool(set(_tokens(message)) & _WORKFLOW_TERMS)
 
 
 def _looks_like_continuation(message: str) -> bool:

@@ -1,13 +1,14 @@
 # System Flow Index - SaaStoAgent v0.1
 
-Last Updated: May 24, 2026
+Last Updated: May 25, 2026
 
 This file is the source of truth for the currently implemented runtime and UX flows.
 
-## Active Architecture Status - May 24, 2026
+## Active Architecture Status - May 25, 2026
 
-The RouteDeck/Corpus architecture has been reset around the accepted runtime-store
-model.
+The RouteDeck/Corpus architecture has been reset around the accepted
+runtime-store model and then extended with RouteDeck v2 navigation plus
+agent-owned API orchestration.
 
 RouteDeck is graph-backed state management for agentic UI. SaaStoAgent consumes
 it through `CorpusRouteDeckRuntime` and `RouteDeckStore`; Corpus remains the
@@ -16,8 +17,10 @@ central SaaStoAgent product agent.
 Current anchors:
 
 - Framework direction: `../routedeck/docs/agentic-ui-state-runtime.md`
+- RouteDeck usage guide: `../routedeck/docs/using-routedeck.md`
 - Product anti-drift vision: `architecture/route-deck-corpus-vision.md`
 - Current implementation plan/status: `plans/routedeck_runtime_store_reset_plan.md`
+- Current checkpoint: `context_checkpoints/context_checkpoint_25-05-2026-08-01AM.md`
 
 Current rules:
 
@@ -37,6 +40,13 @@ Current rules:
 - Product runtime is OpenAPI/user-config driven. Medusa is an acceptance
   fixture only, not hardcoded product behavior.
 - Navigation diagnostics draw semantic route topology, not action edges.
+- RouteDeck v2 navigation owns back, forward, cancel, open-node, and
+  switch-surface runtime operations.
+- Learning review uses peer surfaces for policy gaps, failed executions, active
+  policies, and rejected candidates.
+- Learning policy candidate, execution trace, and active policy review are
+  child/detail nodes.
+- Instructions save and Learning approve/reject are graph-owned operations.
 - The active product shell is one Corpus workbench with a fixed bottom composer
   and inline active surfaces.
 - Diagnostics can dock in the workbench or expand fullscreen while reusing the
@@ -57,9 +67,45 @@ Primary RouteDeck/Corpus endpoints:
 - `GET /api/corpus/state`
 - `GET /api/corpus/stream`
 - `POST /api/corpus/action`
-- `GET /api/routedeck/projection`
-- `GET /api/routedeck/stream`
 - `GET /api/diagnostics/stream`
+
+Raw public `/api/routedeck/*` product routes are removed. Product UI must use
+Corpus endpoints; owner diagnostics use diagnostics endpoints.
+
+## Deployed Agent API Orchestration - May 25, 2026
+
+Public deployed chat now routes API work through an agent-owned orchestration
+layer above generated OpenAPI actions.
+
+Flow:
+
+```text
+visitor query
+  -> SaaS agent orchestration
+    -> router/executor returns structured execution facts
+      -> orchestrator classifies missing inputs
+      -> internal dependencies resolve from frame variables or generated actions
+      -> write dependency without approved policy creates domain_policy_gap
+      -> approved policy allows generated action chain
+      -> public-safe response
+```
+
+Rules:
+
+- Internal ids are private dependencies, not public missing details.
+- Natural fields such as size, quantity, email, address, region, shipping, and
+  confirmation may be asked publicly.
+- Execution-frame state is stored in `execution_frame_v1.variables`.
+- Variables include name, value, visibility, value type, tags, aliases, resource
+  metadata, origin metadata, and optional choice metadata.
+- Pending choices prompt with labels only and hide private values.
+- Domain policy gaps are reviewed in Sandbox Learning.
+- Public chat never exposes cart ids, endpoint paths, operation ids, trace ids,
+  or internal slot names.
+
+Current limitation: full checkout is not complete. Cart/add-item policy handling
+is improved, but shipping, payment, and order completion still need generic
+generated-action orchestration and browser validation.
 
 Compatibility app graph endpoints:
 

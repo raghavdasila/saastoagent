@@ -30,20 +30,12 @@ export interface AppGraphContextLens {
   pending_trace_status?: string | null
 }
 
-export interface AppGraphSurface {
-  id: string
-  renderer: string
-  title: string
-  payload: Record<string, unknown>
-}
-
 export interface AppGraphResponse {
   state: AppGraphState
   graph_version: string
   graph_manifest: EntryGraphManifest
   route_deck_snapshot: RouteDeckRuntimeSnapshot
   context_lens: AppGraphContextLens
-  active_surface: AppGraphSurface
   available_actions: EntryActionCard[]
   persistent_actions: EntryActionCard[]
   ui_artifacts: EntryUIArtifact[]

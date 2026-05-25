@@ -11,8 +11,18 @@ class CorpusOperationPolicy:
     """Maps Corpus app actions into generic RouteDeck operations."""
 
     def operation_for_action(self, action: Any) -> RouteDeckOperation:
-        side_effect_categories = {"execution", "feedback", "learning"}
-        execution_mode = "review" if action.kind == "form" or action.category in side_effect_categories else "auto"
+        review_action_ids = {
+            "execution.plan",
+            "execution.provide_input",
+            "approval.approve",
+            "approval.reject",
+            "knowledge.generate",
+            "memory.save",
+            "learning.approve",
+            "learning.reject",
+            "qa.run",
+        }
+        execution_mode = "review" if action.kind == "form" or action.id in review_action_ids else "auto"
         safety_class = "navigation"
         if action.category == "execution":
             safety_class = "write_external"

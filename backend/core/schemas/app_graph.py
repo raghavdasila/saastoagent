@@ -20,6 +20,9 @@ class AppGraphState(BaseModel):
     active_saas_agent_id: uuid.UUID | None = None
     active_connection_id: uuid.UUID | None = None
     pending_trace_id: uuid.UUID | None = None
+    active_surface_id: str | None = None
+    route_params: dict[str, Any] = Field(default_factory=dict)
+    dirty_surfaces: dict[str, bool] = Field(default_factory=dict)
     graph_context: dict[str, Any] = Field(default_factory=dict)
     executed_nodes: list[str] = Field(default_factory=list)
 
@@ -58,20 +61,12 @@ class AppGraphContextLens(BaseModel):
     pending_trace_status: str | None = None
 
 
-class AppGraphSurface(BaseModel):
-    id: str
-    renderer: str
-    title: str
-    payload: dict[str, Any] = Field(default_factory=dict)
-
-
 class AppGraphResponse(BaseModel):
     state: AppGraphState
     graph_version: str
     graph_manifest: EntryGraphManifest
     route_deck_snapshot: EntryRouteDeckRuntimeSnapshot
     context_lens: AppGraphContextLens
-    active_surface: AppGraphSurface
     available_actions: list[EntryActionCard] = Field(default_factory=list)
     persistent_actions: list[EntryActionCard] = Field(default_factory=list)
     ui_artifacts: list[EntryUIArtifact] = Field(default_factory=list)

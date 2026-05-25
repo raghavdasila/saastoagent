@@ -14,6 +14,7 @@ from backend.services.app_graph import (
 )
 from backend.core.schemas import AppGraphState
 from backend.services.app_graph.manifest import ACTION_SPECS, AppActionIds, route_action_to_card
+from backend.services.app_graph.corpus_surfaces import CorpusSurfaceRegistry
 from routedeck_langgraph import validate_langgraph_contract
 from pathlib import Path
 
@@ -238,8 +239,8 @@ def test_material_workbench_rail_is_node_switcher_not_disabled_action_dock():
     source = shell_path.read_text(encoding="utf-8")
     rail_source = source.split("function CapabilityRail", 1)[1].split("function CapabilityStatusIcon", 1)[0]
 
-    assert "RouteDeck node switcher" in rail_source
-    assert "Node switcher:" in source
+    assert "Workflow switcher" in rail_source
+    assert "Workflow switcher:" in source
     assert 'data-testid="rail-node-notice"' in source
     assert "disabled={!operation || active}" not in rail_source
     assert "onSelect(item, action, status)" in rail_source
@@ -348,9 +349,9 @@ def test_routedeck_location_sync_does_not_trigger_browser_navigation():
     assert "window.dispatchEvent" not in sync_source
 
 
-def test_surface_opening_prompt_for_connection_is_deterministic_not_a_choice_question():
+def test_open_node_message_for_connection_is_deterministic_not_a_choice_question():
     action = next(action for action in ACTION_SPECS if action.id == AppActionIds.CONNECTION_CONFIGURE)
-    content = corpus_graph_runtime._deterministic_surface_prompt(action)
+    content = corpus_graph_runtime._deterministic_open_message(action)
 
     assert "Connection setup is open" in content
     assert "what would you like" not in content.lower()
@@ -393,7 +394,7 @@ def test_saas_agent_list_is_dispatchable_surface_and_open_is_bound_only():
 
 
 def test_saas_agent_select_node_uses_list_surface():
-    assert corpus_graph_runtime._active_surface_component_for_node("saas_agent_select") == "SaaSAgentListSurface"
+    assert CorpusSurfaceRegistry().active_surface_component_for_node("saas_agent_select") == "SaaSAgentListSurface"
 
 
 def test_saas_agent_open_is_selector_not_one_click_dispatch_without_agent_id():
@@ -423,7 +424,7 @@ def test_material_workbench_only_one_click_dispatches_ready_operations():
     assert "onOpenSaaSAgent(agent)" in dashboard_markup_source
 
 
-def test_node_switch_confirms_before_committed_surface_replacement():
+def test_node_navigation_uses_routedeck_controls_without_old_prompt_bridge():
     app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
     shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
     routedeck_provider_source = (
@@ -432,9 +433,20 @@ def test_node_switch_confirms_before_committed_surface_replacement():
 
     assert "useRouteDeckSurfaceOpening" in routedeck_provider_source
     assert "useRouteDeckSurfaceOpening()" not in shell_source
-    assert "Changing node will change active surface, continue?" in shell_source
-    assert "Please save any changes from this surface." in shell_source
-    assert "operation.target_node && operation.target_node !== projection.graph_node" in shell_source
+    assert "Changing node will change active surface, continue?" not in shell_source
+    assert "Please save any changes from this surface." not in shell_source
+    assert "routeDeckStore.back()" in shell_source
+    assert "routeDeckStore.forward()" in shell_source
+    assert "routeDeckStore.cancel()" in shell_source
+
+
+def test_capability_rail_is_projected_by_routedeck_not_hardcoded_in_frontend():
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
+    shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+
+    assert "projection.diagnostics?.capability_rail" in shell_source
+    assert "function capabilityItems()" not in shell_source
+    assert "nodes: ['connection_configure', 'schema_preview']" not in shell_source
 
 
 def test_builder_surfaces_do_not_use_zustand_as_agent_source_of_truth():
@@ -454,6 +466,58 @@ def test_builder_surfaces_do_not_use_zustand_as_agent_source_of_truth():
         source = path.read_text(encoding="utf-8")
         assert "state.saasAgentId" not in source, path
         assert "storage.getSaaSAgentId" not in source, path
+
+
+def test_learning_detail_navigation_uses_app_owned_routedeck_operations():
+    frontend_root = Path(__file__).parents[2] / "frontend" / "src"
+    learning_source = (frontend_root / "components" / "agent" / "LearningPanel.tsx").read_text(encoding="utf-8")
+    catalog_source = (frontend_root / "components" / "appGraph" / "corpusRouteDeckCatalog.ts").read_text(encoding="utf-8")
+
+    assert "learningPolicyCandidateOpen" in catalog_source
+    assert "learningActivePolicyOpen" in catalog_source
+    assert "routeDeckStore.dispatch" in learning_source
+    assert "corpusOperationIds.learningPolicyCandidateOpen" in learning_source
+    assert "corpusOperationIds.learningActivePolicyOpen" in learning_source
+    assert "corpusOperationIds.learningApprove" in learning_source
+    assert "corpusOperationIds.learningReject" in learning_source
+    assert "/agent/learnings/${id}/${action}" not in learning_source
+    assert "agentApi.post<AgentLearningCandidate>" not in learning_source
+    assert "routeDeckStore.openNode" not in learning_source
+
+
+def test_instructions_save_is_app_graph_owned():
+    root = Path(__file__).parents[2]
+    app_graph_path = root / "frontend" / "src" / "components" / "appGraph"
+    manifest_source = (root / "backend" / "services" / "app_graph" / "manifest.py").read_text(encoding="utf-8")
+    runtime_source = (root / "backend" / "services" / "app_graph" / "runtime.py").read_text(encoding="utf-8")
+    catalog_source = (app_graph_path / "corpusRouteDeckCatalog.ts").read_text(encoding="utf-8")
+    surface_source = (app_graph_path / "corpusSurfaces.tsx").read_text(encoding="utf-8")
+
+    assert 'INSTRUCTIONS_SAVE = "instructions.save"' in manifest_source
+    assert "_handle_instructions_save" in runtime_source
+    assert "corpusOperationIds.instructionsSave" in surface_source
+    assert "routeDeckStore.dispatch" in surface_source
+    assert "api.put<SaaSAgent>(`/saas-agents/${saasAgentId}/instructions`" not in surface_source
+    assert "instructionsSave: 'instructions.save'" in catalog_source
+
+
+def test_product_workbench_does_not_expose_routedeck_copy():
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
+    shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+
+    assert "active RouteDeck node" not in shell_source
+    assert "RouteDeck Nodes" not in shell_source
+    assert "RouteDeck node switcher" not in shell_source
+
+
+def test_routedeck_debugger_does_not_label_navgraph_edges_with_actions():
+    routedeck_root = Path(__file__).parents[3] / "routedeck" / "react" / "src"
+    debugger_source = (routedeck_root / "RouteDeckDebugger.tsx").read_text(encoding="utf-8")
+    routing_source = (routedeck_root / "routeDeckDebuggerRouting.ts").read_text(encoding="utf-8")
+
+    assert "return edge.action_id || edge.condition || edge.type" not in debugger_source
+    assert "edge.action_id || edge.condition || edge.type || 'edge'" not in debugger_source
+    assert "edge.action_id || edge.condition || edge.type || 'edge'" not in routing_source
 
 
 def test_corpus_workbench_derives_agent_context_from_routedeck_state():

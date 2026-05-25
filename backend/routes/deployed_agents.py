@@ -62,7 +62,7 @@ async def deployed_agent_chat(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sign in to chat with this agent")
     if user is None:
         rate = anonymous_chat_rate_limiter.check(
-            _client_ip(request),
+            f"deployed:{profile.slug}:{_client_ip(request)}",
             limit=settings.anonymous_chat_messages_per_hour,
             window_seconds=settings.anonymous_chat_rate_limit_window_seconds,
         )

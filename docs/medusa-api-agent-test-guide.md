@@ -331,7 +331,25 @@ The exact `cart_...` and `variant_id` values can change if the Medusa seed data 
 - product id is not used as the cart id
 - no internal ids are exposed in the public transcript
 
-## 10. Run The Automated Medusa Browser Harness
+## 10. Inspect Agent State Variables
+
+The public chat orchestration stores private working state in the session frame:
+
+```sql
+select
+  id,
+  metadata->'execution_frame_v1'->'variables' as variables
+from agent_sessions
+where saas_agent_id = '<saas_agent_id>'
+order by updated_at desc
+limit 1;
+```
+
+Internal ids such as cart ids, payment provider ids, and shipping option ids
+should appear in `variables` with `"visibility": "private"`. They must not
+appear in public chat transcripts.
+
+## 11. Run The Automated Medusa Browser Harness
 
 The automated harness performs the owner signup, agent creation, Corpus setup, deployment, and public product query.
 
@@ -397,7 +415,7 @@ $env:E2E_MEDUSA_SCHEMA_PORT = "9111"
 npm run e2e:medusa:docker
 ```
 
-## 11. Optional Continuation Browser Check
+## 12. Optional Continuation Browser Check
 
 The packaged harness currently validates product listing. To manually verify continuation in a rendered browser, use the deployed URL printed by the harness and send:
 
@@ -420,7 +438,7 @@ Expected:
 postcartsidlineitems | needs_input | POST | /store/carts/{id}/line-items | {"quantity": 1, "variant_id": "..."} | ["id"]
 ```
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 ### Medusa is not reachable
 
@@ -501,7 +519,7 @@ postcartsidlineitems
 
 If another action is selected, inspect the execution frame in the latest active session metadata and verify that selected product context was preserved across the product-detail turn.
 
-## 13. Cleanup
+## 14. Cleanup
 
 Stop SaaStoAgent:
 

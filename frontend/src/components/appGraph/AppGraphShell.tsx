@@ -15,6 +15,8 @@ import {
 } from '@routedeck/react'
 import {
   Activity,
+  ArrowLeft,
+  ArrowRight,
   BookOpen,
   Bot,
   Brain,
@@ -32,6 +34,7 @@ import {
   Sparkles,
   User,
   Wrench,
+  X,
 } from 'lucide-react'
 
 import { CommandComposer } from '@/components/agent/CommandComposer'
@@ -45,8 +48,6 @@ import type { AppGraphContextLens, AppGraphState } from '@/types/appGraph'
 import type {
   CorpusProposal,
   CorpusStateResponse,
-  CorpusSurfaceOpening,
-  CorpusSurfacePrompt,
 } from '@/types/corpus'
 import type { AgentApproval, AgentApprovalDecision, SaaSAgent, SaaSAgentDeployment } from '@/types/domain'
 import { CorpusRouteDeckDiagnostics as DiagnosticsPanel } from './CorpusRouteDeckDiagnostics'
@@ -54,7 +55,6 @@ import {
   ActiveSurfacePanel,
   activeSurfaceFromProjection,
   contextLensFromProjection,
-  surfaceMatchesExpected,
 } from './corpusSurfaces'
 import {
   corpusQuickActions,
@@ -97,6 +97,7 @@ interface CapabilityItem {
   label: string
   icon: ReactNode
   nodes: string[]
+  childNodes: string[]
   operationId?: string
 }
 
@@ -172,14 +173,11 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
   ])
   const [draft, setDraft] = useState('')
   const [pendingProposal, setPendingProposal] = useState<CorpusProposal | null>(null)
-  const [pendingSurfaceOpening, setPendingSurfaceOpening] = useState<CorpusSurfaceOpening | null>(null)
-  const [queuedSurfacePrompt, setQueuedSurfacePrompt] = useState<CorpusSurfacePrompt | null>(null)
   const [corpusStatus, setCorpusStatus] = useState<WorkbenchStatus>('Ready')
   const [railNotice, setRailNotice] = useState<RailSelectionNotice | null>(null)
   const activeSurface = activeSurfaceFromProjection(projection)
   const quickActions = useMemo(() => corpusQuickActions(projection), [projection])
   const contextLens = contextLensFromProjection(projection)
-  const activeSurfaceOpening = pendingSurfaceOpening
 
   useEffect(() => {
     if (!projection || !graphState) return
@@ -188,20 +186,6 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
       syncBrowserPathWithoutNavigation(replacePath)
     }
   }, [activeSaaSAgentId, graphState, projection, replacePath, setMirroredSaaSAgentId])
-
-  useEffect(() => {
-    if (!queuedSurfacePrompt) return
-    if (!surfaceMatchesExpected(activeSurface, queuedSurfacePrompt.expected_active_surface)) return
-    setChatMessages((current) => [...current, makeAgentMessage('assistant', queuedSurfacePrompt.content)])
-    setQueuedSurfacePrompt(null)
-    setPendingSurfaceOpening(null)
-  }, [activeSurface, queuedSurfacePrompt])
-
-  useEffect(() => {
-    if (!pendingSurfaceOpening || queuedSurfacePrompt) return
-    if (!surfaceMatchesExpected(activeSurface, pendingSurfaceOpening.expected_active_surface)) return
-    setPendingSurfaceOpening(null)
-  }, [activeSurface, pendingSurfaceOpening, queuedSurfacePrompt])
 
   const executeOperation = useMutation({
     mutationFn: async ({
@@ -283,7 +267,6 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
       }
 
       setPendingProposal(null)
-      setQueuedSurfacePrompt(null)
       setCorpusStatus('Thinking')
 
       await api.getStream(`/corpus/stream?${params.toString()}`, (eventType, eventData) => {
@@ -318,22 +301,13 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
           setPendingProposal(payload as unknown as CorpusProposal)
           finishStreamingMessage()
         }
-        if (eventType === 'surface_opening') {
-          setCorpusStatus('Opening surface')
-          removeEmptyStreamingMessage()
-          setPendingSurfaceOpening(payload as unknown as CorpusSurfaceOpening)
-        }
         if (eventType === 'operation_completed') {
           setCorpusStatus('Committing')
           const nextProjection = payload.projection as RouteDeckProjection | undefined
           if (nextProjection) {
             const nextState = payload.state as AppGraphState | undefined
-            routeDeckStore.receiveEvent(routeDeckEvent)
-            setMirroredSaaSAgentId(nextState?.active_saas_agent_id || null)
-          }
-          const surfacePrompt = payload.surface_prompt as CorpusSurfacePrompt | null | undefined
-          if (surfacePrompt?.content) {
-            setQueuedSurfacePrompt(surfacePrompt)
+              routeDeckStore.receiveEvent(routeDeckEvent)
+              setMirroredSaaSAgentId(nextState?.active_saas_agent_id || null)
           }
           const nextPath = typeof payload.replace_path === 'string' ? payload.replace_path : null
           if (nextPath && nextPath !== window.location.pathname) {
@@ -371,10 +345,8 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
 
   const hasStreamingCorpusMessage = chatMessages.some((message) => message.isStreaming)
   const authSurfaceActive = activeSurface?.component === corpusSurfaceComponents.auth
-  const composerDisabled = executeOperation.isPending || turn.isPending || Boolean(activeSurfaceOpening) || authSurfaceActive
-  const visibleStatus: WorkbenchStatus = activeSurfaceOpening
-    ? 'Opening surface'
-    : executeOperation.isPending
+  const composerDisabled = executeOperation.isPending || turn.isPending || authSurfaceActive
+  const visibleStatus: WorkbenchStatus = executeOperation.isPending
       ? 'Committing'
       : pendingProposal
         ? 'Waiting for input'
@@ -383,9 +355,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
           : corpusStatus
   const composerPlaceholder = authSurfaceActive
     ? 'Complete authentication in the active surface'
-    : activeSurfaceOpening
-      ? `Opening ${activeSurfaceOpening.label}...`
-      : 'Message Corpus'
+    : 'Message Corpus'
 
   const sendChatTurn = () => {
     const value = draft.trim()
@@ -422,15 +392,6 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
       setCorpusStatus('Ready')
       return
     }
-    if (operation.target_node && operation.target_node !== projection.graph_node) {
-      const confirmed = window.confirm(
-        'Changing node will change active surface, continue? Please save any changes from this surface.',
-      )
-      if (!confirmed) {
-        setCorpusStatus('Ready')
-        return
-      }
-    }
     setCorpusStatus(operation.target_node && operation.target_node !== projection.graph_node ? 'Navigating' : 'Committing')
     executeOperation.mutate({ operationId: operation.id, args: operation.payload || {} })
   }
@@ -446,7 +407,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
       state: state === 'active' ? 'active' : 'locked',
       message:
         state === 'active'
-          ? `${item.label} is already the active RouteDeck node. Corpus will keep working in the current surface.`
+          ? `${item.label} is already the active workflow. Corpus will keep working in the current surface.`
           : lockedCapabilityReason(item, contextLens),
     })
   }
@@ -464,6 +425,9 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
         contextLens={contextLens}
         status={visibleStatus}
         user={user}
+        onBack={() => void routeDeckStore.back()}
+        onForward={() => void routeDeckStore.forward()}
+        onCancel={() => void routeDeckStore.cancel()}
         onLogout={handleLogout}
       />
 
@@ -474,13 +438,12 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
           <AgentConversation
             messages={chatMessages}
             draft={draft}
-            busy={executeOperation.isPending || (turn.isPending && !hasStreamingCorpusMessage && !activeSurfaceOpening)}
+            busy={executeOperation.isPending || (turn.isPending && !hasStreamingCorpusMessage)}
             composerDisabled={composerDisabled}
             composerPlaceholder={composerPlaceholder}
             status={visibleStatus}
             error={turn.error || executeOperation.error}
             pendingProposal={pendingProposal}
-            pendingSurfaceOpening={activeSurfaceOpening}
             quickActions={quickActions}
             activeSurfacePanel={
               <ActiveSurfacePanel
@@ -530,15 +493,22 @@ function WorkbenchTopbar({
   contextLens,
   status,
   user,
+  onBack,
+  onForward,
+  onCancel,
   onLogout,
 }: {
   projection: RouteDeckProjection
   contextLens: AppGraphContextLens | null
   status: WorkbenchStatus
   user: { email?: string; display_name?: string | null } | null
+  onBack: () => void
+  onForward: () => void
+  onCancel: () => void
   onLogout: () => void
 }) {
   const currentWork = displayWork(contextLens?.working_on || projection.current_context)
+  const navigation = projection.navigation
   return (
     <header className="relative z-20 p-4 pb-3">
       <div className="workbench-topbar flex min-h-[3.9rem] items-center justify-between gap-4 px-4 sm:px-5">
@@ -557,6 +527,35 @@ function WorkbenchTopbar({
         </div>
 
         <div className="flex min-w-0 items-center gap-2">
+          <div className="hidden items-center gap-1 md:flex" data-testid="routedeck-global-navigation">
+            <button
+              type="button"
+              onClick={onBack}
+              disabled={!navigation.can_back}
+              className="surface-outline-button inline-flex h-10 w-10 items-center justify-center p-0 disabled:cursor-not-allowed disabled:opacity-45"
+              title="Back"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={onForward}
+              disabled={!navigation.can_forward}
+              className="surface-outline-button inline-flex h-10 w-10 items-center justify-center p-0 disabled:cursor-not-allowed disabled:opacity-45"
+              title="Forward"
+            >
+              <ArrowRight className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={!navigation.can_cancel}
+              className="surface-outline-button inline-flex h-10 w-10 items-center justify-center p-0 disabled:cursor-not-allowed disabled:opacity-45"
+              title="Cancel"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
           <StatusPill status={status} testId="corpus-status" />
           {user ? (
             <div className="flex min-w-0 max-w-[12rem] items-center gap-2 rounded-full border border-border/20 bg-muted/70 px-3 py-2 text-sm text-foreground shadow-sm dark:border-white/10" data-testid="auth-user-pill">
@@ -599,7 +598,6 @@ function AgentConversation({
   status,
   error,
   pendingProposal,
-  pendingSurfaceOpening,
   quickActions,
   activeSurfacePanel,
   activeSurfaceKey,
@@ -617,7 +615,6 @@ function AgentConversation({
   status: WorkbenchStatus
   error: unknown
   pendingProposal: CorpusProposal | null
-  pendingSurfaceOpening: CorpusSurfaceOpening | null
   quickActions: CorpusQuickAction[]
   activeSurfacePanel: ReactNode
   activeSurfaceKey: string
@@ -645,7 +642,7 @@ function AgentConversation({
       workspace.scrollTo({ top: workspace.scrollHeight, behavior: 'smooth' })
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [messages.length, busy, pendingSurfaceOpening?.operation_id, pendingProposal?.operation_id, activeSurfaceKey, error])
+  }, [messages.length, busy, pendingProposal?.operation_id, activeSurfaceKey, error])
 
   return (
     <section className="corpus-workbench flex h-[calc(100vh-8.75rem)] min-h-0 flex-col dark:!bg-[rgba(26,27,30,0.9)] lg:h-full" data-testid="app-agent-chat">
@@ -685,7 +682,6 @@ function AgentConversation({
                 }}
               />
             )}
-            {pendingSurfaceOpening && <SurfaceOpeningNotice opening={pendingSurfaceOpening} />}
           </div>
 
           {activeSurfacePanel}
@@ -768,14 +764,14 @@ function CapabilityRail({
 }) {
   const operationsById = new Map(projection.legal_operations.map((operation) => [operation.id, operation]))
   const currentNode = graphState?.node || projection.graph_node
-  const items = capabilityItems()
+  const items = capabilityItems(projection)
   return (
-    <nav className="workbench-panel hidden min-w-0 p-3 dark:!bg-[rgba(26,27,30,0.8)] lg:block" aria-label="RouteDeck node switcher" data-testid="capability-rail">
-      <div className="mb-3 px-3 pt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">RouteDeck Nodes</div>
+    <nav className="workbench-panel hidden min-w-0 p-3 dark:!bg-[rgba(26,27,30,0.8)] lg:block" aria-label="Workflow switcher" data-testid="capability-rail">
+      <div className="mb-3 px-3 pt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Workflows</div>
       <div className="space-y-2">
         {items.map((item) => {
           const operation = item.operationId ? operationsById.get(item.operationId) : undefined
-          const active = item.nodes.includes(currentNode)
+          const active = item.nodes.includes(currentNode) || item.childNodes.includes(currentNode)
           const available = !item.operationId || Boolean(operation)
           const status = active ? 'active' : available ? 'ready' : 'locked'
           const action = operation ? operationToQuickAction(operation) : null
@@ -811,19 +807,6 @@ function CapabilityStatusIcon({ status }: { status: 'active' | 'ready' | 'locked
   if (status === 'active') return <Activity className="h-4 w-4" />
   if (status === 'ready') return <Circle className="h-3.5 w-3.5 fill-emerald-500 text-emerald-500" />
   return <Lock className="h-4 w-4" />
-}
-
-function SurfaceOpeningNotice({ opening }: { opening: CorpusSurfaceOpening }) {
-  return (
-    <div className="flex gap-3 px-4 py-3" data-testid="surface-opening-loader">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-secondary">
-        <Loader2 className="h-4 w-4 animate-spin" />
-      </div>
-      <div className="max-w-[75%] rounded-[0.75rem] bg-muted px-4 py-2.5 text-sm text-foreground shadow-sm">
-        Opening {opening.label}...
-      </div>
-    </div>
-  )
 }
 
 function FrameSurfacePanel() {
@@ -1061,7 +1044,7 @@ function ContextPanel({
           <div className="mt-3 rounded-[0.75rem] bg-secondary px-4 py-3 text-sm text-secondary-foreground shadow-sm" data-testid="rail-node-notice">
           <div className="flex items-center gap-2 font-medium">
             {railNotice.state === 'locked' ? <Lock className="h-4 w-4" /> : <Activity className="h-4 w-4" />}
-            Node switcher: {railNotice.label}
+            Workflow switcher: {railNotice.label}
           </div>
           <p className="mt-2 leading-5 text-secondary-foreground/90">{railNotice.message}</p>
         </div>
@@ -1279,28 +1262,55 @@ function lockedCapabilityReason(item: CapabilityItem, lens: AppGraphContextLens 
       : 'Execution unlocks after activated API actions have generated runnable tools.'
   }
   if (item.id === 'knowledge' || item.id === 'memory' || item.id === 'learning' || item.id === 'qa') {
-    return `${item.label} needs an active SaaS Agent context before RouteDeck can switch there.`
+    return `${item.label} needs an active SaaS Agent context before Corpus can switch there.`
   }
-  return `${item.label} is not legal from the current RouteDeck node. Corpus can move there once the graph prerequisites are met.`
+  return `${item.label} is not available from the current workflow. Corpus can move there once the graph prerequisites are met.`
 }
 
-function capabilityItems(): CapabilityItem[] {
-  return [
-    { id: 'home', label: 'Home', icon: <Home className="h-4 w-4" />, nodes: [corpusNodeIds.home], operationId: corpusOperationIds.navigateHome },
-    {
-      id: 'agent',
-      label: 'Create Agent',
-      icon: <Sparkles className="h-4 w-4" />,
-      nodes: [corpusNodeIds.saasAgentSelect, corpusNodeIds.saasAgentCreate, corpusNodeIds.agentHome],
-      operationId: corpusOperationIds.createSaaSAgent,
-    },
-    { id: 'connect', label: 'Connect API', icon: <Plug className="h-4 w-4" />, nodes: ['connection_configure', 'schema_preview'], operationId: 'navigate.connection_configure' },
-    { id: 'catalog', label: 'Catalog', icon: <Database className="h-4 w-4" />, nodes: ['catalog_activation', 'catalog'], operationId: 'catalog.open' },
-    { id: 'actions', label: 'Actions', icon: <Wrench className="h-4 w-4" />, nodes: ['entities', 'actions'], operationId: 'actions.open' },
-    { id: 'execution', label: 'Execution', icon: <Play className="h-4 w-4" />, nodes: ['execution_planning', 'needs_input', 'approval_required', 'executing', 'result_review'], operationId: 'execution.open' },
-    { id: 'knowledge', label: 'Knowledge', icon: <BookOpen className="h-4 w-4" />, nodes: ['knowledge'], operationId: 'knowledge.open' },
-    { id: 'memory', label: 'Memory', icon: <Brain className="h-4 w-4" />, nodes: ['memory'], operationId: 'memory.open' },
-    { id: 'learning', label: 'Learning', icon: <GraduationCap className="h-4 w-4" />, nodes: ['learning'], operationId: 'learning.open' },
-    { id: 'qa', label: 'QA', icon: <ClipboardCheck className="h-4 w-4" />, nodes: ['qa'], operationId: 'qa.open' },
-  ]
+function capabilityItems(projection: RouteDeckProjection): CapabilityItem[] {
+  const projected = Array.isArray(projection.diagnostics?.capability_rail)
+    ? projection.diagnostics.capability_rail
+    : []
+  return projected
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+    .map((item) => {
+      const id = String(item.id || '')
+      const iconKey = typeof item.icon_key === 'string' ? item.icon_key : id
+      return {
+        id,
+        label: String(item.label || id),
+        icon: capabilityIcon(iconKey),
+        nodes: Array.isArray(item.nodes) ? item.nodes.map(String) : [],
+        childNodes: Array.isArray(item.child_nodes) ? item.child_nodes.map(String) : [],
+        operationId: typeof item.operation_id === 'string' ? item.operation_id : undefined,
+      }
+    })
+}
+
+function capabilityIcon(iconKey: string): ReactNode {
+  const className = 'h-4 w-4'
+  switch (iconKey) {
+    case 'home':
+      return <Home className={className} />
+    case 'sparkles':
+      return <Sparkles className={className} />
+    case 'plug':
+      return <Plug className={className} />
+    case 'database':
+      return <Database className={className} />
+    case 'wrench':
+      return <Wrench className={className} />
+    case 'play':
+      return <Play className={className} />
+    case 'book':
+      return <BookOpen className={className} />
+    case 'brain':
+      return <Brain className={className} />
+    case 'graduation':
+      return <GraduationCap className={className} />
+    case 'clipboard':
+      return <ClipboardCheck className={className} />
+    default:
+      return <Circle className={className} />
+  }
 }

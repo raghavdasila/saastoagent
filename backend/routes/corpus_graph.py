@@ -17,48 +17,6 @@ from backend.services.app_graph import corpus_graph_runtime, route_deck_runtime
 
 router = APIRouter(tags=["corpus-graph"])
 
-
-@router.get("/api/routedeck/projection")
-async def get_route_deck_projection(
-    node_id: str | None = None,
-    saas_agent_id: uuid.UUID | None = None,
-    projection_version: int = 1,
-    user: User | None = Depends(current_optional_active_user),
-    db: AsyncSession = Depends(get_async_session),
-):
-    projection = await route_deck_runtime.projection(
-        {
-            "request": AppGraphRequest(node_id=node_id, saas_agent_id=saas_agent_id),
-            "user": user,
-            "db": db,
-            "projection_version": projection_version,
-        }
-    )
-    return projection.model_dump(mode="json")
-
-
-@router.get("/api/routedeck/stream")
-async def stream_route_deck_projection(
-    node_id: str | None = None,
-    saas_agent_id: uuid.UUID | None = None,
-    projection_version: int = 1,
-    user: User | None = Depends(current_optional_active_user),
-    db: AsyncSession = Depends(get_async_session),
-):
-    async def events() -> AsyncIterator[str]:
-        async for event in route_deck_runtime.stream(
-            {
-                "request": AppGraphRequest(node_id=node_id, saas_agent_id=saas_agent_id),
-                "user": user,
-                "db": db,
-                "projection_version": projection_version,
-            }
-        ):
-            yield _sse(event.event_type, {"turn_id": str(uuid.uuid4()), **event.model_dump(mode="json")})
-
-    return StreamingResponse(events(), media_type="text/event-stream")
-
-
 @router.get("/api/corpus/state", response_model=CorpusStateResponse)
 async def get_corpus_state(
     node_id: str | None = None,

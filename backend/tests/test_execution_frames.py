@@ -5,9 +5,12 @@ import pytest
 
 from backend.services.agent.execution_frames import (
     FRAME_METADATA_KEY,
+    active_resource_context,
+    augment_message_with_frame_context,
     build_inputs_from_frame,
     capture_result_frame,
     find_entity_reference,
+    promote_active_resource,
     preserve_selected_entity,
 )
 from backend.services.agent import rest_operator
@@ -83,6 +86,40 @@ def test_execution_frame_resolves_named_product_variant_and_default_quantity():
     assert entity["id"] == "prod_1"
     assert inputs == {"variant_id": "var_l", "quantity": 1}
     assert missing == []
+
+
+def test_execution_frame_explicit_entity_switch_beats_previous_selection():
+    frame = {
+        "kind": "result_context",
+        "selected_entity": {
+            "entity_type": "products",
+            "id": "prod_1",
+            "label": "Medusa T-Shirt",
+            "aliases": ["medusa t shirt", "t-shirt"],
+            "raw": {"id": "prod_1", "title": "Medusa T-Shirt"},
+        },
+        "entities": [
+            {
+                "entity_type": "products",
+                "id": "prod_1",
+                "label": "Medusa T-Shirt",
+                "aliases": ["medusa t shirt", "t-shirt"],
+                "raw": {"id": "prod_1", "title": "Medusa T-Shirt"},
+            },
+            {
+                "entity_type": "products",
+                "id": "prod_2",
+                "label": "Medusa Sweatshirt",
+                "aliases": ["medusa sweatshirt", "sweatshirt"],
+                "raw": {"id": "prod_2", "title": "Medusa Sweatshirt"},
+            },
+        ],
+    }
+
+    entity = find_entity_reference("buy the sweatshirt", frame)
+
+    assert entity is not None
+    assert entity["id"] == "prod_2"
 
 
 def test_execution_frame_fills_product_identifier_without_hardcoded_product_name():
@@ -176,8 +213,6 @@ def test_execution_frame_preserves_selected_entity_after_followup_read():
 
 
 def test_execution_frame_augments_slot_only_reply_with_pending_operation_context():
-    from backend.services.agent.execution_frames import augment_message_with_frame_context
-
     frame = {
         "kind": "operation_context",
         "source": {"tool_name": "addCartItem", "action_name": "addCartItem", "method": "POST", "path": "/cart/items"},
@@ -195,6 +230,86 @@ def test_execution_frame_augments_slot_only_reply_with_pending_operation_context
     assert "Medusa T-Shirt" in routed_message
     assert "addCartItem" in routed_message
     assert "/cart/items" in routed_message
+
+
+def test_execution_frame_promotes_internal_dependency_as_active_resource():
+    frame = {
+        "kind": "result_context",
+        "selected_entity": {"entity_type": "items", "id": "item_1", "label": "Starter Plan"},
+    }
+
+    updated = promote_active_resource(
+        frame,
+        collection_path="/api/accounts",
+        resource_id="acct_1",
+        source_action_path="/api/accounts/{id}/subscriptions",
+    )
+
+    assert active_resource_context(updated) == {
+        "collection_path": "/api/accounts",
+        "id": "acct_1",
+        "source_action_path": "/api/accounts/{id}/subscriptions",
+        "reason": "internal_dependency_used_successfully",
+    }
+    assert updated["selected_entity"]["id"] == "item_1"
+    assert "active_resource" not in frame
+
+
+def test_execution_frame_augments_workflow_message_with_active_resource_not_selected_entity():
+    frame = promote_active_resource(
+        {
+            "kind": "result_context",
+            "source": {"tool_name": "getItems", "action_name": "getItems", "method": "GET", "path": "/api/items/{id}"},
+            "selected_entity": {
+                "entity_type": "items",
+                "id": "item_1",
+                "label": "Starter Plan",
+                "aliases": ["starter plan"],
+                "raw": {"id": "item_1", "name": "Starter Plan"},
+            },
+        },
+        collection_path="/api/accounts",
+        resource_id="acct_1",
+        source_action_path="/api/accounts/{id}/subscriptions",
+    )
+
+    routed_message = augment_message_with_frame_context("checkout", frame["selected_entity"], frame)
+
+    assert "Active resource collection /api/accounts" in routed_message
+    assert "Active resource id available internally" in routed_message
+    assert "Starter Plan" not in routed_message
+    assert "item_1" not in routed_message
+    assert "/api/items/{id}" not in routed_message
+
+
+def test_execution_frame_fills_active_resource_id_for_workflow_action():
+    frame = promote_active_resource(
+        {"kind": "result_context"},
+        collection_path="/api/accounts",
+        resource_id="acct_1",
+        source_action_path="/api/accounts/{id}/subscriptions",
+    )
+    action = SimpleNamespace(path="/api/accounts/{id}/complete", parameters=[])
+    tool = SimpleNamespace(
+        function_schema={
+            "parameters": {
+                "type": "object",
+                "properties": {"id": {"type": "string"}},
+                "required": ["id"],
+            }
+        }
+    )
+
+    inputs, missing = build_inputs_from_frame(
+        message="checkout",
+        action=action,
+        tool=tool,
+        frame=frame,
+        base_inputs={},
+    )
+
+    assert inputs == {"id": "acct_1"}
+    assert missing == []
 
 
 def test_execution_frame_ignores_unrelated_followup():

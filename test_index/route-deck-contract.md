@@ -1,6 +1,6 @@
 # RouteDeck Contract And Debugger Validation
 
-Date: 2026-05-24
+Date: 2026-05-25
 
 ## Scope
 
@@ -28,13 +28,31 @@ SaaStoAgent diagnostics.
   calling Corpus graph state/action helpers directly.
 - Frontend SaaSAgent context comes from RouteDeck state, while Zustand remains
   UI-local state.
+- RouteDeck v2 navigation operations update client navigation state:
+  - `route.back`
+  - `route.forward`
+  - `route.cancel`
+  - `route.open_node`
+  - `route.switch_surface`
+- Learning peer surfaces and detail nodes are projected from AppGraph/RouteDeck.
+- Learning approve/reject and instructions save dispatch through AppGraph
+  operations.
+- SaaStoAgent product UI does not expose RouteDeck-node wording.
+- Raw public `/api/routedeck/*` product routes are absent.
 
 ## Current Evidence
 
-- `python -m pytest backend/tests/test_app_graph_contract.py backend/tests/test_corpus_graph_contract.py backend/tests/test_corpus_routedeck_runtime.py backend/tests/test_corpus_routedeck_state.py -q`: passed, 65 tests.
+- `python -m pytest backend/tests -q`: passed, 171 tests.
 - `npm run type-check` in SaaStoAgent frontend: passed.
-- Backend source scan confirmed no stale `SaaStoAgentRouteDeckAdapter`,
-  `routedeck_adapter`, or old adapter contract test references.
+- `npm test` in `agent-lab-powered-projects/routedeck/react`: passed, 13
+  tests.
+- `python -m pytest tests -q` in `agent-lab-powered-projects/routedeck`:
+  passed, 17 tests.
+- `git diff --check`: passed.
+- Boundary scans confirmed no active production matches for direct Learning
+  review REST mutation from Corpus UI, direct instructions save REST mutation
+  from Corpus UI, raw `/api/routedeck/*` route declarations, product-visible
+  RouteDeck-node copy, or product literals in RouteDeck production source.
 
 Earlier debugger evidence:
 
@@ -55,6 +73,7 @@ Earlier debugger evidence:
 ```powershell
 python -m pytest backend/tests/test_app_graph_contract.py -q
 python -m pytest backend/tests/test_app_graph_contract.py backend/tests/test_corpus_graph_contract.py backend/tests/test_corpus_routedeck_runtime.py backend/tests/test_corpus_routedeck_state.py -q
+python -m pytest backend/tests -q
 cd ..\routedeck\react
 npm test
 cd ..\..\saastoagent-v0.1\frontend

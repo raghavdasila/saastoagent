@@ -63,6 +63,21 @@ def test_route_deck_projection_diagnostics_do_not_carry_product_runtime_state():
     assert "replace_path" not in projection.diagnostics
 
 
+def test_route_deck_projection_carries_capability_rail_contract():
+    projection = asyncio.run(
+        corpus_graph_runtime.route_deck_projection(
+            request=AppGraphRequest(),
+            user=None,
+            db=None,
+        )
+    )
+
+    capability_rail = projection.diagnostics["capability_rail"]
+    assert capability_rail[0]["id"] == "home"
+    assert any(item["id"] == "learning" and "learning.policy_candidate" in item["child_nodes"] for item in capability_rail)
+    assert all("nodes" in item and "label" in item for item in capability_rail)
+
+
 def test_corpus_state_exposes_product_state_outside_diagnostics():
     state = asyncio.run(
         corpus_graph_runtime.corpus_state(
@@ -244,7 +259,7 @@ def test_corpus_graph_turn_emits_review_proposal_for_non_auto_operation(monkeypa
         ("sign in", "auth.sign_in", "auth_sign_in", "Sign in"),
     ],
 )
-def test_surface_opening_turn_commits_surface_before_prompt(monkeypatch, user_input, operation_id, target_node, label):
+def test_open_surface_turn_commits_projection_without_prompt_bridge(monkeypatch, user_input, operation_id, target_node, label):
     plan_called = False
 
     async def forbidden_stream_message(*, api_key, user_input, projection):
@@ -279,25 +294,20 @@ def test_surface_opening_turn_commits_surface_before_prompt(monkeypatch, user_in
     events = asyncio.run(collect())
     event_types = [event["event_type"] for event in events]
 
-    assert "surface_opening" in event_types
+    assert "surface_opening" not in event_types
     assert "operation_completed" in event_types
     assert "message_delta" not in event_types[: event_types.index("operation_completed")]
     assert plan_called
-
-    opening = next(event for event in events if event["event_type"] == "surface_opening")
-    assert opening["payload"]["operation_id"] == operation_id
-    assert opening["payload"]["label"] == label
-    assert opening["payload"]["target_node"] == target_node
-    assert opening["payload"]["expected_active_surface"]["component"] == "CorpusAuthSurface"
 
     completion = next(event for event in events if event["event_type"] == "operation_completed")
     assert completion["payload"]["operation_id"] == operation_id
     assert completion["payload"]["active_surface"]["component"] == "CorpusAuthSurface"
     assert completion["payload"]["active_surface"]["variant"] == target_node
-    assert completion["payload"]["surface_prompt"]["content"] == "What is your email address?"
+    assert "surface_prompt" not in completion["payload"]
+    assert completion["payload"]["projection"]["navigation"]["current"]["node_id"] == target_node
 
 
-def test_surface_opening_intent_requires_llm_router_configuration():
+def test_open_surface_intent_requires_llm_router_configuration():
     with pytest.raises(HTTPException) as exc:
         asyncio.run(
             corpus_graph_runtime.stream_corpus_turn(
@@ -312,14 +322,14 @@ def test_surface_opening_intent_requires_llm_router_configuration():
     assert "Corpus graph requires a configured LLM" in exc.value.detail
 
 
-def test_corpus_and_routedeck_public_routes_are_registered():
+def test_corpus_public_routes_are_registered_without_raw_routedeck_routes():
     routes = {route.path for route in app.routes}
 
-    assert "/api/routedeck/projection" in routes
-    assert "/api/routedeck/stream" in routes
     assert "/api/corpus/state" in routes
     assert "/api/corpus/stream" in routes
     assert "/api/corpus/action" in routes
     assert "/api/diagnostics/stream" in routes
+    assert "/api/routedeck/projection" not in routes
+    assert "/api/routedeck/stream" not in routes
     assert not any(route.startswith("/api/app/graph") for route in routes)
     assert not any(route.startswith("/api/entry") for route in routes)

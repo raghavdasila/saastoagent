@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import re
 import uuid
 from dataclasses import dataclass
@@ -28,7 +27,6 @@ _NATURAL_USER_FIELDS = {
     "size",
     "state",
     "variant",
-    "variant_id",
     "zip",
 }
 
@@ -80,30 +78,6 @@ def derive_parent_collection_path(path: str, missing_name: str) -> str | None:
             return None
         return "/" + "/".join(segments[:index])
     return None
-
-
-def resolve_dependency_id_from_frame(frame: dict[str, Any] | None, parent_collection_path: str) -> str | None:
-    if not isinstance(frame, dict):
-        return None
-    dependencies = frame.get("internal_dependencies")
-    if not isinstance(dependencies, dict):
-        return None
-    dependency = dependencies.get(parent_collection_path)
-    if isinstance(dependency, dict) and dependency.get("id"):
-        return str(dependency["id"])
-    if isinstance(dependency, str):
-        return dependency
-    return None
-
-
-def remember_dependency_id(frame: dict[str, Any] | None, parent_collection_path: str, resource_id: str) -> dict[str, Any]:
-    next_frame = copy.deepcopy(frame) if isinstance(frame, dict) else {}
-    dependencies = next_frame.get("internal_dependencies")
-    if not isinstance(dependencies, dict):
-        dependencies = {}
-    dependencies[parent_collection_path] = {"id": resource_id}
-    next_frame["internal_dependencies"] = dependencies
-    return next_frame
 
 
 def extract_resource_id_from_result(result: dict[str, Any]) -> str | None:

@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     # Chat streaming
     max_tool_iterations: int = 10
     keepalive_interval: float = 0.5
-    anonymous_chat_messages_per_hour: int = 10
+    anonymous_chat_messages_per_hour: int = 60
     anonymous_chat_rate_limit_window_seconds: int = 3600
 
     @field_validator("cors_origins", mode="before")

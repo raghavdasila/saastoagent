@@ -9,7 +9,7 @@ from backend.core.schemas import AppGraphContextLens, AppGraphState, SaaSAgentRe
 from backend.services.app_graph.corpus_navgraph import CorpusNavgraphDiagnostics
 from backend.services.app_graph.corpus_operations import CorpusOperationPolicy
 from backend.services.app_graph.corpus_surfaces import CorpusSurfaceRegistry
-from backend.services.app_graph.manifest import APP_GRAPH_VERSION
+from backend.services.app_graph.manifest import APP_GRAPH_VERSION, CAPABILITY_RAIL_ITEMS
 
 
 class CorpusRouteDeckStateProjector:
@@ -53,7 +53,14 @@ class CorpusRouteDeckStateProjector:
             presentation_state=presentation_state,
             node_by_id=self.node_by_id,
         )
-        active_surface = self.surface_registry.active_surface(
+        active_surfaces = self.surface_registry.active_surfaces(
+            state=state,
+            lens=lens,
+            saas_agents=saas_agents,
+            context=context,
+        )
+        active_surface = active_surfaces[0] if active_surfaces else None
+        default_surface_by_node = self._default_surface_by_node(
             state=state,
             lens=lens,
             saas_agents=saas_agents,
@@ -73,11 +80,34 @@ class CorpusRouteDeckStateProjector:
                     props=lens.model_dump(mode="json"),
                     lifecycle="stable",
                 ),
-                *([active_surface] if active_surface is not None else []),
+                *active_surfaces,
             ],
+            navigation={
+                "current": {
+                    "node_id": state.node,
+                    "surface_id": state.active_surface_id or (active_surface.surface_id if active_surface else None),
+                    "params": state.route_params,
+                },
+                "back_stack": [],
+                "forward_stack": [],
+            },
             presentation_state={"context": context, **presentation_state},
             projection_version=projection_version,
-            diagnostics=self.base_diagnostics(state),
+            diagnostics={
+                **self.base_diagnostics(state),
+                "capability_rail": CAPABILITY_RAIL_ITEMS,
+                "node_hierarchy": {
+                    node.id: {
+                        "parent": node.parent,
+                        "node_kind": getattr(node, "node_kind", "workflow"),
+                        "capability_id": getattr(node, "capability_id", None),
+                        "cancel_target_node": getattr(node, "cancel_target_node", None),
+                        "show_in_capability_rail": getattr(node, "show_in_capability_rail", True),
+                        "default_surface_id": default_surface_by_node.get(node.id),
+                    }
+                    for node in self.manifest.nodes
+                },
+            },
         )
         introspection = self.navgraph_diagnostics.introspection(
             manifest=self.manifest,
@@ -98,3 +128,24 @@ class CorpusRouteDeckStateProjector:
             "graph_version": APP_GRAPH_VERSION,
             "selected_saas_agent_id": str(state.active_saas_agent_id) if state.active_saas_agent_id else None,
         }
+
+    def _default_surface_by_node(
+        self,
+        *,
+        state: AppGraphState,
+        lens: AppGraphContextLens,
+        saas_agents: list[SaaSAgentRead],
+        context: str,
+    ) -> dict[str, str]:
+        defaults: dict[str, str] = {}
+        for node in self.manifest.nodes:
+            node_state = state.model_copy(update={"node": node.id, "active_surface_id": None, "route_params": {}})
+            surfaces = self.surface_registry.active_surfaces(
+                state=node_state,
+                lens=lens,
+                saas_agents=saas_agents,
+                context=context,
+            )
+            if surfaces:
+                defaults[node.id] = surfaces[0].surface_id
+        return defaults

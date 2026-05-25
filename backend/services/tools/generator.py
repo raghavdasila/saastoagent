@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ast
+import json
 import re
 
 from sqlalchemy import select
@@ -43,8 +45,8 @@ def build_function_schema(action_node: ActionNode) -> dict:
         if isinstance(content, dict):
             json_content = content.get("application/json") or next(iter(content.values()), {})
             if isinstance(json_content, dict):
-                schema = json_content.get("schema")
-                if isinstance(schema, dict):
+                schema = _coerce_schema(json_content.get("schema"))
+                if schema:
                     body_properties, body_required = _flatten_object_schema(schema)
                     for prop_name, prop_schema in list(body_properties.items())[:30]:
                         properties[str(prop_name)] = _map_schema(prop_schema if isinstance(prop_schema, dict) else {})
@@ -64,6 +66,21 @@ def build_function_schema(action_node: ActionNode) -> dict:
             "required": list(dict.fromkeys(required)),
         },
     }
+
+
+def _coerce_schema(value) -> dict:
+    if isinstance(value, dict):
+        return value
+    if not isinstance(value, str) or not value.strip():
+        return {}
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        try:
+            parsed = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            return {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
 def _map_schema(schema: dict) -> dict:

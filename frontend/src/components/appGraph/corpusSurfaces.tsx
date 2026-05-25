@@ -27,7 +27,6 @@ import { isValidEmail } from '@/lib/entryGraph'
 import { api } from '@/lib/api'
 import { useSaaSAgentUiStore } from '@/stores/saasAgentUiStore'
 import type { AppGraphContextLens, AppGraphState } from '@/types/appGraph'
-import type { CorpusExpectedActiveSurface } from '@/types/corpus'
 import type { SaaSAgent } from '@/types/domain'
 
 import {
@@ -254,7 +253,28 @@ export function SurfaceRenderer({
   if (surface.component === corpusSurfaceComponents.entities) return <EntitiesCanvas saasAgentId={activeSaaSAgentId} />
   if (surface.component === corpusSurfaceComponents.actions) return <ActionsCanvas saasAgentId={activeSaaSAgentId} />
   if (surface.component === corpusSurfaceComponents.knowledge) return <AttachmentsPanel saasAgentId={activeSaaSAgentId} />
-  if (surface.component === corpusSurfaceComponents.learning) return <LearningPanel saasAgentId={activeSaaSAgentId} />
+  if (surface.component === corpusSurfaceComponents.learning) {
+    return <LearningPanel saasAgentId={activeSaaSAgentId} filter={String(surface.props?.filter || 'policy_gaps')} />
+  }
+  if (surface.component === corpusSurfaceComponents.learningPolicyCandidate) {
+    return (
+      <LearningPanel
+        saasAgentId={activeSaaSAgentId}
+        candidateId={String(surface.props?.candidate_id || '')}
+        readonly={Boolean(surface.props?.readonly)}
+      />
+    )
+  }
+  if (surface.component === corpusSurfaceComponents.learningExecutionTrace) {
+    return (
+      <InfoSurface title="Execution trace" description="Owner-only trace review for the selected public or owner execution." icon={<Play className="h-5 w-5" />}>
+        <dl className="grid gap-2 text-sm sm:grid-cols-2">
+          <Fact label="Trace ID" value={String(surface.props?.trace_id || 'No trace selected')} />
+          <Fact label="Visibility" value="Owner only" />
+        </dl>
+      </InfoSurface>
+    )
+  }
   if (surface.component === corpusSurfaceComponents.qa) return <QAAgentPanel onResetRuntime={async () => undefined} />
   if (surface.component === corpusSurfaceComponents.instructions) {
     return <InstructionsSurface saasAgentId={activeSaaSAgentId} />
@@ -316,12 +336,15 @@ export function SurfaceRenderer({
 }
 
 export function InstructionsSurface({ saasAgentId }: { saasAgentId: string | null }) {
+  const routeDeckStore = useRouteDeckStore()
   const [systemPrompt, setSystemPrompt] = useState('')
   const [instructions, setInstructions] = useState('')
+  const [lastSaved, setLastSaved] = useState({ systemPrompt: '', instructions: '' })
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const dirty = systemPrompt !== lastSaved.systemPrompt || instructions !== lastSaved.instructions
 
   useEffect(() => {
     if (!saasAgentId) return
@@ -333,6 +356,7 @@ export function InstructionsSurface({ saasAgentId }: { saasAgentId: string | nul
         if (cancelled) return
         setSystemPrompt(agent.system_prompt || '')
         setInstructions(agent.instructions || '')
+        setLastSaved({ systemPrompt: agent.system_prompt || '', instructions: agent.instructions || '' })
       })
       .catch((loadError: unknown) => {
         if (cancelled) return
@@ -352,12 +376,14 @@ export function InstructionsSurface({ saasAgentId }: { saasAgentId: string | nul
     setError(null)
     setSaved(false)
     try {
-      const agent = await api.put<SaaSAgent>(`/saas-agents/${saasAgentId}/instructions`, {
-        system_prompt: systemPrompt,
-        instructions,
+      await routeDeckStore.dispatch({
+        operation_id: corpusOperationIds.instructionsSave,
+        args: {
+          system_prompt: systemPrompt,
+          instructions,
+        },
       })
-      setSystemPrompt(agent.system_prompt || '')
-      setInstructions(agent.instructions || '')
+      setLastSaved({ systemPrompt, instructions })
       setSaved(true)
       window.setTimeout(() => setSaved(false), 1800)
     } catch (saveError: unknown) {
@@ -413,7 +439,7 @@ export function InstructionsSurface({ saasAgentId }: { saasAgentId: string | nul
         <button
           type="button"
           onClick={() => void save()}
-          disabled={loading || saving}
+          disabled={loading || saving || !dirty}
           className="surface-solid-button inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -693,19 +719,10 @@ export function contextLensFromProjection(projection: RouteDeckProjection): AppG
 }
 
 export function activeSurfaceFromProjection(projection: RouteDeckProjection): RouteDeckSurface | null {
+  const currentSurfaceId = projection.navigation?.current?.surface_id
+  if (currentSurfaceId) {
+    const exact = Object.values(projection.surfaces).find((surface) => surface.surface_id === currentSurfaceId)
+    if (exact) return exact
+  }
   return Object.values(projection.surfaces).find((surface) => surface.role === 'active') || null
 }
-
-
-export function surfaceMatchesExpected(
-  surface: RouteDeckSurface | null,
-  expected?: CorpusExpectedActiveSurface | null,
-) {
-  if (!surface || !expected) return false
-  if (expected.name && surface.name !== expected.name) return false
-  if (expected.component && surface.component !== expected.component) return false
-  if (expected.variant && surface.variant !== expected.variant) return false
-  if (expected.role && surface.role !== expected.role) return false
-  return true
-}
-

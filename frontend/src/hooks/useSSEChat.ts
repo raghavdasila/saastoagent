@@ -45,6 +45,7 @@ export function useSSEChat({ saasAgentId, chatPath, onError }: UseSSEChatOptions
   const followUpsRef = useRef<string[]>([])
   const xhrRef = useRef<XMLHttpRequest | null>(null)
   const cursorRef = useRef(0)
+  const sseBufferRef = useRef('')
 
   // Reset state when the saasAgent changes.
   useEffect(() => {
@@ -62,6 +63,7 @@ export function useSSEChat({ saasAgentId, chatPath, onError }: UseSSEChatOptions
     sourcesRef.current = []
     followUpsRef.current = []
     cursorRef.current = 0
+    sseBufferRef.current = ''
   }, [saasAgentId, chatPath])
 
   const flushAssistant = useCallback(() => {
@@ -117,12 +119,12 @@ export function useSSEChat({ saasAgentId, chatPath, onError }: UseSSEChatOptions
           break
         }
         case 'message_delta': {
-          contentRef.current += data.content as string
+          contentRef.current += typeof data.content === 'string' ? data.content : ''
           flushAssistant()
           break
         }
         case 'thinking_delta': {
-          thinkingRef.current += data.content as string
+          thinkingRef.current += typeof data.content === 'string' ? data.content : ''
           flushAssistant()
           break
         }
@@ -197,21 +199,13 @@ export function useSSEChat({ saasAgentId, chatPath, onError }: UseSSEChatOptions
     (text: string) => {
       const chunk = text.slice(cursorRef.current)
       cursorRef.current = text.length
-      const lines = chunk.split('\n')
-      let currentEvent: SSEEventType | null = null
-      for (const line of lines) {
-        if (line.startsWith(': ping')) continue
-        if (line.startsWith('event: ')) {
-          currentEvent = line.slice(7).trim() as SSEEventType
-        } else if (line.startsWith('data: ') && currentEvent) {
-          try {
-            const data = JSON.parse(line.slice(6))
-            handleEvent(currentEvent, data)
-          } catch {
-            // partial JSON
-          }
-          currentEvent = null
-        }
+      sseBufferRef.current += chunk
+      const blocks = sseBufferRef.current.split(/\r?\n\r?\n/)
+      sseBufferRef.current = blocks.pop() || ''
+      for (const block of blocks) {
+        const parsed = parseSSEBlock(block)
+        if (!parsed) continue
+        handleEvent(parsed.eventType, parsed.data)
       }
     },
     [handleEvent],
@@ -332,5 +326,25 @@ export function useSSEChat({ saasAgentId, chatPath, onError }: UseSSEChatOptions
     setMessages,
     setSessionId,
     abort,
+  }
+}
+
+function parseSSEBlock(block: string): { eventType: SSEEventType; data: Record<string, unknown> } | null {
+  let eventType: SSEEventType | null = null
+  const dataLines: string[] = []
+  for (const rawLine of block.split(/\r?\n/)) {
+    const line = rawLine.trimEnd()
+    if (!line || line.startsWith(':')) continue
+    if (line.startsWith('event:')) {
+      eventType = line.slice('event:'.length).trim() as SSEEventType
+    } else if (line.startsWith('data:')) {
+      dataLines.push(line.slice('data:'.length).trimStart())
+    }
+  }
+  if (!eventType || dataLines.length === 0) return null
+  try {
+    return { eventType, data: JSON.parse(dataLines.join('\n')) as Record<string, unknown> }
+  } catch {
+    return null
   }
 }

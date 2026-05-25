@@ -10,6 +10,12 @@ export const corpusOperationIds = {
   createSaaSAgent: 'saas_agent.create',
   listSaaSAgents: 'saas_agent.list',
   openSaaSAgent: 'saas_agent.open',
+  instructionsSave: 'instructions.save',
+  learningOpen: 'learning.open',
+  learningPolicyCandidateOpen: 'learning.policy_candidate.open',
+  learningActivePolicyOpen: 'learning.active_policy.open',
+  learningApprove: 'learning.approve',
+  learningReject: 'learning.reject',
 } as const
 
 export const corpusSurfaceComponents = {
@@ -21,6 +27,8 @@ export const corpusSurfaceComponents = {
   actions: 'ActionsSurface',
   knowledge: 'KnowledgeSurface',
   learning: 'LearningSurface',
+  learningPolicyCandidate: 'LearningPolicyCandidateSurface',
+  learningExecutionTrace: 'LearningExecutionTraceSurface',
   qa: 'QASurface',
   memory: 'MemorySurface',
   schemaPreview: 'SchemaPreviewSurface',

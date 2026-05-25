@@ -30,7 +30,6 @@ from backend.core.schemas import (
     AppGraphRequest,
     AppGraphResponse,
     AppGraphState,
-    AppGraphSurface,
     CorpusActionResponse,
     CorpusDiagnosticsSnapshot,
     CorpusProposal,
@@ -417,18 +416,6 @@ class CorpusGraphRuntime:
             yield {"event_type": "corpus_done", "projection_version": projection.projection_version, "payload": {"status": done_status}}
             return
         if operation.execution_mode == "auto":
-            expected_active_surface = self._expected_active_surface_for_operation(operation)
-            if expected_active_surface is not None:
-                yield {
-                    "event_type": "surface_opening",
-                    "projection_version": projection.projection_version,
-                    "payload": {
-                        "operation_id": operation.id,
-                        "label": operation.label,
-                        "target_node": operation.target_node,
-                        "expected_active_surface": expected_active_surface,
-                    },
-                }
             response = await self.corpus_action(
                 request=normalized_request,
                 operation_id=operation.id,
@@ -447,12 +434,6 @@ class CorpusGraphRuntime:
                     "active_surface": response.active_surface.model_dump(mode="json") if response.active_surface else None,
                     "messages": [message.model_dump(mode="json") for message in response.messages],
                     "replace_path": response.replace_path,
-                    "surface_prompt": self._surface_prompt_payload(
-                        operation=operation,
-                        response=response,
-                        decision_message=message,
-                        expected_active_surface=expected_active_surface,
-                    ),
                 },
             }
             yield {
@@ -590,7 +571,6 @@ class CorpusGraphRuntime:
             graph_manifest=EntryGraphManifest.model_validate(self.manifest.model_dump(by_alias=True)),
             route_deck_snapshot=EntryRouteDeckRuntimeSnapshot.model_validate(snapshot),
             context_lens=lens,
-            active_surface=self._surface_for_state(state, lens),
             available_actions=actions,
             persistent_actions=await self._persistent_actions(state, user, lens),
             ui_artifacts=[EntryUIArtifact(id="context-lens", kind="widget", surface="both", title="Context lens", widget_type="context_lens", payload=lens.model_dump(mode="json"))],
@@ -747,39 +727,8 @@ class CorpusGraphRuntime:
             presentation_state=current,
         )
 
-    def _active_surface(
-        self,
-        *,
-        state: AppGraphState,
-        lens: AppGraphContextLens,
-        saas_agents: list[SaaSAgentRead],
-        context: str,
-    ) -> RouteDeckSurface | None:
-        return self._surface_registry.active_surface(state=state, lens=lens, saas_agents=saas_agents, context=context)
-
-    def _active_surface_component_for_node(self, node_id: str | None) -> str | None:
-        return self._surface_registry.active_surface_component_for_node(node_id)
-
-    def _expected_active_surface_for_operation(self, operation: RouteDeckOperation) -> dict[str, Any] | None:
-        return self._surface_registry.expected_active_surface_for_operation(operation)
-
-    def _surface_prompt_payload(
-        self,
-        *,
-        operation: RouteDeckOperation,
-        response: CorpusActionResponse,
-        decision_message: str,
-        expected_active_surface: dict[str, Any] | None,
-    ) -> dict[str, Any] | None:
-        return self._surface_registry.surface_prompt_payload(
-            operation=operation,
-            response=response,
-            decision_message=decision_message,
-            expected_active_surface=expected_active_surface,
-        )
-
-    def _deterministic_surface_prompt(self, operation: RouteDeckOperation) -> str:
-        return self._surface_registry.deterministic_surface_prompt(operation)
+    def _deterministic_open_message(self, operation: RouteDeckOperation) -> str:
+        return self._surface_registry.deterministic_open_message(operation)
 
     def _deterministic_turn_plan(
         self,
@@ -796,7 +745,7 @@ class CorpusGraphRuntime:
         ):
             return {
                 "intent": "open_surface",
-                "message": self._deterministic_surface_prompt(
+                "message": self._deterministic_open_message(
                     next(operation for operation in projection.legal_operations if operation.id == AppActionIds.CONNECTION_CONFIGURE)
                 ),
                 "operation_id": AppActionIds.CONNECTION_CONFIGURE,
@@ -844,59 +793,6 @@ class CorpusGraphRuntime:
         if action_id in {AppActionIds.APPROVAL_APPROVE, AppActionIds.APPROVAL_REJECT} and not state.pending_trace_id:
             return "No pending approval exists"
         return None
-
-    def _surface_component(self, context: str, renderer: str) -> str:
-        if context == "lounge":
-            return "CorpusLoungeSurface"
-        component_by_renderer = {
-            "home": "CorpusDashboardSurface",
-            "auth_sign_in": "CorpusAuthSurface",
-            "auth_register": "CorpusAuthSurface",
-            "agent_home": "SaaSAgentOverviewSurface",
-            "instructions": "InstructionsSurface",
-            "connection_configure": "ConnectionSetupSurface",
-            "schema_preview": "SchemaPreviewSurface",
-            "catalog_activation": "CatalogActivationSurface",
-            "catalog": "CatalogSurface",
-            "entities": "EntitiesSurface",
-            "actions": "ActionsSurface",
-            "execution": "ExecutionSurface",
-            "knowledge": "KnowledgeSurface",
-            "memory": "MemorySurface",
-            "learning": "LearningSurface",
-            "qa": "QASurface",
-            "recovery": "RecoverySurface",
-        }
-        return component_by_renderer.get(renderer, "RecoverySurface")
-
-    def _surface_for_state(self, state: AppGraphState, lens: AppGraphContextLens) -> AppGraphSurface:
-        renderers = {
-            AppNodeIds.HOME: ("home", "Home"),
-            AppNodeIds.AUTH_SIGN_IN: ("auth_sign_in", "Sign in"),
-            AppNodeIds.AUTH_REGISTER: ("auth_register", "Register"),
-            AppNodeIds.SAAS_AGENT_SELECT: ("home", "Select SaaS Agent"),
-            AppNodeIds.SAAS_AGENT_CREATE: ("home", "Create SaaS Agent"),
-            AppNodeIds.AGENT_HOME: ("agent_home", "SaaS Agent Home"),
-            AppNodeIds.INSTRUCTIONS: ("instructions", "Instructions"),
-            AppNodeIds.CONNECTION_CONFIGURE: ("connection_configure", "Connection Setup"),
-            AppNodeIds.SCHEMA_PREVIEW: ("schema_preview", "Schema Preview"),
-            AppNodeIds.CATALOG_ACTIVATION: ("catalog_activation", "Catalog Activation"),
-            AppNodeIds.CATALOG: ("catalog", "Catalog"),
-            AppNodeIds.ENTITIES: ("entities", "Entities"),
-            AppNodeIds.ACTIONS: ("actions", "Actions"),
-            AppNodeIds.EXECUTION_PLANNING: ("execution", "Execution Planning"),
-            AppNodeIds.NEEDS_INPUT: ("execution", "Missing Inputs"),
-            AppNodeIds.APPROVAL_REQUIRED: ("execution", "Approval Required"),
-            AppNodeIds.EXECUTING: ("execution", "Executing"),
-            AppNodeIds.RESULT_REVIEW: ("execution", "Result Review"),
-            AppNodeIds.KNOWLEDGE: ("knowledge", "Knowledge"),
-            AppNodeIds.MEMORY: ("memory", "Memory"),
-            AppNodeIds.LEARNING: ("learning", "Learning"),
-            AppNodeIds.QA: ("qa", "QA"),
-            AppNodeIds.RECOVERY: ("recovery", "Recovery"),
-        }
-        renderer, title = renderers.get(state.node, ("recovery", "Recovery"))
-        return AppGraphSurface(id=state.node, renderer=renderer, title=title, payload={"lens": lens.model_dump(mode="json"), **state.graph_context})
 
     def _path_for_state(self, state: AppGraphState) -> str:
         if state.active_saas_agent_id:
@@ -1147,6 +1043,35 @@ class CorpusGraphRuntime:
         state.node = AppNodeIds.INSTRUCTIONS
         return state, [], []
 
+    async def _handle_instructions_save(self, state, payload, user, db):
+        if user is None or not state.active_saas_agent_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="SaaS Agent selection required")
+        member = await self._require_member(state.active_saas_agent_id, user, db)
+        if member.role not in (SaaSAgentRole.owner, SaaSAgentRole.admin):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SaaS Agent admin role required")
+        agent = await db.get(SaaSAgent, state.active_saas_agent_id)
+        if agent is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SaaS Agent not found")
+        agent.system_prompt = str(payload.get("system_prompt") or "").strip() or None
+        agent.instructions = str(payload.get("instructions") or "").strip() or None
+        await db.commit()
+        await db.refresh(agent)
+        state.node = AppNodeIds.INSTRUCTIONS
+        state.dirty_surfaces.pop("instructions", None)
+        state.graph_context["instructions_saved"] = True
+        return (
+            state,
+            [EntryGraphMessage(content="Saved instructions for this SaaS Agent.")],
+            [
+                {
+                    "type": "instructions_saved",
+                    "saas_agent_id": str(agent.id),
+                    "system_prompt": agent.system_prompt,
+                    "instructions": agent.instructions,
+                }
+            ],
+        )
+
     async def _handle_knowledge_generate(self, state, payload, user, db):
         if not state.active_saas_agent_id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="SaaS Agent selection required")
@@ -1168,6 +1093,33 @@ class CorpusGraphRuntime:
     async def _handle_learning_open(self, state, payload, user, db):
         state.node = AppNodeIds.LEARNING
         return state, [], []
+
+    async def _handle_learning_policy_candidate_open(self, state, payload, user, db):
+        candidate_id = str(payload.get("candidate_id") or "").strip()
+        if not candidate_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="candidate_id is required")
+        state.node = AppNodeIds.LEARNING_POLICY_CANDIDATE
+        state.route_params = {"candidate_id": candidate_id}
+        state.active_surface_id = "learning.policy_candidate.review"
+        return state, [], [{"type": "learning_policy_candidate_opened", "candidate_id": candidate_id}]
+
+    async def _handle_learning_execution_trace_open(self, state, payload, user, db):
+        trace_id = str(payload.get("trace_id") or "").strip()
+        if not trace_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="trace_id is required")
+        state.node = AppNodeIds.LEARNING_EXECUTION_TRACE
+        state.route_params = {"trace_id": trace_id}
+        state.active_surface_id = "learning.execution_trace.review"
+        return state, [], [{"type": "learning_execution_trace_opened", "trace_id": trace_id}]
+
+    async def _handle_learning_active_policy_open(self, state, payload, user, db):
+        candidate_id = str(payload.get("candidate_id") or "").strip()
+        if not candidate_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="candidate_id is required")
+        state.node = AppNodeIds.LEARNING_ACTIVE_POLICY
+        state.route_params = {"candidate_id": candidate_id}
+        state.active_surface_id = "learning.active_policy.review"
+        return state, [], [{"type": "learning_active_policy_opened", "candidate_id": candidate_id}]
 
     async def _handle_learning_approve(self, state, payload, user, db):
         return await self._review_learning(state, payload, user, db, "approved")

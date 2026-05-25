@@ -203,6 +203,31 @@ def test_generated_tool_schema_includes_json_request_body_allof_fields():
     assert {"id", "variant_id", "quantity"} <= set(params["required"])
 
 
+def test_generated_tool_schema_parses_stringified_json_request_body_schema():
+    action = SimpleNamespace(
+        name="createPaymentCollection",
+        method="POST",
+        path="/api/payment-collections",
+        description="Create a payment collection for an account.",
+        parameters=[],
+        request_body={
+            "content": {
+                "application/json": {
+                    "schema": (
+                        "{'type': 'object', 'required': ['account_id'], "
+                        "'properties': {'account_id': {'type': 'string', 'description': 'The account ID.'}}}"
+                    )
+                }
+            }
+        },
+    )
+
+    params = build_function_schema(action)["parameters"]
+
+    assert "account_id" in params["properties"]
+    assert "account_id" in params["required"]
+
+
 def test_write_intent_bonus_prefers_mutating_action_over_read_action():
     cart_action = SimpleNamespace(method="POST", path="/store/carts/{id}/line-items", description="Add a product variant as a line item in the cart.")
     product_action = SimpleNamespace(method="GET", path="/store/products", description="Retrieve a list of products.")
@@ -264,7 +289,7 @@ def test_frame_rerank_prefers_action_with_entity_fillable_required_inputs():
         frame=frame,
     )
 
-    assert ranked[0] is write_candidate
+    assert ranked[0].action.path == write_candidate.action.path
 
 
 def test_missing_path_id_prompt_uses_resource_context():

@@ -69,19 +69,148 @@ class CorpusSurfaceRegistry:
         saas_agents: list[SaaSAgentRead],
         context: str,
     ) -> RouteDeckSurface | None:
+        surfaces = self.active_surfaces(state=state, lens=lens, saas_agents=saas_agents, context=context)
+        return surfaces[0] if surfaces else None
+
+    def active_surfaces(
+        self,
+        *,
+        state: AppGraphState,
+        lens: AppGraphContextLens,
+        saas_agents: list[SaaSAgentRead],
+        context: str,
+    ) -> list[RouteDeckSurface]:
+        if state.node == AppNodeIds.LEARNING:
+            return [
+                self._surface(
+                    state=state,
+                    lens=lens,
+                    saas_agents=saas_agents,
+                    component="LearningSurface",
+                    surface_id="learning.policy_gaps",
+                    variant="policy_gaps",
+                    kind="peer",
+                    label="Policy gaps",
+                    props={"filter": "policy_gaps"},
+                ),
+                self._surface(
+                    state=state,
+                    lens=lens,
+                    saas_agents=saas_agents,
+                    component="LearningSurface",
+                    surface_id="learning.failed_executions",
+                    variant="failed_executions",
+                    kind="peer",
+                    label="Failed executions",
+                    props={"filter": "failed_executions"},
+                ),
+                self._surface(
+                    state=state,
+                    lens=lens,
+                    saas_agents=saas_agents,
+                    component="LearningSurface",
+                    surface_id="learning.active_policies",
+                    variant="active_policies",
+                    kind="peer",
+                    label="Active policies",
+                    props={"filter": "active_policies"},
+                ),
+                self._surface(
+                    state=state,
+                    lens=lens,
+                    saas_agents=saas_agents,
+                    component="LearningSurface",
+                    surface_id="learning.rejected",
+                    variant="rejected",
+                    kind="peer",
+                    label="Rejected",
+                    props={"filter": "rejected"},
+                ),
+            ]
+        if state.node == AppNodeIds.LEARNING_POLICY_CANDIDATE:
+            return [
+                self._surface(
+                    state=state,
+                    lens=lens,
+                    saas_agents=saas_agents,
+                    component="LearningPolicyCandidateSurface",
+                    surface_id="learning.policy_candidate.review",
+                    variant="policy_candidate_review",
+                    kind="detail",
+                    label="Policy candidate",
+                    props={"candidate_id": state.route_params.get("candidate_id")},
+                )
+            ]
+        if state.node == AppNodeIds.LEARNING_EXECUTION_TRACE:
+            return [
+                self._surface(
+                    state=state,
+                    lens=lens,
+                    saas_agents=saas_agents,
+                    component="LearningExecutionTraceSurface",
+                    surface_id="learning.execution_trace.review",
+                    variant="execution_trace_review",
+                    kind="detail",
+                    label="Execution trace",
+                    props={"trace_id": state.route_params.get("trace_id")},
+                )
+            ]
+        if state.node == AppNodeIds.LEARNING_ACTIVE_POLICY:
+            return [
+                self._surface(
+                    state=state,
+                    lens=lens,
+                    saas_agents=saas_agents,
+                    component="LearningPolicyCandidateSurface",
+                    surface_id="learning.active_policy.review",
+                    variant="active_policy_review",
+                    kind="detail",
+                    label="Active policy",
+                    props={"candidate_id": state.route_params.get("candidate_id"), "readonly": True},
+                )
+            ]
         component = self.active_surface_component_for_node(state.node)
         if component is None:
-            return None
+            return []
+        return [self._surface(
+            state=state,
+            lens=lens,
+            saas_agents=saas_agents,
+            component=component,
+            surface_id=f"{state.node}.active",
+            variant=state.node,
+            kind="embedded",
+            label=lens.working_on,
+        )]
+
+    def _surface(
+        self,
+        *,
+        state: AppGraphState,
+        lens: AppGraphContextLens,
+        saas_agents: list[SaaSAgentRead],
+        component: str,
+        surface_id: str,
+        variant: str,
+        kind: str,
+        label: str,
+        props: dict[str, Any] | None = None,
+    ) -> RouteDeckSurface:
         return RouteDeckSurface(
             name="active",
+            surface_id=surface_id,
             component=component,
-            variant=state.node,
+            variant=variant,
             role="active",
+            slot="active",
+            surface_kind=kind,
+            label=label,
             props={
                 "title": lens.working_on,
                 "node_id": state.node,
                 "saas_agents": [agent.model_dump(mode="json") for agent in saas_agents],
                 "lens": lens.model_dump(mode="json"),
+                **(props or {}),
                 **state.graph_context,
             },
         )
@@ -105,47 +234,15 @@ class CorpusSurfaceRegistry:
             AppNodeIds.KNOWLEDGE: "KnowledgeSurface",
             AppNodeIds.MEMORY: "MemorySurface",
             AppNodeIds.LEARNING: "LearningSurface",
+            AppNodeIds.LEARNING_POLICY_CANDIDATE: "LearningPolicyCandidateSurface",
+            AppNodeIds.LEARNING_EXECUTION_TRACE: "LearningExecutionTraceSurface",
+            AppNodeIds.LEARNING_ACTIVE_POLICY: "LearningPolicyCandidateSurface",
             AppNodeIds.QA: "QASurface",
             AppNodeIds.RECOVERY: "RecoverySurface",
         }
         return active_components.get(node_id or "")
 
-    def expected_active_surface_for_operation(self, operation: RouteDeckOperation) -> dict[str, Any] | None:
-        component = self.active_surface_component_for_node(operation.target_node)
-        if component is None:
-            return None
-        return {
-            "name": "active",
-            "component": component,
-            "variant": operation.target_node,
-            "role": "active",
-        }
-
-    def surface_prompt_payload(
-        self,
-        *,
-        operation: RouteDeckOperation,
-        response: Any,
-        decision_message: str,
-        expected_active_surface: dict[str, Any] | None,
-    ) -> dict[str, Any] | None:
-        if expected_active_surface is None:
-            return None
-        content = self.deterministic_surface_prompt(operation)
-        if not content:
-            content = decision_message.strip()
-        if not content and response.messages:
-            content = str(response.messages[0].content or "").strip()
-        if not content:
-            return None
-        return {
-            "operation_id": operation.id,
-            "target_node": operation.target_node,
-            "expected_active_surface": expected_active_surface,
-            "content": content,
-        }
-
-    def deterministic_surface_prompt(self, operation: RouteDeckOperation) -> str:
+    def deterministic_open_message(self, operation: RouteDeckOperation) -> str:
         prompts = {
             AppActionIds.CONNECTION_CONFIGURE: (
                 "Connection setup is open. Enter the API name, base URL, OpenAPI schema URL, and auth details, "

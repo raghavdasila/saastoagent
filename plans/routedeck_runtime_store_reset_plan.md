@@ -1,6 +1,6 @@
 # RouteDeck Runtime Store Reset Plan
 
-Status: Boundary cleanup implemented; browser E2E rerun pending
+Status: RouteDeck v2 navigation and boundary cleanup implemented; browser E2E rerun pending
 Date: 2026-05-24
 
 Canonical framework doc: `../../routedeck/docs/agentic-ui-state-runtime.md`
@@ -65,11 +65,26 @@ Primary product endpoints:
 - `GET /api/corpus/state`
 - `GET /api/corpus/stream`
 - `POST /api/corpus/action`
-- `GET /api/routedeck/projection`
-- `GET /api/routedeck/stream`
 - `GET /api/diagnostics/stream`
 
-Legacy `/api/app/graph/*` endpoints are compatibility debt only and should not be used as the product UI contract.
+Raw public `/api/routedeck/*` product routes have been removed. Product UI uses
+Corpus endpoints and owner diagnostics uses diagnostics endpoints.
+
+## 2026-05-25 Update
+
+- RouteDeck v2 navigation metadata is now part of the runtime/store contract.
+- Client-store navigation supports back, forward, cancel, open-node, and
+  switch-surface.
+- Learning policy gaps, failed executions, active policies, and rejected
+  candidates are peer surfaces under the Learning node.
+- Policy candidate, execution trace, and active policy review are child/detail
+  nodes.
+- Learning approve/reject and instructions save are graph-owned operations.
+- Product UI copy now uses workflow/surface language instead of RouteDeck-node
+  language.
+- Navgraph diagnostics no longer label edges with action ids.
+- `../../routedeck/docs/using-routedeck.md` is the practical guide for human,
+  agent, and developer usage.
 
 ## Diagnostics Contract
 
@@ -92,24 +107,27 @@ The diagnostics navigation graph must not draw actions as graph edges. Actions a
 ## Next Work
 
 1. Rerun Docker browser E2E after the RouteDeck boundary cleanup:
-   - `npm run e2e:docker`
    - `npm run e2e:medusa:docker` when the Medusa target is available
-2. Add no-page-navigation/no-flicker browser tests for auth and active surface
+2. Complete full checkout orchestration after cart/add-item:
+   - shipping method selection
+   - payment session/provider selection
+   - order completion
+3. Add no-page-navigation/no-flicker browser tests for auth and active surface
    opening.
-3. Add direct tests for `RouteDeckStore.connectStream()` against projection update events.
-4. Add focused browser tests for diagnostics and inline surfaces:
+4. Add direct tests for `RouteDeckStore.connectStream()` against projection update events.
+5. Add focused browser tests for diagnostics and inline surfaces:
    - Focus map opens on current node with non-overlapping edge geometry.
    - Full map shows the navgraph topology around the root node.
    - Actions are absent from the canvas and present only in selected-node
      details.
    - Auth and inline surfaces stay inside the main Corpus shell.
-5. Add LLM meta-tool adapters backed by the same introspection service as diagnostics.
-6. Tighten surface role tests:
+6. Add LLM meta-tool adapters backed by the same introspection service as diagnostics.
+7. Tighten surface role tests:
    - `frame` renders around Corpus.
    - `active` appears only after initiation, accepted proposal, or graph-required recovery.
    - `diagnostic` remains hidden/read-only.
-7. Continue product-literal guard tests for RouteDeck framework source.
-8. Continue purging product use of compatibility `/api/app/graph/*` routes where
+8. Continue product-literal guard tests for RouteDeck framework source.
+9. Continue purging product use of compatibility `/api/app/graph/*` routes where
    tests and unrelated callers no longer require them.
 
 ## Anti-Drift Checks

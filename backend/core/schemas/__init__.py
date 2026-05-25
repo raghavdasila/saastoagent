@@ -45,7 +45,6 @@ from .app_graph import (
     AppGraphResponse,
     AppGraphRouterDecision,
     AppGraphState,
-    AppGraphSurface,
     AppGraphTurnResponse,
 )
 from .corpus import (
@@ -100,7 +99,6 @@ __all__ = [
     "AppGraphResponse",
     "AppGraphRouterDecision",
     "AppGraphState",
-    "AppGraphSurface",
     "AppGraphTurnResponse",
     "CorpusActionRequest",
     "CorpusActionResponse",
