@@ -424,7 +424,7 @@ def test_material_workbench_only_one_click_dispatches_ready_operations():
     assert "onOpenSaaSAgent(agent)" in dashboard_markup_source
 
 
-def test_node_navigation_uses_routedeck_controls_without_old_prompt_bridge():
+def test_node_navigation_uses_routedeck_controls_with_dirty_surface_prompt_bridge():
     app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
     shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
     routedeck_provider_source = (
@@ -433,8 +433,10 @@ def test_node_navigation_uses_routedeck_controls_without_old_prompt_bridge():
 
     assert "useRouteDeckSurfaceOpening" in routedeck_provider_source
     assert "useRouteDeckSurfaceOpening()" not in shell_source
-    assert "Changing node will change active surface, continue?" not in shell_source
-    assert "Please save any changes from this surface." not in shell_source
+    assert "Save changes before leaving this surface?" in shell_source
+    assert "Save and continue" in shell_source
+    assert "Continue without saving" in shell_source
+    assert "Stay here" in shell_source
     assert "routeDeckStore.back()" in shell_source
     assert "routeDeckStore.forward()" in shell_source
     assert "routeDeckStore.cancel()" in shell_source
@@ -627,11 +629,14 @@ def test_material_workbench_proposal_waits_for_input_without_spinner_status():
     visible_status_source = source.split("const visibleStatus", 1)[1].split("const composerPlaceholder", 1)[0]
     quick_action_source = source.split("const handleQuickAction", 1)[1].split("const handleRailSelect", 1)[0]
     status_pill_source = source.split("function StatusPill", 1)[1].split("function AgentConversation", 1)[0]
+    conversation_source = source.split("function AgentConversation", 1)[1].split("function QuickActionChips", 1)[0]
 
     assert "pendingProposal" in visible_status_source
     assert "'Waiting for input'" in visible_status_source
     assert "setCorpusStatus('Preparing proposal')" not in quick_action_source
     assert "'Waiting for input'" not in status_pill_source.split("includes(status)", 1)[0]
+    assert "!pendingProposal && activeSurfacePanel" in conversation_source
+    assert "pendingProposal ? (" in conversation_source
 
 
 def test_material_tokens_share_primary_and_secondary_across_themes():

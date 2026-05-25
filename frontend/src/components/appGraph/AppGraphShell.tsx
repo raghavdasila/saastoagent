@@ -53,6 +53,7 @@ import type { AgentApproval, AgentApprovalDecision, SaaSAgent, SaaSAgentDeployme
 import { CorpusRouteDeckDiagnostics as DiagnosticsPanel } from './CorpusRouteDeckDiagnostics'
 import {
   ActiveSurfacePanel,
+  type ActiveSurfaceDirtyState,
   activeSurfaceFromProjection,
   contextLensFromProjection,
 } from './corpusSurfaces'
@@ -105,6 +106,11 @@ interface RailSelectionNotice {
   label: string
   state: 'active' | 'locked'
   message: string
+}
+
+interface PendingSurfaceTransition {
+  nextStatus: WorkbenchStatus
+  run: () => void
 }
 
 export function AppGraphShell({ nodeId, saasAgentId }: AppGraphShellProps) {
@@ -175,9 +181,14 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
   const [pendingProposal, setPendingProposal] = useState<CorpusProposal | null>(null)
   const [corpusStatus, setCorpusStatus] = useState<WorkbenchStatus>('Ready')
   const [railNotice, setRailNotice] = useState<RailSelectionNotice | null>(null)
+  const [activeSurfaceDirtyState, setActiveSurfaceDirtyState] = useState<ActiveSurfaceDirtyState | null>(null)
+  const [pendingSurfaceTransition, setPendingSurfaceTransition] = useState<PendingSurfaceTransition | null>(null)
+  const [surfaceTransitionBusy, setSurfaceTransitionBusy] = useState(false)
   const activeSurface = activeSurfaceFromProjection(projection)
   const quickActions = useMemo(() => corpusQuickActions(projection), [projection])
   const contextLens = contextLensFromProjection(projection)
+  const activeSurfaceId = activeSurface?.surface_id || 'none'
+  const activeNodeDirtyPolicy = dirtyPolicyForNode(projection, projection.graph_node)
 
   useEffect(() => {
     if (!projection || !graphState) return
@@ -186,6 +197,10 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
       syncBrowserPathWithoutNavigation(replacePath)
     }
   }, [activeSaaSAgentId, graphState, projection, replacePath, setMirroredSaaSAgentId])
+
+  useEffect(() => {
+    setActiveSurfaceDirtyState((current) => (current?.surfaceId === activeSurfaceId ? current : null))
+  }, [activeSurfaceId])
 
   const executeOperation = useMutation({
     mutationFn: async ({
@@ -365,14 +380,47 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
     turn.mutate(value)
   }
 
+  const requestSurfaceTransition = (run: () => void, nextStatus: WorkbenchStatus) => {
+    if (
+      activeNodeDirtyPolicy === 'confirm' &&
+      activeSurfaceDirtyState?.dirty &&
+      activeSurfaceDirtyState.surfaceId === activeSurfaceId
+    ) {
+      setPendingSurfaceTransition({ nextStatus, run })
+      return
+    }
+    setCorpusStatus(nextStatus)
+    run()
+  }
+
+  const openProposalSurface = (proposal: CorpusProposal) => {
+    requestSurfaceTransition(() => {
+      setPendingProposal(proposal)
+      setCorpusStatus('Ready')
+    }, 'Ready')
+  }
+
+  const confirmSurfaceTransition = async (mode: 'save' | 'discard') => {
+    const transition = pendingSurfaceTransition
+    if (!transition) return
+    if (mode === 'save' && activeSurfaceDirtyState?.save) {
+      setSurfaceTransitionBusy(true)
+      const saved = await activeSurfaceDirtyState.save()
+      setSurfaceTransitionBusy(false)
+      if (!saved) return
+    }
+    setPendingSurfaceTransition(null)
+    setCorpusStatus(transition.nextStatus)
+    transition.run()
+  }
+
   const handleQuickAction = (action: CorpusQuickAction) => {
     setRailNotice(null)
     const operation = action.operation
     if (operation.can_dispatch_now === false) {
       const interaction = routeDeckOperationInteraction(operation)
       if (interaction === 'form') {
-        setPendingProposal(operationToProposal(operation))
-        setCorpusStatus('Ready')
+        openProposalSurface(operationToProposal(operation))
         return
       }
       setChatMessages((current) => [
@@ -388,12 +436,13 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
       return
     }
     if (operation.execution_mode === 'review' || operation.kind === 'form') {
-      setPendingProposal(operationToProposal(operation))
-      setCorpusStatus('Ready')
+      openProposalSurface(operationToProposal(operation))
       return
     }
-    setCorpusStatus(operation.target_node && operation.target_node !== projection.graph_node ? 'Navigating' : 'Committing')
-    executeOperation.mutate({ operationId: operation.id, args: operation.payload || {} })
+    requestSurfaceTransition(
+      () => executeOperation.mutate({ operationId: operation.id, args: operation.payload || {} }),
+      operation.target_node && operation.target_node !== projection.graph_node ? 'Navigating' : 'Committing',
+    )
   }
 
   const handleRailSelect = (item: CapabilityItem, action: CorpusQuickAction | null, state: 'active' | 'ready' | 'locked') => {
@@ -425,9 +474,9 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
         contextLens={contextLens}
         status={visibleStatus}
         user={user}
-        onBack={() => void routeDeckStore.back()}
-        onForward={() => void routeDeckStore.forward()}
-        onCancel={() => void routeDeckStore.cancel()}
+        onBack={() => requestSurfaceTransition(() => void routeDeckStore.back(), 'Navigating')}
+        onForward={() => requestSurfaceTransition(() => void routeDeckStore.forward(), 'Navigating')}
+        onCancel={() => requestSurfaceTransition(() => void routeDeckStore.cancel(), 'Navigating')}
         onLogout={handleLogout}
       />
 
@@ -451,6 +500,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
                 graphState={graphState}
                 busy={executeOperation.isPending}
                 onOperationSubmit={(operationId, args) => executeOperation.mutate({ operationId, args })}
+                onDirtyStateChange={setActiveSurfaceDirtyState}
               />
             }
             activeSurfaceKey={activeSurface ? `${activeSurface.component}:${activeSurface.variant}` : 'none'}
@@ -462,6 +512,11 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
               executeOperation.mutate({ operationId: pendingProposal.operation_id, args })
             }
             onProposalDismiss={() => setPendingProposal(null)}
+            pendingSurfaceTransition={pendingSurfaceTransition}
+            surfaceTransitionBusy={surfaceTransitionBusy}
+            onSaveAndContinue={() => void confirmSurfaceTransition('save')}
+            onContinueWithoutSaving={() => void confirmSurfaceTransition('discard')}
+            onStayOnSurface={() => setPendingSurfaceTransition(null)}
           />
         </main>
 
@@ -601,11 +656,16 @@ function AgentConversation({
   quickActions,
   activeSurfacePanel,
   activeSurfaceKey,
+  pendingSurfaceTransition,
+  surfaceTransitionBusy,
   onDraftChange,
   onSend,
   onQuickAction,
   onProposalAccept,
   onProposalDismiss,
+  onSaveAndContinue,
+  onContinueWithoutSaving,
+  onStayOnSurface,
 }: {
   messages: ChatUIMessage[]
   draft: string
@@ -618,11 +678,16 @@ function AgentConversation({
   quickActions: CorpusQuickAction[]
   activeSurfacePanel: ReactNode
   activeSurfaceKey: string
+  pendingSurfaceTransition: PendingSurfaceTransition | null
+  surfaceTransitionBusy: boolean
   onDraftChange: (value: string) => void
   onSend: () => void
   onQuickAction: (action: CorpusQuickAction) => void
   onProposalAccept: (args: Record<string, unknown>) => void
   onProposalDismiss: () => void
+  onSaveAndContinue: () => void
+  onContinueWithoutSaving: () => void
+  onStayOnSurface: () => void
 }) {
   const workspaceRef = useRef<HTMLDivElement>(null)
   let latestAssistantMessageId: string | null = null
@@ -684,15 +749,24 @@ function AgentConversation({
             )}
           </div>
 
-          {activeSurfacePanel}
+          {pendingSurfaceTransition && (
+            <SurfaceTransitionPrompt
+              busy={surfaceTransitionBusy}
+              onSaveAndContinue={onSaveAndContinue}
+              onContinueWithoutSaving={onContinueWithoutSaving}
+              onStayOnSurface={onStayOnSurface}
+            />
+          )}
 
-          {pendingProposal && (
+          {pendingProposal ? (
             <ProposalPanel
               proposal={pendingProposal}
               busy={busy}
               onAccept={onProposalAccept}
               onDismiss={onProposalDismiss}
             />
+          ) : (
+            !pendingProposal && activeSurfacePanel
           )}
 
           {error && (
@@ -1026,6 +1100,53 @@ function ProposalPanel({
   )
 }
 
+function SurfaceTransitionPrompt({
+  busy,
+  onSaveAndContinue,
+  onContinueWithoutSaving,
+  onStayOnSurface,
+}: {
+  busy: boolean
+  onSaveAndContinue: () => void
+  onContinueWithoutSaving: () => void
+  onStayOnSurface: () => void
+}) {
+  return (
+    <div className="mb-4 rounded-[0.9rem] border border-amber-300/60 bg-amber-50/90 p-5 shadow-[0_26px_64px_-42px_hsl(var(--foreground)/0.4)] dark:border-amber-700/50 dark:bg-amber-950/25">
+      <div className="text-sm font-semibold text-foreground">Save changes before leaving this surface?</div>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Your current surface has unsaved changes. Save them now, keep working here, or continue without saving.
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={onSaveAndContinue}
+          disabled={busy}
+          className="surface-solid-button disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {busy ? 'Saving...' : 'Save and continue'}
+        </button>
+        <button
+          type="button"
+          onClick={onContinueWithoutSaving}
+          disabled={busy}
+          className="surface-outline-button disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Continue without saving
+        </button>
+        <button
+          type="button"
+          onClick={onStayOnSurface}
+          disabled={busy}
+          className="surface-outline-button disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Stay here
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function ContextPanel({
   projection,
   status,
@@ -1265,6 +1386,15 @@ function lockedCapabilityReason(item: CapabilityItem, lens: AppGraphContextLens 
     return `${item.label} needs an active SaaS Agent context before Corpus can switch there.`
   }
   return `${item.label} is not available from the current workflow. Corpus can move there once the graph prerequisites are met.`
+}
+
+function dirtyPolicyForNode(projection: RouteDeckProjection, nodeId: string) {
+  const hierarchy = projection.diagnostics?.node_hierarchy
+  if (!hierarchy || typeof hierarchy !== 'object') return 'none'
+  const node = (hierarchy as Record<string, unknown>)[nodeId]
+  if (!node || typeof node !== 'object') return 'none'
+  const dirtyPolicy = (node as Record<string, unknown>).dirty_policy
+  return dirtyPolicy === 'confirm' || dirtyPolicy === 'block' ? dirtyPolicy : 'none'
 }
 
 function capabilityItems(projection: RouteDeckProjection): CapabilityItem[] {

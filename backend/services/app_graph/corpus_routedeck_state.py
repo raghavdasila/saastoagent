@@ -102,6 +102,7 @@ class CorpusRouteDeckStateProjector:
                         "node_kind": getattr(node, "node_kind", "workflow"),
                         "capability_id": getattr(node, "capability_id", None),
                         "cancel_target_node": getattr(node, "cancel_target_node", None),
+                        "dirty_policy": getattr(node, "dirty_policy", "none"),
                         "show_in_capability_rail": getattr(node, "show_in_capability_rail", True),
                         "default_surface_id": default_surface_by_node.get(node.id),
                     }

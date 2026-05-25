@@ -192,11 +192,13 @@ export function ActiveSurfacePanel({
   graphState,
   busy,
   onOperationSubmit,
+  onDirtyStateChange,
 }: {
   projection: RouteDeckProjection
   graphState: AppGraphState | null
   busy: boolean
   onOperationSubmit: (operationId: string, args: Record<string, unknown>) => void
+  onDirtyStateChange?: (state: ActiveSurfaceDirtyState | null) => void
 }) {
   const contextLens = contextLensFromProjection(projection)
   const activeSurface = useMemo(
@@ -225,10 +227,17 @@ export function ActiveSurfacePanel({
           projection={projection}
           busy={busy}
           onOperationSubmit={onOperationSubmit}
+          onDirtyStateChange={onDirtyStateChange}
         />
       </div>
     </section>
   )
+}
+
+export interface ActiveSurfaceDirtyState {
+  surfaceId: string
+  dirty: boolean
+  save?: () => Promise<boolean>
 }
 
 export function SurfaceRenderer({
@@ -238,6 +247,7 @@ export function SurfaceRenderer({
   projection,
   busy,
   onOperationSubmit,
+  onDirtyStateChange,
 }: {
   surface: RouteDeckSurface
   contextLens: AppGraphContextLens | null
@@ -245,6 +255,7 @@ export function SurfaceRenderer({
   projection: RouteDeckProjection
   busy: boolean
   onOperationSubmit: (operationId: string, args: Record<string, unknown>) => void
+  onDirtyStateChange?: (state: ActiveSurfaceDirtyState | null) => void
 }) {
   if (surface.component === corpusSurfaceComponents.auth) {
     return <AuthSurfaceCard surface={surface} />
@@ -277,7 +288,13 @@ export function SurfaceRenderer({
   }
   if (surface.component === corpusSurfaceComponents.qa) return <QAAgentPanel onResetRuntime={async () => undefined} />
   if (surface.component === corpusSurfaceComponents.instructions) {
-    return <InstructionsSurface saasAgentId={activeSaaSAgentId} />
+    return (
+      <InstructionsSurface
+        saasAgentId={activeSaaSAgentId}
+        surfaceId={surface.surface_id || 'instructions.active'}
+        onDirtyStateChange={onDirtyStateChange}
+      />
+    )
   }
   if (surface.component === corpusSurfaceComponents.memory) {
     const agents = Array.isArray(surface.props?.saas_agents) ? (surface.props?.saas_agents as SaaSAgent[]) : []
@@ -335,7 +352,15 @@ export function SurfaceRenderer({
   )
 }
 
-export function InstructionsSurface({ saasAgentId }: { saasAgentId: string | null }) {
+export function InstructionsSurface({
+  saasAgentId,
+  surfaceId,
+  onDirtyStateChange,
+}: {
+  saasAgentId: string | null
+  surfaceId: string
+  onDirtyStateChange?: (state: ActiveSurfaceDirtyState | null) => void
+}) {
   const routeDeckStore = useRouteDeckStore()
   const [systemPrompt, setSystemPrompt] = useState('')
   const [instructions, setInstructions] = useState('')
@@ -371,7 +396,7 @@ export function InstructionsSurface({ saasAgentId }: { saasAgentId: string | nul
   }, [saasAgentId])
 
   const save = async () => {
-    if (!saasAgentId) return
+    if (!saasAgentId) return false
     setSaving(true)
     setError(null)
     setSaved(false)
@@ -386,12 +411,24 @@ export function InstructionsSurface({ saasAgentId }: { saasAgentId: string | nul
       setLastSaved({ systemPrompt, instructions })
       setSaved(true)
       window.setTimeout(() => setSaved(false), 1800)
+      return true
     } catch (saveError: unknown) {
       setError(saveError instanceof Error ? saveError.message : 'Failed to save instructions.')
+      return false
     } finally {
       setSaving(false)
     }
   }
+
+  useEffect(() => {
+    if (!onDirtyStateChange || !saasAgentId) return undefined
+    if (dirty) {
+      onDirtyStateChange({ surfaceId, dirty: true, save })
+    } else {
+      onDirtyStateChange(null)
+    }
+    return () => onDirtyStateChange(null)
+  }, [dirty, onDirtyStateChange, saasAgentId, save, surfaceId])
 
   if (!saasAgentId) {
     return <InfoSurface title="Instructions" description="Open a SaaS Agent before editing instructions." icon={<FileText className="h-5 w-5" />} />
