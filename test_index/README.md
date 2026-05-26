@@ -24,3 +24,9 @@ Test documentation and coverage tracking for SaaStoAgent v0.1.
 - `route-deck-contract.md` - validation for RouteDeck manifest/runtime contract, sibling framework packaging, Docker dependency wiring, action validation, and graph debugger rendering
 - `langgraph-entry-runtime.md` - validation for LangGraph-owned entry execution, RouteDeck parity, live streaming, and embedded UI-driven QA coverage
 - `flow-qa-and-workspace-contract.md` - validation for stream-aware collapsible assistant sections, embedded QA flow execution, REST catalog/operator smoke, and the corrected workspace-name creation contract
+
+## Architecture Coverage Link
+
+`architecture/code-map.md` is the source-to-test ownership map. When adding,
+renaming, or deleting tests, update the matching row there and refresh any
+component doc under `architecture/components/` that names the suite.

@@ -19,6 +19,8 @@ Current anchors:
 
 - Project setup: `README.md`
 - Current context: `context.md`
+- Code ownership map: `architecture/code-map.md`
+- Component docs: `architecture/components/`
 - Product RouteDeck guide: `docs/route-deck/route-deck-overview.md`
 - Framework RouteDeck guide: `../routedeck/docs/using-routedeck.md`
 - Framework runtime anchor: `../routedeck/docs/agentic-ui-state-runtime.md`
