@@ -1,30 +1,73 @@
 # RouteDeck Migration Notes
 
-## Moved Into RouteDeck
+These notes document the current migration state from the older entry/setup
+RouteDeck experiment to the active app-graph RouteDeck/Corpus runtime.
 
-- Reusable framework contracts moved into the sibling `../routedeck/routedeck_core` package.
-- Reusable React debugger moved into the sibling `../routedeck/react` package.
-- Node labels, descriptions, lanes, placeholders, expected inputs, and recovery prompts moved into `backend/services/route_deck/catalog.py`.
-- Static action metadata moved into the central action catalog.
-- Backend action and node ids are exposed through `backend/services/route_deck/ids.py`.
-- Frontend entry rail actions bind through RouteDeck `capability_id` metadata instead of duplicated action ids.
-- REST setup form field definitions moved into `REST_CONNECTION_FIELDS`.
-- Sensitive field metadata is now explicit on field specs and validated against the masking policy.
-- Manifest export now includes nodes, edges, actions, policies, and test paths.
+## Current Primary Runtime
 
-## Still In Existing Runtime Files
+New product UI and agent-navigation work should target:
 
-- `entry_runtime/graph_spec.py` still provides the LangGraph enum compatibility layer and delegates manifest building to RouteDeck.
-- `entry_runtime/graph_executor.py` now owns the product-specific LangGraph topology and consumes `routedeck_langgraph` for shared graph wiring.
-- `entry_runtime/route_conditions.py` remains the product condition registry that maps RouteDeck edge condition ids onto executable SaaStoAgent checks.
-- `entry_runtime/ui_actions.py` remains the adapter that creates `EntryActionCard` instances for the current API shape.
-- `backend/services/route_deck/` remains SaaStoAgent-specific and imports framework-level models/helpers from `routedeck_core`.
-- `stage_auth.py` and `stage_workspace.py` still own dynamic auth/workspace/setup behavior.
-- `OperatorGateway.tsx` still owns streaming, workbench layout, and shell state.
+- `backend/services/app_graph/`
+- `backend/routes/corpus_graph.py`
+- `frontend/src/components/appGraph/`
+- sibling framework docs under `../routedeck/docs/`
 
-## Follow-Up Refactors
+Primary endpoints:
 
-- Move more static auth/setup messages from stage handlers into RouteDeck node or action copy when the copy is truly contract-level rather than domain-specific.
-- Replace placeholder-style RouteDeck condition resolvers with richer product checks where edge semantics require more than `state.node == edge.to_stage`.
-- Generate TypeScript manifest types or fixtures from the backend contract.
-- Extend RouteDeck beyond entry/setup into REST execution, approval gates, QA, and learnings.
+- `GET /api/corpus/state`
+- `POST /api/corpus/action`
+- `GET /api/corpus/stream`
+- `GET /api/diagnostics/stream`
+
+Primary frontend routes:
+
+- `/app/home`
+- `/app/:nodeId`
+- `/app/agents/:saasAgentId`
+- `/app/agents/:saasAgentId/:nodeId`
+
+## Superseded Entry Runtime Shape
+
+Older docs referenced:
+
+- `backend/services/route_deck/catalog.py`
+- `entry_runtime/graph_executor.py`
+- `entry_runtime/graph_spec.py`
+- `OperatorGateway.tsx`
+
+Those paths may still exist as compatibility debt or historical scaffolding, but
+they are not the current app-graph authoring path. Do not add new RouteDeck
+product behavior there unless the task is explicitly to remove or migrate old
+compatibility code.
+
+## Completed Boundary Repairs
+
+- Raw public `/api/routedeck/*` product routes were removed from the primary UI
+  contract.
+- `/api/corpus/*` routes now cross the RouteDeck runtime boundary.
+- RouteDeck v2 navigation operations exist for browser/runtime infrastructure.
+- Normal Corpus planning context is product-facing and hides internal route ops.
+- Product quick actions filter hidden/internal route operations.
+- `surface_id` is the standard surface query parameter.
+- Chat-driven surface opens map through product surface intents before runtime
+  performs validated internal route dispatch.
+
+## Remaining Migration Risks
+
+- Compatibility endpoints and old route surfaces can keep stale mental models
+  alive if docs point to them as primary.
+- Public deployed chat can still regress by exposing tool/router internals in
+  response text even when the owner workbench boundary is correct.
+- Browser URL replay must remain validated location replay, not product intent.
+
+## Migration Rule
+
+When moving old behavior forward, preserve this boundary:
+
+```text
+RouteDeck exposes state and legal capabilities.
+Corpus decides product intent from normal chat and product context.
+Runtime validates and commits.
+Product UI renders product language.
+Diagnostics expose internals read-only.
+```

@@ -1,22 +1,18 @@
 # SaaStoAgent v0.1 Context
 
-Last Updated: May 26, 2026 03:37 PM IST
+Last Updated: May 26, 2026 02:21 PM IST
 Project: SaaStoAgent v0.1
-Status: RouteDeck documentation, boundary context, and whitepaper are refreshed. Runtime code is unchanged by the whitepaper closeout.
+Status: Documentation and RouteDeck context refreshed after the RouteDeck/Corpus boundary repair. Runtime code is not changed by this docs pass.
 Repository: `agent-lab-powered-projects/saastoagent-v0.1`
-Current branch: `saastoagent`
-Recent baseline commit: `f15139c3 RouteDeck updates`
 
 ## Start Here
 
 - Project README and setup: `README.md`
-- Latest checkpoint: `context_checkpoints/context_checkpoint_26-05-2026-3-37PM.md`
+- Latest checkpoint: `context_checkpoints/context_checkpoint_26-05-2026-02-21PM.md`
 - Previous context archived at:
-  `context_history/20260526_1537_context_before_routedeck_whitepaper_closeout.md`
-- Closeout log for this session:
-  `logs/20260526_1537_routedeck_whitepaper_closeout.md`
-- RouteDeck whitepaper:
-  `../routedeck/docs/route-deck-whitepaper.md`
+  `context_history/20260526_1421_context_before_docs_refresh.md`
+- Closeout log for this docs refresh:
+  `logs/20260526_1421_docs_and_routedeck_guide_refresh.md`
 - RouteDeck product guide:
   `docs/route-deck/route-deck-overview.md`
 - RouteDeck sibling framework guide:
@@ -138,46 +134,6 @@ dispatch by runtime code after Corpus chooses a valid `surface_options` entry.
 - Browser URL replay is treated as validated location replay, not product intent.
 - Pending approval polling should stay gated to approval-relevant UI/state rather than global two-second shell polling.
 
-## RouteDeck Whitepaper Status
-
-The RouteDeck whitepaper now exists at:
-
-- `../routedeck/docs/route-deck-whitepaper.md`
-
-It explains:
-
-- why RouteDeck exists
-- graph-backed state runtime mental model
-- manifest, runtime state, projection, operations, surfaces, diagnostics
-- internal navigation lane versus product planning lane
-- one dispatch path for clicks and chat
-- browser replay as location replay, not product intent
-- diagnostics without public product leakage
-- SaaStoAgent as a reference integration
-- testing expectations and open-framework direction
-
-## RouteDeck Open-Source Readiness Snapshot
-
-Estimated readiness: 55-60% of a credible public alpha.
-
-Already in place:
-
-- Reusable package split exists: `routedeck_core`, `routedeck_langgraph`, and `@routedeck/react`.
-- Core reusable source scan found no SaaStoAgent/Corpus/Medusa literals.
-- Python and React tests pass.
-- Minimal examples exist.
-- Framework docs now include the whitepaper and practical usage guides.
-
-Primary blockers:
-
-- No `LICENSE` in `agent-lab-powered-projects/routedeck`.
-- `@routedeck/react` is still `"private": true`.
-- npm package needs real build/declaration output before publication.
-- Python package metadata needs license, authors, URLs, classifiers, changelog, and release policy.
-- CI/release automation is not yet established for isolated RouteDeck tests/builds.
-- Public scrub/repo export plan is needed so ignored local artifacts never ship.
-- Clean install smoke tests are still needed for PyPI/npm-style consumption and examples.
-
 ## Medusa Setup Status
 
 Medusa remains an acceptance fixture, not product hardcoding.
@@ -196,16 +152,6 @@ Do not write account passwords, publishable keys, OpenAI keys, approval ids, or
 trace ids into repo docs.
 
 ## Known Debt To Carry Forward
-
-### Corpus Human-Like Testing
-
-Next session should test Corpus through real owner-workbench behavior:
-
-- create/open/publish a Medusa-backed SaaS Agent through normal chat and clicks
-- verify navigation works without backend phrase tables or alias routers
-- verify chat navigation does not remount or refresh the whole page
-- verify hidden/internal route ops do not render as normal quick-action chips
-- verify clicks and chat converge on the typed operation validation path
 
 ### Public Chat Response Shaping
 
@@ -237,30 +183,6 @@ npm run type-check
 
 For runtime behavior changes, also rerun the backend RouteDeck/Corpus suite and
 the Docker browser E2E scripts listed in `README.md`.
-
-## Last Validation Evidence
-
-RouteDeck package validation from the whitepaper closeout:
-
-```powershell
-python -m pytest agent-lab-powered-projects/routedeck/tests -q
-```
-
-Result: `17 passed in 0.54s`.
-
-```powershell
-npm test
-```
-
-Run from `agent-lab-powered-projects/routedeck/react`.
-
-Result: `16 passed`.
-
-```powershell
-git diff --check
-```
-
-Result: no whitespace errors; only existing LF-to-CRLF warnings.
 
 ## Anti-Drift Reminder
 
