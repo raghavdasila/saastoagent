@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import uuid
-from types import SimpleNamespace
-
 from backend.services.app_graph import (
     ACTION_TARGETS,
     APP_GRAPH_GROUPS,
@@ -12,8 +9,7 @@ from backend.services.app_graph import (
     corpus_graph_runtime,
     validate_app_graph_manifest,
 )
-from backend.core.schemas import AppGraphState
-from backend.services.app_graph.manifest import ACTION_SPECS, AppActionIds, route_action_to_card
+from backend.services.app_graph.manifest import ACTION_SPECS, AppActionIds
 from backend.services.app_graph.corpus_surfaces import CorpusSurfaceRegistry
 from routedeck_langgraph import validate_langgraph_contract
 from pathlib import Path
@@ -99,6 +95,28 @@ def test_app_graph_free_text_policy_is_not_phrase_list_routing():
     assert "approve:*" not in action_ids
 
 
+def test_corpus_runtime_has_no_phrase_routing_helpers():
+    runtime_path = Path(__file__).parents[2] / "backend" / "services" / "app_graph" / "runtime.py"
+    source = runtime_path.read_text(encoding="utf-8")
+
+    forbidden = [
+        "_deterministic_turn_plan",
+        "_deterministic_surface_open_plan",
+        "_deterministic_surface_switch_plan",
+        "_projection_current_surface_id",
+        "_projection_surfaces",
+        "_match_surface_from_request",
+        "_normalized_turn_text",
+        "_turn_tokens",
+        "_looks_like_api_setup_request",
+        "_looks_like_agent_list_request",
+        "_surface_match_phrases",
+        "deterministic_open_message",
+    ]
+    for text in forbidden:
+        assert text not in source, text
+
+
 def test_app_graph_connection_activation_is_user_configured_not_target_preset():
     action = next(action for action in ACTION_SPECS if action.id == AppActionIds.CONNECTION_ACTIVATE)
     field_by_key = {field.key: field for field in action.fields}
@@ -172,6 +190,7 @@ def test_product_shell_uses_corpus_and_routedeck_contracts_not_legacy_app_graph_
         "function WorkSurface",
         "projection.diagnostics?.graph_state",
         "projection.diagnostics?.replace_path",
+        "syncBrowserPathWithoutNavigation",
     ]
     for text in forbidden:
         assert text not in product_source
@@ -246,15 +265,17 @@ def test_material_workbench_rail_is_node_switcher_not_disabled_action_dock():
     assert "onSelect(item, action, status)" in rail_source
 
 
-def test_material_workbench_proposal_surface_has_real_card_boundary():
-    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
-    source = shell_path.read_text(encoding="utf-8")
-    proposal_source = source.split("function ProposalPanel", 1)[1].split("function QuickActionChips", 1)[0]
+def test_material_workbench_review_surface_is_route_deck_hosted():
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
+    shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    surface_source = (app_graph_path / "corpusSurfaces.tsx").read_text(encoding="utf-8")
+    catalog_source = (app_graph_path / "corpusRouteDeckCatalog.ts").read_text(encoding="utf-8")
 
-    assert 'data-testid="corpus-proposal-surface"' in proposal_source
-    assert "border border-border" in proposal_source
-    assert "bg-card" in proposal_source
-    assert "dark:bg-muted" in proposal_source
+    assert "function ProposalPanel" not in shell_source
+    assert "pendingProposal" not in shell_source
+    assert "RouteDeckSurfaceHost" in surface_source
+    assert "CorpusOperationReviewSurface" in catalog_source
+    assert 'data-testid="corpus-operation-review-surface"' in surface_source
 
 
 def test_connection_setup_surface_renders_real_api_forms():
@@ -272,12 +293,16 @@ def test_connection_setup_surface_renders_real_api_forms():
 def test_builder_surface_exposes_owner_approval_controls():
     shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
     source = shell_path.read_text(encoding="utf-8")
+    pending_card_source = source.split("function PendingApprovalsCard", 1)[1].split("function ", 1)[0]
 
     assert "PendingApprovalsCard" in source
     assert "/approvals/pending" in source
     assert "/approve" in source
     assert "/cancel" in source
     assert 'data-testid="pending-approvals-card"' in source
+    assert "enabled: enabled && Boolean(saasAgentId)" in pending_card_source
+    assert "refetchInterval: enabled ? 2000 : false" in pending_card_source
+    assert "refetchInterval: 2000" not in pending_card_source
 
 
 def test_deployed_chat_subscribes_to_public_session_events():
@@ -342,38 +367,47 @@ def test_agent_route_without_node_uses_agent_home_state_not_home():
 def test_routedeck_location_sync_does_not_trigger_browser_navigation():
     client_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "corpusRouteDeckClient.ts"
     source = client_path.read_text(encoding="utf-8")
-    sync_source = source.split("function syncBrowserPathWithoutNavigation", 1)[1]
 
-    assert "window.history.replaceState" in sync_source
-    assert "PopStateEvent" not in sync_source
-    assert "window.dispatchEvent" not in sync_source
+    assert "createCorpusRouteCodec" in source
+    assert "corpusPathFromRouteDeckState" in source
+    assert "window.history.replaceState" not in source
+    assert "window.dispatchEvent" not in source
 
 
-def test_open_node_message_for_connection_is_deterministic_not_a_choice_question():
+def test_connection_configure_operation_is_exposed_as_surface_context():
     action = next(action for action in ACTION_SPECS if action.id == AppActionIds.CONNECTION_CONFIGURE)
-    content = corpus_graph_runtime._deterministic_open_message(action)
+    operation = corpus_graph_runtime._operation_for_action(action)
 
-    assert "Connection setup is open" in content
-    assert "what would you like" not in content.lower()
-    assert "which would you like" not in content.lower()
+    assert ACTION_TARGETS[AppActionIds.CONNECTION_CONFIGURE] == "connection_configure"
+    assert operation.can_dispatch_now is True
+    assert operation.target_node == "connection_configure"
 
 
-def test_api_setup_request_routes_to_connection_surface_when_agent_is_active():
-    action = next(action for action in ACTION_SPECS if action.id == AppActionIds.CONNECTION_CONFIGURE)
-    state = AppGraphState(node="agent_home", active_saas_agent_id=uuid.uuid4())
-    projection = SimpleNamespace(legal_operations=[action])
+def test_deployment_publish_is_product_operation_available_from_agent_context():
+    action = next(action for action in ACTION_SPECS if action.id == AppActionIds.DEPLOYMENT_SAVE)
+    operation = corpus_graph_runtime._operation_for_action(action)
 
-    decision = corpus_graph_runtime._deterministic_turn_plan(
-        user_input="let me setup the api",
-        state=state,
-        projection=projection,
-    )
+    field_keys = {field.key for field in action.fields}
+    assert ACTION_TARGETS[AppActionIds.DEPLOYMENT_SAVE] == "agent_home"
+    assert action.label == "Save deployment"
+    assert action.category == "deployment"
+    assert operation.execution_mode == "review"
+    assert operation.invocation_kind == "form"
+    assert operation.target_node == "agent_home"
+    assert {"enabled", "visitor_auth_mode", "execution_mode", "default_write_policy", "welcome_message"} <= field_keys
 
-    assert decision is not None
-    assert decision["intent"] == "open_surface"
-    assert decision["operation_id"] == AppActionIds.CONNECTION_CONFIGURE
-    assert "Connection setup is open" in decision["message"]
-    assert "what would you like" not in decision["message"].lower()
+
+def test_router_prompt_uses_planning_context_not_raw_projection():
+    runtime_path = Path(__file__).parents[2] / "backend" / "services" / "app_graph" / "runtime.py"
+    source = runtime_path.read_text(encoding="utf-8")
+
+    assert '"planning_context"' in source
+    assert "build_corpus_turn_planning_context" in source
+    assert "normalize_corpus_turn_plan" in source
+    assert "Use only operation ids present in planning_context.legal_operations." in source
+    assert "Use \"reply_now\" only for informational answers that do not change the current workspace." in source
+    assert "return a legal typed operation or surface_intent instead" in source
+    assert "Do not claim that a workspace surface is being opened" in source
 
 
 def test_saas_agent_list_is_dispatchable_surface_and_open_is_bound_only():
@@ -590,7 +624,7 @@ def test_corpus_routedeck_ids_are_read_from_catalog():
 def test_material_workbench_dashboard_limits_agents_and_routes_to_list_surface():
     shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
     source = shell_path.read_text(encoding="utf-8")
-    frame_source = source.split("function FrameSurfacePanel", 1)[1].split("function ProposalPanel", 1)[0]
+    frame_source = source.split("function FrameSurfacePanel", 1)[1].split("function StatusPill", 1)[0]
     dashboard_source = source.split("if (surface.component === corpusSurfaceComponents.dashboard)", 1)[1].split("return (", 1)[1].split("return (", 1)[0]
 
     assert "saasAgents.slice(0, 2)" in dashboard_source
@@ -616,27 +650,27 @@ def test_material_workbench_agent_list_surface_binds_agent_open_operation():
 def test_auto_operation_stream_emits_done_after_operation_completed():
     runtime_path = Path(__file__).parents[1] / "services" / "app_graph" / "runtime.py"
     source = runtime_path.read_text(encoding="utf-8")
-    auto_operation_source = source.split('if operation.execution_mode == "auto":', 1)[1].split("proposal = CorpusProposal", 1)[0]
 
-    assert '"event_type": "operation_completed"' in auto_operation_source
-    assert '"event_type": "corpus_done"' in auto_operation_source
-    assert '"status": "committed"' in auto_operation_source
+    assert '"event_type": "operation_completed"' in source
+    assert '"event_type": "corpus_done"' in source
+    assert 'done_status = "committed"' in source
 
 
-def test_material_workbench_proposal_waits_for_input_without_spinner_status():
-    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
-    source = shell_path.read_text(encoding="utf-8")
-    visible_status_source = source.split("const visibleStatus", 1)[1].split("const composerPlaceholder", 1)[0]
-    quick_action_source = source.split("const handleQuickAction", 1)[1].split("const handleRailSelect", 1)[0]
-    status_pill_source = source.split("function StatusPill", 1)[1].split("function AgentConversation", 1)[0]
-    conversation_source = source.split("function AgentConversation", 1)[1].split("function QuickActionChips", 1)[0]
+def test_material_workbench_review_surface_uses_route_deck_active_surface_state():
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
+    shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    surface_source = (app_graph_path / "corpusSurfaces.tsx").read_text(encoding="utf-8")
+    quick_action_source = shell_source.split("const handleQuickAction", 1)[1].split("const handleRailSelect", 1)[0]
+    review_open_source = shell_source.split("const openReviewSurface", 1)[1].split("useEffect(() => {", 1)[0]
+    conversation_source = shell_source.split("function AgentConversation", 1)[1].split("function QuickActionChips", 1)[0]
 
-    assert "pendingProposal" in visible_status_source
-    assert "'Waiting for input'" in visible_status_source
+    assert "pendingProposal" not in shell_source
     assert "setCorpusStatus('Preparing proposal')" not in quick_action_source
-    assert "'Waiting for input'" not in status_pill_source.split("includes(status)", 1)[0]
-    assert "!pendingProposal && activeSurfacePanel" in conversation_source
-    assert "pendingProposal ? (" in conversation_source
+    assert "pendingProposal ? (" not in conversation_source
+    assert "activeSurfacePanel" in conversation_source
+    assert "RouteDeckSurfaceHost" in surface_source
+    assert "operation_id: 'route.open_node'" not in review_open_source
+    assert "pending_operation_id" not in review_open_source
 
 
 def test_material_tokens_share_primary_and_secondary_across_themes():

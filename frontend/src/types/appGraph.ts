@@ -12,6 +12,20 @@ export interface AppGraphState {
   active_saas_agent_id?: string | null
   active_connection_id?: string | null
   pending_trace_id?: string | null
+  active_surface_id?: string | null
+  route_params?: Record<string, unknown>
+  navigation_back_stack?: Array<{
+    node_id: string
+    surface_id?: string | null
+    params?: Record<string, unknown>
+  }>
+  navigation_forward_stack?: Array<{
+    node_id: string
+    surface_id?: string | null
+    params?: Record<string, unknown>
+  }>
+  pending_operation_id?: string | null
+  pending_operation_args?: Record<string, unknown>
   graph_context?: Record<string, unknown>
   executed_nodes?: string[]
 }

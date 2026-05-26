@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import {
+  RouteDeckSurfaceHost,
   useRouteDeckStore,
   type RouteDeckOperation,
   type RouteDeckProjection,
@@ -36,27 +37,40 @@ import {
   proposalDefaults,
   proposalFields,
 } from './corpusOperations'
-import { graphStateFromRouteDeckState, syncBrowserPathWithoutNavigation } from './corpusRouteDeckClient'
+import { graphStateFromRouteDeckState } from './corpusRouteDeckClient'
 import { corpusOperationIds, corpusSurfaceComponents } from './corpusRouteDeckCatalog'
 import { displayWork } from './workbenchDisplay'
 export function OperationForm({
   operation,
   busy,
+  initialArgs,
   submitLabel,
   onSubmit,
 }: {
   operation: RouteDeckOperation
   busy: boolean
+  initialArgs?: Record<string, unknown>
   submitLabel?: string
   onSubmit: (args: Record<string, unknown>) => void
 }) {
   const proposal = operationToProposal(operation)
   const fields = proposalFields(proposal)
-  const [values, setValues] = useState<Record<string, unknown>>(() => proposalDefaults(proposal))
+  const normalizedInitialArgs = useMemo(() => initialArgs || {}, [initialArgs])
+  const resetKey = useMemo(
+    () => JSON.stringify({ operationId: operation.id, initialArgs: normalizedInitialArgs }),
+    [normalizedInitialArgs, operation.id],
+  )
+  const [values, setValues] = useState<Record<string, unknown>>(() => ({
+    ...proposalDefaults(proposal),
+    ...normalizedInitialArgs,
+  }))
 
   useEffect(() => {
-    setValues(proposalDefaults(proposal))
-  }, [operation.id])
+    setValues({
+      ...proposalDefaults(proposal),
+      ...normalizedInitialArgs,
+    })
+  }, [resetKey])
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -121,6 +135,66 @@ export function OperationForm({
         </button>
       </div>
     </form>
+  )
+}
+
+export function OperationReviewSurface({
+  projection,
+  surface,
+  busy,
+  onOperationSubmit,
+}: {
+  projection: RouteDeckProjection
+  surface: RouteDeckSurface
+  busy: boolean
+  onOperationSubmit: (operationId: string, args: Record<string, unknown>) => void
+}) {
+  const routeDeckStore = useRouteDeckStore()
+  const operationId = String(surface.props?.operation_id || '')
+  const operation = projection.legal_operations.find((candidate) => candidate.id === operationId)
+  const initialArgs = useMemo(
+    () =>
+      surface.props?.operation_args && typeof surface.props.operation_args === 'object'
+        ? (surface.props.operation_args as Record<string, unknown>)
+        : undefined,
+    [surface.props?.operation_args],
+  )
+
+  if (!operation) {
+    return (
+      <InfoSurface
+        title="Review next step"
+        description="The requested step is no longer available from the committed graph state."
+        icon={<AlertTriangle className="h-5 w-5" />}
+      />
+    )
+  }
+
+  return (
+    <div className="grid gap-4" data-testid="corpus-operation-review-surface">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold">{operation.label}</div>
+          {operation.description && <p className="mt-1 text-sm text-muted-foreground">{operation.description}</p>}
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            void routeDeckStore.cancel()
+          }}
+          className="surface-outline-button px-3 py-1 text-xs"
+        >
+          Dismiss
+        </button>
+      </div>
+
+      <OperationForm
+        operation={operation}
+        busy={busy}
+        initialArgs={initialArgs}
+        onSubmit={(args) => onOperationSubmit(operation.id, args)}
+      />
+    </div>
   )
 }
 
@@ -201,35 +275,36 @@ export function ActiveSurfacePanel({
   onDirtyStateChange?: (state: ActiveSurfaceDirtyState | null) => void
 }) {
   const contextLens = contextLensFromProjection(projection)
-  const activeSurface = useMemo(
-    () => activeSurfaceFromProjection(projection),
-    [projection.surfaces],
-  )
-
-  if (!activeSurface) return null
 
   return (
     <section className="py-4" data-testid="active-surface-panel">
-      <div className="rounded-[0.9rem] border border-border/30 bg-card p-5 shadow-[0_26px_64px_-42px_hsl(var(--foreground)/0.65)] dark:border-white/15 dark:bg-muted dark:shadow-black/40">
-        <div className="mb-4 flex items-center justify-between gap-3 pb-3">
-          <div>
-            <h2 className="text-base font-semibold">{surfaceTitle(activeSurface, contextLens)}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Opened from committed graph state.</p>
-          </div>
-          <span className="shrink-0 whitespace-nowrap rounded-full bg-secondary px-3 py-1 text-[11px] font-semibold text-secondary-foreground shadow-sm">
-            Active surface
-          </span>
-        </div>
-        <SurfaceRenderer
-          surface={activeSurface}
-          contextLens={contextLens}
-          graphState={graphState}
-          projection={projection}
-          busy={busy}
-          onOperationSubmit={onOperationSubmit}
-          onDirtyStateChange={onDirtyStateChange}
-        />
-      </div>
+      <RouteDeckSurfaceHost>
+        {(activeSurface) => {
+          if (!activeSurface) return null
+          return (
+            <div className="rounded-[0.9rem] border border-border/30 bg-card p-5 shadow-[0_26px_64px_-42px_hsl(var(--foreground)/0.65)] dark:border-white/15 dark:bg-muted dark:shadow-black/40">
+              <div className="mb-4 flex items-center justify-between gap-3 pb-3">
+                <div>
+                  <h2 className="text-base font-semibold">{surfaceTitle(activeSurface, contextLens)}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Opened from committed graph state.</p>
+                </div>
+                <span className="shrink-0 whitespace-nowrap rounded-full bg-secondary px-3 py-1 text-[11px] font-semibold text-secondary-foreground shadow-sm">
+                  Active surface
+                </span>
+              </div>
+              <SurfaceRenderer
+                surface={activeSurface}
+                contextLens={contextLens}
+                graphState={graphState}
+                projection={projection}
+                busy={busy}
+                onOperationSubmit={onOperationSubmit}
+                onDirtyStateChange={onDirtyStateChange}
+              />
+            </div>
+          )
+        }}
+      </RouteDeckSurfaceHost>
     </section>
   )
 }
@@ -259,6 +334,16 @@ export function SurfaceRenderer({
 }) {
   if (surface.component === corpusSurfaceComponents.auth) {
     return <AuthSurfaceCard surface={surface} />
+  }
+  if (surface.component === corpusSurfaceComponents.operationReview) {
+    return (
+      <OperationReviewSurface
+        projection={projection}
+        surface={surface}
+        busy={busy}
+        onOperationSubmit={onOperationSubmit}
+      />
+    )
   }
   const activeSaaSAgentId = graphState?.active_saas_agent_id || null
   if (surface.component === corpusSurfaceComponents.entities) return <EntitiesCanvas saasAgentId={activeSaaSAgentId} />
@@ -507,10 +592,6 @@ export function SaaSAgentListSurface({ agents }: { agents: SaaSAgent[] }) {
       })
       const nextGraphState = graphStateFromRouteDeckState(response.state)
       setMirroredSaaSAgentId(nextGraphState?.active_saas_agent_id || agent.id)
-      const nextPath = response.state.location || null
-      if (nextPath && nextPath !== window.location.pathname) {
-        syncBrowserPathWithoutNavigation(nextPath)
-      }
     } finally {
       setOpeningAgentId(null)
     }

@@ -88,12 +88,12 @@ async function main() {
     await page.getByRole('button', { name: 'Create account' }).click()
     await expect(page.getByTestId('auth-user-pill')).toContainText(email, { timeout: 20000 })
 
-    await page.getByRole('button', { name: /Create Agent/ }).first().click()
-    const createAgentProposal = page.getByTestId('corpus-proposal-surface')
-    await expect(createAgentProposal).toBeVisible({ timeout: 15000 })
-    await createAgentProposal.locator('input').nth(0).fill(`Live Commerce ${runId}`)
-    await createAgentProposal.locator('input').nth(1).fill(slug)
-    await createAgentProposal.getByRole('button', { name: /Continue|Create SaaS Agent/ }).click()
+    await page.getByRole('button', { name: /Create SaaS Agent/ }).first().click()
+    const createAgentSurface = page.getByTestId('corpus-operation-review-surface')
+    await expect(createAgentSurface).toBeVisible({ timeout: 15000 })
+    await createAgentSurface.locator('[data-qa-field="name"]').fill(`Live Commerce ${runId}`)
+    await createAgentSurface.locator('[data-qa-field="slug"]').fill(slug)
+    await createAgentSurface.getByRole('button', { name: /Continue|Create SaaS Agent/ }).click()
     await expect(page).toHaveURL(/\/app\/agents\//, { timeout: 20000 })
 
     await page.getByPlaceholder('Message Corpus').fill('set up the API connection')
@@ -195,13 +195,16 @@ async function activateConnection(page, { name, baseUrl, specUrl, credential, he
 }
 
 async function sendPublicMessage(page, message, expected, timeout = 90000) {
+  const input = page.getByPlaceholder('Describe what you need done')
+  await expect(input).toBeEnabled({ timeout })
   const assistantMessages = page.locator('[data-testid="message-bubble"][data-message-role="assistant"]')
   const before = await assistantMessages.count()
-  await page.getByPlaceholder('Describe what you need done').fill(message)
-  await page.keyboard.press('Enter')
+  await input.fill(message)
+  await input.press('Enter')
   const bubble = assistantMessages.nth(before)
   await expect(bubble).toContainText(expected, { timeout })
   await assertNoPublicLeaks(page)
+  await expect(input).toBeEnabled({ timeout: 30000 })
   return bubble
 }
 

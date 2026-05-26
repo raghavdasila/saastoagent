@@ -1,224 +1,160 @@
 # SaaStoAgent v0.1 Context
 
-Last Updated: May 25, 2026 08:01 IST
+Last Updated: May 26, 2026 08:56 AM IST
 Project: SaaStoAgent v0.1
-Status: Agent-owned API orchestration, RouteDeck v2 navigation, execution-frame variable state, Learning policy review surfaces, and boundary hardening are implemented in the current worktree. Backend/type/framework tests pass. Full browser Medusa checkout E2E remains pending.
+Status: RouteDeck/Corpus hardcoding removal is implemented and live-verified. Corpus now plans from structured RouteDeck context instead of Python phrase routing. Owner-workbench chat navigation and deployed-agent Medusa checkout both passed current Docker/browser validation.
 Repository: `agent-lab-powered-projects/saastoagent-v0.1`
 
 ## Start Here
 
-- Latest checkpoint: `context_checkpoints/context_checkpoint_25-05-2026-08-01AM.md`
+- Latest checkpoint: `context_checkpoints/context_checkpoint_26-05-2026-08-56AM.md`
 - Previous context archived at:
-  `context_history/20260525_0801_context_before_agent_orchestration_routedeck_v2_closeout.md`
+  `context_history/20260526_0856_context_before_hardcoding_removal_closeout.md`
 - Closeout log:
-  `logs/20260525_0801_agent_orchestration_routedeck_v2_closeout.md`
-- Dev validation:
-  `architecture/dev_validated_docs/2026-05-25_agent_orchestration_routedeck_v2_validation.md`
-- Prior RouteDeck boundary checkpoint:
-  `context_checkpoints/context_checkpoint_24-05-2026-10-32AM.md`
+  `logs/20260526_0856_routedeck_corpus_hardcoding_removal_closeout.md`
+- Active implementation plan:
+  `docs/superpowers/plans/2026-05-26-routedeck-corpus-hardcoding-removal.md`
 - RouteDeck human/agent/developer guide:
   `../routedeck/docs/using-routedeck.md`
 - RouteDeck framework anchor:
   `../routedeck/docs/agentic-ui-state-runtime.md`
 - Boundary ADR:
   `decisions/ADR-013-routedeck-corpus-boundary.md`
-- State variable plan:
-  `docs/superpowers/plans/2026-05-24-agent-state-variable-store.md`
-- Medusa setup/test guide:
-  `docs/medusa-api-agent-test-guide.md`
+- System flow source of truth:
+  `SYSTEM_FLOW_INDEX.md`
 - RouteDeck test index:
   `test_index/route-deck-contract.md`
 
 ## Current Worktree Warning
 
-The worktree is not clean. Do not assume all current changes are committed.
+The worktree is not clean. Do not assume the current repo state is committed.
 
-Use this sequence before continuing:
+Before continuing:
 
 ```powershell
 git status --short
 git diff --stat -- agent-lab-powered-projects/saastoagent-v0.1 agent-lab-powered-projects/routedeck
 ```
 
-The previous SaaStoAgent closeout baseline is:
+There are still broad uncommitted changes in:
+
+- `agent-lab-powered-projects/saastoagent-v0.1`
+- `agent-lab-powered-projects/routedeck`
+- `research/openapi_toolrouter_training_lab`
+
+Treat the research work as separate from the SaaStoAgent product runtime slice.
+
+## What Changed This Session
+
+### Hardcoding Removed
+
+- Deleted the backend heuristic chat router from `backend/services/app_graph/runtime.py`.
+- Corpus owner-workbench chat now follows one path:
 
 ```text
-f995a6c routedeck corpus boundary separation
+AppGraph state
+  -> RouteDeck projection
+    -> Corpus planning_context
+      -> model chooses typed legal op or clarify
+        -> runtime validates payload against current projection
+          -> graph commits
 ```
 
-SaaStoAgent commits after that baseline:
+- No phrase tables, alias tables, or compatibility heuristic fallbacks were left in place for owner-workbench navigation.
 
-- `beb8646 rotuer changes (Execution Frame)`
-- `c6cc00d wiki added for llm+gnn checkout flow half complete`
+### Structured Planner Context Added
 
-Separate research commit after that baseline:
+- Added `backend/services/app_graph/corpus_turn_planning.py`.
+- Planner context now exposes:
+  - current node and active surface
+  - active SaaS Agent summary
+  - active surfaces
+  - visible selectable entities on the active surface
+  - legal operations
+  - blocked operations
 
-- `e7d38f8 toolrouter llm+gnn model working`
+### Surface-Declared Selectable Entities
 
-Treat `e7d38f8` as outside this product runtime handoff.
+- `SaaSAgentListSurface` now projects visible selectable SaaS Agent entities into planning context.
+- This lets chat open a listed SaaS Agent by choosing the exact typed `saas_agent.open` payload from current RouteDeck-visible state instead of asking for a hidden internal id.
 
-## Current Architecture
+### RouteDeck/Corpus Navigation Behavior
 
-```text
-Deployed visitor chat
-  -> SaaS agent orchestration layer
-    -> generated OpenAPI action router/executor
-      -> execution_frame_v1.variables
-      -> internal dependency resolution
-      -> policy learning when write automation is not approved
-        -> public-safe response formatting
+- App-local proposal/review routing remains removed.
+- Review/input work stays graph-owned.
+- Route validation still constrains `route.open_node`, `route.switch_surface`, `route.back`, `route.forward`, and `route.cancel`.
+- Learning peer surfaces remain generic `route.switch_surface` targets, with Corpus-owned descriptions to help model selection.
 
-Corpus builder app
-  -> CorpusGraphRuntime
-    -> CorpusRouteDeckRuntime
-      -> generic RouteDeck runtime/projection/dispatch contract
-        -> RouteDeckStore / @routedeck/react
-          -> AppGraphShell
-            -> Corpus surfaces
-            -> Learning review detail nodes
-            -> owner diagnostics
-```
-
-Core rules:
-
-- Product graph/runtime services own truth, guards, and commits.
-- RouteDeck owns generic projection, navigation, surface, operation, dispatch,
-  event, and diagnostics contracts.
-- Corpus owns SaaStoAgent builder presentation and product copy.
-- SaaSAgent/deployed chat owns visitor-safe domain behavior.
-- OpenAPI-generated actions and target API execution remain SaaStoAgent domain
-  services, not RouteDeck framework behavior.
-- Medusa remains an acceptance fixture only.
-
-## Implemented Since The Prior Closeout
-
-### Agent-Owned API Orchestration
-
-- Added orchestration above `rest_operator.py`.
-- Router results are structured execution facts rather than public missing-slot prompts.
-- Missing inputs are classified as internal vs public.
-- Opaque ids such as cart/resource ids are internal in public chat.
-- Internal dependencies can be resolved through generated OpenAPI actions.
-- Write dependencies without approval produce `domain_policy_gap` learning candidates.
-- Approved policy hints allow orchestration to continue for the same SaaS agent/action chain.
-
-### Execution Frame Variable State
-
-- Added `backend/services/agent/state_variables.py`.
-- Canonical state is `execution_frame_v1.variables`.
-- Variables carry name, value, visibility, value type, tags, aliases, resource metadata, origin, and choice metadata.
-- Pending choices are represented as `choice.<input_name>` variables.
-- Old dependency/pending-choice frame state is not imported as a compatibility path.
-
-### RouteDeck v2 Navigation
-
-- RouteDeck schemas now include hierarchy and navigation metadata.
-- React RouteDeck store supports:
-  - `route.back`
-  - `route.forward`
-  - `route.cancel`
-  - `route.open_node`
-  - `route.switch_surface`
-- Learning has peer surfaces and child/detail nodes.
-- Capability rail uses projected hierarchy instead of local hardcoding.
-- RouteDeck debugger no longer renders action ids as navgraph edge labels.
-
-### Learning And Policy Review
-
-- Learning surfaces split policy gaps, failed executions, active policies, and rejected candidates.
-- Policy candidates open detail nodes with owner evidence.
-- Approve/reject now dispatch through AppGraph/RouteDeck operations.
-- Failed executions remain separate from policy candidates.
-
-### Instructions/System Prompt Surface
-
-- Instructions are a graph-owned node/surface.
-- `instructions.save` is an AppGraph operation.
-- Corpus UI no longer directly mutates the instructions REST route.
-
-### RouteDeck/Corpus Boundary Cleanup
-
-- Removed public product `/api/routedeck/projection` and `/api/routedeck/stream`.
-- Product UI no longer says "RouteDeck node".
-- RouteDeck production source scan is clean for SaaStoAgent/Corpus/Medusa literals.
-- Added `../routedeck/docs/using-routedeck.md`.
-
-## Verification
+## Current Validation
 
 Latest current-worktree verification:
 
-- `python -m pytest backend/tests -q`
-  - Result: `171 passed`
+- `python -m pytest backend/tests/test_corpus_turn_planning.py backend/tests/test_corpus_graph_contract.py backend/tests/test_app_graph_contract.py -q`
+  - Result: `81 passed`
+- `python -m pytest backend/tests/test_app_graph_contract.py backend/tests/test_corpus_graph_contract.py backend/tests/test_corpus_routedeck_runtime.py backend/tests/test_corpus_routedeck_state.py -q`
+  - Result: `87 passed`
 - `npm run type-check` from `frontend`
   - Result: passed
-- `npm test` from `agent-lab-powered-projects/routedeck/react`
-  - Result: `13 passed`
-- `python -m pytest tests -q` from `agent-lab-powered-projects/routedeck`
-  - Result: `17 passed`
-- `git diff --check`
+- `docker compose up -d --build backend`
   - Result: passed
+- `npm run e2e:docker` from `frontend`
+  - Result: passed
+  - Artifacts: `C:\Users\ragha\AppData\Local\Temp\saastoagent-ui-e2e-1779761987528`
+- `npm run e2e:medusa:docker` from `frontend`
+  - Result: passed
+  - Checkout: completed
+  - Artifacts: `C:\Users\ragha\AppData\Local\Temp\saastoagent-medusa-ui-e2e-1779762026718`
+- Manual in-app browser verification:
+  - `list agents`
+  - `open Live Commerce 1779760865401`
+  - `open learning`
+  - `show rejected`
+  - `go home`
+- `git diff --check`
+  - Result: no diff errors; CRLF warnings only
 
-Boundary scans were clean for direct Corpus UI learning mutation, direct
-instructions mutation, raw `/api/routedeck/*` route declarations, product
-RouteDeck-node copy, and product literals in RouteDeck production source.
+## Known Debt To Carry Forward
 
-## Known Issues To Carry Forward
+### Browser URL Replay Boundary Debt
 
-### Full Checkout Still Pending
+A sidecar audit found remaining boundary debt around browser-driven navigation replay:
 
-Cart policy learning is improved, but full checkout is not complete.
+- frontend popstate handling still assembles a `route.open_node` payload
+- snapshot/load still accepts browser-provided `surface_id` too permissively
+- `route.open_node` planner schema is still not the cleanest possible expression of legal surface/node combinations
 
-Still needed:
+These issues did not break the verified chat flows, but they are the next architectural cleanup target.
 
-- cart creation/reuse browser validation
-- add-line-item validation after owner policy approval
-- shipping method selection
-- payment session/provider selection
-- order completion
-- public-safe transcript validation through the full flow
+### Worktree Scope Is Still Broad
 
-### Browser E2E Not Rerun After Latest Work
-
-Run:
-
-```powershell
-cd agent-lab-powered-projects/saastoagent-v0.1/frontend
-npm run e2e:medusa:docker
-```
-
-Do not claim product E2E is green until this passes on the current worktree.
-
-### Checkout Must Stay Generic
-
-Do not hardcode Medusa product, variant, cart, shipping, or payment behavior.
-The flow must stay OpenAPI/action/schema driven.
-
-### Worktree Is Broad
-
-Some RouteDeck v2, state-variable, boundary, and docs changes are uncommitted.
-Review before editing or committing.
+The current diff includes earlier RouteDeck and app-graph work beyond this closeout. Inspect carefully before committing or reshaping the branch.
 
 ## Next Concrete Step
 
-Run the Medusa browser E2E against the current worktree. If it fails, fix only
-generic orchestration/state/policy issues, not Medusa-specific shortcuts.
+Clean up the remaining browser URL replay boundary debt before expanding more features.
 
-Then continue:
+Start with:
 
-```text
-product/variant resolution
-  -> cart create or reuse
-  -> add line item
-  -> shipping method selection
-  -> payment session/provider selection
-  -> order completion
+1. `frontend/src/components/appGraph/AppGraphShell.tsx`
+   - remove frontend-authored `route.open_node` replay where possible
+2. `backend/routes/corpus_graph.py`
+   - tighten snapshot/load handling for requested `surface_id`
+3. `backend/services/app_graph/runtime.py`
+   - make replay/navigation location validation stricter and more declarative
+
+After that, rerun:
+
+```powershell
+python -m pytest backend/tests/test_app_graph_contract.py backend/tests/test_corpus_graph_contract.py backend/tests/test_corpus_routedeck_runtime.py backend/tests/test_corpus_routedeck_state.py -q
+cd frontend
+npm run e2e:docker
+npm run e2e:medusa:docker
 ```
 
 ## Anti-Drift Reminder
 
-- Public chat never exposes internal resource ids, operation ids, endpoint paths, trace ids, or raw tool labels.
-- RouteDeck framework stays product-neutral.
-- Corpus and SaaSAgent product services own product behavior.
-- Graph/AppGraph operations own side effects from RouteDeck-backed UI.
-- `execution_frame_v1.variables` is the current agent state shape.
-- Medusa is an acceptance fixture, not a runtime dependency.
+- RouteDeck exposes current legal context; Corpus decides; AppGraph validates and commits.
+- RouteDeck shared code stays product-neutral.
+- Corpus must not reintroduce phrase routing, alias tables, or hidden nav heuristics.
+- Public deployed chat must not expose internal resource ids, endpoint paths, trace ids, operation ids, approval ids, or raw tool labels.
+- Medusa remains an acceptance fixture only.

@@ -41,6 +41,7 @@ from .agent import (
 )
 from .app_graph import (
     AppGraphContextLens,
+    AppGraphNavigationLocation,
     AppGraphRequest,
     AppGraphResponse,
     AppGraphRouterDecision,
@@ -95,6 +96,7 @@ __all__ = [
     "AgentApprovalDecisionRead",
     "ChatRequest",
     "AppGraphContextLens",
+    "AppGraphNavigationLocation",
     "AppGraphRequest",
     "AppGraphResponse",
     "AppGraphRouterDecision",

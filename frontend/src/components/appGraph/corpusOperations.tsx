@@ -44,6 +44,7 @@ export interface CorpusQuickAction {
 
 export function corpusQuickActions(projection: RouteDeckProjection): CorpusQuickAction[] {
   return projection.legal_operations
+    .filter((operation) => !isInternalRouteOperation(operation))
     .filter((operation) => operation.id !== corpusOperationIds.navigateHome)
     .filter((operation) => {
       const interaction = operation.invocation_kind || routeDeckOperationInteraction(operation)
@@ -52,6 +53,10 @@ export function corpusQuickActions(projection: RouteDeckProjection): CorpusQuick
     })
     .slice(0, 5)
     .map(operationToQuickAction)
+}
+
+function isInternalRouteOperation(operation: RouteDeckOperation): boolean {
+  return operation.id.startsWith('route.') || operation.invocation_kind === 'hidden'
 }
 
 export function operationToQuickAction(operation: RouteDeckOperation): CorpusQuickAction {

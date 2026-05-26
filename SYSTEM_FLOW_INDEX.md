@@ -1,10 +1,10 @@
 # System Flow Index - SaaStoAgent v0.1
 
-Last Updated: May 25, 2026
+Last Updated: May 26, 2026
 
 This file is the source of truth for the currently implemented runtime and UX flows.
 
-## Active Architecture Status - May 25, 2026
+## Active Architecture Status - May 26, 2026
 
 The RouteDeck/Corpus architecture has been reset around the accepted
 runtime-store model and then extended with RouteDeck v2 navigation plus
@@ -19,14 +19,15 @@ Current anchors:
 - Framework direction: `../routedeck/docs/agentic-ui-state-runtime.md`
 - RouteDeck usage guide: `../routedeck/docs/using-routedeck.md`
 - Product anti-drift vision: `architecture/route-deck-corpus-vision.md`
-- Current implementation plan/status: `plans/routedeck_runtime_store_reset_plan.md`
-- Current checkpoint: `context_checkpoints/context_checkpoint_25-05-2026-08-01AM.md`
+- Current implementation plan/status: `docs/superpowers/plans/2026-05-26-routedeck-corpus-hardcoding-removal.md`
+- Current checkpoint: `context_checkpoints/context_checkpoint_26-05-2026-08-56AM.md`
 
 Current rules:
 
 - Graph owns truth, guards, and commits.
 - RouteDeck owns the generic runtime/store over the graph.
 - Corpus reads RouteDeck state and chooses legal operations.
+- Corpus owner-workbench chat plans from structured `planning_context`, not Python phrase routing.
 - Zustand stores only UI-local state and must not be treated as the app graph
   source of truth.
 - Legal operations are not raw product UI.
@@ -42,6 +43,9 @@ Current rules:
 - Navigation diagnostics draw semantic route topology, not action edges.
 - RouteDeck v2 navigation owns back, forward, cancel, open-node, and
   switch-surface runtime operations.
+- Visible selectable entities on the active surface may be projected into
+  planning context so Corpus can choose the exact typed operation payload from
+  what the user is looking at.
 - Learning review uses peer surfaces for policy gaps, failed executions, active
   policies, and rejected candidates.
 - Learning policy candidate, execution trace, and active policy review are
@@ -161,10 +165,11 @@ rename slices land. New work should target the SaaS Agent contract:
 7. Current verified horizontal path: Docker UI E2E covers signup, SaaSAgent
    creation, OpenAPI connection, activation, deployment, public chat, Storefront
    read execution, and Admin/write approval fixtures.
-8. RouteDeck/Corpus state boundary cleanup is implemented in backend routes and
-   frontend state ownership. Next: rerun Docker browser E2E, add no-navigation
-   surface transition coverage, add collapsible public JSON result rendering,
-   and fix conversation-grounded product/variant/cart follow-up.
+8. RouteDeck/Corpus hardcoding removal is implemented for owner-workbench chat:
+   the model chooses from current RouteDeck-projected legal operations and
+   visible entities rather than a Python phrase router.
+9. Current remaining boundary debt is browser URL replay and snapshot
+   `surface_id` validation, not chat intent hardcoding.
 
 ## RouteDeck Layers
 

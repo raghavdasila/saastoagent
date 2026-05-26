@@ -41,6 +41,19 @@ RouteDeck responsibilities:
 - generic surface contracts where they are reusable across products
 - React-facing state/store/hooks for RouteDeck-projected app state
 
+Decision authority:
+
+- RouteDeck exposes the current graph-aware possibility space to the product
+  agent: current node, legal operations, operation params/args metadata,
+  readiness, active surfaces, guards, and diagnostics context.
+- Corpus is the product agent that interprets the user turn against that
+  current RouteDeck-projected context and decides what to do next.
+- Corpus must choose one typed legal operation, fill allowed args, or ask a
+  clarification. It must not invent hidden routes or patch graph state
+  directly.
+- RouteDeck does not decide intent. The graph runtime validates the selected
+  operation and then commits, rejects, or asks for review.
+
 Corpus responsibilities:
 
 - user-facing conversation and proposal wording

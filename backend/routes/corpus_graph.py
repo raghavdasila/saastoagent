@@ -21,13 +21,18 @@ router = APIRouter(tags=["corpus-graph"])
 async def get_corpus_state(
     node_id: str | None = None,
     saas_agent_id: uuid.UUID | None = None,
+    surface_id: str | None = None,
     projection_version: int = 1,
     user: User | None = Depends(current_optional_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
     runtime_state = await route_deck_runtime.snapshot(
         {
-            "request": AppGraphRequest(node_id=node_id, saas_agent_id=saas_agent_id),
+            "request": corpus_graph_runtime.request_from_location(
+                node_id=node_id,
+                saas_agent_id=saas_agent_id,
+                surface_id=surface_id,
+            ),
             "user": user,
             "db": db,
             "projection_version": projection_version,
@@ -41,6 +46,7 @@ async def stream_corpus_turn(
     user_input: str = "",
     node_id: str | None = None,
     saas_agent_id: uuid.UUID | None = None,
+    surface_id: str | None = None,
     projection_version: int = 1,
     user: User | None = Depends(current_optional_active_user),
     db: AsyncSession = Depends(get_async_session),
@@ -51,7 +57,11 @@ async def stream_corpus_turn(
         if not user_input.strip():
             async for event in route_deck_runtime.stream(
                 {
-                    "request": AppGraphRequest(node_id=node_id, saas_agent_id=saas_agent_id),
+                    "request": corpus_graph_runtime.request_from_location(
+                        node_id=node_id,
+                        saas_agent_id=saas_agent_id,
+                        surface_id=surface_id,
+                    ),
                     "user": user,
                     "db": db,
                     "projection_version": projection_version,
@@ -61,7 +71,12 @@ async def stream_corpus_turn(
             return
 
         async for event in corpus_graph_runtime.stream_corpus_turn(
-            request=AppGraphRequest(user_input=user_input, node_id=node_id, saas_agent_id=saas_agent_id),
+            request=corpus_graph_runtime.request_from_location(
+                node_id=node_id,
+                saas_agent_id=saas_agent_id,
+                surface_id=surface_id,
+                user_input=user_input,
+            ),
             user=user,
             db=db,
             projection_version=projection_version,
@@ -108,12 +123,17 @@ async def corpus_action(
 async def stream_diagnostics(
     node_id: str | None = None,
     saas_agent_id: uuid.UUID | None = None,
+    surface_id: str | None = None,
     projection_version: int = 1,
     user: User | None = Depends(current_optional_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
     context = {
-        "request": AppGraphRequest(node_id=node_id, saas_agent_id=saas_agent_id),
+        "request": corpus_graph_runtime.request_from_location(
+            node_id=node_id,
+            saas_agent_id=saas_agent_id,
+            surface_id=surface_id,
+        ),
         "user": user,
         "db": db,
         "projection_version": projection_version,

@@ -3,7 +3,8 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Mapping
+from urllib.parse import urlencode
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
@@ -27,12 +28,12 @@ from backend.core.models import (
 )
 from backend.core.schemas import (
     AppGraphContextLens,
+    AppGraphNavigationLocation,
     AppGraphRequest,
     AppGraphResponse,
     AppGraphState,
     CorpusActionResponse,
     CorpusDiagnosticsSnapshot,
-    CorpusProposal,
     CorpusStateResponse,
     EntryGraphManifest,
     EntryGraphMessage,
@@ -66,15 +67,21 @@ from backend.services.app_graph.manifest import (
 from backend.services.app_graph.corpus_operations import CorpusOperationPolicy
 from backend.services.app_graph.corpus_routedeck_state import CorpusRouteDeckStateProjector
 from backend.services.app_graph.corpus_surfaces import CorpusSurfaceRegistry
+from backend.services.app_graph.corpus_turn_planning import (
+    build_corpus_turn_planning_context,
+    normalize_corpus_turn_plan,
+)
 from backend.services.catalog import SaaSAgent_catalog, preview_openapi_spec
+from backend.services.deployed_agents import get_or_create_deployment
 from backend.services.discovery.activation import ActivationService
 from routedeck_core import RouteDeckOperation, RouteDeckSurface, build_runtime_snapshot
 
 
 CORPUS_TURN_ROUTER_PROMPT = """You are Corpus, the central SaaStoAgent platform graph agent.
 You own platform navigation, setup, recovery, and surface selection for SaaStoAgent.
-You do not run created SaaS Agents in this version.
-Classify the turn, choose at most one legal RouteDeck operation, and return only JSON:
+RouteDeck exposes the current graph-aware context. You decide what to do from that current legal context.
+Use only the provided planning_context. Never infer hidden routes, hidden permissions, or hidden surfaces.
+Return only JSON:
 {
   "intent": "reply_now" | "open_surface" | "clarify" | "deep_work" | "propose_operation",
   "message": string,
@@ -86,21 +93,57 @@ Classify the turn, choose at most one legal RouteDeck operation, and return only
 }.
 
 Rules:
-- Use only operation ids present in route_deck_projection.legal_operations.
-- Use "open_surface" when the user asks to open a workflow surface such as signup, login, API setup, knowledge, memory, execution, QA, or recovery.
+- The agent decides; planning_context only exposes current legal possibilities.
+- Use only operation ids present in planning_context.legal_operations.
+- Never invent or patch graph state directly.
+- Prefer a legal typed operation when one clearly satisfies the request.
+- When planning_context.visible_entities exposes an operation_id plus args for a currently visible item, prefer that exact typed operation payload instead of asking for a hidden internal id.
+- If you include operation_id, the turn is an action request; use "propose_operation" or "open_surface", not "reply_now".
+- Use "open_surface" with surface_intent.surface_id when switching to one of planning_context.surface_options.
+- Do not return internal route.* operation ids. RouteDeck route operations are runtime/browser plumbing, not Corpus planning vocabulary.
 - Use "propose_operation" for legal operations that require review before execution.
-- Use "reply_now" for greetings, short platform questions, and requests that can be answered from the projection without another model pass.
+- Use "reply_now" only for informational answers that do not change the current workspace.
+- If your response would claim that you are opening, switching, preparing, or staging workspace state, return a legal typed operation or surface_intent instead.
 - Use "clarify" when the request is ambiguous or no legal operation can satisfy it.
 - Use "deep_work" only when a slower synthesized answer is genuinely needed.
+- If multiple legal operations could fit, prefer "clarify" over guessing.
+- For "open_surface" and "propose_operation", do not ask for extra confirmation in "message". The operation will already be opening or staged.
 - For surface-opening turns, make "message" the prompt to show after the active surface is visible."""
 
 CORPUS_STREAM_PROMPT = """You are Corpus, the central SaaStoAgent platform agent.
-Respond conversationally and concisely to the user based on the RouteDeck
-projection. Do not claim to run created SaaS Agents. If a platform action is
-needed, describe the next step naturally; the Corpus graph will decide the typed
-operation separately."""
+Respond conversationally and concisely to the user based on the provided
+planning_context. Do not claim to run created SaaS Agents. If a platform action
+is needed, describe the next step naturally; the Corpus graph will decide the
+typed operation separately. Do not ask the user for extra confirmation to open
+or switch a work surface. Do not claim that a workspace surface is being opened
+unless the router has already selected a typed operation or surface intent."""
 
-CORPUS_ROUTER_FIRST_TOKEN_BUDGET_SECONDS = 0.6
+NAV_PARAM_PENDING_OPERATION_ID = "__pending_operation_id"
+NAV_PARAM_PENDING_OPERATION_ARGS = "__pending_operation_args"
+NAV_PARAM_SAAS_AGENT_ID = "saas_agent_id"
+DEPLOYMENT_VISITOR_AUTH_MODES = {"inherit_from_connection", "anonymous", "login_required"}
+DEPLOYMENT_EXECUTION_MODES = {"sandbox", "live"}
+DEPLOYMENT_WRITE_POLICIES = {"confirm", "owner_approval", "block"}
+
+
+def _coerce_bool_payload(value: Any, *, default: bool, field: str) -> bool:
+    if value is None or value == "":
+        return default
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in {"true", "1", "yes", "on"}:
+        return True
+    if normalized in {"false", "0", "no", "off"}:
+        return False
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{field} must be a boolean")
+
+
+def _coerce_choice_payload(value: Any, *, default: str, field: str, allowed: set[str]) -> str:
+    normalized = str(value if value not in (None, "") else default).strip()
+    if normalized not in allowed:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{field} is invalid")
+    return normalized
 
 
 class CorpusGraphRuntime:
@@ -116,6 +159,28 @@ class CorpusGraphRuntime:
             node_by_id=self._node_by_id,
             operation_policy=self._operation_policy,
             surface_registry=self._surface_registry,
+        )
+
+    def request_from_location(
+        self,
+        *,
+        node_id: str | None = None,
+        saas_agent_id: uuid.UUID | None = None,
+        surface_id: str | None = None,
+        user_input: str | None = None,
+    ) -> AppGraphRequest:
+        if node_id is None and saas_agent_id is None and surface_id is None and user_input is None:
+            return AppGraphRequest()
+        state = AppGraphState(
+            node=node_id or AppNodeIds.HOME,
+            active_saas_agent_id=saas_agent_id,
+            active_surface_id=surface_id,
+        )
+        return AppGraphRequest(
+            state=state,
+            node_id=node_id or state.node,
+            saas_agent_id=saas_agent_id,
+            user_input=user_input,
         )
 
     async def snapshot(self, *, request: AppGraphRequest, user: User | None, db: AsyncSession) -> AppGraphResponse:
@@ -238,13 +303,34 @@ class CorpusGraphRuntime:
         operation = next((candidate for candidate in projection.legal_operations if candidate.id == operation_id), None)
         if operation is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Operation is not legal from the current graph state")
+        validated_args = await self._validated_operation_payload(
+            state=turn_state,
+            operation=operation,
+            args=args,
+            projection=projection,
+            user=user,
+            db=db,
+        )
+        if (
+            operation.execution_mode != "auto"
+            and turn_state.pending_operation_id != operation.id
+            and not self._surface_registry.is_surface_hosted_operation(node_id=turn_state.node, operation_id=operation.id)
+        ):
+            return await self._stage_review_operation(
+                state=turn_state,
+                operation=operation,
+                args={**operation.payload, **validated_args},
+                user=user,
+                db=db,
+                projection_version=projection.projection_version + 1,
+            )
         response = await self.action(
             request=AppGraphRequest(
                 state=turn_state,
                 node_id=turn_state.node,
                 saas_agent_id=turn_state.active_saas_agent_id,
                 selected_action_id=operation_id,
-                action_payload={**operation.payload, **(args or {})},
+                action_payload={**operation.payload, **validated_args},
             ),
             user=user,
             db=db,
@@ -259,7 +345,7 @@ class CorpusGraphRuntime:
             db=db,
             projection_version=projection_version + 1,
         )
-        active_surface = next((surface for surface in next_projection.surfaces.values() if surface.role == "active"), None)
+        active_surface = self._active_surface_from_projection(next_projection)
         return CorpusActionResponse(
             state=response.state,
             projection=next_projection,
@@ -267,6 +353,208 @@ class CorpusGraphRuntime:
             messages=response.messages,
             replace_path=response.replace_path,
         )
+
+    async def _stage_review_operation(
+        self,
+        *,
+        state: AppGraphState,
+        operation: RouteDeckOperation,
+        args: dict[str, Any],
+        user: User | None,
+        db: AsyncSession,
+        projection_version: int,
+    ) -> CorpusActionResponse:
+        review_state = state.model_copy(deep=True)
+        current_location = self._current_location(review_state)
+        review_params = dict(current_location.params)
+        review_params[NAV_PARAM_PENDING_OPERATION_ID] = operation.id
+        if args:
+            review_params[NAV_PARAM_PENDING_OPERATION_ARGS] = dict(args)
+        else:
+            review_params.pop(NAV_PARAM_PENDING_OPERATION_ARGS, None)
+        review_location = AppGraphNavigationLocation(
+            node_id=review_state.node,
+            surface_id=self._surface_registry.operation_review_surface_id(operation.id),
+            params=review_params,
+        )
+        self._apply_location(review_state, review_location)
+        self._push_navigation(review_state, current_location)
+        if review_state.node not in review_state.executed_nodes:
+            review_state.executed_nodes.append(review_state.node)
+        review_projection = await self.route_deck_projection(
+            request=AppGraphRequest(
+                state=review_state,
+                node_id=review_state.node,
+                saas_agent_id=review_state.active_saas_agent_id,
+            ),
+            user=user,
+            db=db,
+            projection_version=projection_version,
+        )
+        active_surface = self._active_surface_from_projection(review_projection)
+        return CorpusActionResponse(
+            state=review_state,
+            projection=review_projection,
+            active_surface=active_surface,
+            messages=[],
+            replace_path=self._path_for_state(review_state),
+        )
+
+    async def _validated_operation_payload(
+        self,
+        *,
+        state: AppGraphState,
+        operation: RouteDeckOperation,
+        args: dict[str, Any] | None,
+        projection,
+        user: User | None,
+        db: AsyncSession,
+    ) -> dict[str, Any]:
+        if operation.id == AppActionIds.ROUTE_OPEN_NODE:
+            return await self._validated_route_open_node_args(
+                state=state,
+                projection=projection,
+                args=args,
+                user=user,
+                db=db,
+            )
+        if operation.id == AppActionIds.ROUTE_SWITCH_SURFACE:
+            return await self._validated_route_switch_surface_args(
+                state=state,
+                projection=projection,
+                args=args,
+                user=user,
+                db=db,
+            )
+        if operation.id in {AppActionIds.ROUTE_BACK, AppActionIds.ROUTE_FORWARD, AppActionIds.ROUTE_CANCEL}:
+            return {}
+        return self._sanitize_operation_args(operation, args)
+
+    def _sanitize_operation_args(
+        self,
+        operation: RouteDeckOperation,
+        args: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        if not isinstance(args, dict):
+            return {}
+        input_schema = operation.input_schema if isinstance(operation.input_schema, dict) else {}
+        fields = input_schema.get("fields")
+        if not isinstance(fields, list):
+            return {}
+        accepted_keys = [
+            field.get("key")
+            for field in fields
+            if isinstance(field, dict) and isinstance(field.get("key"), str)
+        ]
+        return {
+            key: args[key]
+            for key in accepted_keys
+            if isinstance(key, str) and key in args
+        }
+
+    async def _validated_route_open_node_args(
+        self,
+        *,
+        state: AppGraphState,
+        projection,
+        args: dict[str, Any] | None,
+        user: User | None,
+        db: AsyncSession,
+    ) -> dict[str, Any]:
+        payload = args if isinstance(args, dict) else {}
+        node_id = payload.get("node_id")
+        if not isinstance(node_id, str) or not node_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="route.open_node requires a legal node_id")
+
+        allowed_node_ids = self._legal_target_node_ids_from_projection(projection, state)
+        if node_id not in allowed_node_ids:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="route.open_node target is not legal from the current graph state")
+
+        normalized: dict[str, Any] = {"node_id": node_id}
+        current_location = self._current_location(state)
+        known_location = self._known_navigation_location(state, node_id)
+        surface_id = payload.get("surface_id")
+
+        if node_id == current_location.node_id:
+            normalized["params"] = dict(current_location.params)
+            if surface_id is None:
+                return normalized
+            if not isinstance(surface_id, str) or surface_id not in self._active_surface_ids(projection):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="route.open_node surface_id is not legal on the current node")
+            normalized["surface_id"] = surface_id
+            return normalized
+
+        normalized["params"] = dict(known_location.params) if known_location else {}
+        if surface_id is None:
+            if known_location and known_location.surface_id:
+                normalized["surface_id"] = known_location.surface_id
+            return normalized
+
+        if not isinstance(surface_id, str):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="route.open_node surface_id must be a string")
+        expected_surface_id = known_location.surface_id if known_location else self._surface_registry.default_surface_id(
+            AppGraphState(
+                node=node_id,
+                active_saas_agent_id=state.active_saas_agent_id,
+            )
+        )
+        if not expected_surface_id or surface_id != expected_surface_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="route.open_node surface_id is not legal for the requested node")
+        normalized["surface_id"] = surface_id
+        return normalized
+
+    async def _validated_route_switch_surface_args(
+        self,
+        *,
+        state: AppGraphState,
+        projection,
+        args: dict[str, Any] | None,
+        user: User | None,
+        db: AsyncSession,
+    ) -> dict[str, Any]:
+        payload = args if isinstance(args, dict) else {}
+        surface_id = payload.get("surface_id")
+        if not isinstance(surface_id, str) or surface_id not in self._active_surface_ids(projection):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="route.switch_surface requires a projected active surface_id")
+        node_id = payload.get("node_id")
+        if node_id is not None and node_id != state.node:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="route.switch_surface must stay on the current node")
+        return {
+            "node_id": state.node,
+            "surface_id": surface_id,
+            "params": dict(self._current_location(state).params),
+        }
+
+    def _active_surface_ids(self, projection) -> set[str]:
+        return {
+            surface.surface_id
+            for surface in projection.surfaces.values()
+            if surface.role == "active" and isinstance(surface.surface_id, str)
+        }
+
+    def _legal_target_node_ids_from_projection(self, projection, state: AppGraphState) -> set[str]:
+        node_ids = {state.node}
+        node_ids.update(
+            operation.target_node
+            for operation in projection.legal_operations
+            if isinstance(operation.target_node, str) and operation.target_node
+        )
+        node_ids.update(location.node_id for location in state.navigation_back_stack if location.node_id)
+        node_ids.update(location.node_id for location in state.navigation_forward_stack if location.node_id)
+        return node_ids
+
+    def _known_navigation_location(
+        self,
+        state: AppGraphState,
+        node_id: str,
+    ) -> AppGraphNavigationLocation | None:
+        for location in reversed(state.navigation_back_stack):
+            if location.node_id == node_id:
+                return location
+        for location in state.navigation_forward_stack:
+            if location.node_id == node_id:
+                return location
+        return None
 
     async def stream_corpus_turn(
         self,
@@ -291,61 +579,39 @@ class CorpusGraphRuntime:
             db=db,
             projection_version=projection_version,
         )
-        decision = self._deterministic_turn_plan(
-            user_input=request.user_input or "",
+        api_key = settings.openai_api_key if openai_api_key is None else openai_api_key
+        if not api_key:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Corpus graph requires a configured LLM. Set STA_OPENAI_API_KEY before using Corpus.",
+            )
+        planning_context = build_corpus_turn_planning_context(
             state=turn_state,
             projection=projection,
         )
         streamed_before_decision = False
-        if decision is not None:
-            yield {"event_type": "corpus_status", "projection_version": projection.projection_version, "payload": {"status": "thinking"}}
-        else:
-            api_key = settings.openai_api_key if openai_api_key is None else openai_api_key
-            if not api_key:
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Corpus graph requires a configured LLM. Set STA_OPENAI_API_KEY before using Corpus.",
-                )
-            yield {"event_type": "corpus_status", "projection_version": projection.projection_version, "payload": {"status": "thinking"}}
-            decision_task = asyncio.create_task(
-                self._corpus_turn_plan(
-                    api_key=api_key,
-                    user_input=request.user_input or "",
-                    projection=projection.model_dump(mode="json"),
-                )
+        yield {"event_type": "corpus_status", "projection_version": projection.projection_version, "payload": {"status": "thinking"}}
+        decision_task = asyncio.create_task(
+            self._corpus_turn_plan(
+                api_key=api_key,
+                user_input=request.user_input or "",
+                planning_context=planning_context,
             )
-            try:
-                decision = await asyncio.wait_for(
-                    asyncio.shield(decision_task),
-                    timeout=CORPUS_ROUTER_FIRST_TOKEN_BUDGET_SECONDS,
-                )
-            except asyncio.TimeoutError:
-                streamed_before_decision = True
-                async for event in self._stream_reply_events(
-                    api_key=api_key,
-                    user_input=request.user_input or "",
-                    projection=projection.model_dump(mode="json"),
-                    projection_version=projection.projection_version,
-                    fallback_message="",
-                ):
-                    yield event
-                try:
-                    decision = await decision_task
-                except Exception as exc:
-                    yield {
-                        "event_type": "corpus_error",
-                        "projection_version": projection.projection_version,
-                        "payload": {"message": "Corpus could not complete the model turn.", "error": exc.__class__.__name__},
-                    }
-                    return
-            except Exception as exc:
-                yield {
-                    "event_type": "corpus_error",
-                    "projection_version": projection.projection_version,
-                    "payload": {"message": "Corpus could not complete the model turn.", "error": exc.__class__.__name__},
-                }
-                return
-        surface_intent_changed = self._store_surface_intent(turn_state, user, decision.get("surface_intent"))
+        )
+        try:
+            decision = await decision_task
+        except Exception as exc:
+            yield {
+                "event_type": "corpus_error",
+                "projection_version": projection.projection_version,
+                "payload": {"message": "Corpus could not complete the model turn.", "error": exc.__class__.__name__},
+            }
+            return
+        decision = normalize_corpus_turn_plan(decision, planning_context=planning_context)
+        surface_intent = decision.get("surface_intent")
+        surface_navigation_id = self._surface_navigation_id(surface_intent)
+        surface_variant_intent = self._surface_variant_intent(surface_intent)
+        surface_intent_changed = self._store_surface_intent(turn_state, user, surface_variant_intent)
         if surface_intent_changed:
             projection = await self.route_deck_projection(
                 request=normalized_request,
@@ -358,6 +624,29 @@ class CorpusGraphRuntime:
                 "projection_version": projection.projection_version,
                 "payload": {"projection": projection.model_dump(mode="json")},
             }
+        if surface_navigation_id:
+            response = await self.corpus_action(
+                request=normalized_request,
+                operation_id=AppActionIds.ROUTE_SWITCH_SURFACE,
+                args={"surface_id": surface_navigation_id},
+                user=user,
+                db=db,
+                projection_version=projection.projection_version,
+            )
+            yield {
+                "event_type": "operation_completed",
+                "projection_version": response.projection.projection_version,
+                "payload": {
+                    "operation_id": AppActionIds.ROUTE_SWITCH_SURFACE,
+                    "state": response.state.model_dump(mode="json"),
+                    "projection": response.projection.model_dump(mode="json"),
+                    "active_surface": response.active_surface.model_dump(mode="json") if response.active_surface else None,
+                    "messages": [message.model_dump(mode="json") for message in response.messages],
+                    "replace_path": response.replace_path,
+                },
+            }
+            yield {"event_type": "corpus_done", "projection_version": response.projection.projection_version, "payload": {"status": "committed"}}
+            return
         intent = self._turn_plan_intent(decision)
         message = str(decision.get("message") or "").strip()
         operation_id = decision.get("operation_id")
@@ -379,7 +668,7 @@ class CorpusGraphRuntime:
                     async for delta in self._stream_corpus_message(
                         api_key=api_key,
                         user_input=request.user_input or "",
-                        projection=projection.model_dump(mode="json"),
+                        planning_context=self._reply_planning_context(planning_context),
                     ):
                         if not delta:
                             continue
@@ -407,7 +696,7 @@ class CorpusGraphRuntime:
                 async for event in self._stream_reply_events(
                     api_key=api_key,
                     user_input=request.user_input or "",
-                    projection=projection.model_dump(mode="json"),
+                    planning_context=planning_context,
                     projection_version=projection.projection_version,
                     fallback_message=message,
                 ):
@@ -415,51 +704,32 @@ class CorpusGraphRuntime:
             done_status = intent if intent in {"reply_now", "clarify"} else "clarify"
             yield {"event_type": "corpus_done", "projection_version": projection.projection_version, "payload": {"status": done_status}}
             return
-        if operation.execution_mode == "auto":
-            response = await self.corpus_action(
-                request=normalized_request,
-                operation_id=operation.id,
-                args=decision.get("args") or {},
-                user=user,
-                db=db,
-                projection_version=projection.projection_version,
-            )
-            yield {
-                "event_type": "operation_completed",
-                "projection_version": response.projection.projection_version,
-                "payload": {
-                    "operation_id": operation.id,
-                    "state": response.state.model_dump(mode="json"),
-                    "projection": response.projection.model_dump(mode="json"),
-                    "active_surface": response.active_surface.model_dump(mode="json") if response.active_surface else None,
-                    "messages": [message.model_dump(mode="json") for message in response.messages],
-                    "replace_path": response.replace_path,
-                },
-            }
-            yield {
-                "event_type": "corpus_done",
-                "projection_version": response.projection.projection_version,
-                "payload": {"status": "committed"},
-            }
-            return
-        proposal = CorpusProposal(
+        response = await self.corpus_action(
+            request=normalized_request,
             operation_id=operation.id,
-            label=operation.label,
-            description=operation.description,
             args=decision.get("args") or {},
-            execution_mode=operation.execution_mode,
-            safety_class=operation.safety_class,
-            input_schema=operation.input_schema,
-            target_node=operation.target_node,
+            user=user,
+            db=db,
+            projection_version=projection.projection_version,
         )
         yield {
-            "event_type": "proposal",
-            "projection_version": projection.projection_version,
-            "payload": proposal.model_dump(mode="json"),
+            "event_type": "operation_completed",
+            "projection_version": response.projection.projection_version,
+            "payload": {
+                "operation_id": operation.id,
+                "state": response.state.model_dump(mode="json"),
+                "projection": response.projection.model_dump(mode="json"),
+                "active_surface": response.active_surface.model_dump(mode="json") if response.active_surface else None,
+                "messages": [message.model_dump(mode="json") for message in response.messages],
+                "replace_path": response.replace_path,
+            },
         }
+        done_status = "committed" if operation.execution_mode == "auto" or turn_state.pending_operation_id == operation.id else "review"
+        yield {"event_type": "corpus_done", "projection_version": response.projection.projection_version, "payload": {"status": done_status}}
 
     async def action(self, *, request: AppGraphRequest, user: User | None, db: AsyncSession) -> AppGraphResponse:
         state = await self._initial_state(request, user, db)
+        previous_location = self._current_location(state)
         action_id = request.selected_action_id
         payload = request.action_payload or {}
         if not action_id or action_id not in self._action_by_id:
@@ -481,6 +751,11 @@ class CorpusGraphRuntime:
             evidence: list[dict[str, Any]] = []
         else:
             state, messages, evidence = await handler(state, payload, user, db)
+        if not action_id.startswith("route."):
+            self._clear_pending_operation(state)
+            if state.node != previous_location.node_id and state.active_surface_id == previous_location.surface_id:
+                state.active_surface_id = None
+            self._push_navigation(state, previous_location)
         if state.node not in state.executed_nodes:
             state.executed_nodes.append(state.node)
         return await self._response(state=state, user=user, db=db, messages=messages, evidence=evidence)
@@ -520,6 +795,110 @@ class CorpusGraphRuntime:
             return AppNodeIds.RESULT_REVIEW
         return node_id
 
+    def _resolved_surface_id(self, state: AppGraphState) -> str | None:
+        review_surface_id = self._surface_registry.operation_id_from_surface_id(state.active_surface_id)
+        if review_surface_id and state.pending_operation_id != review_surface_id:
+            return self._surface_registry.default_surface_id(state)
+        return state.active_surface_id or self._surface_registry.default_surface_id(state)
+
+    def _history_params_for_state(self, state: AppGraphState) -> dict[str, Any]:
+        params = dict(state.route_params or {})
+        if state.active_saas_agent_id:
+            params[NAV_PARAM_SAAS_AGENT_ID] = str(state.active_saas_agent_id)
+        if state.pending_operation_id:
+            params[NAV_PARAM_PENDING_OPERATION_ID] = state.pending_operation_id
+        if state.pending_operation_args:
+            params[NAV_PARAM_PENDING_OPERATION_ARGS] = dict(state.pending_operation_args)
+        return params
+
+    def _current_location(self, state: AppGraphState) -> AppGraphNavigationLocation:
+        return AppGraphNavigationLocation(
+            node_id=state.node,
+            surface_id=self._resolved_surface_id(state),
+            params=self._history_params_for_state(state),
+        )
+
+    def _clear_pending_operation(self, state: AppGraphState) -> None:
+        state.pending_operation_id = None
+        state.pending_operation_args = {}
+
+    def _location_from_payload(
+        self,
+        state: AppGraphState,
+        payload: dict[str, Any],
+        *,
+        preserve_current_params: bool = False,
+    ) -> AppGraphNavigationLocation:
+        current = self._current_location(state)
+        params = payload.get("params")
+        next_params = dict(current.params if preserve_current_params else {})
+        if isinstance(params, dict):
+            next_params = dict(params)
+        return AppGraphNavigationLocation(
+            node_id=str(payload.get("node_id") or current.node_id),
+            surface_id=str(payload["surface_id"]) if payload.get("surface_id") is not None else current.surface_id,
+            params=next_params,
+        )
+
+    def _apply_location(self, state: AppGraphState, location: AppGraphNavigationLocation) -> None:
+        params = dict(location.params or {})
+        pending_operation_id = params.pop(NAV_PARAM_PENDING_OPERATION_ID, None)
+        pending_operation_args = params.pop(NAV_PARAM_PENDING_OPERATION_ARGS, {})
+        raw_saas_agent_id = params.pop(NAV_PARAM_SAAS_AGENT_ID, None)
+
+        state.node = location.node_id
+        state.route_params = params
+        state.pending_operation_id = str(pending_operation_id) if pending_operation_id else None
+        state.pending_operation_args = pending_operation_args if isinstance(pending_operation_args, dict) else {}
+        state.active_surface_id = location.surface_id or self._surface_registry.default_surface_id(state)
+        if raw_saas_agent_id:
+            try:
+                state.active_saas_agent_id = uuid.UUID(str(raw_saas_agent_id))
+            except (ValueError, TypeError):
+                pass
+
+    def _push_navigation(self, state: AppGraphState, previous: AppGraphNavigationLocation) -> None:
+        current = self._current_location(state)
+        if current == previous:
+            return
+        state.navigation_back_stack.append(previous)
+        state.navigation_forward_stack = []
+
+    def _cancel_target_location(self, state: AppGraphState) -> AppGraphNavigationLocation | None:
+        node = self._node_by_id.get(state.node)
+        cancel_target_node = getattr(node, "cancel_target_node", None) if node else None
+        if cancel_target_node:
+            params: dict[str, Any] = {}
+            if state.active_saas_agent_id:
+                params[NAV_PARAM_SAAS_AGENT_ID] = str(state.active_saas_agent_id)
+            return AppGraphNavigationLocation(
+                node_id=cancel_target_node,
+                surface_id=self._surface_registry.default_surface_id(AppGraphState(node=cancel_target_node)),
+                params=params,
+            )
+        return state.navigation_back_stack[-1] if state.navigation_back_stack else None
+
+    def _route_actions(self, state: AppGraphState) -> list[Any]:
+        route_actions: list[Any] = [
+            self._action_by_id[AppActionIds.ROUTE_OPEN_NODE],
+            self._action_by_id[AppActionIds.ROUTE_SWITCH_SURFACE],
+        ]
+        if state.navigation_back_stack:
+            route_actions.append(self._action_by_id[AppActionIds.ROUTE_BACK])
+        if state.navigation_forward_stack:
+            route_actions.append(self._action_by_id[AppActionIds.ROUTE_FORWARD])
+        if self._cancel_target_location(state):
+            route_actions.append(self._action_by_id[AppActionIds.ROUTE_CANCEL])
+        return route_actions
+
+    def _active_surface_from_projection(self, projection) -> RouteDeckSurface | None:
+        current_surface_id = projection.navigation.current.get("surface_id") if isinstance(projection.navigation.current, dict) else getattr(projection.navigation.current, "surface_id", None)
+        if current_surface_id:
+            for surface in projection.surfaces.values():
+                if surface.surface_id == current_surface_id:
+                    return surface
+        return next((surface for surface in projection.surfaces.values() if surface.role == "active"), None)
+
     async def _valid_actions(self, state: AppGraphState, user: User | None, db: AsyncSession):
         node = self._node_by_id.get(state.node) or self._node_by_id[AppNodeIds.HOME]
         lens = await self._context_lens(state, user, db)
@@ -533,9 +912,18 @@ class CorpusGraphRuntime:
                 if state.pending_trace_id:
                     payload["trace_id"] = str(state.pending_trace_id)
                 actions.append(route_action_to_card(action, payload=payload or None))
+        actions.extend(route_action_to_card(action) for action in self._route_actions(state))
         return actions
 
     def _is_action_eligible(self, action_id: str, state: AppGraphState, user: User | None, lens: AppGraphContextLens) -> bool:
+        if action_id in {
+            AppActionIds.ROUTE_BACK,
+            AppActionIds.ROUTE_FORWARD,
+            AppActionIds.ROUTE_CANCEL,
+            AppActionIds.ROUTE_OPEN_NODE,
+            AppActionIds.ROUTE_SWITCH_SURFACE,
+        }:
+            return True
         if action_id in {AppActionIds.AUTH_SIGN_IN, AppActionIds.AUTH_REGISTER}:
             return user is None
         if action_id in {AppActionIds.HOME, AppActionIds.RECOVERY_HOME}:
@@ -556,6 +944,7 @@ class CorpusGraphRuntime:
 
     async def _response(self, *, state: AppGraphState, user: User | None, db: AsyncSession, messages: list[EntryGraphMessage], evidence: list[dict[str, Any]] | None = None) -> AppGraphResponse:
         state.node = await self._eligible_node_or_recovery(state.node, state, user, db)
+        state.active_surface_id = self._resolved_surface_id(state)
         actions = await self._valid_actions(state, user, db)
         lens = await self._context_lens(state, user, db)
         snapshot = build_runtime_snapshot(
@@ -608,7 +997,7 @@ class CorpusGraphRuntime:
         *,
         api_key: str,
         user_input: str,
-        projection: dict[str, Any],
+        planning_context: dict[str, Any],
         projection_version: int,
         fallback_message: str,
     ) -> AsyncIterator[dict[str, Any]]:
@@ -617,7 +1006,7 @@ class CorpusGraphRuntime:
             async for delta in self._stream_corpus_message(
                 api_key=api_key,
                 user_input=user_input,
-                projection=projection,
+                planning_context=self._reply_planning_context(planning_context),
             ):
                 if not delta:
                     continue
@@ -639,7 +1028,31 @@ class CorpusGraphRuntime:
             return []
         return [text[index : index + target_size] for index in range(0, len(text), target_size)]
 
-    async def _corpus_turn_plan(self, *, api_key: str, user_input: str, projection: dict[str, Any]) -> dict[str, Any]:
+    def _reply_planning_context(self, planning_context: dict[str, Any]) -> dict[str, Any]:
+        blocked_keys = {
+            "id",
+            "operation_id",
+            "args",
+            "surface_id",
+            "input_schema",
+            "accepted_arg_keys",
+            "required_args",
+            "missing_args",
+        }
+        return self._redact_planning_context(planning_context, blocked_keys=blocked_keys)
+
+    def _redact_planning_context(self, value: Any, *, blocked_keys: set[str]) -> Any:
+        if isinstance(value, Mapping):
+            return {
+                key: self._redact_planning_context(child, blocked_keys=blocked_keys)
+                for key, child in value.items()
+                if isinstance(key, str) and key not in blocked_keys
+            }
+        if isinstance(value, list):
+            return [self._redact_planning_context(child, blocked_keys=blocked_keys) for child in value]
+        return value
+
+    async def _corpus_turn_plan(self, *, api_key: str, user_input: str, planning_context: dict[str, Any]) -> dict[str, Any]:
         from openai import AsyncOpenAI
 
         from backend.core.langsmith import wrap_openai_client
@@ -649,7 +1062,7 @@ class CorpusGraphRuntime:
             model=settings.default_model,
             messages=[
                 {"role": "system", "content": CORPUS_TURN_ROUTER_PROMPT},
-                {"role": "user", "content": json.dumps({"user_input": user_input, "route_deck_projection": projection})},
+                {"role": "user", "content": json.dumps({"user_input": user_input, "planning_context": planning_context})},
             ],
             response_format={"type": "json_object"},
             **_openai_latency_options(),
@@ -658,15 +1071,10 @@ class CorpusGraphRuntime:
         try:
             parsed = json.loads(content)
         except json.JSONDecodeError:
-            return {"intent": "clarify", "message": "I could not read the model response.", "operation_id": None, "args": {}}
-        if not isinstance(parsed, dict):
-            return {"intent": "clarify", "message": "", "operation_id": None, "args": {}}
-        parsed.setdefault("intent", "propose_operation" if parsed.get("operation_id") else "reply_now")
-        parsed.setdefault("args", {})
-        parsed.setdefault("surface_intent", {})
-        return parsed
+            parsed = {"intent": "clarify", "message": "I could not read the model response.", "operation_id": None, "args": {}}
+        return normalize_corpus_turn_plan(parsed, planning_context=planning_context)
 
-    async def _stream_corpus_message(self, *, api_key: str, user_input: str, projection: dict[str, Any]) -> AsyncIterator[str]:
+    async def _stream_corpus_message(self, *, api_key: str, user_input: str, planning_context: dict[str, Any]) -> AsyncIterator[str]:
         from openai import AsyncOpenAI
 
         from backend.core.langsmith import wrap_openai_client
@@ -676,7 +1084,7 @@ class CorpusGraphRuntime:
             model=settings.default_model,
             messages=[
                 {"role": "system", "content": CORPUS_STREAM_PROMPT},
-                {"role": "user", "content": json.dumps({"user_input": user_input, "route_deck_projection": projection})},
+                {"role": "user", "content": json.dumps({"user_input": user_input, "planning_context": planning_context})},
             ],
             stream=True,
             **_openai_latency_options(),
@@ -694,7 +1102,8 @@ class CorpusGraphRuntime:
 
     def _presentation_key(self, state: AppGraphState, user: User | None) -> str:
         actor = str(user.id) if user else "anonymous"
-        return f"{actor}:{state.node}"
+        agent = str(state.active_saas_agent_id) if state.active_saas_agent_id else "none"
+        return f"{actor}:{agent}:{state.node}"
 
     def _frame_surface(
         self,
@@ -727,34 +1136,20 @@ class CorpusGraphRuntime:
             presentation_state=current,
         )
 
-    def _deterministic_open_message(self, operation: RouteDeckOperation) -> str:
-        return self._surface_registry.deterministic_open_message(operation)
+    def _surface_navigation_id(self, surface_intent: Any) -> str | None:
+        if not isinstance(surface_intent, dict):
+            return None
+        surface_id = surface_intent.get("surface_id")
+        return surface_id if isinstance(surface_id, str) and surface_id else None
 
-    def _deterministic_turn_plan(
-        self,
-        *,
-        user_input: str,
-        state: AppGraphState,
-        projection: Any,
-    ) -> dict[str, Any] | None:
-        legal_operation_ids = {getattr(operation, "id", None) for operation in getattr(projection, "legal_operations", [])}
-        if (
-            state.active_saas_agent_id
-            and AppActionIds.CONNECTION_CONFIGURE in legal_operation_ids
-            and _looks_like_api_setup_request(user_input)
-        ):
-            return {
-                "intent": "open_surface",
-                "message": self._deterministic_open_message(
-                    next(operation for operation in projection.legal_operations if operation.id == AppActionIds.CONNECTION_CONFIGURE)
-                ),
-                "operation_id": AppActionIds.CONNECTION_CONFIGURE,
-                "args": {},
-                "surface_intent": None,
-                "confidence": 1.0,
-                "preamble": None,
-            }
-        return None
+    def _surface_variant_intent(self, surface_intent: Any) -> dict[str, str]:
+        if not isinstance(surface_intent, dict):
+            return {}
+        return {
+            key: value
+            for key, value in surface_intent.items()
+            if key != "surface_id" and isinstance(key, str) and isinstance(value, str)
+        }
 
     def _blocked_actions(self, state: AppGraphState, user: User | None, lens: AppGraphContextLens) -> list[dict[str, str]]:
         blocked: list[dict[str, str]] = []
@@ -778,7 +1173,17 @@ class CorpusGraphRuntime:
         return explanations
 
     def _action_block_reason(self, action_id: str, state: AppGraphState, user: User | None, lens: AppGraphContextLens) -> str | None:
-        if action_id in {AppActionIds.AUTH_SIGN_IN, AppActionIds.AUTH_REGISTER, AppActionIds.HOME, AppActionIds.RECOVERY_HOME}:
+        if action_id in {
+            AppActionIds.AUTH_SIGN_IN,
+            AppActionIds.AUTH_REGISTER,
+            AppActionIds.HOME,
+            AppActionIds.RECOVERY_HOME,
+            AppActionIds.ROUTE_BACK,
+            AppActionIds.ROUTE_FORWARD,
+            AppActionIds.ROUTE_CANCEL,
+            AppActionIds.ROUTE_OPEN_NODE,
+            AppActionIds.ROUTE_SWITCH_SURFACE,
+        }:
             return None
         if user is None:
             return "Authentication required"
@@ -796,8 +1201,17 @@ class CorpusGraphRuntime:
 
     def _path_for_state(self, state: AppGraphState) -> str:
         if state.active_saas_agent_id:
-            return f"/app/agents/{state.active_saas_agent_id}" if state.node == AppNodeIds.AGENT_HOME else f"/app/agents/{state.active_saas_agent_id}/{state.node}"
-        return "/app/home" if state.node == AppNodeIds.HOME else f"/app/{state.node}"
+            path = (
+                f"/app/agents/{state.active_saas_agent_id}"
+                if state.node == AppNodeIds.AGENT_HOME
+                else f"/app/agents/{state.active_saas_agent_id}/{state.node}"
+            )
+        else:
+            path = "/app/home" if state.node == AppNodeIds.HOME else f"/app/{state.node}"
+        surface_id = self._resolved_surface_id(state)
+        if not surface_id:
+            return path
+        return f"{path}?{urlencode({'surface_id': surface_id})}"
 
     async def _context_lens(self, state: AppGraphState, user: User | None, db: AsyncSession) -> AppGraphContextLens:
         selected = await db.get(SaaSAgent, state.active_saas_agent_id) if state.active_saas_agent_id and user else None
@@ -849,6 +1263,52 @@ class CorpusGraphRuntime:
         if member is None:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a member of this SaaS Agent")
         return member
+
+    async def _handle_route_back(self, state, payload, user, db):
+        if not state.navigation_back_stack:
+            return state, [], []
+        current = self._current_location(state)
+        target = state.navigation_back_stack.pop()
+        state.navigation_forward_stack = [current, *state.navigation_forward_stack]
+        self._apply_location(state, target)
+        return state, [], []
+
+    async def _handle_route_forward(self, state, payload, user, db):
+        if not state.navigation_forward_stack:
+            return state, [], []
+        current = self._current_location(state)
+        target = state.navigation_forward_stack.pop(0)
+        state.navigation_back_stack.append(current)
+        self._apply_location(state, target)
+        return state, [], []
+
+    async def _handle_route_cancel(self, state, payload, user, db):
+        target = self._cancel_target_location(state)
+        if target is None:
+            return state, [], []
+        current = self._current_location(state)
+        if state.navigation_back_stack and state.navigation_back_stack[-1] == target:
+            state.navigation_back_stack.pop()
+        state.navigation_forward_stack = [current, *state.navigation_forward_stack]
+        self._apply_location(state, target)
+        return state, [], []
+
+    async def _handle_route_open_node(self, state, payload, user, db):
+        current = self._current_location(state)
+        target = self._location_from_payload(state, payload, preserve_current_params=False)
+        self._apply_location(state, target)
+        self._push_navigation(state, current)
+        return state, [], []
+
+    async def _handle_route_switch_surface(self, state, payload, user, db):
+        current = self._current_location(state)
+        target = self._location_from_payload(state, payload, preserve_current_params=True)
+        if state.pending_operation_id and target.surface_id != self._surface_registry.operation_review_surface_id(state.pending_operation_id):
+            target.params.pop(NAV_PARAM_PENDING_OPERATION_ID, None)
+            target.params.pop(NAV_PARAM_PENDING_OPERATION_ARGS, None)
+        self._apply_location(state, target)
+        self._push_navigation(state, current)
+        return state, [], []
 
     async def _handle_navigate_home(self, state, payload, user, db):
         state.node = AppNodeIds.HOME
@@ -1043,6 +1503,63 @@ class CorpusGraphRuntime:
         state.node = AppNodeIds.INSTRUCTIONS
         return state, [], []
 
+    async def _handle_deployment_save(self, state, payload, user, db):
+        if user is None or not state.active_saas_agent_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="SaaS Agent selection required")
+        member = await self._require_member(state.active_saas_agent_id, user, db)
+        if member.role not in (SaaSAgentRole.owner, SaaSAgentRole.admin):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SaaS Agent admin role required")
+
+        deployment = await get_or_create_deployment(saas_agent_id=state.active_saas_agent_id, db=db)
+        deployment.enabled = _coerce_bool_payload(payload.get("enabled"), default=bool(deployment.enabled), field="enabled")
+        deployment.visitor_auth_mode = _coerce_choice_payload(
+            payload.get("visitor_auth_mode"),
+            default=deployment.visitor_auth_mode or "inherit_from_connection",
+            field="visitor_auth_mode",
+            allowed=DEPLOYMENT_VISITOR_AUTH_MODES,
+        )
+        deployment.execution_mode = _coerce_choice_payload(
+            payload.get("execution_mode"),
+            default=deployment.execution_mode or "sandbox",
+            field="execution_mode",
+            allowed=DEPLOYMENT_EXECUTION_MODES,
+        )
+        deployment.default_write_policy = _coerce_choice_payload(
+            payload.get("default_write_policy"),
+            default=deployment.default_write_policy or "confirm",
+            field="default_write_policy",
+            allowed=DEPLOYMENT_WRITE_POLICIES,
+        )
+        welcome_message = str(payload.get("welcome_message") or deployment.welcome_message or "How can I help?").strip()
+        if not welcome_message:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="welcome_message is required")
+        if len(welcome_message) > 2000:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="welcome_message is too long")
+        deployment.welcome_message = welcome_message
+
+        await db.commit()
+        await db.refresh(deployment)
+        state.node = AppNodeIds.AGENT_HOME
+        state.graph_context["deployment"] = {
+            "enabled": deployment.enabled,
+            "visitor_auth_mode": deployment.visitor_auth_mode,
+            "execution_mode": deployment.execution_mode,
+            "default_write_policy": deployment.default_write_policy,
+        }
+        status_text = "published" if deployment.enabled else "disabled"
+        return (
+            state,
+            [EntryGraphMessage(content=f"Deployment settings saved. Public chat is {status_text}.")],
+            [
+                {
+                    "type": "deployment_saved",
+                    "saas_agent_id": str(state.active_saas_agent_id),
+                    "enabled": deployment.enabled,
+                    "visitor_auth_mode": deployment.visitor_auth_mode,
+                }
+            ],
+        )
+
     async def _handle_instructions_save(self, state, payload, user, db):
         if user is None or not state.active_saas_agent_id:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="SaaS Agent selection required")
@@ -1156,14 +1673,6 @@ class CorpusGraphRuntime:
 
 
 corpus_graph_runtime = CorpusGraphRuntime()
-
-
-def _looks_like_api_setup_request(user_input: str) -> bool:
-    normalized = user_input.lower().replace("-", " ").replace("_", " ")
-    tokens = {token.strip(".,!?;:()[]{}") for token in normalized.split()}
-    api_tokens = {"api", "openapi", "schema", "connection", "credentials", "credential"}
-    setup_tokens = {"connect", "setup", "set", "configure", "add", "integrate", "link", "onboard", "activate"}
-    return bool(tokens & api_tokens) and bool(tokens & setup_tokens)
 
 
 def _openai_latency_options() -> dict[str, Any]:

@@ -33,3 +33,12 @@
 - Fixed public entry assistant streaming so LLM text emits live `message_delta` events instead of delayed post-hoc chunks; recorded the streaming contract in `ADR-008`.
 - Fixed entry streaming UI regressions so thinking stays inside the streaming assistant bubble and backend quick actions remain visible whenever RouteDeck/backend actions exist.
 - Recorded the LangGraph-owned entry runtime decision in `ADR-009`.
+
+## 2026-05-26
+
+- Removed the owner-workbench Python phrase router from `backend/services/app_graph/runtime.py`.
+- Added a structured Corpus planner-context layer in `backend/services/app_graph/corpus_turn_planning.py`.
+- Made owner-workbench chat choose typed legal operations from RouteDeck-projected context instead of heuristic text matching.
+- Added surface-declared selectable entities so visible list items can be opened from chat without hidden-id prompts.
+- Added Corpus-owned planning descriptions for Learning peer surfaces to improve same-node surface switching.
+- Verified the updated architecture with focused backend tests, broader backend tests, manual in-app browser chat navigation, `npm run e2e:docker`, and `npm run e2e:medusa:docker`.

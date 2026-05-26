@@ -54,11 +54,14 @@ def test_corpus_surface_registry_maps_product_nodes_to_surfaces():
     assert registry.active_surface_component_for_node("connection_configure") == "ConnectionSetupSurface"
 
 
-def test_corpus_surface_registry_builds_connection_open_message():
+def test_corpus_surface_registry_prefers_review_surface_for_pending_operation():
     registry = CorpusSurfaceRegistry()
-    operation = CorpusOperationPolicy().operation_for_action(_action(AppActionIds.CONNECTION_CONFIGURE))
+    state = AppGraphState(
+        node="connection_configure",
+        pending_operation_id=AppActionIds.CONNECTION_CONFIGURE,
+    )
 
-    assert registry.deterministic_open_message(operation).startswith("Connection setup is open.")
+    assert registry.default_surface_id(state) == "operation_review.navigate.connection_configure"
 
 
 def test_corpus_surface_registry_builds_active_surface_with_lens_and_agents():

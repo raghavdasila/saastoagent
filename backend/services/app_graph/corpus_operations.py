@@ -26,7 +26,7 @@ class CorpusOperationPolicy:
         safety_class = "navigation"
         if action.category == "execution":
             safety_class = "write_external"
-        elif action.category in {"feedback", "learning"}:
+        elif action.category in {"deployment", "feedback", "learning"}:
             safety_class = "draft"
         elif action.category == "auth":
             safety_class = "credential"

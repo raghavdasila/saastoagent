@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   RouteDeckProvider,
   routeDeckOperationInteraction,
@@ -10,6 +11,7 @@ import {
   useRouteDeckStore,
   useRouteDeckSurface,
   type RouteDeckEvent,
+  type RouteDeckOperation,
   type RouteDeckProjection,
   type RouteDeckStore,
 } from '@routedeck/react'
@@ -45,10 +47,7 @@ import { api } from '@/lib/api'
 import { useSaaSAgentUiStore } from '@/stores/saasAgentUiStore'
 import type { ChatUIMessage } from '@/types/agent'
 import type { AppGraphContextLens, AppGraphState } from '@/types/appGraph'
-import type {
-  CorpusProposal,
-  CorpusStateResponse,
-} from '@/types/corpus'
+import type { CorpusStateResponse } from '@/types/corpus'
 import type { AgentApproval, AgentApprovalDecision, SaaSAgent, SaaSAgentDeployment } from '@/types/domain'
 import { CorpusRouteDeckDiagnostics as DiagnosticsPanel } from './CorpusRouteDeckDiagnostics'
 import {
@@ -59,19 +58,18 @@ import {
 } from './corpusSurfaces'
 import {
   corpusQuickActions,
-  handleProposalFieldChange,
-  operationToProposal,
   operationToQuickAction,
-  proposalDefaults,
-  proposalFields,
   type CorpusQuickAction,
 } from './corpusOperations'
 import {
   activeSaaSAgentIdFromRouteDeckState,
+  corpusLocationFromBrowser,
+  corpusPathFromLocation,
+  corpusPathFromRouteDeckState,
   corpusStatePath,
   createSaaStoAgentRouteDeckStore,
   graphStateFromRouteDeckState,
-  syncBrowserPathWithoutNavigation,
+  SURFACE_QUERY_KEY,
 } from './corpusRouteDeckClient'
 import { corpusNodeIds, corpusOperationIds, corpusSurfaceComponents } from './corpusRouteDeckCatalog'
 import { displayWork } from './workbenchDisplay'
@@ -86,7 +84,6 @@ type WorkbenchStatus =
   | 'Thinking'
   | 'Navigating'
   | 'Opening surface'
-  | 'Preparing proposal'
   | 'Committing'
   | 'Running diagnostics'
   | 'Waiting for input'
@@ -113,27 +110,42 @@ interface PendingSurfaceTransition {
   run: () => void
 }
 
+let cachedRouteDeckStore: RouteDeckStore | null = null
+
+function clearCachedRouteDeckStore() {
+  cachedRouteDeckStore = null
+}
+
 export function AppGraphShell({ nodeId, saasAgentId }: AppGraphShellProps) {
-  const statePath = useMemo(() => corpusStatePath(nodeId, saasAgentId), [nodeId, saasAgentId])
-  const [routeDeckStore, setRouteDeckStore] = useState<RouteDeckStore | null>(null)
+  const location = useLocation()
+  const surfaceId = useMemo(() => new URLSearchParams(location.search).get(SURFACE_QUERY_KEY), [location.search])
+  const statePath = useMemo(() => corpusStatePath(nodeId, saasAgentId, surfaceId), [nodeId, saasAgentId, surfaceId])
+  const [routeDeckStore, setRouteDeckStore] = useState<RouteDeckStore | null>(() => cachedRouteDeckStore)
 
   const stateQuery = useQuery({
-    queryKey: ['corpus-state', nodeId || 'home', saasAgentId || 'none'],
+    queryKey: ['corpus-state', nodeId || 'home', saasAgentId || 'none', surfaceId || 'default'],
     queryFn: () => api.get<CorpusStateResponse>(statePath),
   })
 
   useEffect(() => {
     if (!stateQuery.data) return
     setRouteDeckStore((current) =>
-      current ||
-      createSaaStoAgentRouteDeckStore({
-        initialState: stateQuery.data,
-        statePath,
-        nodeId,
-        saasAgentId,
-      }),
+      current || (() => {
+        const store = createSaaStoAgentRouteDeckStore({
+          initialState: stateQuery.data,
+          statePath,
+          nodeId,
+          saasAgentId,
+        })
+        cachedRouteDeckStore = store
+        return store
+      })(),
     )
   }, [nodeId, saasAgentId, statePath, stateQuery.data])
+
+  useEffect(() => {
+    if (routeDeckStore) cachedRouteDeckStore = routeDeckStore
+  }, [routeDeckStore])
 
   if (stateQuery.isLoading && !routeDeckStore) {
     return (
@@ -162,11 +174,14 @@ export function AppGraphShell({ nodeId, saasAgentId }: AppGraphShellProps) {
 }
 
 function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
+  const location = useLocation()
+  const navigate = useNavigate()
   const routeDeckState = useRouteDeckState()
   const routeDeckStore = useRouteDeckStore()
   const dispatchRouteDeck = useRouteDeckDispatch()
   const projection = useRouteDeckProjection()
   const { user, logout } = useAuth()
+  const queryClient = useQueryClient()
   const graphState = graphStateFromRouteDeckState(routeDeckState)
   const activeSaaSAgentId = activeSaaSAgentIdFromRouteDeckState(routeDeckState)
   const replacePath = routeDeckState.location || null
@@ -178,7 +193,6 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
     ),
   ])
   const [draft, setDraft] = useState('')
-  const [pendingProposal, setPendingProposal] = useState<CorpusProposal | null>(null)
   const [corpusStatus, setCorpusStatus] = useState<WorkbenchStatus>('Ready')
   const [railNotice, setRailNotice] = useState<RailSelectionNotice | null>(null)
   const [activeSurfaceDirtyState, setActiveSurfaceDirtyState] = useState<ActiveSurfaceDirtyState | null>(null)
@@ -189,18 +203,25 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
   const contextLens = contextLensFromProjection(projection)
   const activeSurfaceId = activeSurface?.surface_id || 'none'
   const activeNodeDirtyPolicy = dirtyPolicyForNode(projection, projection.graph_node)
+  const browserUrl = `${location.pathname}${location.search}`
+  const ignoreBrowserLocationRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!projection || !graphState) return
     setMirroredSaaSAgentId(activeSaaSAgentId)
-    if (replacePath && replacePath !== window.location.pathname) {
-      syncBrowserPathWithoutNavigation(replacePath)
-    }
-  }, [activeSaaSAgentId, graphState, projection, replacePath, setMirroredSaaSAgentId])
+  }, [activeSaaSAgentId, graphState, projection, setMirroredSaaSAgentId])
 
   useEffect(() => {
     setActiveSurfaceDirtyState((current) => (current?.surfaceId === activeSurfaceId ? current : null))
   }, [activeSurfaceId])
+
+  useEffect(() => {
+    const nextPath = replacePath || corpusPathFromRouteDeckState(routeDeckState)
+    if (!nextPath || nextPath === browserUrl) return
+    if (ignoreBrowserLocationRef.current === nextPath) return
+    ignoreBrowserLocationRef.current = nextPath
+    navigate(nextPath)
+  }, [browserUrl, navigate, replacePath, routeDeckState])
 
   const executeOperation = useMutation({
     mutationFn: async ({
@@ -214,7 +235,6 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
     },
     onSuccess: (response) => {
       const nextGraphState = graphStateFromRouteDeckState(response.state)
-      setPendingProposal(null)
       setCorpusStatus('Ready')
       setMirroredSaaSAgentId(nextGraphState?.active_saas_agent_id || null)
       if (response.messages && response.messages.length > 0) {
@@ -222,10 +242,6 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
           ...current,
           ...response.messages.map((message) => makeAgentMessage('assistant', String(message.content || ''))),
         ])
-      }
-      const nextPath = response.state.location || null
-      if (nextPath && nextPath !== window.location.pathname) {
-        syncBrowserPathWithoutNavigation(nextPath)
       }
     },
   })
@@ -275,13 +291,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
           ),
         )
       }
-      const removeEmptyStreamingMessage = () => {
-        setChatMessages((current) =>
-          current.filter((message) => message.id !== streamMessageId || Boolean(message.content.trim())),
-        )
-      }
 
-      setPendingProposal(null)
       setCorpusStatus('Thinking')
 
       await api.getStream(`/corpus/stream?${params.toString()}`, (eventType, eventData) => {
@@ -311,22 +321,25 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
             ),
           )
         }
-        if (eventType === 'proposal') {
-          setCorpusStatus('Preparing proposal')
-          setPendingProposal(payload as unknown as CorpusProposal)
-          finishStreamingMessage()
-        }
         if (eventType === 'operation_completed') {
           setCorpusStatus('Committing')
           const nextProjection = payload.projection as RouteDeckProjection | undefined
           if (nextProjection) {
             const nextState = payload.state as AppGraphState | undefined
-              routeDeckStore.receiveEvent(routeDeckEvent)
-              setMirroredSaaSAgentId(nextState?.active_saas_agent_id || null)
+            routeDeckStore.receiveEvent(routeDeckEvent)
+            setMirroredSaaSAgentId(nextState?.active_saas_agent_id || null)
+            if (payload.operation_id === corpusOperationIds.saveDeployment && nextState?.active_saas_agent_id) {
+              void queryClient.invalidateQueries({ queryKey: ['saas-agent-deployment', nextState.active_saas_agent_id] })
+            }
           }
-          const nextPath = typeof payload.replace_path === 'string' ? payload.replace_path : null
-          if (nextPath && nextPath !== window.location.pathname) {
-            syncBrowserPathWithoutNavigation(nextPath)
+          const completedMessages = Array.isArray(payload.messages) ? payload.messages : []
+          if (completedMessages.length > 0) {
+            setChatMessages((current) => [
+              ...current,
+              ...completedMessages.map((message) =>
+                makeAgentMessage('assistant', String((message as { content?: unknown }).content || '')),
+              ),
+            ])
           }
           finishStreamingMessage()
         }
@@ -360,10 +373,11 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
 
   const hasStreamingCorpusMessage = chatMessages.some((message) => message.isStreaming)
   const authSurfaceActive = activeSurface?.component === corpusSurfaceComponents.auth
+  const reviewSurfaceActive = activeSurface?.component === corpusSurfaceComponents.operationReview
   const composerDisabled = executeOperation.isPending || turn.isPending || authSurfaceActive
   const visibleStatus: WorkbenchStatus = executeOperation.isPending
       ? 'Committing'
-      : pendingProposal
+      : reviewSurfaceActive
         ? 'Waiting for input'
         : contextLens?.pending_trace_id
           ? 'Waiting for approval'
@@ -393,13 +407,6 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
     run()
   }
 
-  const openProposalSurface = (proposal: CorpusProposal) => {
-    requestSurfaceTransition(() => {
-      setPendingProposal(proposal)
-      setCorpusStatus('Ready')
-    }, 'Ready')
-  }
-
   const confirmSurfaceTransition = async (mode: 'save' | 'discard') => {
     const transition = pendingSurfaceTransition
     if (!transition) return
@@ -414,13 +421,89 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
     transition.run()
   }
 
+  const openReviewSurface = (operation: CorpusQuickAction['operation']) => {
+    requestSurfaceTransition(() => {
+      executeOperation.mutate({ operationId: operation.id, args: operation.payload || {} })
+    }, 'Opening surface')
+  }
+
+  useEffect(() => {
+    if (!graphState) return
+    if (ignoreBrowserLocationRef.current === browserUrl) {
+      ignoreBrowserLocationRef.current = null
+      return
+    }
+    if (ignoreBrowserLocationRef.current) return
+    const currentPath = replacePath || corpusPathFromRouteDeckState(routeDeckState)
+    if (!currentPath || browserUrl === currentPath) return
+
+    const currentAgentId = graphState.active_saas_agent_id || null
+    const backLocation = projection.navigation.back_stack.at(-1)
+    const forwardLocation = projection.navigation.forward_stack[0]
+    const backPath = backLocation ? corpusPathFromLocation(backLocation, currentAgentId) : null
+    const forwardPath = forwardLocation ? corpusPathFromLocation(forwardLocation, currentAgentId) : null
+
+    const dispatchBrowserLocation = () => {
+      if (browserUrl === backPath) {
+        void routeDeckStore.back().finally(() => setCorpusStatus('Ready'))
+        return
+      }
+      if (browserUrl === forwardPath) {
+        void routeDeckStore.forward().finally(() => setCorpusStatus('Ready'))
+        return
+      }
+      const nextLocation = corpusLocationFromBrowser(location.pathname, location.search)
+      if (!nextLocation) return
+      void dispatchRouteDeck({
+        operation_id: 'route.open_node',
+        args: {
+          node_id: nextLocation.node_id,
+          surface_id: nextLocation.surface_id,
+          params: {
+            ...(projection.navigation.current.params || {}),
+            ...(nextLocation.params || {}),
+          },
+        },
+      }).finally(() => setCorpusStatus('Ready'))
+    }
+
+    if (
+      activeNodeDirtyPolicy === 'confirm' &&
+      activeSurfaceDirtyState?.dirty &&
+      activeSurfaceDirtyState.surfaceId === activeSurfaceId
+    ) {
+      ignoreBrowserLocationRef.current = currentPath
+      navigate(currentPath, { replace: true })
+      setPendingSurfaceTransition({ nextStatus: 'Navigating', run: dispatchBrowserLocation })
+      return
+    }
+
+    dispatchBrowserLocation()
+  }, [
+    activeNodeDirtyPolicy,
+    activeSurfaceDirtyState,
+    activeSurfaceId,
+    browserUrl,
+    dispatchRouteDeck,
+    graphState,
+    location.pathname,
+    location.search,
+    navigate,
+    projection.navigation.back_stack,
+    projection.navigation.current.params,
+    projection.navigation.forward_stack,
+    replacePath,
+    routeDeckState,
+    routeDeckStore,
+  ])
+
   const handleQuickAction = (action: CorpusQuickAction) => {
     setRailNotice(null)
     const operation = action.operation
     if (operation.can_dispatch_now === false) {
       const interaction = routeDeckOperationInteraction(operation)
       if (interaction === 'form') {
-        openProposalSurface(operationToProposal(operation))
+        openReviewSurface(operation)
         return
       }
       setChatMessages((current) => [
@@ -436,7 +519,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
       return
     }
     if (operation.execution_mode === 'review' || operation.kind === 'form') {
-      openProposalSurface(operationToProposal(operation))
+      openReviewSurface(operation)
       return
     }
     requestSurfaceTransition(
@@ -463,6 +546,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
 
   const handleLogout = () => {
     logout()
+    clearCachedRouteDeckStore()
     setMirroredSaaSAgentId(null)
     void routeDeckStore.refresh().catch(() => undefined)
   }
@@ -474,9 +558,30 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
         contextLens={contextLens}
         status={visibleStatus}
         user={user}
-        onBack={() => requestSurfaceTransition(() => void routeDeckStore.back(), 'Navigating')}
-        onForward={() => requestSurfaceTransition(() => void routeDeckStore.forward(), 'Navigating')}
-        onCancel={() => requestSurfaceTransition(() => void routeDeckStore.cancel(), 'Navigating')}
+        onBack={() =>
+          requestSurfaceTransition(
+            () => {
+              void routeDeckStore.back().finally(() => setCorpusStatus('Ready'))
+            },
+            'Navigating',
+          )
+        }
+        onForward={() =>
+          requestSurfaceTransition(
+            () => {
+              void routeDeckStore.forward().finally(() => setCorpusStatus('Ready'))
+            },
+            'Navigating',
+          )
+        }
+        onCancel={() =>
+          requestSurfaceTransition(
+            () => {
+              void routeDeckStore.cancel().finally(() => setCorpusStatus('Ready'))
+            },
+            'Navigating',
+          )
+        }
         onLogout={handleLogout}
       />
 
@@ -492,7 +597,6 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
             composerPlaceholder={composerPlaceholder}
             status={visibleStatus}
             error={turn.error || executeOperation.error}
-            pendingProposal={pendingProposal}
             quickActions={quickActions}
             activeSurfacePanel={
               <ActiveSurfacePanel
@@ -507,11 +611,6 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
             onDraftChange={setDraft}
             onSend={sendChatTurn}
             onQuickAction={handleQuickAction}
-            onProposalAccept={(args) =>
-              pendingProposal &&
-              executeOperation.mutate({ operationId: pendingProposal.operation_id, args })
-            }
-            onProposalDismiss={() => setPendingProposal(null)}
             pendingSurfaceTransition={pendingSurfaceTransition}
             surfaceTransitionBusy={surfaceTransitionBusy}
             onSaveAndContinue={() => void confirmSurfaceTransition('save')}
@@ -521,7 +620,13 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
         </main>
 
         <aside className="workbench-panel min-w-0 p-4 dark:!bg-[rgba(26,27,30,0.8)] lg:min-h-0 lg:overflow-y-auto">
-          <ContextPanel projection={projection} status={visibleStatus} railNotice={railNotice} />
+          <ContextPanel
+            projection={projection}
+            status={visibleStatus}
+            railNotice={railNotice}
+            operationBusy={executeOperation.isPending}
+            onOperationSubmit={(operationId, args) => executeOperation.mutate({ operationId, args })}
+          />
           <DiagnosticsPanel
             projection={projection}
             graphState={graphState}
@@ -635,7 +740,7 @@ function WorkbenchTopbar({
 }
 
 function StatusPill({ status, testId }: { status: WorkbenchStatus; testId?: string }) {
-  const active = ['Thinking', 'Navigating', 'Opening surface', 'Preparing proposal', 'Committing', 'Running diagnostics'].includes(status)
+  const active = ['Thinking', 'Navigating', 'Opening surface', 'Committing', 'Running diagnostics'].includes(status)
   return (
     <div className="inline-flex min-h-10 items-center gap-2 rounded-[0.8rem] border border-border/20 bg-muted/75 px-3 py-2 text-sm font-medium text-foreground shadow-sm dark:border-white/10" data-testid={testId}>
       {active ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />}
@@ -652,7 +757,6 @@ function AgentConversation({
   composerPlaceholder,
   status,
   error,
-  pendingProposal,
   quickActions,
   activeSurfacePanel,
   activeSurfaceKey,
@@ -661,8 +765,6 @@ function AgentConversation({
   onDraftChange,
   onSend,
   onQuickAction,
-  onProposalAccept,
-  onProposalDismiss,
   onSaveAndContinue,
   onContinueWithoutSaving,
   onStayOnSurface,
@@ -674,7 +776,6 @@ function AgentConversation({
   composerPlaceholder: string
   status: WorkbenchStatus
   error: unknown
-  pendingProposal: CorpusProposal | null
   quickActions: CorpusQuickAction[]
   activeSurfacePanel: ReactNode
   activeSurfaceKey: string
@@ -683,8 +784,6 @@ function AgentConversation({
   onDraftChange: (value: string) => void
   onSend: () => void
   onQuickAction: (action: CorpusQuickAction) => void
-  onProposalAccept: (args: Record<string, unknown>) => void
-  onProposalDismiss: () => void
   onSaveAndContinue: () => void
   onContinueWithoutSaving: () => void
   onStayOnSurface: () => void
@@ -707,7 +806,7 @@ function AgentConversation({
       workspace.scrollTo({ top: workspace.scrollHeight, behavior: 'smooth' })
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [messages.length, busy, pendingProposal?.operation_id, activeSurfaceKey, error])
+  }, [messages.length, busy, activeSurfaceKey, error])
 
   return (
     <section className="corpus-workbench flex h-[calc(100vh-8.75rem)] min-h-0 flex-col dark:!bg-[rgba(26,27,30,0.9)] lg:h-full" data-testid="app-agent-chat">
@@ -758,16 +857,7 @@ function AgentConversation({
             />
           )}
 
-          {pendingProposal ? (
-            <ProposalPanel
-              proposal={pendingProposal}
-              busy={busy}
-              onAccept={onProposalAccept}
-              onDismiss={onProposalDismiss}
-            />
-          ) : (
-            !pendingProposal && activeSurfacePanel
-          )}
+          {activeSurfacePanel}
 
           {error && (
             <div className="mb-3 rounded-[0.625rem] bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
@@ -901,24 +991,16 @@ function FrameSurfacePanel() {
       })
       const nextGraphState = graphStateFromRouteDeckState(response.state)
       setMirroredSaaSAgentId(nextGraphState?.active_saas_agent_id || agent.id)
-      const nextPath = response.state.location || null
-      if (nextPath && nextPath !== window.location.pathname) {
-        syncBrowserPathWithoutNavigation(nextPath)
-      }
     } finally {
       setOpeningAgentId(null)
     }
   }
 
   const onListSaaSAgents = async () => {
-    const response = await routeDeckStore.dispatch({
+    await routeDeckStore.dispatch({
       operation_id: corpusOperationIds.listSaaSAgents,
       args: {},
     })
-    const nextPath = response.state.location || null
-    if (nextPath && nextPath !== window.location.pathname) {
-      syncBrowserPathWithoutNavigation(nextPath)
-    }
   }
 
   if (surface.component === corpusSurfaceComponents.lounge) {
@@ -1006,99 +1088,6 @@ function FrameSurfacePanel() {
   )
 }
 
-function ProposalPanel({
-  proposal,
-  busy,
-  onAccept,
-  onDismiss,
-}: {
-  proposal: CorpusProposal
-  busy: boolean
-  onAccept: (args: Record<string, unknown>) => void
-  onDismiss: () => void
-}) {
-  const fields = proposalFields(proposal)
-  const [values, setValues] = useState<Record<string, unknown>>(() => proposalDefaults(proposal))
-
-  useEffect(() => {
-    setValues(proposalDefaults(proposal))
-  }, [proposal])
-
-  const submit = () => onAccept(values)
-
-  return (
-    <div
-      className="mb-4 rounded-[0.9rem] border border-border/30 bg-card p-5 shadow-[0_26px_64px_-42px_hsl(var(--foreground)/0.65)] dark:border-white/15 dark:bg-muted dark:shadow-black/40"
-      data-testid="corpus-proposal-surface"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-sm font-semibold">{proposal.label}</div>
-          {proposal.description && <p className="mt-1 text-sm text-muted-foreground">{proposal.description}</p>}
-        </div>
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="surface-outline-button px-3 py-1 text-xs"
-        >
-          Dismiss
-        </button>
-      </div>
-
-      {fields.length > 0 && (
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          {fields.map((field) => (
-            <label key={field.key} className="grid gap-1.5 text-sm">
-              <span className="text-xs font-medium text-muted-foreground">{field.label}</span>
-              {field.field_type === 'select' ? (
-                <select
-                  value={String(values[field.key] ?? field.default ?? '')}
-                  onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))}
-                  className="md3-field"
-                  data-qa-field={field.key}
-                >
-                  {(field.options || []).map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              ) : field.field_type === 'textarea' ? (
-                <textarea
-                  value={String(values[field.key] ?? field.default ?? '')}
-                  placeholder={field.placeholder || ''}
-                  onChange={(event) => handleProposalFieldChange(field.key, event, setValues)}
-                  className="md3-field min-h-40 font-mono text-xs"
-                  data-qa-field={field.key}
-                />
-              ) : (
-                <input
-                  type={field.sensitive ? 'password' : field.field_type === 'url' ? 'url' : 'text'}
-                  value={String(values[field.key] ?? field.default ?? '')}
-                  placeholder={field.placeholder || ''}
-                  onChange={(event) => handleProposalFieldChange(field.key, event, setValues)}
-                  className="md3-field"
-                  data-qa-field={field.key}
-                />
-              )}
-            </label>
-          ))}
-        </div>
-      )}
-
-      <div className="mt-4 flex gap-2">
-        <button
-          type="button"
-          onClick={submit}
-          disabled={busy}
-          className="surface-solid-button disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Continue
-        </button>
-      </div>
-    </div>
-  )
-}
 
 function SurfaceTransitionPrompt({
   busy,
@@ -1151,12 +1140,17 @@ function ContextPanel({
   projection,
   status,
   railNotice,
+  operationBusy,
+  onOperationSubmit,
 }: {
   projection: RouteDeckProjection
   status: WorkbenchStatus
   railNotice: RailSelectionNotice | null
+  operationBusy: boolean
+  onOperationSubmit: (operationId: string, args: Record<string, unknown>) => void
 }) {
   const lens = contextLensFromProjection(projection)
+  const deploymentOperation = projection.legal_operations.find((operation) => operation.id === corpusOperationIds.saveDeployment) || null
   return (
     <section>
       <h2 className="text-sm font-medium">Context / Evidence</h2>
@@ -1183,15 +1177,33 @@ function ContextPanel({
           <DeploymentCard
             saasAgentId={lens.selected_saas_agent_id}
             slug={lens.selected_saas_agent_slug}
+            deploymentOperation={deploymentOperation}
+            busy={operationBusy}
+            onOperationSubmit={onOperationSubmit}
           />
-          <PendingApprovalsCard saasAgentId={lens.selected_saas_agent_id} />
+          <PendingApprovalsCard
+            saasAgentId={lens.selected_saas_agent_id}
+            enabled={Boolean(lens.pending_trace_id) || projection.graph_node === 'approval_required'}
+          />
         </>
       )}
     </section>
   )
 }
 
-function DeploymentCard({ saasAgentId, slug }: { saasAgentId: string; slug: string }) {
+function DeploymentCard({
+  saasAgentId,
+  slug,
+  deploymentOperation,
+  busy,
+  onOperationSubmit,
+}: {
+  saasAgentId: string
+  slug: string
+  deploymentOperation: RouteDeckOperation | null
+  busy: boolean
+  onOperationSubmit: (operationId: string, args: Record<string, unknown>) => void
+}) {
   const agentApi = api.withSaaSAgent(saasAgentId)
   const [draft, setDraft] = useState<SaaSAgentDeployment | null>(null)
   const deployUrl = `${window.location.origin}/a/${slug}`
@@ -1199,17 +1211,6 @@ function DeploymentCard({ saasAgentId, slug }: { saasAgentId: string; slug: stri
     queryKey: ['saas-agent-deployment', saasAgentId],
     queryFn: () => agentApi.get<SaaSAgentDeployment>(`/saas-agents/${saasAgentId}/deployment`),
     enabled: Boolean(saasAgentId),
-  })
-  const save = useMutation({
-    mutationFn: (body: SaaSAgentDeployment) =>
-      agentApi.put<SaaSAgentDeployment>(`/saas-agents/${saasAgentId}/deployment`, {
-        enabled: body.enabled,
-        visitor_auth_mode: body.visitor_auth_mode,
-        execution_mode: body.execution_mode,
-        default_write_policy: body.default_write_policy,
-        welcome_message: body.welcome_message,
-      }),
-    onSuccess: (next) => setDraft(next),
   })
 
   useEffect(() => {
@@ -1262,30 +1263,39 @@ function DeploymentCard({ saasAgentId, slug }: { saasAgentId: string; slug: stri
           onChange={(event) => setDraft({ ...draft, welcome_message: event.target.value })}
         />
       </label>
-      {save.error && (
-        <div className="mt-2 rounded-md bg-red-50 px-2 py-1 text-red-700 dark:bg-red-900/20 dark:text-red-300">
-          {save.error instanceof Error ? save.error.message : 'Deployment save failed.'}
+      {!deploymentOperation && (
+        <div className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+          Deployment save is not currently legal for this graph state.
         </div>
       )}
       <button
         type="button"
-        onClick={() => save.mutate(draft)}
-        disabled={save.isPending}
+        onClick={() =>
+          deploymentOperation &&
+          onOperationSubmit(deploymentOperation.id, {
+            enabled: draft.enabled,
+            visitor_auth_mode: draft.visitor_auth_mode,
+            execution_mode: draft.execution_mode,
+            default_write_policy: draft.default_write_policy,
+            welcome_message: draft.welcome_message,
+          })
+        }
+        disabled={busy || !deploymentOperation}
         className="surface-solid-button mt-3 w-full rounded-md px-3 py-2"
       >
-        {save.isPending ? 'Saving...' : 'Save deployment'}
+        {busy ? 'Saving...' : 'Save deployment'}
       </button>
     </div>
   )
 }
 
-function PendingApprovalsCard({ saasAgentId }: { saasAgentId: string }) {
+function PendingApprovalsCard({ saasAgentId, enabled }: { saasAgentId: string; enabled: boolean }) {
   const agentApi = api.withSaaSAgent(saasAgentId)
   const query = useQuery({
     queryKey: ['saas-agent-approvals', saasAgentId],
     queryFn: () => agentApi.get<AgentApproval[]>(`/saas-agents/${saasAgentId}/approvals/pending`),
-    enabled: Boolean(saasAgentId),
-    refetchInterval: 2000,
+    enabled: enabled && Boolean(saasAgentId),
+    refetchInterval: enabled ? 2000 : false,
   })
   const decide = useMutation({
     mutationFn: ({ traceId, decision }: { traceId: string; decision: 'approve' | 'cancel' }) => {
@@ -1301,6 +1311,7 @@ function PendingApprovalsCard({ saasAgentId }: { saasAgentId: string }) {
   })
 
   const approvals = query.data || []
+  if (!enabled) return null
   if (query.isLoading || approvals.length === 0) return null
 
   return (

@@ -15,6 +15,12 @@ from .entry import (
 from .saas_agent import SaaSAgentRead
 
 
+class AppGraphNavigationLocation(BaseModel):
+    node_id: str
+    surface_id: str | None = None
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
 class AppGraphState(BaseModel):
     node: str = "home"
     active_saas_agent_id: uuid.UUID | None = None
@@ -22,6 +28,10 @@ class AppGraphState(BaseModel):
     pending_trace_id: uuid.UUID | None = None
     active_surface_id: str | None = None
     route_params: dict[str, Any] = Field(default_factory=dict)
+    navigation_back_stack: list[AppGraphNavigationLocation] = Field(default_factory=list)
+    navigation_forward_stack: list[AppGraphNavigationLocation] = Field(default_factory=list)
+    pending_operation_id: str | None = None
+    pending_operation_args: dict[str, Any] = Field(default_factory=dict)
     dirty_surfaces: dict[str, bool] = Field(default_factory=dict)
     graph_context: dict[str, Any] = Field(default_factory=dict)
     executed_nodes: list[str] = Field(default_factory=list)

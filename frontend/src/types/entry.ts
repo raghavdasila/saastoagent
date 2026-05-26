@@ -108,7 +108,7 @@ export interface EntryGraphManifestAction {
   description?: string | null
   emphasis?: 'primary' | 'secondary'
   kind?: EntryActionKind
-  category?: 'auth' | 'setup' | 'navigation' | 'execution' | 'feedback' | 'learning'
+  category?: 'auth' | 'setup' | 'navigation' | 'execution' | 'feedback' | 'learning' | 'deployment'
   placement?: 'next_best' | 'rail' | 'inline' | 'evidence'
   fields?: EntryActionField[]
   payload?: Record<string, unknown>
@@ -205,7 +205,7 @@ export interface EntryActionCard {
   description?: string | null
   emphasis?: 'primary' | 'secondary'
   kind?: EntryActionKind
-  category?: 'auth' | 'setup' | 'navigation' | 'execution' | 'feedback' | 'learning'
+  category?: 'auth' | 'setup' | 'navigation' | 'execution' | 'feedback' | 'learning' | 'deployment'
   placement?: 'next_best' | 'rail' | 'inline' | 'evidence'
   explanation?: string | null
   recovery_prompt?: string | null

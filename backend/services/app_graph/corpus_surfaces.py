@@ -2,14 +2,31 @@ from __future__ import annotations
 
 from typing import Any
 
-from routedeck_core import RouteDeckOperation, RouteDeckSurface
+from routedeck_core import RouteDeckSurface
 
 from backend.core.schemas import AppGraphContextLens, AppGraphState, SaaSAgentRead
 from backend.services.app_graph.manifest import AppActionIds, AppNodeIds
 
 
 class CorpusSurfaceRegistry:
-    """Owns SaaStoAgent surface names, variants, and deterministic surface copy."""
+    """Owns SaaStoAgent surface names, variants, and review-surface mapping."""
+
+    _OPERATION_REVIEW_SURFACE_PREFIX = "operation_review."
+    _PLANNING_ENTITY_LIMIT = 25
+    _SURFACE_HOSTED_OPERATIONS_BY_NODE = {
+        AppNodeIds.AGENT_HOME: {AppActionIds.DEPLOYMENT_SAVE},
+        AppNodeIds.INSTRUCTIONS: {AppActionIds.INSTRUCTIONS_SAVE},
+        AppNodeIds.CONNECTION_CONFIGURE: {AppActionIds.CONNECTION_PREVIEW, AppActionIds.CONNECTION_ACTIVATE},
+        AppNodeIds.SCHEMA_PREVIEW: {AppActionIds.CONNECTION_ACTIVATE},
+        AppNodeIds.EXECUTION_PLANNING: {AppActionIds.EXECUTION_PLAN},
+        AppNodeIds.NEEDS_INPUT: {AppActionIds.EXECUTION_INPUT},
+        AppNodeIds.APPROVAL_REQUIRED: {AppActionIds.APPROVAL_APPROVE, AppActionIds.APPROVAL_REJECT},
+        AppNodeIds.KNOWLEDGE: {AppActionIds.KNOWLEDGE_GENERATE},
+        AppNodeIds.MEMORY: {AppActionIds.MEMORY_SAVE},
+        AppNodeIds.LEARNING: {AppActionIds.LEARNING_APPROVE, AppActionIds.LEARNING_REJECT},
+        AppNodeIds.LEARNING_POLICY_CANDIDATE: {AppActionIds.LEARNING_APPROVE, AppActionIds.LEARNING_REJECT},
+        AppNodeIds.QA: {AppActionIds.QA_RUN},
+    }
 
     def frame_surface(
         self,
@@ -80,8 +97,14 @@ class CorpusSurfaceRegistry:
         saas_agents: list[SaaSAgentRead],
         context: str,
     ) -> list[RouteDeckSurface]:
+        review_surface = self.review_surface(
+            state=state,
+            lens=lens,
+            saas_agents=saas_agents,
+        )
+        surfaces: list[RouteDeckSurface]
         if state.node == AppNodeIds.LEARNING:
-            return [
+            surfaces = [
                 self._surface(
                     state=state,
                     lens=lens,
@@ -91,7 +114,10 @@ class CorpusSurfaceRegistry:
                     variant="policy_gaps",
                     kind="peer",
                     label="Policy gaps",
-                    props={"filter": "policy_gaps"},
+                    props={
+                        "filter": "policy_gaps",
+                        "planning_description": "Review policy proposals that need an owner decision.",
+                    },
                 ),
                 self._surface(
                     state=state,
@@ -102,7 +128,10 @@ class CorpusSurfaceRegistry:
                     variant="failed_executions",
                     kind="peer",
                     label="Failed executions",
-                    props={"filter": "failed_executions"},
+                    props={
+                        "filter": "failed_executions",
+                        "planning_description": "Review failed execution patterns and the learning candidates generated from them.",
+                    },
                 ),
                 self._surface(
                     state=state,
@@ -113,7 +142,10 @@ class CorpusSurfaceRegistry:
                     variant="active_policies",
                     kind="peer",
                     label="Active policies",
-                    props={"filter": "active_policies"},
+                    props={
+                        "filter": "active_policies",
+                        "planning_description": "Inspect the approved policies that are currently active for this agent.",
+                    },
                 ),
                 self._surface(
                     state=state,
@@ -124,11 +156,14 @@ class CorpusSurfaceRegistry:
                     variant="rejected",
                     kind="peer",
                     label="Rejected",
-                    props={"filter": "rejected"},
+                    props={
+                        "filter": "rejected",
+                        "planning_description": "Review learning items that were previously rejected.",
+                    },
                 ),
             ]
-        if state.node == AppNodeIds.LEARNING_POLICY_CANDIDATE:
-            return [
+        elif state.node == AppNodeIds.LEARNING_POLICY_CANDIDATE:
+            surfaces = [
                 self._surface(
                     state=state,
                     lens=lens,
@@ -141,8 +176,8 @@ class CorpusSurfaceRegistry:
                     props={"candidate_id": state.route_params.get("candidate_id")},
                 )
             ]
-        if state.node == AppNodeIds.LEARNING_EXECUTION_TRACE:
-            return [
+        elif state.node == AppNodeIds.LEARNING_EXECUTION_TRACE:
+            surfaces = [
                 self._surface(
                     state=state,
                     lens=lens,
@@ -155,8 +190,8 @@ class CorpusSurfaceRegistry:
                     props={"trace_id": state.route_params.get("trace_id")},
                 )
             ]
-        if state.node == AppNodeIds.LEARNING_ACTIVE_POLICY:
-            return [
+        elif state.node == AppNodeIds.LEARNING_ACTIVE_POLICY:
+            surfaces = [
                 self._surface(
                     state=state,
                     lens=lens,
@@ -169,19 +204,41 @@ class CorpusSurfaceRegistry:
                     props={"candidate_id": state.route_params.get("candidate_id"), "readonly": True},
                 )
             ]
-        component = self.active_surface_component_for_node(state.node)
-        if component is None:
-            return []
-        return [self._surface(
-            state=state,
-            lens=lens,
-            saas_agents=saas_agents,
-            component=component,
-            surface_id=f"{state.node}.active",
-            variant=state.node,
-            kind="embedded",
-            label=lens.working_on,
-        )]
+        elif state.node == AppNodeIds.SAAS_AGENT_SELECT:
+            surfaces = [
+                self._surface(
+                    state=state,
+                    lens=lens,
+                    saas_agents=saas_agents,
+                    component="SaaSAgentListSurface",
+                    surface_id="saas_agent_select.active",
+                    variant="saas_agent_select",
+                    kind="embedded",
+                    label=lens.working_on,
+                    props={
+                        "planning_description": "Shows the selectable SaaS Agents currently visible in the list.",
+                        "planning_entities": self._saas_agent_planning_entities(saas_agents),
+                        "planning_entity_count": len(saas_agents),
+                        "planning_entities_truncated": len(saas_agents) > self._PLANNING_ENTITY_LIMIT,
+                    },
+                )
+            ]
+        else:
+            component = self.active_surface_component_for_node(state.node)
+            if component is None:
+                surfaces = []
+            else:
+                surfaces = [self._surface(
+                    state=state,
+                    lens=lens,
+                    saas_agents=saas_agents,
+                    component=component,
+                    surface_id=f"{state.node}.active",
+                    variant=state.node,
+                    kind="embedded",
+                    label=lens.working_on,
+                )]
+        return [review_surface, *surfaces] if review_surface else surfaces
 
     def _surface(
         self,
@@ -215,6 +272,22 @@ class CorpusSurfaceRegistry:
             },
         )
 
+    def _saas_agent_planning_entities(self, saas_agents: list[SaaSAgentRead]) -> list[dict[str, Any]]:
+        entities: list[dict[str, Any]] = []
+        for agent in saas_agents[: self._PLANNING_ENTITY_LIMIT]:
+            entities.append(
+                {
+                    "entity_type": "saas_agent",
+                    "id": str(agent.id),
+                    "label": agent.name,
+                    "slug": agent.slug,
+                    "description": agent.slug,
+                    "operation_id": AppActionIds.SAAS_AGENT_OPEN,
+                    "args": {"saas_agent_id": str(agent.id)},
+                }
+            )
+        return entities
+
     def active_surface_component_for_node(self, node_id: str | None) -> str | None:
         active_components = {
             AppNodeIds.AUTH_SIGN_IN: "CorpusAuthSurface",
@@ -242,21 +315,64 @@ class CorpusSurfaceRegistry:
         }
         return active_components.get(node_id or "")
 
-    def deterministic_open_message(self, operation: RouteDeckOperation) -> str:
-        prompts = {
-            AppActionIds.CONNECTION_CONFIGURE: (
-                "Connection setup is open. Enter the API name, base URL, OpenAPI schema URL, and auth details, "
-                "then preview or save and activate the connection."
-            ),
-            AppActionIds.SAAS_AGENT_CREATE: "The SaaS Agent creation form is open. Enter a name and slug to continue.",
-            AppActionIds.INSTRUCTIONS_OPEN: "Instructions are open. Update the agent prompt and operating guidance, then save changes.",
-            AppActionIds.KNOWLEDGE_OPEN: "Knowledge is open. Add documents or review generated catalog context for this agent.",
-            AppActionIds.MEMORY_OPEN: "Memory is open. Add durable facts or instructions for this SaaS Agent.",
-            AppActionIds.LEARNING_OPEN: "Learning is open. Review sandbox learning candidates before applying them.",
-            AppActionIds.QA_OPEN: "QA is open. Run scenarios to validate this agent configuration.",
-            AppActionIds.EXECUTION_OPEN: "Execution planning is open. Describe the API task you want to run.",
-        }
-        return prompts.get(operation.id, "")
+    def operation_review_surface_id(self, operation_id: str) -> str:
+        return f"operation_review.{operation_id}"
+
+    def operation_id_from_surface_id(self, surface_id: str | None) -> str | None:
+        if not surface_id or not surface_id.startswith(self._OPERATION_REVIEW_SURFACE_PREFIX):
+            return None
+        operation_id = surface_id.removeprefix(self._OPERATION_REVIEW_SURFACE_PREFIX).strip()
+        return operation_id or None
+
+    def is_surface_hosted_operation(self, *, node_id: str | None, operation_id: str) -> bool:
+        if not node_id:
+            return False
+        return operation_id in self._SURFACE_HOSTED_OPERATIONS_BY_NODE.get(node_id, set())
+
+    def default_surface_id(self, state: AppGraphState) -> str | None:
+        if state.pending_operation_id:
+            return self.operation_review_surface_id(state.pending_operation_id)
+        if state.node == AppNodeIds.LEARNING:
+            return "learning.policy_gaps"
+        if state.node == AppNodeIds.LEARNING_POLICY_CANDIDATE:
+            return "learning.policy_candidate.review"
+        if state.node == AppNodeIds.LEARNING_EXECUTION_TRACE:
+            return "learning.execution_trace.review"
+        if state.node == AppNodeIds.LEARNING_ACTIVE_POLICY:
+            return "learning.active_policy.review"
+        component = self.active_surface_component_for_node(state.node)
+        if component is None:
+            return None
+        return f"{state.node}.active"
+
+    def review_surface(
+        self,
+        *,
+        state: AppGraphState,
+        lens: AppGraphContextLens,
+        saas_agents: list[SaaSAgentRead],
+    ) -> RouteDeckSurface | None:
+        if not state.pending_operation_id:
+            return None
+        return RouteDeckSurface(
+            name="review",
+            surface_id=self.operation_review_surface_id(state.pending_operation_id),
+            component="CorpusOperationReviewSurface",
+            variant="operation_review",
+            role="active",
+            slot="active",
+            surface_kind="peer",
+            label="Review next step",
+            props={
+                "title": "Review next step",
+                "node_id": state.node,
+                "saas_agents": [agent.model_dump(mode="json") for agent in saas_agents],
+                "lens": lens.model_dump(mode="json"),
+                "operation_id": state.pending_operation_id,
+                "operation_args": state.pending_operation_args,
+                **state.graph_context,
+            },
+        )
 
     def surface_variant(
         self,

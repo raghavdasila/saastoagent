@@ -1,6 +1,6 @@
 # RouteDeck Contract And Debugger Validation
 
-Date: 2026-05-25
+Date: 2026-05-26
 
 ## Scope
 
@@ -39,9 +39,22 @@ SaaStoAgent diagnostics.
   operations.
 - SaaStoAgent product UI does not expose RouteDeck-node wording.
 - Raw public `/api/routedeck/*` product routes are absent.
+- Corpus owner-workbench chat does not rely on Python phrase routing.
+- Active-surface selectable entities can be projected into planning context so
+  visible list items can be opened through typed legal operations.
 
 ## Current Evidence
 
+- `python -m pytest backend/tests/test_corpus_turn_planning.py backend/tests/test_corpus_graph_contract.py backend/tests/test_app_graph_contract.py -q`: passed, 81 tests.
+- `python -m pytest backend/tests/test_app_graph_contract.py backend/tests/test_corpus_graph_contract.py backend/tests/test_corpus_routedeck_runtime.py backend/tests/test_corpus_routedeck_state.py -q`: passed, 87 tests.
+- Manual in-app browser verification against the Docker app confirmed:
+  - `list agents`
+  - `open Live Commerce 1779760865401`
+  - `open learning`
+  - `show rejected`
+  - `go home`
+- `npm run e2e:docker`: passed.
+- `npm run e2e:medusa:docker`: passed, checkout completed.
 - `python -m pytest backend/tests -q`: passed, 171 tests.
 - `npm run type-check` in SaaStoAgent frontend: passed.
 - `npm test` in `agent-lab-powered-projects/routedeck/react`: passed, 13
@@ -72,12 +85,15 @@ Earlier debugger evidence:
 
 ```powershell
 python -m pytest backend/tests/test_app_graph_contract.py -q
+python -m pytest backend/tests/test_corpus_turn_planning.py backend/tests/test_corpus_graph_contract.py backend/tests/test_app_graph_contract.py -q
 python -m pytest backend/tests/test_app_graph_contract.py backend/tests/test_corpus_graph_contract.py backend/tests/test_corpus_routedeck_runtime.py backend/tests/test_corpus_routedeck_state.py -q
 python -m pytest backend/tests -q
 cd ..\routedeck\react
 npm test
 cd ..\..\saastoagent-v0.1\frontend
 npm run type-check
+npm run e2e:docker
+npm run e2e:medusa:docker
 npx tsc -p tsconfig.json
 npx vite build --outDir dist_verify
 ```
@@ -90,3 +106,4 @@ Add repo-native browser tests for:
 - inline proposal/surface rendering
 - docked diagnostics focus view
 - fullscreen diagnostics radial hub map
+- browser URL replay and `surface_id` hydration validation

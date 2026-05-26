@@ -59,13 +59,17 @@ class CorpusRouteDeckStateProjector:
             saas_agents=saas_agents,
             context=context,
         )
-        active_surface = active_surfaces[0] if active_surfaces else None
         default_surface_by_node = self._default_surface_by_node(
             state=state,
             lens=lens,
             saas_agents=saas_agents,
             context=context,
         )
+        current_surface_id = state.active_surface_id
+        review_operation_id = self.surface_registry.operation_id_from_surface_id(current_surface_id)
+        if review_operation_id and state.pending_operation_id != review_operation_id:
+            current_surface_id = None
+        current_surface_id = current_surface_id or self.surface_registry.default_surface_id(state)
         projection = build_projection(
             self.manifest,
             current_node=state.node,
@@ -85,11 +89,11 @@ class CorpusRouteDeckStateProjector:
             navigation={
                 "current": {
                     "node_id": state.node,
-                    "surface_id": state.active_surface_id or (active_surface.surface_id if active_surface else None),
+                    "surface_id": current_surface_id,
                     "params": state.route_params,
                 },
-                "back_stack": [],
-                "forward_stack": [],
+                "back_stack": [location.model_dump(mode="json") for location in state.navigation_back_stack],
+                "forward_stack": [location.model_dump(mode="json") for location in state.navigation_forward_stack],
             },
             presentation_state={"context": context, **presentation_state},
             projection_version=projection_version,
@@ -140,13 +144,16 @@ class CorpusRouteDeckStateProjector:
     ) -> dict[str, str]:
         defaults: dict[str, str] = {}
         for node in self.manifest.nodes:
-            node_state = state.model_copy(update={"node": node.id, "active_surface_id": None, "route_params": {}})
-            surfaces = self.surface_registry.active_surfaces(
-                state=node_state,
-                lens=lens,
-                saas_agents=saas_agents,
-                context=context,
+            node_state = state.model_copy(
+                update={
+                    "node": node.id,
+                    "active_surface_id": None,
+                    "pending_operation_id": None,
+                    "pending_operation_args": {},
+                    "route_params": {},
+                }
             )
-            if surfaces:
-                defaults[node.id] = surfaces[0].surface_id
+            default_surface_id = self.surface_registry.default_surface_id(node_state)
+            if default_surface_id:
+                defaults[node.id] = default_surface_id
         return defaults

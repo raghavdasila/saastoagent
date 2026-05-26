@@ -53,6 +53,7 @@ class AppActionIds:
     SAAS_AGENT_OPEN = "saas_agent.open"
     SAAS_AGENT_CREATE = "saas_agent.create"
     AGENT_HOME = "navigate.agent_home"
+    DEPLOYMENT_SAVE = "deployment.save"
     INSTRUCTIONS_OPEN = "instructions.open"
     INSTRUCTIONS_SAVE = "instructions.save"
     CONNECTION_CONFIGURE = "navigate.connection_configure"
@@ -210,6 +211,7 @@ ACTION_TARGETS = {
     AppActionIds.SAAS_AGENT_OPEN: AppNodeIds.AGENT_HOME,
     AppActionIds.SAAS_AGENT_CREATE: AppNodeIds.AGENT_HOME,
     AppActionIds.AGENT_HOME: AppNodeIds.AGENT_HOME,
+    AppActionIds.DEPLOYMENT_SAVE: AppNodeIds.AGENT_HOME,
     AppActionIds.INSTRUCTIONS_OPEN: AppNodeIds.INSTRUCTIONS,
     AppActionIds.INSTRUCTIONS_SAVE: AppNodeIds.INSTRUCTIONS,
     AppActionIds.CONNECTION_CONFIGURE: AppNodeIds.CONNECTION_CONFIGURE,
@@ -317,6 +319,7 @@ def _action(
 
 AGENT_REQUIRED_ACTIONS = [
     AppActionIds.AGENT_HOME,
+    AppActionIds.DEPLOYMENT_SAVE,
     AppActionIds.INSTRUCTIONS_OPEN,
     AppActionIds.CONNECTION_CONFIGURE,
     AppActionIds.CATALOG_OPEN,
@@ -420,6 +423,22 @@ ACTION_SPECS = [
     _action(AppActionIds.SAAS_AGENT_OPEN, "Open SaaS Agent", category="setup", invocation_kind="entity_selector", fields=[_field(key="saas_agent_id", label="SaaS Agent ID", required=True)], allowed_nodes=[AppNodeIds.SAAS_AGENT_SELECT]),
     _action(AppActionIds.SAAS_AGENT_CREATE, "Create SaaS Agent", category="setup", kind="form", emphasis="primary", fields=[_field(key="name", label="Name", required=True, placeholder="Customer Support Agent"), _field(key="slug", label="Slug", required=True, placeholder="customer-support-agent")], allowed_nodes=[AppNodeIds.HOME, AppNodeIds.SAAS_AGENT_SELECT, AppNodeIds.SAAS_AGENT_CREATE]),
     _action(AppActionIds.AGENT_HOME, "Agent home", allowed_nodes=["*"]),
+    _action(
+        AppActionIds.DEPLOYMENT_SAVE,
+        "Save deployment",
+        description="Publish or update this SaaS Agent's deployed visitor chat settings, including anonymous access.",
+        category="deployment",
+        kind="form",
+        emphasis="primary",
+        fields=[
+            _field(key="enabled", label="Enabled", field_type="select", default="true", options=[{"value": "true", "label": "Enabled"}, {"value": "false", "label": "Disabled"}]),
+            _field(key="visitor_auth_mode", label="Visitor access", field_type="select", default="anonymous", options=[{"value": "inherit_from_connection", "label": "Inherit from connection"}, {"value": "anonymous", "label": "Anonymous allowed"}, {"value": "login_required", "label": "Login required"}]),
+            _field(key="execution_mode", label="Execution mode", field_type="select", default="sandbox", options=[{"value": "sandbox", "label": "Sandbox"}, {"value": "live", "label": "Live"}]),
+            _field(key="default_write_policy", label="Default write policy", field_type="select", default="confirm", options=[{"value": "confirm", "label": "Confirm"}, {"value": "owner_approval", "label": "Owner approval"}, {"value": "block", "label": "Block writes"}]),
+            _field(key="welcome_message", label="Welcome message", field_type="textarea", default="How can I help?"),
+        ],
+        allowed_nodes=["*"],
+    ),
     _action(AppActionIds.INSTRUCTIONS_OPEN, "Instructions", category="setup", allowed_nodes=["*"]),
     _action(AppActionIds.INSTRUCTIONS_SAVE, "Save instructions", category="setup", kind="form", emphasis="primary", fields=[_field(key="system_prompt", label="System prompt", field_type="textarea"), _field(key="instructions", label="Operating instructions", field_type="textarea")], allowed_nodes=[AppNodeIds.INSTRUCTIONS]),
     _action(AppActionIds.CONNECTION_CONFIGURE, "Configure connection", category="setup", allowed_nodes=["*"]),
