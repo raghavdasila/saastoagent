@@ -253,6 +253,7 @@ Avoid:
 ## Related Docs
 
 - `../../../routedeck/docs/route-deck-whitepaper.md`
+- `../../../routedeck/docs/route-deck-whitepaper.html`
 - `../../architecture/route-deck-corpus-vision.md`
 - `../../decisions/ADR-013-routedeck-corpus-boundary.md`
 - `../../SYSTEM_FLOW_INDEX.md`
