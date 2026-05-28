@@ -18,6 +18,8 @@ handoff state. Use this directory for deeper guides.
   graph state, legal operations, surfaces, and diagnostics
 - [Medusa API Agent Test Guide](medusa-api-agent-test-guide.md) - local Medusa
   fixture setup and end-to-end validation path
+- [Medusa VPS Deployment For Corpus](medusa-vps-deployment.md) - minimal
+  self-hosted Medusa deployment path for hosted Corpus
 - [Horizontal E2E Guide](horizontal-e2e.md) - browser harness expectations for
   the owner and deployed-agent flows
 
