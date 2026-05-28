@@ -3,10 +3,20 @@
 This is the smallest practical path for running the Medusa fixture on our own
 VPS so hosted Corpus can use it.
 
+Target public URLs:
+
+- Storefront: `https://medusa.test-targets.saastoagent.com`
+- Backend/API: `https://medusa-backend.test-targets.saastoagent.com`
+- Admin: `https://medusa-backend.test-targets.saastoagent.com/app`
+- Store OpenAPI schema:
+  `https://medusa-backend.test-targets.saastoagent.com/medusa_store.yaml`
+
 Corpus needs only three public values:
 
-- Medusa backend base URL, for example `https://medusa.example.com`
-- Store OpenAPI schema URL, for example `https://medusa.example.com/medusa_store.yaml`
+- Medusa backend base URL:
+  `https://medusa-backend.test-targets.saastoagent.com`
+- Store OpenAPI schema URL:
+  `https://medusa-backend.test-targets.saastoagent.com/medusa_store.yaml`
 - Medusa publishable API key, sent as header `x-publishable-api-key`
 
 Do not use `localhost` in Corpus. From hosted Corpus, `localhost` is the Corpus
@@ -15,11 +25,14 @@ server, not the VPS Medusa container.
 ## VPS Requirements
 
 - Ubuntu VPS with Docker and Docker Compose
-- DNS record for the Medusa backend, for example `medusa.example.com`
+- DNS records for:
+  - `medusa.test-targets.saastoagent.com`
+  - `medusa-backend.test-targets.saastoagent.com`
 - HTTPS reverse proxy, such as Caddy, Nginx, or Traefik
 - Firewall open for `80` and `443`; keep Postgres and Redis private
 
-The storefront is optional for Corpus. The backend/admin service is required.
+The storefront is not required by Corpus, but this deployment hosts it too so
+the full Medusa fixture is available.
 
 ## Files To Deploy
 
@@ -27,6 +40,8 @@ Copy the current Medusa target source to the VPS:
 
 ```powershell
 D:\Dev\AI Projects\agent-core\test_targets\medusa-backend
+D:\Dev\AI Projects\agent-core\test_targets\medusa
+D:\Dev\AI Projects\agent-core\test_targets\docker\medusa-image-setup.sh
 ```
 
 Also copy the Store OpenAPI schema from:
@@ -38,13 +53,26 @@ D:\Dev\AI Projects\agent-core\agent-lab-powered-projects\saastoagent-v0.1\integr
 Place it beside the compose file so the reverse proxy can serve it as a static
 file, or serve it from any other stable public HTTPS URL.
 
+The VPS layout should look like:
+
+```text
+/opt/medusa/
+  docker-compose.yml
+  medusa_store.yaml
+  docker/
+    medusa-image-setup.sh
+  medusa-backend/
+  medusa/
+```
+
 ## Minimal Compose Shape
 
-Create `/opt/medusa/docker-compose.yml` on the VPS. Replace domains and secrets.
+Create `/opt/medusa/docker-compose.yml` on the VPS. Replace passwords and
+secrets.
 
 ```yaml
 services:
-  postgres:
+  medusa-postgres:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
@@ -53,36 +81,120 @@ services:
       POSTGRES_DB: medusa
     volumes:
       - medusa_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medusa -d medusa"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
 
-  redis:
+  medusa-redis:
     image: redis:7-alpine
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
 
-  medusa:
+  medusa-setup:
+    build:
+      context: ./medusa-backend
+    working_dir: /server
+    environment:
+      DATABASE_URL: postgres://medusa:change-this-db-password@medusa-postgres:5432/medusa
+      REDIS_URL: redis://medusa-redis:6379
+      JWT_SECRET: change-this-long-random-secret
+      COOKIE_SECRET: change-this-long-random-secret
+      STORE_CORS: https://medusa.test-targets.saastoagent.com,https://corpus.saastoagent.com
+      ADMIN_CORS: https://medusa-backend.test-targets.saastoagent.com
+      AUTH_CORS: https://medusa-backend.test-targets.saastoagent.com,https://medusa.test-targets.saastoagent.com,https://corpus.saastoagent.com
+      MEDUSA_DISABLE_ADMIN: "false"
+      MEDUSA_ADMIN_EMAIL: admin@example.com
+      MEDUSA_ADMIN_PASSWORD: change-this-admin-password
+      MEDUSA_SHARED_DIR: /shared
+    volumes:
+      - ./docker/medusa-image-setup.sh:/fixture/medusa-image-setup.sh:ro
+      - medusa_shared:/shared
+    depends_on:
+      medusa-postgres:
+        condition: service_healthy
+      medusa-redis:
+        condition: service_healthy
+    command: ["sh", "/fixture/medusa-image-setup.sh"]
+
+  medusa-backend:
     build:
       context: ./medusa-backend
     restart: unless-stopped
+    working_dir: /server
     environment:
       NODE_ENV: production
       MEDUSA_APP_MODE: production
-      MEDUSA_BACKEND_URL: https://medusa.example.com
-      DATABASE_URL: postgres://medusa:change-this-db-password@postgres:5432/medusa
-      REDIS_URL: redis://redis:6379
+      MEDUSA_BACKEND_URL: https://medusa-backend.test-targets.saastoagent.com
+      DATABASE_URL: postgres://medusa:change-this-db-password@medusa-postgres:5432/medusa
+      REDIS_URL: redis://medusa-redis:6379
       JWT_SECRET: change-this-long-random-secret
       COOKIE_SECRET: change-this-long-random-secret
-      STORE_CORS: https://corpus.saastoagent.com
-      ADMIN_CORS: https://medusa.example.com
-      AUTH_CORS: https://medusa.example.com,https://corpus.saastoagent.com
+      STORE_CORS: https://medusa.test-targets.saastoagent.com,https://corpus.saastoagent.com
+      ADMIN_CORS: https://medusa-backend.test-targets.saastoagent.com
+      AUTH_CORS: https://medusa-backend.test-targets.saastoagent.com,https://medusa.test-targets.saastoagent.com,https://corpus.saastoagent.com
       MEDUSA_DISABLE_ADMIN: "false"
-      MEDUSA_SEED_ON_START: "1"
+      MEDUSA_SEED_ON_START: "0"
     depends_on:
-      - postgres
-      - redis
-    expose:
-      - "9000"
+      medusa-postgres:
+        condition: service_healthy
+      medusa-redis:
+        condition: service_healthy
+      medusa-setup:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:9000:9000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:9000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  medusa-storefront:
+    image: node:20-bookworm-slim
+    restart: unless-stopped
+    working_dir: /app/apps/storefront
+    environment:
+      NEXT_PUBLIC_MEDUSA_BACKEND_URL: https://medusa-backend.test-targets.saastoagent.com
+      MEDUSA_BACKEND_INTERNAL_URL: http://medusa-backend:9000
+      NEXT_PUBLIC_BASE_URL: https://medusa.test-targets.saastoagent.com
+      NEXT_PUBLIC_DEFAULT_REGION: dk
+      NODE_ENV: production
+      MEDUSA_SHARED_DIR: /shared
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./medusa:/app
+      - medusa_storefront_node_modules:/app/apps/storefront/node_modules
+      - medusa_storefront_next:/app/apps/storefront/.next
+      - medusa_shared:/shared:ro
+    depends_on:
+      medusa-backend:
+        condition: service_healthy
+      medusa-setup:
+        condition: service_completed_successfully
+    command:
+      - sh
+      - -lc
+      - |
+        while [ ! -f /shared/storefront.env ]; do sleep 1; done
+        set -a
+        . /shared/storefront.env
+        set +a
+        npm install --no-audit --no-fund --legacy-peer-deps --workspaces=false
+        npm run build
+        npm run start
 
 volumes:
   medusa_postgres:
+  medusa_storefront_node_modules:
+  medusa_storefront_next:
+  medusa_shared:
 ```
 
 Generate real secrets on the VPS:
@@ -96,19 +208,21 @@ Start Medusa:
 ```bash
 cd /opt/medusa
 docker compose up -d --build
-docker compose logs -f medusa
+docker compose logs -f medusa-backend medusa-storefront
 ```
 
 Check health from the VPS:
 
 ```bash
 curl http://localhost:9000/health
+curl http://localhost:8000
 ```
 
 Then check public health:
 
 ```bash
-curl https://medusa.example.com/health
+curl https://medusa-backend.test-targets.saastoagent.com/health
+curl https://medusa.test-targets.saastoagent.com
 ```
 
 ## Reverse Proxy
@@ -116,29 +230,63 @@ curl https://medusa.example.com/health
 Example Caddy route:
 
 ```caddyfile
-medusa.example.com {
-  reverse_proxy medusa:9000
-
+medusa-backend.test-targets.saastoagent.com {
   handle /medusa_store.yaml {
     root * /srv/medusa-public
     file_server
   }
+
+  handle {
+    reverse_proxy 127.0.0.1:9000
+  }
+}
+
+medusa.test-targets.saastoagent.com {
+  reverse_proxy 127.0.0.1:8000
 }
 ```
 
-If Caddy runs outside the Docker network, proxy to `127.0.0.1:9000` and publish
-the Medusa container port only on localhost:
+Copy the OpenAPI schema into the static directory:
 
-```yaml
-ports:
-  - "127.0.0.1:9000:9000"
+```bash
+mkdir -p /srv/medusa-public
+cp /opt/medusa/medusa_store.yaml /srv/medusa-public/medusa_store.yaml
+```
+
+The backend domain intentionally serves both admin/API and the static Store
+OpenAPI schema:
+
+```text
+https://medusa-backend.test-targets.saastoagent.com/app
+https://medusa-backend.test-targets.saastoagent.com/store
+https://medusa-backend.test-targets.saastoagent.com/medusa_store.yaml
+```
+
+If the reverse proxy runs inside the same Docker network instead, proxy to the
+service names:
+
+```caddyfile
+medusa-backend.test-targets.saastoagent.com {
+  handle /medusa_store.yaml {
+    root * /srv/medusa-public
+    file_server
+  }
+
+  handle {
+    reverse_proxy medusa-backend:9000
+  }
+}
+
+medusa.test-targets.saastoagent.com {
+  reverse_proxy medusa-storefront:8000
+}
 ```
 
 ## Admin And Publishable Key
 
 After the service is up:
 
-1. Open `https://medusa.example.com/app`.
+1. Open `https://medusa-backend.test-targets.saastoagent.com/app`.
 2. Create or log in as the admin user.
 3. Confirm seeded demo products exist.
 4. Copy a publishable API key from Medusa Admin.
@@ -147,7 +295,7 @@ If the seed creates the key but the admin UI does not show it clearly, read it
 from the database inside the VPS:
 
 ```bash
-docker compose exec postgres psql -U medusa -d medusa \
+docker compose exec medusa-postgres psql -U medusa -d medusa \
   -c "select token from api_key where type = 'publishable' order by created_at asc limit 1;"
 ```
 
@@ -157,8 +305,9 @@ Treat the key as an environment credential. Do not commit it to the repo.
 
 In hosted Corpus, create or edit the API connection with:
 
-- Base URL: `https://medusa.example.com`
-- OpenAPI URL: `https://medusa.example.com/medusa_store.yaml`
+- Base URL: `https://medusa-backend.test-targets.saastoagent.com`
+- OpenAPI URL:
+  `https://medusa-backend.test-targets.saastoagent.com/medusa_store.yaml`
 - Auth type: `api_key_header`
 - Credential: the Medusa publishable API key
 - Header name: `x-publishable-api-key`
