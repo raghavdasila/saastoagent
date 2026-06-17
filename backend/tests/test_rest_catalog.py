@@ -1,6 +1,8 @@
 import asyncio
 from types import SimpleNamespace
 
+import pytest
+
 from backend.core.schemas import ActionNodeRead
 from backend.services.agent import rest_operator
 from backend.services.agent.rest_operator import _build_inputs, _format_execution_failure, _format_missing_input_names, _format_router_decision, _maybe_handle_trace_control, _operation_intent_bonus, _parse_trace_control, _preview_body_json, _rerank_candidates_for_frame, _tokens
@@ -387,6 +389,32 @@ def test_rest_operator_formats_toolrouter_topk_decision():
     assert "score" not in content
 
 
+def test_rest_operator_router_clarification_omits_connection_headers():
+    decision = ToolRouterDecision(
+        type=ToolRouterDecisionType.SHOW_TOPK,
+        candidates=[
+            SimpleNamespace(
+                tool=SimpleNamespace(name="getproduct"),
+                action=SimpleNamespace(
+                    method="GET",
+                    path="/store/products/{id}",
+                    parameters=[
+                        {"name": "x-publishable-api-key", "in": "header", "required": True},
+                        {"name": "id", "in": "path", "required": True},
+                    ],
+                ),
+                score=5,
+            )
+        ],
+    )
+
+    content = _format_router_decision(decision)
+
+    assert "x publishable api key" not in content.lower()
+    assert "api key" not in content.lower()
+    assert "id" in content.lower()
+
+
 def test_rest_operator_failure_message_does_not_expose_selected_tool():
     content = _format_execution_failure(
         tool_name="listproducts",
@@ -507,3 +535,82 @@ def test_docker_runtime_uses_stable_dev_encryption_key():
     compose_source = (Path(__file__).parents[2] / "docker-compose.yml").read_text(encoding="utf-8")
 
     assert "STA_ENCRYPTION_KEY" in compose_source
+
+
+@pytest.mark.asyncio
+async def test_find_tool_candidates_uses_fusion_ranker_directly(monkeypatch):
+    calls = {}
+
+    async def fake_rank_generated_tools(**kwargs):
+        calls.update(kwargs)
+        return []
+
+    monkeypatch.setattr(rest_operator, "rank_generated_tools", fake_rank_generated_tools)
+
+    result = await rest_operator.find_tool_candidates(
+        message="list products",
+        saas_agent_id="agent-1",
+        db=object(),
+        limit=7,
+    )
+
+    assert result == []
+    assert calls["message"] == "list products"
+    assert calls["saas_agent_id"] == "agent-1"
+    assert calls["limit"] == 7
+
+
+@pytest.mark.asyncio
+async def test_find_tool_candidates_prefers_collection_get_for_inventory_question(monkeypatch):
+    detail = SimpleNamespace(
+        tool=SimpleNamespace(
+            name="getproduct",
+            risk_level="read",
+            function_schema={"parameters": {"required": ["product_id"]}},
+        ),
+        action=SimpleNamespace(method="GET", path="/products/{product_id}", name="getproduct", description="Get product"),
+        connection=SimpleNamespace(name="Read API"),
+        score=32,
+        reason="fusion",
+    )
+    collection = SimpleNamespace(
+        tool=SimpleNamespace(
+            name="listproducts",
+            risk_level="read",
+            function_schema={"parameters": {"required": []}},
+        ),
+        action=SimpleNamespace(method="GET", path="/products", name="listproducts", description="List products"),
+        connection=SimpleNamespace(name="Read API"),
+        score=29,
+        reason="fusion",
+    )
+
+    async def fake_rank_generated_tools(**kwargs):
+        return [detail, collection]
+
+    monkeypatch.setattr(rest_operator, "rank_generated_tools", fake_rank_generated_tools)
+
+    result = await rest_operator.find_tool_candidates(
+        message="what products do you have?",
+        saas_agent_id="agent-1",
+        db=object(),
+    )
+
+    assert result[0].tool.name == "listproducts"
+    assert result[1].tool.name == "getproduct"
+
+
+@pytest.mark.asyncio
+async def test_find_tool_candidates_does_not_run_legacy_overlap_when_index_missing(monkeypatch):
+    async def fake_rank_generated_tools(**kwargs):
+        return []
+
+    monkeypatch.setattr(rest_operator, "rank_generated_tools", fake_rank_generated_tools)
+
+    result = await rest_operator.find_tool_candidates(
+        message="unmatched",
+        saas_agent_id="agent-1",
+        db=object(),
+    )
+
+    assert result == []

@@ -158,4 +158,5 @@ export interface ActionCatalogRead {
   tools: GeneratedToolRead[]
   entities: EntityRead[]
   totals: Record<string, number>
+  router_index?: Record<string, unknown> | null
 }

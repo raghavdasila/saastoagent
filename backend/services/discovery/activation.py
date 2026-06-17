@@ -16,6 +16,7 @@ from backend.core.models import (
 from backend.services.discovery.engine import generate_action_nodes
 from backend.services.agent.rag_service import rag_service
 from backend.services.tools.generator import generate_tools_for_connection
+from backend.services.toolrouter import build_toolrouter_index_for_agent
 
 
 class ActivationService:
@@ -63,11 +64,30 @@ class ActivationService:
 
             tool_counts = await generate_tools_for_connection(connection.id, saas_agent_id, session)
             state.tools_status = ActivationStepStatus.succeeded.value
+            await session.commit()
+            yield {"type": "step", "step": "tools", "status": "done", **tool_counts}
+
+            state.current_step = "router_index"
+            await session.commit()
+            yield {
+                "type": "step",
+                "step": "router_index",
+                "status": "running",
+                "message": "Preparing request matching",
+            }
+
+            router_counts = await build_toolrouter_index_for_agent(saas_agent_id=saas_agent_id, session=session)
             state.current_step = None
             state.overall_status = ActivationOverallStatus.ready.value
             state.completed_at = datetime.now(timezone.utc)
             await session.commit()
-            yield {"type": "step", "step": "tools", "status": "done", **tool_counts}
+            yield {
+                "type": "step",
+                "step": "router_index",
+                "status": "done",
+                "message": "Request matching ready",
+                **router_counts,
+            }
             yield {"type": "step", "step": "rag", "status": "running", "message": "Generating catalog retrieval knowledge"}
             rag_counts = await rag_service.ingest_generated_knowledge(saas_agent_id=saas_agent_id, db=session)
             yield {"type": "step", "step": "rag", "status": "done", **rag_counts}
@@ -80,6 +100,10 @@ class ActivationService:
                 + generate_counts.get("updated", 0)
                 + generate_counts.get("unchanged", 0),
                 "tools_count": tool_counts["total"],
+                "router_index_status": router_counts["router_index_status"],
+                "router_documents_count": router_counts["router_documents_count"],
+                "router_endpoint_count": router_counts["router_endpoint_count"],
+                "router_version": router_counts["router_version"],
                 "rag_chunks_count": rag_counts["chunks"],
             }
         except Exception as exc:

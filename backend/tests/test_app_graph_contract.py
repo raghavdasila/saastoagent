@@ -13,6 +13,7 @@ from backend.services.app_graph.manifest import ACTION_SPECS, AppActionIds
 from backend.services.app_graph.corpus_surfaces import CorpusSurfaceRegistry
 from routedeck_langgraph import validate_langgraph_contract
 from pathlib import Path
+from backend.core.schemas import ActionCatalogRead
 
 
 def test_app_graph_manifest_is_valid_and_handler_complete():
@@ -703,3 +704,38 @@ def test_legacy_app_graph_routes_are_not_registered():
     ]
 
     assert legacy_routes == []
+
+
+def test_catalog_schema_includes_router_index_readiness():
+    assert "router_index" in ActionCatalogRead.model_fields
+
+
+def test_catalog_surface_contract_includes_request_matching_without_router_copy():
+    backend_surface_path = Path(__file__).parents[1] / "services" / "app_graph" / "corpus_surfaces.py"
+    activation_path = Path(__file__).parents[1] / "services" / "discovery" / "activation.py"
+    frontend_surface_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "corpusSurfaces.tsx"
+    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
+    runtime_path = Path(__file__).parents[1] / "services" / "app_graph" / "runtime.py"
+    internal_source = (
+        backend_surface_path.read_text(encoding="utf-8")
+        + "\n"
+        + runtime_path.read_text(encoding="utf-8")
+    )
+    product_visible_source = (
+        activation_path.read_text(encoding="utf-8")
+        + "\n"
+        + frontend_surface_path.read_text(encoding="utf-8")
+        + "\n"
+        + shell_path.read_text(encoding="utf-8")
+    )
+
+    assert "router_index" in internal_source
+    assert "router_documents_count" in internal_source
+    assert "API references" in product_visible_source
+    assert "Request matching" in product_visible_source
+    assert "request matching" in product_visible_source
+    assert "Router docs" not in product_visible_source
+    assert "Router index:" not in product_visible_source
+    assert "fusion router index" not in product_visible_source
+    assert "Fusion router index" not in product_visible_source
+    assert "move through the graph" not in product_visible_source

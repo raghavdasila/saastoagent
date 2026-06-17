@@ -269,6 +269,7 @@ class CorpusSurfaceRegistry:
                 "lens": lens.model_dump(mode="json"),
                 **(props or {}),
                 **state.graph_context,
+                "router_index": state.graph_context.get("router_index") or _router_index_from_lens(lens),
             },
         )
 
@@ -417,3 +418,14 @@ class CorpusSurfaceRegistry:
         variants.update(accepted)
         presentation_state["surface_variants"] = variants
         return True
+
+
+def _router_index_from_lens(lens: AppGraphContextLens) -> dict[str, Any] | None:
+    if not lens.router_index_status:
+        return None
+    return {
+        "status": lens.router_index_status,
+        "router_version": lens.router_version,
+        "document_count": lens.router_documents_count,
+        "endpoint_count": lens.router_endpoint_count,
+    }

@@ -1,8 +1,8 @@
 # SaaStoAgent v0.1 Context
 
-Last Updated: May 26, 2026 03:37 PM IST
+Last Updated: June 10, 2026
 Project: SaaStoAgent v0.1
-Status: RouteDeck documentation, boundary context, and whitepaper are refreshed. Runtime code is unchanged by the whitepaper closeout.
+Status: Setup-time fusion ToolRouter indexing is implemented for arbitrary OpenAPI-backed SaaS Agents, and runtime candidate selection now reads the ready index directly.
 Repository: `agent-lab-powered-projects/saastoagent-v0.1`
 Current branch: `saastoagent`
 Recent baseline commit: `f15139c3 RouteDeck updates`
@@ -29,6 +29,8 @@ Recent baseline commit: `f15139c3 RouteDeck updates`
   `SYSTEM_FLOW_INDEX.md`
 - Medusa validation guide:
   `docs/medusa-api-agent-test-guide.md`
+- Fusion ToolRouter implementation plan:
+  `docs/superpowers/plans/2026-06-10-saastoagent-fusion-rag-toolrouter.md`
 
 ## Current Runtime Model
 
@@ -49,6 +51,17 @@ The boundary rule:
 - Corpus interprets normal chat against product-facing context.
 - The graph/runtime validates and commits typed operations.
 - React renders the projected product surfaces and dispatches typed operations.
+
+The generated API routing rule:
+
+- API activation builds a per-SaaS-Agent fusion router index from current
+  `ActionNode` and `GeneratedTool` rows after tools are generated.
+- Runtime candidate selection uses that ready index through
+  `find_tool_candidates()` and does not rebuild indexes during owner or public
+  chat usage.
+- The ranker only scores candidates; missing-parameter handling, approvals,
+  unsafe destructive blocking, execution frames, traces, learning, and public
+  response safety stay downstream.
 
 ## Current App Setup
 
@@ -103,6 +116,19 @@ Normal Corpus planning context excludes:
 - trace ids
 - approval ids
 - credential values or visitor-fillable API auth headers
+
+### Fusion ToolRouter Is Setup-Time
+
+Catalog activation now streams a `router_index` step after generated tools:
+
+- `Building fusion router index`
+- `Fusion router index ready`
+- router document and endpoint counts
+
+The Catalog surface shows router index readiness, router document count, and
+router version. The index is dynamic for each arbitrary API collection and must
+not contain Medusa-specific endpoint maps, phrase routers, credentials, or
+visitor auth material.
 
 ### Route Operations Are Internal
 
@@ -209,14 +235,10 @@ Next session should test Corpus through real owner-workbench behavior:
 
 ### Public Chat Response Shaping
 
-Public deployed chat can still phrase some natural requests poorly. A browser
-smoke showed `just list the product names we sell` caused a clarification and
-mentioned the publishable-key header. The explicit guide prompt `list products`
-worked.
-
-This is not a RouteDeck owner-workbench boundary failure, but it is a product
-safety/response-shaping issue. Public chat must not ask visitors for
-connection-level API auth details.
+The fusion router replacement is intended to improve natural product/API
+candidate selection, including product-list and typo-tolerant read queries.
+Public deployed chat still must be verified through browser/runtime smoke tests
+for phrasing. It must not ask visitors for connection-level API auth details.
 
 ### Compatibility Surfaces
 
@@ -239,6 +261,39 @@ For runtime behavior changes, also rerun the backend RouteDeck/Corpus suite and
 the Docker browser E2E scripts listed in `README.md`.
 
 ## Last Validation Evidence
+
+Fusion ToolRouter implementation checks from June 10, 2026:
+
+```powershell
+python -m pytest backend/tests/test_toolrouter_documents.py backend/tests/test_toolrouter_index_builder.py backend/tests/test_toolrouter_fusion_ranker.py backend/tests/test_toolrouter_activation.py -q
+```
+
+Result: `13 passed`.
+
+```powershell
+python -m pytest backend/tests/test_rest_catalog.py backend/tests/test_toolrouter_adapter.py -q
+```
+
+Result: `35 passed`.
+
+```powershell
+python -m pytest backend/tests/test_api_orchestration.py backend/tests/test_execution_frames.py -q
+```
+
+Result: `35 passed`.
+
+```powershell
+python -m pytest backend/tests/test_app_graph_contract.py backend/tests/test_corpus_graph_contract.py -q
+```
+
+Result: `77 passed`.
+
+```powershell
+cd frontend
+npm run type-check
+```
+
+Result: passed.
 
 RouteDeck package validation from the whitepaper closeout:
 

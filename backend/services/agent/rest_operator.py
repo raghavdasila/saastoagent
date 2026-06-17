@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from backend.core.credentials import decrypt_value, inject_credentials
-from backend.core.models import ActionNode, AgentExecutionTrace, AgentMessage, AgentSession, Connection, GeneratedTool, RiskLevel
+from backend.core.models import ActionNode, ActionNodeStatus, AgentExecutionTrace, AgentMessage, AgentSession, Connection, GeneratedTool, RiskLevel, ToolStatus
 from backend.services.agent.execution_frames import (
     active_resource_context,
     augment_message_with_frame_context,
@@ -48,6 +48,7 @@ from backend.services.agent.state_variables import (
 )
 from backend.services.agent.timing import RequestTiming
 from backend.services.toolrouter.adapter import ToolRouterAdapter, ToolRouterDecision, ToolRouterDecisionType
+from backend.services.toolrouter import rank_generated_tools
 
 _TOKEN_RE = re.compile(r"[a-z0-9_/-]+", re.IGNORECASE)
 _EXECUTION_HINTS = {
@@ -65,6 +66,8 @@ _EXECUTION_HINTS = {
     "execute",
     "call",
 }
+_COLLECTION_READ_TERMS = {"all", "available", "browse", "catalog", "filter", "find", "have", "inventory", "list", "menu", "offer", "offers", "search", "show", "what", "which"}
+_READ_REFINEMENT_TERMS = {"browse", "called", "filter", "find", "list", "matching", "named", "narrow", "only", "search", "show"}
 _WRITE_RISKS = {RiskLevel.write.value, RiskLevel.destructive.value, RiskLevel.financial.value}
 _MAX_PUBLIC_FAILURE_RECOVERY_STEPS = 4
 
@@ -161,7 +164,8 @@ async def _maybe_resume_execution_frame(
         frame = load_execution_frame(session)
         entity = find_entity_reference(message, frame)
     active_resource = active_resource_context(frame)
-    if frame is None or (entity is None and active_resource is None):
+    read_refinement_path = _last_read_collection_path(frame) if _looks_like_read_refinement(message) else None
+    if frame is None or (entity is None and active_resource is None and read_refinement_path is None):
         return None
     pending_choice_path = pending_choice_target_path_for_message(frame, message)
     if pending_choice_path:
@@ -186,7 +190,11 @@ async def _maybe_resume_execution_frame(
                 selected_entity=entity,
                 timing=timing,
             )
-    routed_message = augment_message_with_frame_context(message, entity or {}, frame)
+    routed_message = (
+        _augment_message_with_read_collection_context(message, frame, read_refinement_path)
+        if entity is None and active_resource is None and read_refinement_path is not None
+        else augment_message_with_frame_context(message, entity or {}, frame)
+    )
     with _timing_span(timing, "rest.frame_candidate_search", limit=50):
         candidates = await find_tool_candidates(message=routed_message, saas_agent_id=saas_agent_id, db=db, limit=50)
     if not candidates:
@@ -1144,6 +1152,16 @@ async def _resolve_single_opaque_input_from_generated_reads(
     )
     with _timing_span(timing, "resolver.opaque_candidate_search", input_name=input_name, noun=noun):
         read_candidates = await find_tool_candidates(message=lookup_message, saas_agent_id=saas_agent_id, db=db, limit=50)
+    read_candidates = _merge_resolver_candidates(
+        read_candidates,
+        await _find_read_resolver_candidates_by_noun(
+            input_name=input_name,
+            noun=noun,
+            saas_agent_id=saas_agent_id,
+            db=db,
+            limit=50,
+        ),
+    )
     read_candidates = _rank_read_resolver_candidates(input_name=input_name, noun=noun, candidates=read_candidates, frame=frame)
     for read_candidate in read_candidates:
         read_inputs, read_missing = _build_inputs(lookup_message, read_candidate.action, read_candidate.tool)
@@ -1233,6 +1251,89 @@ def _rank_read_resolver_candidates(
             score += 5
         ranked.append(_candidate_with_score(candidate, score))
     return sorted(ranked, key=lambda row: (-row.score, _required_count(row.tool), row.tool.name))
+
+
+async def _find_read_resolver_candidates_by_noun(
+    *,
+    input_name: str,
+    noun: str,
+    saas_agent_id: uuid.UUID,
+    db: AsyncSession,
+    limit: int = 50,
+) -> list[ToolCandidate]:
+    noun_tokens = _resolver_noun_tokens(input_name=input_name, noun=noun)
+    if not noun_tokens:
+        return []
+    if not hasattr(db, "execute"):
+        return []
+    result = await db.execute(
+        select(GeneratedTool, ActionNode, Connection)
+        .join(ActionNode, GeneratedTool.action_node_id == ActionNode.id)
+        .join(Connection, GeneratedTool.connection_id == Connection.id)
+        .options(selectinload(Connection.credentials))
+        .where(
+            GeneratedTool.saas_agent_id == saas_agent_id,
+            GeneratedTool.status == ToolStatus.active,
+            ActionNode.status != ActionNodeStatus.deprecated,
+        )
+    )
+    candidates: list[ToolCandidate] = []
+    for tool, action, connection in result.all():
+        method = str(getattr(action, "method", "") or "").upper()
+        if method not in {"GET", "HEAD", "OPTIONS"}:
+            continue
+        haystack = " ".join(
+            [
+                str(getattr(tool, "name", "") or ""),
+                str(getattr(action, "name", "") or ""),
+                str(getattr(action, "path", "") or ""),
+                str(getattr(action, "description", "") or ""),
+                str(getattr(tool, "description", "") or ""),
+                " ".join(str(tag) for tag in (getattr(action, "tags", None) or [])),
+            ]
+        )
+        hay_tokens = set(_tokens(haystack))
+        if not (hay_tokens & noun_tokens):
+            continue
+        score = 30 + (8 if str(getattr(action, "path", "") or "").lower().find(noun.replace("_", "-")) >= 0 else 0)
+        score += 5 if str(getattr(action, "path", "") or "").count("/") <= 3 else 0
+        candidates.append(
+            ToolCandidate(
+                tool=tool,
+                action=action,
+                connection=connection,
+                score=score,
+                reason=f"resolver_noun:{noun}",
+            )
+        )
+    return sorted(candidates, key=lambda row: (-row.score, _required_count(row.tool), row.tool.name))[:limit]
+
+
+def _merge_resolver_candidates(primary: list[ToolCandidate], extra: list[ToolCandidate]) -> list[ToolCandidate]:
+    merged: list[ToolCandidate] = []
+    seen: set[tuple[str, str]] = set()
+    for candidate in [*primary, *extra]:
+        key = (
+            str(getattr(getattr(candidate, "tool", None), "id", "")),
+            str(getattr(getattr(candidate, "action", None), "id", "")),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(candidate)
+    return merged
+
+
+def _resolver_noun_tokens(*, input_name: str, noun: str) -> set[str]:
+    tokens = set(_tokens(noun))
+    tokens.update(_tokens(input_name))
+    for token in list(tokens):
+        if token.endswith("s") and len(token) > 3:
+            tokens.add(token[:-1])
+        elif len(token) > 2:
+            tokens.add(f"{token}s")
+    tokens.discard("id")
+    return tokens
 
 
 def _fill_inputs_from_frame_fields(
@@ -1633,41 +1734,17 @@ async def find_tool_candidates(
     db: AsyncSession,
     limit: int = 5,
 ) -> list[ToolCandidate]:
-    result = await db.execute(
-        select(GeneratedTool, ActionNode, Connection)
-        .join(ActionNode, GeneratedTool.action_node_id == ActionNode.id)
-        .join(Connection, GeneratedTool.connection_id == Connection.id)
-        .options(selectinload(Connection.credentials))
-        .where(GeneratedTool.saas_agent_id == saas_agent_id)
-    )
-    tokens = set(_tokens(message))
-    learning_hints = await _approved_learning_hints(db, saas_agent_id)
-    candidates: list[ToolCandidate] = []
-    for tool, action, connection in result.all():
-        haystack = " ".join(
-            [
-                tool.name or "",
-                tool.description or "",
-                action.name or "",
-                action.description or "",
-                action.path or "",
-                action.method or "",
-                " ".join(str(tag) for tag in (action.tags or [])),
-            ]
+    ranked = await rank_generated_tools(message=message, saas_agent_id=saas_agent_id, db=db, limit=limit)
+    candidates = [
+        ToolCandidate(
+            tool=row.tool,
+            action=row.action,
+            connection=row.connection,
+            score=max(1, row.score + _operation_intent_bonus(message, row.action, row.tool)),
+            reason=row.reason,
         )
-        hay_tokens = set(_tokens(haystack))
-        score = len(tokens & hay_tokens)
-        method = (action.method or "").lower()
-        if method in tokens:
-            score += 2
-        if method == "get" and tokens & {"list", "find", "fetch", "show", "search"}:
-            score += 1
-        if score <= 0:
-            continue
-        score += _operation_intent_bonus(message, action, tool)
-        score += _learning_bonus(tokens, tool.name, action.path, learning_hints)
-        reason = ", ".join(sorted(list(tokens & hay_tokens))[:5]) or action.method
-        candidates.append(ToolCandidate(tool=tool, action=action, connection=connection, score=score, reason=reason))
+        for row in ranked
+    ]
     return sorted(candidates, key=lambda row: (-row.score, _required_count(row.tool), row.tool.name))[:limit]
 
 
@@ -1685,7 +1762,7 @@ def _operation_intent_bonus(message: str, action: ActionNode, tool: GeneratedToo
     method = str(getattr(action, "method", "") or "").upper()
     bonus = 0
     write_intent = tokens & {"add", "create", "update", "delete", "remove", "send", "submit", "buy", "purchase", "order"}
-    read_intent = tokens & {"list", "show", "find", "fetch", "search", "get"}
+    read_intent = tokens & {"list", "show", "find", "fetch", "search", "filter", "get"}
     if write_intent:
         if method in {"POST", "PUT", "PATCH", "DELETE"}:
             bonus += 3
@@ -1695,11 +1772,30 @@ def _operation_intent_bonus(message: str, action: ActionNode, tool: GeneratedToo
             bonus += 1
     if read_intent and method in {"GET", "HEAD", "OPTIONS"}:
         bonus += 1
+    if _has_collection_read_intent(tokens=tokens, action=action):
+        if method == "GET" and "{" not in str(getattr(action, "path", "") or ""):
+            bonus += 8
+        elif method == "GET" and _required_count(tool) > 0:
+            bonus -= 8
     return bonus
 
 
+def _has_collection_read_intent(*, tokens: set[str], action: ActionNode) -> bool:
+    if not tokens & _COLLECTION_READ_TERMS:
+        return False
+    resource = _collection_resource_from_path(str(getattr(action, "path", "") or ""))
+    if not resource:
+        return False
+    return resource in tokens or _singular(resource) in tokens
+
+
+def _collection_resource_from_path(path: str) -> str:
+    segments = [segment.lower() for segment in str(path or "").split("/") if segment and not segment.startswith("{")]
+    return segments[-1] if segments else ""
+
+
 def _rerank_candidates_for_frame(*, message: str, candidates: list[ToolCandidate], frame: dict[str, Any]) -> list[ToolCandidate]:
-    if not _has_write_intent(message):
+    if not (_has_write_intent(message) or _looks_like_read_refinement(message)):
         return candidates
     adjusted = [_candidate_with_score(row, _context_candidate_score(message=message, candidate=row, frame=frame)) for row in candidates]
     return sorted(
@@ -1787,6 +1883,15 @@ def _context_candidate_score(*, message: str, candidate: ToolCandidate, frame: d
     filled_required = sum(1 for name in required if str(name) in inputs and str(name) not in base_inputs)
     score = candidate.score + (filled_required * 8)
     active_resource = active_resource_context(frame)
+    last_read_path = _last_read_collection_path(frame)
+    if last_read_path and _looks_like_read_refinement(message):
+        candidate_path = str(getattr(candidate.action, "path", "") or "").rstrip("/")
+        method = str(getattr(candidate.action, "method", "") or "").upper()
+        if method in {"GET", "HEAD", "OPTIONS"}:
+            if candidate_path == last_read_path:
+                score += 14
+            elif candidate_path.startswith(last_read_path + "/"):
+                score += 4
     if active_resource is not None:
         active_path = str(active_resource.get("collection_path") or "").rstrip("/")
         candidate_path = str(getattr(candidate.action, "path", "") or "")
@@ -1956,6 +2061,37 @@ def _has_write_intent(message: str) -> bool:
         set(_tokens(message))
         & {"add", "checkout", "complete", "create", "delete", "finish", "order", "payment", "purchase", "remove", "send", "ship", "shipping", "submit", "update"}
     )
+
+
+def _looks_like_read_refinement(message: str) -> bool:
+    tokens = set(_tokens(message))
+    return bool(tokens & _READ_REFINEMENT_TERMS) and not _has_write_intent(message)
+
+
+def _last_read_collection_path(frame: dict[str, Any] | None) -> str | None:
+    if not isinstance(frame, dict):
+        return None
+    source = frame.get("source")
+    if not isinstance(source, dict):
+        return None
+    method = str(source.get("method") or "").upper()
+    path = str(source.get("path") or "").rstrip("/")
+    if method not in {"GET", "HEAD", "OPTIONS"} or not path or "{" in path:
+        return None
+    return path
+
+
+def _augment_message_with_read_collection_context(message: str, frame: dict[str, Any] | None, collection_path: str | None) -> str:
+    if not collection_path:
+        return message
+    source = frame.get("source") if isinstance(frame, dict) else None
+    parts = [message, f"Last read collection {collection_path}"]
+    if isinstance(source, dict):
+        for key in ("tool_name", "action_name"):
+            value = source.get(key)
+            if value:
+                parts.append(str(value))
+    return " ".join(parts)
 
 
 async def execute_rest_tool(candidate: ToolCandidate, inputs: dict[str, Any], db: AsyncSession) -> dict[str, Any]:
@@ -2198,7 +2334,9 @@ def _clarification_hints(candidates: list[Any]) -> str:
         params = [
             str(parameter.get("name"))
             for parameter in (getattr(action, "parameters", None) or [])
-            if isinstance(parameter, dict) and parameter.get("required")
+            if isinstance(parameter, dict)
+            and parameter.get("required")
+            and str(parameter.get("in") or "").lower() not in {"header", "cookie"}
         ]
         path_params.extend(params)
         label = _entity_label_from_path(path)

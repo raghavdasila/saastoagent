@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.models import ActionNode, ActionNodeStatus, Connection, GeneratedTool, RiskLevel
 from backend.core.schemas import ActionNodeRead, ConnectionPreviewRead, EntityRead, ToolRead
+from backend.services.toolrouter import latest_ready_index, router_index_stats
 from backend.providers.rest.parser import extract_endpoints, fetch_spec, parse_and_validate_spec
 
 
@@ -72,14 +73,16 @@ async def SaaSAgent_catalog(session: AsyncSession, saas_agent_id: uuid.UUID) -> 
     actions = await list_SaaSAgent_actions(session, saas_agent_id)
     tools = await list_SaaSAgent_tools(session, saas_agent_id)
     entities = infer_entities(actions)
+    router_index = router_index_stats(await latest_ready_index(session=session, saas_agent_id=saas_agent_id))
     totals = {
         "actions": len(actions),
         "tools": len(tools),
         "entities": len(entities),
         "read_actions": sum(1 for action in actions if _risk_value(action.risk_level) == RiskLevel.read.value),
         "approval_actions": sum(1 for action in actions if _risk_value(action.risk_level) != RiskLevel.read.value),
+        "router_documents": int(router_index.get("document_count", 0)) if router_index else 0,
     }
-    return {"actions": actions, "tools": tools, "entities": entities, "totals": totals}
+    return {"actions": actions, "tools": tools, "entities": entities, "totals": totals, "router_index": router_index}
 
 
 async def list_SaaSAgent_actions(session: AsyncSession, saas_agent_id: uuid.UUID) -> list[ActionNodeRead]:

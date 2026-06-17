@@ -24,6 +24,7 @@ from .connection import (
     RiskLevel,
     ToolStatus,
 )
+from .toolrouter import ToolRouterDocument, ToolRouterIndex, ToolRouterIndexStatus
 
 __all__ = [
     "Base",
@@ -57,4 +58,7 @@ __all__ = [
     "ToolStatus",
     "ActivationOverallStatus",
     "ActivationStepStatus",
+    "ToolRouterDocument",
+    "ToolRouterIndex",
+    "ToolRouterIndexStatus",
 ]

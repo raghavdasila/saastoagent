@@ -16,9 +16,12 @@ async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit
 async def create_tables():
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS unaccent"))
         await _migrate_workspace_columns(conn)
         await _migrate_saas_agent_instruction_columns(conn)
         await conn.run_sync(Base.metadata.create_all)
+        await _create_toolrouter_search_indexes(conn)
 
 
 async def get_async_session():
@@ -172,3 +175,39 @@ async def _migrate_saas_agent_instruction_columns(conn) -> None:
         await conn.execute(text('ALTER TABLE "saas_agents" ADD COLUMN system_prompt TEXT'))
     if "instructions" not in columns:
         await conn.execute(text('ALTER TABLE "saas_agents" ADD COLUMN instructions TEXT'))
+
+
+async def _create_toolrouter_search_indexes(conn) -> None:
+    table_exists = (
+        await conn.execute(
+            text(
+                """
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = 'toolrouter_documents'
+                )
+                """
+            )
+        )
+    ).scalar()
+    if not table_exists:
+        return
+
+    await conn.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS ix_toolrouter_documents_search_text_fts
+            ON toolrouter_documents
+            USING GIN (to_tsvector('simple', search_text))
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS ix_toolrouter_documents_search_text_trgm
+            ON toolrouter_documents
+            USING GIN (search_text gin_trgm_ops)
+            """
+        )
+    )

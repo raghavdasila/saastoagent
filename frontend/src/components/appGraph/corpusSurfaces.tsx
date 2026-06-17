@@ -402,13 +402,33 @@ export function SurfaceRenderer({
     const activationEvents = Array.isArray(surface.props?.activation_events)
       ? (surface.props?.activation_events as unknown[])
       : []
+    const catalog = surface.props?.catalog as Record<string, unknown> | undefined
+    const routerIndex =
+      (surface.props?.router_index as Record<string, unknown> | undefined) ||
+      (catalog?.router_index as Record<string, unknown> | undefined) ||
+      (contextLens?.router_index_status
+        ? {
+            status: contextLens.router_index_status,
+            document_count: contextLens.router_documents_count,
+            endpoint_count: contextLens.router_endpoint_count,
+            router_version: contextLens.router_version,
+          }
+        : undefined)
+    const requestReferenceCount = Number(routerIndex?.document_count || contextLens?.router_documents_count || 0)
+    const requestMatchingStatus = routerIndex ? requestMatchingStatusLabel(String(routerIndex.status || 'unknown')) : null
     return (
       <InfoSurface title="Catalog" description="Activated API capabilities and generated tools appear here as they become available." icon={<Boxes className="h-5 w-5" />}>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-4">
           <Metric label="Ready APIs" value={contextLens?.ready_connection_count || 0} icon={<KeyRound className="h-4 w-4" />} />
           <Metric label="Actions" value={contextLens?.action_count || 0} icon={<Play className="h-4 w-4" />} />
           <Metric label="Tools" value={contextLens?.tool_count || 0} icon={<ShieldCheck className="h-4 w-4" />} />
+          <Metric label="API references" value={requestReferenceCount} icon={<FileText className="h-4 w-4" />} />
         </div>
+        {requestMatchingStatus && (
+          <p className="mt-3 text-sm text-slate-500">
+            Request matching: {requestMatchingStatus}
+          </p>
+        )}
         {activationEvents.length > 0 && (
           <p className="mt-3 text-sm text-slate-500">{activationEvents.length} activation events captured for diagnostics.</p>
         )}
@@ -794,6 +814,14 @@ export function Metric({ label, value, icon }: { label: string; value: number; i
       <div className="mt-2 text-2xl font-medium">{value}</div>
     </div>
   )
+}
+
+function requestMatchingStatusLabel(status: string) {
+  if (status === 'ready') return 'Ready'
+  if (status === 'building') return 'Preparing'
+  if (status === 'stale') return 'Refreshing'
+  if (status === 'failed') return 'Needs attention'
+  return 'Pending'
 }
 
 export function InfoSurface({

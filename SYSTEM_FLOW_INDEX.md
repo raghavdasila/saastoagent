@@ -1,6 +1,6 @@
 # System Flow Index - SaaStoAgent v0.1
 
-Last Updated: May 26, 2026 02:21 PM IST
+Last Updated: June 10, 2026
 
 This file is the compact source of truth for the currently implemented runtime
 and UX flows. Use `context.md` for current restart state and `README.md` for
@@ -85,6 +85,7 @@ home
   -> create/open SaaS Agent
   -> connect API
   -> activate OpenAPI catalog/tools
+     -> build setup-time fusion router index
   -> inspect catalog/actions/entities
   -> configure deployment
   -> review execution/learning/approval surfaces
@@ -98,6 +99,12 @@ Owner UI rules:
 - Forms/review surfaces are graph-owned.
 - The context sidebar can show selected agent, current work, API readiness,
   tools, and approval-relevant status.
+- The Catalog surface shows router index readiness and router document counts
+  when a ready index exists.
+
+Activation creates generated action/tool rows first, then builds the per-agent
+fusion router index. Normal owner or public chat turns read the ready index for
+candidate ranking and must not rebuild it during usage.
 
 ## Corpus Planning Context
 
@@ -128,7 +135,8 @@ Public visitor flow:
 ```text
 visitor query
   -> deployed SaaS Agent orchestration
-    -> generated OpenAPI action selection/execution
+    -> ready ToolRouter index candidate ranking
+      -> generated OpenAPI action selection/execution
       -> execution-frame variables and policy checks
         -> public-safe response
 ```
@@ -137,6 +145,8 @@ Rules:
 
 - Medusa is an acceptance fixture only.
 - Product runtime must remain OpenAPI/user-config driven.
+- ToolRouter ranking is dynamic per SaaS Agent and based on the activated
+  `ActionNode` / `GeneratedTool` catalog rows, not fixture endpoint maps.
 - Public chat must not expose operation ids, endpoint paths, raw tool labels,
   trace ids, approval ids, cart ids, internal slot names, or API auth headers.
 - Natural missing details can be requested publicly; internal dependencies must

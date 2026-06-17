@@ -67,6 +67,10 @@ class AppGraphContextLens(BaseModel):
     ready_connection_count: int = 0
     action_count: int = 0
     tool_count: int = 0
+    router_index_status: str | None = None
+    router_documents_count: int = 0
+    router_endpoint_count: int = 0
+    router_version: str | None = None
     pending_trace_id: uuid.UUID | None = None
     pending_trace_status: str | None = None
 

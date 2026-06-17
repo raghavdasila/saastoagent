@@ -67,9 +67,7 @@ async function main() {
     await createAgentSurface.getByRole('button', { name: /Continue|Create SaaS Agent/ }).click()
     await expect(page).toHaveURL(/\/app\/agents\//, { timeout: 15000 })
 
-    await page.getByPlaceholder('Message Corpus').fill('let me setup the api')
-    await page.keyboard.press('Enter')
-    await expect(page.getByTestId('connection-setup-surface')).toBeVisible({ timeout: 15000 })
+    await openConnectionSetupFromRail(page)
     await page.goto(`${appUrl}/app/agents/${await currentAgentId(page)}/connection_configure`)
     await expect(page.getByTestId('connection-setup-surface')).toBeVisible({ timeout: 15000 })
 
@@ -83,7 +81,8 @@ async function main() {
 
     await page.getByLabel('Enabled').check()
     await page.getByText('Access').locator('..').getByRole('combobox').selectOption('anonymous')
-    await page.getByRole('button', { name: 'Save deployment' }).click()
+    await page.getByRole('complementary').getByRole('button', { name: 'Save deployment' }).click()
+    await commitDeploymentReview(page)
 
     await screenshot(page, evidence, 'builder-activated')
 
@@ -156,6 +155,20 @@ async function activateConnection(page, { name, baseUrl, specUrl, authType, cred
   }
   await form.getByRole('button', { name: 'Save and activate API' }).click()
   await expect(page.getByText(/activated|created|generated|Catalog/i).first()).toBeVisible({ timeout: 30000 })
+}
+
+async function openConnectionSetupFromRail(page) {
+  const rail = page.getByTestId('capability-rail')
+  await expect(rail).toBeVisible({ timeout: 15000 })
+  await rail.getByRole('button', { name: 'Connect API' }).click()
+  await expect(page.getByTestId('connection-setup-surface')).toBeVisible({ timeout: 15000 })
+}
+
+async function commitDeploymentReview(page) {
+  const surface = page.getByTestId('corpus-operation-review-surface')
+  await expect(surface).toBeVisible({ timeout: 15000 })
+  await surface.getByRole('button', { name: 'Save deployment' }).click()
+  await expect(page.getByText(/Deployment settings saved/i).first()).toBeVisible({ timeout: 15000 })
 }
 
 async function currentAgentId(page) {

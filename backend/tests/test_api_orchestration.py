@@ -449,6 +449,115 @@ def test_checkout_workflow_rerank_prefers_completion_action_over_other_resource_
     assert ranked[0].score > next(row.score for row in ranked if row.action.path == details.action.path)
 
 
+@pytest.mark.asyncio
+async def test_read_refinement_uses_last_result_collection_context(monkeypatch):
+    saas_agent_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+    frame = {
+        "kind": "result_context",
+        "source": {
+            "tool_name": "getproducts",
+            "action_name": "GetProducts",
+            "method": "GET",
+            "path": "/store/products",
+        },
+        "entities": [
+            {
+                "entity_type": "products",
+                "id": "prod_1",
+                "label": "Medusa Sweatshirt",
+                "aliases": ["medusa sweatshirt", "sweatshirt"],
+                "raw": {"id": "prod_1", "title": "Medusa Sweatshirt"},
+            }
+        ],
+        "last_user_message": "search for sweatshirt",
+    }
+    session = SimpleNamespace(metadata_={"execution_frame_v1": frame})
+
+    def read_candidate(name: str, path: str):
+        action = SimpleNamespace(
+            id=uuid.uuid4(),
+            name=name,
+            method="GET",
+            path=path,
+            description=f"Retrieve a list from {path}.",
+            parameters=[
+                {"name": "q", "in": "query", "required": False, "schema": {"type": "string"}},
+                {"name": "limit", "in": "query", "required": False, "schema": {"type": "integer"}},
+            ],
+        )
+        tool = SimpleNamespace(
+            id=uuid.uuid4(),
+            name=name.lower(),
+            risk_level="read",
+            requires_approval=False,
+            function_schema={
+                "parameters": {
+                    "type": "object",
+                    "properties": {"q": {"type": "string"}, "limit": {"type": "integer"}},
+                    "required": [],
+                }
+            },
+        )
+        return rest_operator.ToolCandidate(
+            tool=tool,
+            action=action,
+            connection=SimpleNamespace(id=uuid.uuid4(), name="Store API"),
+            score=53,
+            reason="fusion",
+        )
+
+    collections = read_candidate("GetCollections", "/store/collections")
+    products = read_candidate("GetProducts", "/store/products")
+    executed = {}
+    calls = []
+
+    async def fake_find_tool_candidates(*, message, saas_agent_id, db, limit=5):
+        calls.append((message, limit))
+        return [collections, products]
+
+    async def fake_create_execution_trace(**kwargs):
+        assert kwargs["candidate"].action.path == "/store/products"
+        assert kwargs["inputs"] == {"q": "shorts", "limit": 5}
+        assert kwargs["status"] == "executing"
+        return SimpleNamespace(id=uuid.uuid4())
+
+    async def fake_execute_rest_tool(candidate, inputs, db):
+        executed.update({"path": candidate.action.path, "inputs": dict(inputs)})
+        return {
+            "status_code": 200,
+            "body": {"products": [{"id": "prod_2", "title": "Medusa Shorts"}]},
+            "duration_ms": 1,
+            "error": None,
+        }
+
+    async def fake_finalize_execution_trace(trace, result, db):
+        return None
+
+    monkeypatch.setattr(rest_operator, "find_tool_candidates", fake_find_tool_candidates)
+    monkeypatch.setattr(rest_operator, "create_execution_trace", fake_create_execution_trace)
+    monkeypatch.setattr(rest_operator, "execute_rest_tool", fake_execute_rest_tool)
+    monkeypatch.setattr(rest_operator, "finalize_execution_trace", fake_finalize_execution_trace)
+
+    async def emit(_event_name, _payload):
+        return None
+
+    content = await rest_operator.run_rest_operator_turn(
+        message="filter for shorts",
+        saas_agent_id=saas_agent_id,
+        session_id=session_id,
+        user_id=None,
+        session=session,
+        db=FakeDb(),
+        emit=emit,
+        public_response=True,
+    )
+
+    assert calls and calls[0][1] == 50
+    assert executed == {"path": "/store/products", "inputs": {"q": "shorts", "limit": 5}}
+    assert "Medusa Shorts" in content
+
+
 def test_recovery_rerank_prefers_existing_dependency_child_over_recreating_collection():
     frame = remember_resource_id_variable(
         {
@@ -1006,5 +1115,135 @@ async def test_recovery_resolves_provider_id_from_generated_read_action(monkeypa
         ("/api/payment-collections/{id}/payment-sessions", {"id": "paycol_1", "provider_id": "provider_1"}),
         ("/api/accounts/{id}/complete", {"id": "acct_1"}),
     ]
+    assert "connected API returned an error" in content
+    assert "provider_1" not in content
+
+
+@pytest.mark.asyncio
+async def test_recovery_uses_lexical_read_resolver_when_fusion_misses_provider(monkeypatch):
+    saas_agent_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+    frame = remember_resource_result_variables(
+        {
+        "kind": "result_context",
+        "active_resource": {
+            "collection_path": "/api/accounts",
+            "id": "acct_1",
+            "source_action_path": "/api/accounts/{id}/items",
+            "reason": "internal_dependency_used_successfully",
+        },
+        },
+        collection_path="/api/accounts",
+        result={"body": {"account": {"id": "acct_1", "region_id": "region_1"}}, "error": None},
+    )
+    frame = remember_resource_id_variable(frame, collection_path="/api/payment-collections", resource_id="paycol_1")
+    session = SimpleNamespace(metadata_={"execution_frame_v1": frame})
+    complete = _candidate(path="/api/accounts/{id}/complete", name="completeAccount", required=["id"])
+    create_session = _candidate(
+        path="/api/payment-collections/{id}/payment-sessions",
+        name="createPaymentSession",
+        required=["id", "provider_id"],
+    )
+    wrong_read = _candidate(method="GET", path="/api/products", name="listProducts", risk="read", required=[])
+    list_providers = _candidate(
+        method="GET",
+        path="/api/payment-providers",
+        name="listPaymentProviders",
+        risk="read",
+        required=["region_id"],
+    )
+    executed = []
+
+    async def fake_find_tool_candidates(*, message, saas_agent_id, db, limit=5):
+        lowered = message.lower()
+        if "payment sessions are required" in lowered:
+            return [create_session]
+        if "provider_id" in lowered or "provider id" in lowered:
+            return [wrong_read]
+        return [complete]
+
+    async def fake_find_read_resolver_candidates_by_noun(*, input_name, noun, saas_agent_id, db, limit=50):
+        assert input_name == "provider_id"
+        assert noun == "provider"
+        return [list_providers]
+
+    async def fake_create_execution_trace(**kwargs):
+        return SimpleNamespace(
+            id=uuid.uuid4(),
+            saas_agent_id=kwargs["saas_agent_id"],
+            session_id=kwargs["session_id"],
+            tool_name=kwargs["candidate"].tool.name,
+            path=kwargs["candidate"].action.path,
+            risk_level="write",
+            inputs=kwargs["inputs"],
+        )
+
+    class FakeLearningService:
+        async def approved_domain_policy(self, *, saas_agent_id, action_paths, db):
+            assert action_paths in (["/api/accounts/{id}/complete"], ["/api/payment-collections/{id}/payment-sessions"])
+            return SimpleNamespace(id=uuid.uuid4())
+
+        async def propose_domain_policy_gap(self, **kwargs):
+            raise AssertionError("approved recovery policy should not create a policy gap")
+
+    async def fake_execute_rest_tool(candidate, inputs, db):
+        executed.append((candidate.action.path, dict(inputs)))
+        if candidate.action.path == complete.action.path:
+            return {
+                "status_code": 400,
+                "body": {"message": "Payment sessions are required to complete account"},
+                "duration_ms": 1,
+                "error": "HTTP 400",
+            }
+        if candidate.action.path == wrong_read.action.path:
+            return {"status_code": 200, "body": {"products": [{"id": "prod_wrong"}]}, "duration_ms": 1, "error": None}
+        if candidate.action.path == list_providers.action.path:
+            assert inputs == {"region_id": "region_1"}
+            return {
+                "status_code": 200,
+                "body": {"payment_providers": [{"id": "provider_1", "name": "Default provider"}]},
+                "duration_ms": 1,
+                "error": None,
+            }
+        assert candidate.action.path == create_session.action.path
+        assert inputs == {"id": "paycol_1", "provider_id": "provider_1"}
+        return {
+            "status_code": 200,
+            "body": {"payment_session": {"id": "session_1"}},
+            "duration_ms": 1,
+            "error": None,
+        }
+
+    async def fake_finalize_execution_trace(trace, result, db):
+        return None
+
+    monkeypatch.setattr(rest_operator, "find_tool_candidates", fake_find_tool_candidates)
+    monkeypatch.setattr(rest_operator, "_find_read_resolver_candidates_by_noun", fake_find_read_resolver_candidates_by_noun, raising=False)
+    monkeypatch.setattr(rest_operator, "create_execution_trace", fake_create_execution_trace)
+    monkeypatch.setattr(rest_operator, "learning_service", FakeLearningService())
+    monkeypatch.setattr(rest_operator, "execute_rest_tool", fake_execute_rest_tool)
+    monkeypatch.setattr(rest_operator, "finalize_execution_trace", fake_finalize_execution_trace)
+
+    async def emit(_event_name, _payload):
+        return None
+
+    content = await rest_operator.run_rest_operator_turn(
+        message="checkout",
+        saas_agent_id=saas_agent_id,
+        session_id=session_id,
+        user_id=None,
+        session=session,
+        db=FakeDb(),
+        emit=emit,
+        public_response=True,
+    )
+
+    assert executed == [
+        ("/api/accounts/{id}/complete", {"id": "acct_1"}),
+        ("/api/payment-providers", {"region_id": "region_1"}),
+        ("/api/payment-collections/{id}/payment-sessions", {"id": "paycol_1", "provider_id": "provider_1"}),
+        ("/api/accounts/{id}/complete", {"id": "acct_1"}),
+    ]
+    assert all(path != "/api/products" for path, _inputs in executed)
     assert "connected API returned an error" in content
     assert "provider_1" not in content

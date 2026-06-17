@@ -189,7 +189,7 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
   const [chatMessages, setChatMessages] = useState<ChatUIMessage[]>(() => [
     makeAgentMessage(
       'assistant',
-      'Hi. I can explain the platform, move through the graph, and open the right workflow when you ask.',
+      'Hi. I can explain the platform, help you set up an agent, and open the right workflow when you ask.',
     ),
   ])
   const [draft, setDraft] = useState('')
@@ -1183,7 +1183,7 @@ function ContextPanel({
           />
           <PendingApprovalsCard
             saasAgentId={lens.selected_saas_agent_id}
-            enabled={Boolean(lens.pending_trace_id) || projection.graph_node === 'approval_required'}
+            enabled={true}
           />
         </>
       )}

@@ -40,6 +40,10 @@ export interface AppGraphContextLens {
   ready_connection_count: number
   action_count: number
   tool_count: number
+  router_index_status?: string | null
+  router_documents_count: number
+  router_endpoint_count: number
+  router_version?: string | null
   pending_trace_id?: string | null
   pending_trace_status?: string | null
 }

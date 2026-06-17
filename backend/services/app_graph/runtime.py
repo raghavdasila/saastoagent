@@ -74,6 +74,7 @@ from backend.services.app_graph.corpus_turn_planning import (
 from backend.services.catalog import SaaSAgent_catalog, preview_openapi_spec
 from backend.services.deployed_agents import get_or_create_deployment
 from backend.services.discovery.activation import ActivationService
+from backend.services.toolrouter import latest_ready_index, router_index_stats
 from routedeck_core import RouteDeckOperation, RouteDeckSurface, build_runtime_snapshot
 
 
@@ -1216,12 +1217,14 @@ class CorpusGraphRuntime:
     async def _context_lens(self, state: AppGraphState, user: User | None, db: AsyncSession) -> AppGraphContextLens:
         selected = await db.get(SaaSAgent, state.active_saas_agent_id) if state.active_saas_agent_id and user else None
         connection_count = ready_connection_count = action_count = tool_count = 0
+        router_summary = None
         pending_status = None
         if selected is not None:
             connection_count = int((await db.execute(select(func.count(Connection.id)).where(Connection.saas_agent_id == selected.id))).scalar_one() or 0)
             ready_connection_count = int((await db.execute(select(func.count(ConnectionActivationState.connection_id)).where(ConnectionActivationState.saas_agent_id == selected.id, ConnectionActivationState.overall_status == "ready"))).scalar_one() or 0)
             action_count = int((await db.execute(select(func.count(ActionNode.id)).where(ActionNode.saas_agent_id == selected.id))).scalar_one() or 0)
             tool_count = int((await db.execute(select(func.count(GeneratedTool.id)).where(GeneratedTool.saas_agent_id == selected.id))).scalar_one() or 0)
+            router_summary = router_index_stats(await latest_ready_index(session=db, saas_agent_id=selected.id))
             if state.pending_trace_id:
                 trace = await db.get(AgentExecutionTrace, state.pending_trace_id)
                 pending_status = trace.status if trace else None
@@ -1236,6 +1239,10 @@ class CorpusGraphRuntime:
             ready_connection_count=ready_connection_count,
             action_count=action_count,
             tool_count=tool_count,
+            router_index_status=router_summary.get("status") if router_summary else None,
+            router_documents_count=int(router_summary.get("document_count", 0)) if router_summary else 0,
+            router_endpoint_count=int(router_summary.get("endpoint_count", 0)) if router_summary else 0,
+            router_version=router_summary.get("router_version") if router_summary else None,
             pending_trace_id=state.pending_trace_id,
             pending_trace_status=pending_status,
         )
@@ -1408,11 +1415,14 @@ class CorpusGraphRuntime:
             events.append(event)
         state.node = AppNodeIds.CATALOG
         state.graph_context["activation_events"] = events
+        state.graph_context["router_index"] = _router_index_from_activation_events(events)
         return state, [EntryGraphMessage(content="The API catalog is activated and ready to inspect.")], [{"type": "activation", "events": events}]
 
     async def _handle_catalog_open(self, state, payload, user, db):
         if state.active_saas_agent_id:
-            state.graph_context["catalog"] = await SaaSAgent_catalog(db, state.active_saas_agent_id)
+            catalog = await SaaSAgent_catalog(db, state.active_saas_agent_id)
+            state.graph_context["catalog"] = catalog
+            state.graph_context["router_index"] = catalog.get("router_index")
         state.node = AppNodeIds.CATALOG
         return state, [], []
 
@@ -1678,3 +1688,17 @@ corpus_graph_runtime = CorpusGraphRuntime()
 def _openai_latency_options() -> dict[str, Any]:
     effort = settings.openai_reasoning_effort.strip()
     return {"reasoning_effort": effort} if effort else {}
+
+
+def _router_index_from_activation_events(events: list[dict[str, Any]]) -> dict[str, Any] | None:
+    for event in reversed(events):
+        if event.get("type") != "step" or event.get("step") != "router_index" or event.get("status") != "done":
+            continue
+        return {
+            "status": event.get("router_index_status") or "ready",
+            "router_version": event.get("router_version"),
+            "document_count": int(event.get("router_documents_count") or 0),
+            "endpoint_count": int(event.get("router_endpoint_count") or 0),
+            "catalog_fingerprint": event.get("catalog_fingerprint"),
+        }
+    return None

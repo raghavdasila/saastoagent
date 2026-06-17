@@ -86,6 +86,7 @@ class ActionCatalogRead(BaseModel):
     tools: list["ToolRead"]
     entities: list[EntityRead]
     totals: dict[str, int]
+    router_index: dict[str, Any] | None = None
 
 
 class ToolRead(BaseModel):

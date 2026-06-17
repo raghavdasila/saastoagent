@@ -91,7 +91,11 @@ export function ConnectSetupView({ saasAgent, stats, saasAgentId: saasAgentIdPro
     try {
       await agentApi.postStream(`/saas-agents/${saasAgentId}/connections/${connectionId}/activate`, (eventType, data) => {
         const label = typeof data.message === 'string' ? data.message : eventType
-        setActivationLog((prev) => [...prev, `${eventType}: ${label}`])
+        const suffix =
+          eventType === 'step' && data.step === 'router_index' && data.status === 'done'
+            ? ` (${String(data.router_documents_count || 0)} references, ${String(data.router_endpoint_count || 0)} endpoints)`
+            : ''
+        setActivationLog((prev) => [...prev, `${eventType}: ${label}${suffix}`])
       })
       queryClient.invalidateQueries({ queryKey: ['connections', saasAgentId] })
       queryClient.invalidateQueries({ queryKey: ['saasAgent-stats', saasAgentId] })
@@ -233,7 +237,7 @@ export function ConnectSetupView({ saasAgent, stats, saasAgentId: saasAgentIdPro
           <section className="surface-card rounded-lg p-5">
             <h2 className="text-sm font-semibold text-slate-950 dark:text-white">Activation</h2>
             {activationLog.length === 0 ? (
-              <p className="mt-2 text-sm leading-6 text-slate-500">Activation will parse OpenAPI, create actions, and generate callable tools.</p>
+              <p className="mt-2 text-sm leading-6 text-slate-500">Activation will parse OpenAPI, create actions, generate callable tools, and prepare request matching.</p>
             ) : (
               <ul className="mt-3 space-y-2 text-xs text-slate-600 dark:text-slate-300">
                 {activationLog.map((line, index) => (
