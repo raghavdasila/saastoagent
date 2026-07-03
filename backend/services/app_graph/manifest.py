@@ -3,15 +3,19 @@ from __future__ import annotations
 from typing import Any
 
 from backend.core.schemas import EntryActionCard, EntryActionField
-from backend.services.route_deck.models import (
+from routedeck_core import (
     RouteDeckActionSpec,
     RouteDeckEdgeSpec,
     RouteDeckFieldSpec,
     RouteDeckManifest,
+    RouteDeckManifestBuilder,
     RouteDeckNodeSpec,
-    RouteDeckSensitivePolicy,
+    route_deck_action,
+    route_deck_edge,
+    route_deck_field,
+    route_deck_node,
+    validate_manifest,
 )
-from routedeck_core import validate_manifest
 
 APP_GRAPH_VERSION = "app_graph_routedeck_v1"
 
@@ -248,7 +252,7 @@ ACTION_TARGETS = {
 
 
 def _field(**kwargs: Any) -> RouteDeckFieldSpec:
-    return RouteDeckFieldSpec(**kwargs)
+    return route_deck_field(**kwargs)
 
 
 def _node(
@@ -270,14 +274,16 @@ def _node(
     cancel_target_node: str | None = None,
     dirty_policy: str = "none",
 ) -> RouteDeckNodeSpec:
-    return RouteDeckNodeSpec(
-        id=node_id,
-        label=label,
+    return route_deck_node(
+        node_id,
+        label,
         lane=lane,
         description=description,
-        allowed_actions=actions,
+        actions=actions,
         expected_input=expected_input,
-        recovery_prompt=recovery,
+        recovery=recovery,
+        allowed_surfaces=allowed_surfaces or {"main": [node_id, "compact"], "active": [node_id]},
+        default_surfaces=default_surfaces or {"main": node_id, "active": node_id},
         parent=parent,
         node_kind=node_kind,
         capability_id=capability_id,
@@ -285,8 +291,6 @@ def _node(
         show_in_capability_rail=show_in_capability_rail,
         cancel_target_node=cancel_target_node,
         dirty_policy=dirty_policy,
-        allowed_surfaces=allowed_surfaces or {"main": [node_id, "compact"], "active": [node_id]},
-        default_surfaces=default_surfaces or {"main": node_id, "active": node_id},
     )
 
 
@@ -303,9 +307,9 @@ def _action(
     allowed_nodes: list[str] | None = None,
     placement: str = "next_best",
 ) -> RouteDeckActionSpec:
-    return RouteDeckActionSpec(
-        id=action_id,
-        label=label,
+    return route_deck_action(
+        action_id,
+        label,
         description=description,
         kind=kind,
         category=category,
@@ -441,7 +445,7 @@ ACTION_SPECS = [
     ),
     _action(AppActionIds.INSTRUCTIONS_OPEN, "Instructions", category="setup", allowed_nodes=["*"]),
     _action(AppActionIds.INSTRUCTIONS_SAVE, "Save instructions", category="setup", kind="form", emphasis="primary", fields=[_field(key="system_prompt", label="System prompt", field_type="textarea"), _field(key="instructions", label="Operating instructions", field_type="textarea")], allowed_nodes=[AppNodeIds.INSTRUCTIONS]),
-    _action(AppActionIds.CONNECTION_CONFIGURE, "Configure connection", category="setup", allowed_nodes=["*"]),
+    _action(AppActionIds.CONNECTION_CONFIGURE, "Connect API", description="Open the secure API connection form for base URL, OpenAPI schema, and credentials.", category="setup", allowed_nodes=["*"]),
     _action(AppActionIds.CONNECTION_PREVIEW, "Preview schema", category="setup", kind="form", fields=[_field(key="spec_url", label="OpenAPI URL", field_type="url", placeholder="https://api.example.com/openapi.json"), _field(key="raw_spec", label="Paste OpenAPI schema", field_type="textarea", placeholder="Paste OpenAPI JSON or YAML when the schema is not publicly hosted.")], allowed_nodes=[AppNodeIds.CONNECTION_CONFIGURE]),
     _action(AppActionIds.CONNECTION_ACTIVATE, "Save and activate API", category="setup", kind="form", emphasis="primary", fields=[_field(key="name", label="Connection name", required=True, placeholder="Production API"), _field(key="base_url", label="Base URL", field_type="url", required=True, placeholder="https://api.example.com"), _field(key="spec_url", label="OpenAPI URL", field_type="url", placeholder="https://api.example.com/openapi.json"), _field(key="raw_spec", label="Paste OpenAPI schema", field_type="textarea", placeholder="Paste OpenAPI JSON or YAML when the schema is not publicly hosted."), _field(key="auth_type", label="Auth type", field_type="select", required=True, default="none", options=[{"value": "none", "label": "No auth"}, {"value": "bearer", "label": "Bearer token"}, {"value": "api_key_header", "label": "API key header"}, {"value": "api_key_query", "label": "API key query param"}, {"value": "basic", "label": "Basic auth"}, {"value": "custom_header", "label": "Custom header"}]), _field(key="credential_value", label="Credential", field_type="password", sensitive=True), _field(key="header_name", label="Header name", placeholder="X-API-Key"), _field(key="query_param_name", label="Query param name", placeholder="api_key")], allowed_nodes=[AppNodeIds.CONNECTION_CONFIGURE, AppNodeIds.SCHEMA_PREVIEW]),
     _action(AppActionIds.CATALOG_OPEN, "Catalog", category="setup", allowed_nodes=["*"]),
@@ -457,7 +461,7 @@ ACTION_SPECS = [
     _action(AppActionIds.KNOWLEDGE_GENERATE, "Generate catalog RAG", category="learning", allowed_nodes=[AppNodeIds.KNOWLEDGE]),
     _action(AppActionIds.MEMORY_OPEN, "Memory", category="learning", allowed_nodes=["*"]),
     _action(AppActionIds.MEMORY_SAVE, "Save memory", category="learning", kind="form", fields=[_field(key="content", label="Memory", required=True), _field(key="category", label="Category", field_type="select", default="fact", options=[{"value": "fact", "label": "Fact"}, {"value": "preference", "label": "Preference"}, {"value": "instruction", "label": "Instruction"}])], allowed_nodes=[AppNodeIds.MEMORY]),
-    _action(AppActionIds.LEARNING_OPEN, "Learning", category="learning", allowed_nodes=["*"]),
+    _action(AppActionIds.LEARNING_OPEN, "Learning", description="Open Sandbox Learning for policy gaps, failed executions, active policies, and rejected candidates.", category="learning", allowed_nodes=["*"]),
     _action(AppActionIds.LEARNING_POLICY_CANDIDATE_OPEN, "Review policy candidate", category="learning", fields=[_field(key="candidate_id", label="Candidate ID", required=True)], invocation_kind="entity_selector", allowed_nodes=[AppNodeIds.LEARNING]),
     _action(AppActionIds.LEARNING_EXECUTION_TRACE_OPEN, "Review execution trace", category="learning", fields=[_field(key="trace_id", label="Trace ID", required=True)], invocation_kind="entity_selector", allowed_nodes=[AppNodeIds.LEARNING]),
     _action(AppActionIds.LEARNING_ACTIVE_POLICY_OPEN, "Review active policy", category="learning", fields=[_field(key="candidate_id", label="Candidate ID", required=True)], invocation_kind="entity_selector", allowed_nodes=[AppNodeIds.LEARNING]),
@@ -475,7 +479,7 @@ ACTION_SPECS = [
 
 
 def _edge(from_node: str, to_node: str, action_id: str | None = None, edge_type: str | None = None) -> RouteDeckEdgeSpec:
-    return RouteDeckEdgeSpec(from_stage=from_node, to_stage=to_node, edge_type=edge_type or ("action" if action_id else "runtime"), action_id=action_id)
+    return route_deck_edge(from_node, to_node, action_id=action_id, edge_type=edge_type)
 
 
 def _build_edges() -> list[RouteDeckEdgeSpec]:
@@ -521,20 +525,25 @@ def _build_edges() -> list[RouteDeckEdgeSpec]:
 
 
 def build_app_graph_manifest() -> RouteDeckManifest:
-    return RouteDeckManifest(
-        version=APP_GRAPH_VERSION,
-        nodes=NODE_SPECS,
-        edges=_build_edges(),
-        actions=ACTION_SPECS,
-        policies={
-            "sensitive": RouteDeckSensitivePolicy(masked_payload_keys=["credential_value", "password", "token", "api_key"], chat_secret_fields=["credential_value", "password"], url_or_modal_only_fields=["credential_value"], note="RouteDeck masks connection credentials. Graph text turns must not echo secrets.").model_dump(),
-            "navigation": {"source_of_truth": "backend_app_graph", "no_frontend_workflow_authority": True},
-        },
-        test_paths=[
-            {"id": "home_to_agent_connection", "nodes": [AppNodeIds.HOME, AppNodeIds.AGENT_HOME, AppNodeIds.CONNECTION_CONFIGURE]},
-            {"id": "connection_to_execution", "nodes": [AppNodeIds.CONNECTION_CONFIGURE, AppNodeIds.SCHEMA_PREVIEW, AppNodeIds.CATALOG, AppNodeIds.EXECUTION_PLANNING]},
-            {"id": "approval_path", "nodes": [AppNodeIds.EXECUTION_PLANNING, AppNodeIds.APPROVAL_REQUIRED, AppNodeIds.RESULT_REVIEW]},
-        ],
+    return (
+        RouteDeckManifestBuilder(APP_GRAPH_VERSION)
+        .add_nodes(NODE_SPECS)
+        .add_edges(_build_edges())
+        .add_actions(ACTION_SPECS)
+        .sensitive_policy(
+            masked_payload_keys=["credential_value", "password", "token", "api_key"],
+            chat_secret_fields=["credential_value", "password"],
+            url_or_modal_only_fields=["credential_value"],
+            note="RouteDeck masks connection credentials. Graph text turns must not echo secrets.",
+        )
+        .policy("navigation", {"source_of_truth": "backend_app_graph", "no_frontend_workflow_authority": True})
+        .test_path("home_to_agent_connection", [AppNodeIds.HOME, AppNodeIds.AGENT_HOME, AppNodeIds.CONNECTION_CONFIGURE])
+        .test_path(
+            "connection_to_execution",
+            [AppNodeIds.CONNECTION_CONFIGURE, AppNodeIds.SCHEMA_PREVIEW, AppNodeIds.CATALOG, AppNodeIds.EXECUTION_PLANNING],
+        )
+        .test_path("approval_path", [AppNodeIds.EXECUTION_PLANNING, AppNodeIds.APPROVAL_REQUIRED, AppNodeIds.RESULT_REVIEW])
+        .build()
     )
 
 

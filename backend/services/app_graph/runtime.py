@@ -7,25 +7,10 @@ from typing import Any, AsyncIterator, Mapping
 from urllib.parse import urlencode
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
-from backend.core.credentials import encrypt_value
-from backend.core.models import (
-    ActionNode,
-    AgentExecutionTrace,
-    AuthType,
-    Connection,
-    ConnectionActivationState,
-    ConnectionType,
-    EncryptedCredential,
-    GeneratedTool,
-    SaaSAgent,
-    SaaSAgentMember,
-    SaaSAgentRole,
-    User,
-)
+from backend.core.models import User
 from backend.core.schemas import (
     AppGraphContextLens,
     AppGraphNavigationLocation,
@@ -41,20 +26,9 @@ from backend.core.schemas import (
     EntryUIArtifact,
     SaaSAgentRead,
 )
-from backend.core.tenancy import create_tenant_schema
-from backend.services.agent.learning_service import learning_service
-from backend.services.agent.memory_service import memory_service
-from backend.services.agent.rag_service import rag_service
-from backend.services.agent.rest_operator import (
-    _candidate_from_trace,
-    _candidate_summary_rows,
-    _preview_body,
-    _risk_value,
-    create_execution_trace,
-    execute_rest_tool,
-    finalize_execution_trace,
-    find_tool_candidates,
-)
+from backend.services.app_graph.corpus_context import CorpusContextQueries
+from backend.services.app_graph.corpus_handlers import CorpusActionContext, build_corpus_action_dispatcher
+from backend.services.app_graph.corpus_operation_requests import CorpusOperationRequests
 from backend.services.app_graph.manifest import (
     ACTION_SPECS,
     ACTION_TARGETS,
@@ -64,18 +38,16 @@ from backend.services.app_graph.manifest import (
     build_app_graph_manifest,
     route_action_to_card,
 )
+from backend.services.app_graph.corpus_routedeck_navigation import CorpusRouteDeckNavigation
 from backend.services.app_graph.corpus_operations import CorpusOperationPolicy
 from backend.services.app_graph.corpus_routedeck_state import CorpusRouteDeckStateProjector
 from backend.services.app_graph.corpus_surfaces import CorpusSurfaceRegistry
 from backend.services.app_graph.corpus_turn_planning import (
     build_corpus_turn_planning_context,
     normalize_corpus_turn_plan,
+    resolve_explicit_navigation_turn,
 )
-from backend.services.catalog import SaaSAgent_catalog, preview_openapi_spec
-from backend.services.deployed_agents import get_or_create_deployment
-from backend.services.discovery.activation import ActivationService
-from backend.services.toolrouter import latest_ready_index, router_index_stats
-from routedeck_core import RouteDeckOperation, RouteDeckSurface, build_runtime_snapshot
+from routedeck_core import RouteDeckActionDispatcher, RouteDeckOperation, RouteDeckSurface, build_runtime_snapshot
 
 
 CORPUS_TURN_ROUTER_PROMPT = """You are Corpus, the central SaaStoAgent platform graph agent.
@@ -119,33 +91,15 @@ typed operation separately. Do not ask the user for extra confirmation to open
 or switch a work surface. Do not claim that a workspace surface is being opened
 unless the router has already selected a typed operation or surface intent."""
 
-NAV_PARAM_PENDING_OPERATION_ID = "__pending_operation_id"
-NAV_PARAM_PENDING_OPERATION_ARGS = "__pending_operation_args"
-NAV_PARAM_SAAS_AGENT_ID = "saas_agent_id"
-DEPLOYMENT_VISITOR_AUTH_MODES = {"inherit_from_connection", "anonymous", "login_required"}
-DEPLOYMENT_EXECUTION_MODES = {"sandbox", "live"}
-DEPLOYMENT_WRITE_POLICIES = {"confirm", "owner_approval", "block"}
-
-
-def _coerce_bool_payload(value: Any, *, default: bool, field: str) -> bool:
-    if value is None or value == "":
-        return default
-    if isinstance(value, bool):
-        return value
-    normalized = str(value).strip().lower()
-    if normalized in {"true", "1", "yes", "on"}:
-        return True
-    if normalized in {"false", "0", "no", "off"}:
-        return False
-    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{field} must be a boolean")
-
-
-def _coerce_choice_payload(value: Any, *, default: str, field: str, allowed: set[str]) -> str:
-    normalized = str(value if value not in (None, "") else default).strip()
-    if normalized not in allowed:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{field} is invalid")
-    return normalized
-
+CORPUS_OPERATION_STREAM_PROMPT = """You are Corpus, the central SaaStoAgent platform agent.
+Write the assistant-facing reply after a typed Corpus operation has already committed or staged.
+The operation_context is the source of truth. Preserve exact names, ids, statuses, and surface labels.
+Do not invent hidden state, pending approvals, deployments, or external API results.
+Use operation_context.effect_summary as the primary factual summary of what happened.
+Do not say you will open, save, stage, or switch something if operation_context says it already happened.
+Opening or activating a Register or Sign in surface never means the account was created or the user signed in. It only means the form is ready.
+Do not mention internal component names, route ids, node ids, operation ids, surface ids, or JSON fields unless the user explicitly asks for technical diagnostics.
+Be brief and conversational, and tell the user what is now available when a surface is active."""
 
 class CorpusGraphRuntime:
     def __init__(self) -> None:
@@ -155,6 +109,19 @@ class CorpusGraphRuntime:
         self._presentation_state_by_key: dict[str, dict[str, Any]] = {}
         self._operation_policy = CorpusOperationPolicy()
         self._surface_registry = CorpusSurfaceRegistry()
+        self._navigation = CorpusRouteDeckNavigation(
+            surface_registry=self._surface_registry,
+            node_by_id=self._node_by_id,
+        )
+        self._operation_requests = CorpusOperationRequests(
+            navigation=self._navigation,
+            surface_registry=self._surface_registry,
+        )
+        self._context_queries = CorpusContextQueries(node_by_id=self._node_by_id)
+        self._action_dispatcher: RouteDeckActionDispatcher[AppGraphState, EntryGraphMessage, CorpusActionContext] = build_corpus_action_dispatcher(
+            navigation=self._navigation,
+            action_targets=ACTION_TARGETS,
+        )
         self._route_deck_projector = CorpusRouteDeckStateProjector(
             manifest=self.manifest,
             node_by_id=self._node_by_id,
@@ -304,13 +271,11 @@ class CorpusGraphRuntime:
         operation = next((candidate for candidate in projection.legal_operations if candidate.id == operation_id), None)
         if operation is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Operation is not legal from the current graph state")
-        validated_args = await self._validated_operation_payload(
+        validated_args = self._operation_requests.validated_payload(
             state=turn_state,
             operation=operation,
             args=args,
             projection=projection,
-            user=user,
-            db=db,
         )
         if (
             operation.execution_mode != "auto"
@@ -365,23 +330,11 @@ class CorpusGraphRuntime:
         db: AsyncSession,
         projection_version: int,
     ) -> CorpusActionResponse:
-        review_state = state.model_copy(deep=True)
-        current_location = self._current_location(review_state)
-        review_params = dict(current_location.params)
-        review_params[NAV_PARAM_PENDING_OPERATION_ID] = operation.id
-        if args:
-            review_params[NAV_PARAM_PENDING_OPERATION_ARGS] = dict(args)
-        else:
-            review_params.pop(NAV_PARAM_PENDING_OPERATION_ARGS, None)
-        review_location = AppGraphNavigationLocation(
-            node_id=review_state.node,
-            surface_id=self._surface_registry.operation_review_surface_id(operation.id),
-            params=review_params,
+        review_state = self._operation_requests.review_state_for_operation(
+            state=state,
+            operation=operation,
+            args=args,
         )
-        self._apply_location(review_state, review_location)
-        self._push_navigation(review_state, current_location)
-        if review_state.node not in review_state.executed_nodes:
-            review_state.executed_nodes.append(review_state.node)
         review_projection = await self.route_deck_projection(
             request=AppGraphRequest(
                 state=review_state,
@@ -400,162 +353,6 @@ class CorpusGraphRuntime:
             messages=[],
             replace_path=self._path_for_state(review_state),
         )
-
-    async def _validated_operation_payload(
-        self,
-        *,
-        state: AppGraphState,
-        operation: RouteDeckOperation,
-        args: dict[str, Any] | None,
-        projection,
-        user: User | None,
-        db: AsyncSession,
-    ) -> dict[str, Any]:
-        if operation.id == AppActionIds.ROUTE_OPEN_NODE:
-            return await self._validated_route_open_node_args(
-                state=state,
-                projection=projection,
-                args=args,
-                user=user,
-                db=db,
-            )
-        if operation.id == AppActionIds.ROUTE_SWITCH_SURFACE:
-            return await self._validated_route_switch_surface_args(
-                state=state,
-                projection=projection,
-                args=args,
-                user=user,
-                db=db,
-            )
-        if operation.id in {AppActionIds.ROUTE_BACK, AppActionIds.ROUTE_FORWARD, AppActionIds.ROUTE_CANCEL}:
-            return {}
-        return self._sanitize_operation_args(operation, args)
-
-    def _sanitize_operation_args(
-        self,
-        operation: RouteDeckOperation,
-        args: dict[str, Any] | None,
-    ) -> dict[str, Any]:
-        if not isinstance(args, dict):
-            return {}
-        input_schema = operation.input_schema if isinstance(operation.input_schema, dict) else {}
-        fields = input_schema.get("fields")
-        if not isinstance(fields, list):
-            return {}
-        accepted_keys = [
-            field.get("key")
-            for field in fields
-            if isinstance(field, dict) and isinstance(field.get("key"), str)
-        ]
-        return {
-            key: args[key]
-            for key in accepted_keys
-            if isinstance(key, str) and key in args
-        }
-
-    async def _validated_route_open_node_args(
-        self,
-        *,
-        state: AppGraphState,
-        projection,
-        args: dict[str, Any] | None,
-        user: User | None,
-        db: AsyncSession,
-    ) -> dict[str, Any]:
-        payload = args if isinstance(args, dict) else {}
-        node_id = payload.get("node_id")
-        if not isinstance(node_id, str) or not node_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="route.open_node requires a legal node_id")
-
-        allowed_node_ids = self._legal_target_node_ids_from_projection(projection, state)
-        if node_id not in allowed_node_ids:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="route.open_node target is not legal from the current graph state")
-
-        normalized: dict[str, Any] = {"node_id": node_id}
-        current_location = self._current_location(state)
-        known_location = self._known_navigation_location(state, node_id)
-        surface_id = payload.get("surface_id")
-
-        if node_id == current_location.node_id:
-            normalized["params"] = dict(current_location.params)
-            if surface_id is None:
-                return normalized
-            if not isinstance(surface_id, str) or surface_id not in self._active_surface_ids(projection):
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="route.open_node surface_id is not legal on the current node")
-            normalized["surface_id"] = surface_id
-            return normalized
-
-        normalized["params"] = dict(known_location.params) if known_location else {}
-        if surface_id is None:
-            if known_location and known_location.surface_id:
-                normalized["surface_id"] = known_location.surface_id
-            return normalized
-
-        if not isinstance(surface_id, str):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="route.open_node surface_id must be a string")
-        expected_surface_id = known_location.surface_id if known_location else self._surface_registry.default_surface_id(
-            AppGraphState(
-                node=node_id,
-                active_saas_agent_id=state.active_saas_agent_id,
-            )
-        )
-        if not expected_surface_id or surface_id != expected_surface_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="route.open_node surface_id is not legal for the requested node")
-        normalized["surface_id"] = surface_id
-        return normalized
-
-    async def _validated_route_switch_surface_args(
-        self,
-        *,
-        state: AppGraphState,
-        projection,
-        args: dict[str, Any] | None,
-        user: User | None,
-        db: AsyncSession,
-    ) -> dict[str, Any]:
-        payload = args if isinstance(args, dict) else {}
-        surface_id = payload.get("surface_id")
-        if not isinstance(surface_id, str) or surface_id not in self._active_surface_ids(projection):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="route.switch_surface requires a projected active surface_id")
-        node_id = payload.get("node_id")
-        if node_id is not None and node_id != state.node:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="route.switch_surface must stay on the current node")
-        return {
-            "node_id": state.node,
-            "surface_id": surface_id,
-            "params": dict(self._current_location(state).params),
-        }
-
-    def _active_surface_ids(self, projection) -> set[str]:
-        return {
-            surface.surface_id
-            for surface in projection.surfaces.values()
-            if surface.role == "active" and isinstance(surface.surface_id, str)
-        }
-
-    def _legal_target_node_ids_from_projection(self, projection, state: AppGraphState) -> set[str]:
-        node_ids = {state.node}
-        node_ids.update(
-            operation.target_node
-            for operation in projection.legal_operations
-            if isinstance(operation.target_node, str) and operation.target_node
-        )
-        node_ids.update(location.node_id for location in state.navigation_back_stack if location.node_id)
-        node_ids.update(location.node_id for location in state.navigation_forward_stack if location.node_id)
-        return node_ids
-
-    def _known_navigation_location(
-        self,
-        state: AppGraphState,
-        node_id: str,
-    ) -> AppGraphNavigationLocation | None:
-        for location in reversed(state.navigation_back_stack):
-            if location.node_id == node_id:
-                return location
-        for location in state.navigation_forward_stack:
-            if location.node_id == node_id:
-                return location
-        return None
 
     async def stream_corpus_turn(
         self,
@@ -609,6 +406,11 @@ class CorpusGraphRuntime:
             }
             return
         decision = normalize_corpus_turn_plan(decision, planning_context=planning_context)
+        decision = resolve_explicit_navigation_turn(
+            decision,
+            user_input=request.user_input or "",
+            planning_context=planning_context,
+        )
         surface_intent = decision.get("surface_intent")
         surface_navigation_id = self._surface_navigation_id(surface_intent)
         surface_variant_intent = self._surface_variant_intent(surface_intent)
@@ -646,6 +448,15 @@ class CorpusGraphRuntime:
                     "replace_path": response.replace_path,
                 },
             }
+            async for event in self._stream_operation_reply_events(
+                api_key=api_key,
+                user_input=request.user_input or "",
+                decision_message=str(decision.get("message") or ""),
+                response=response,
+                operation_id=AppActionIds.ROUTE_SWITCH_SURFACE,
+                projection_version=response.projection.projection_version,
+            ):
+                yield event
             yield {"event_type": "corpus_done", "projection_version": response.projection.projection_version, "payload": {"status": "committed"}}
             return
         intent = self._turn_plan_intent(decision)
@@ -726,6 +537,15 @@ class CorpusGraphRuntime:
             },
         }
         done_status = "committed" if operation.execution_mode == "auto" or turn_state.pending_operation_id == operation.id else "review"
+        async for event in self._stream_operation_reply_events(
+            api_key=api_key,
+            user_input=request.user_input or "",
+            decision_message=message,
+            response=response,
+            operation_id=operation.id,
+            projection_version=response.projection.projection_version,
+        ):
+            yield event
         yield {"event_type": "corpus_done", "projection_version": response.projection.projection_version, "payload": {"status": done_status}}
 
     async def action(self, *, request: AppGraphRequest, user: User | None, db: AsyncSession) -> AppGraphResponse:
@@ -745,13 +565,15 @@ class CorpusGraphRuntime:
                 messages=[EntryGraphMessage(content="That action is not available from here.")],
                 evidence=[{"type": "blocked_action", "action_id": action_id, "valid_actions": sorted(valid_ids)}],
             )
-        handler = getattr(self, f"_handle_{action_id.replace('.', '_')}", None)
-        if handler is None:
-            state.node = ACTION_TARGETS[action_id]
-            messages: list[EntryGraphMessage] = []
-            evidence: list[dict[str, Any]] = []
-        else:
-            state, messages, evidence = await handler(state, payload, user, db)
+        result = await self._action_dispatcher.dispatch(
+            action_id,
+            state=state,
+            payload=payload,
+            context=CorpusActionContext(user=user, db=db, queries=self._context_queries),
+        )
+        state = result.state
+        messages = result.messages
+        evidence = result.evidence
         if not action_id.startswith("route."):
             self._clear_pending_operation(state)
             if state.node != previous_location.node_id and state.active_surface_id == previous_location.surface_id:
@@ -797,27 +619,19 @@ class CorpusGraphRuntime:
         return node_id
 
     def _resolved_surface_id(self, state: AppGraphState) -> str | None:
-        review_surface_id = self._surface_registry.operation_id_from_surface_id(state.active_surface_id)
-        if review_surface_id and state.pending_operation_id != review_surface_id:
-            return self._surface_registry.default_surface_id(state)
-        return state.active_surface_id or self._surface_registry.default_surface_id(state)
+        return self._navigation.resolved_surface_id(state)
 
     def _history_params_for_state(self, state: AppGraphState) -> dict[str, Any]:
-        params = dict(state.route_params or {})
-        if state.active_saas_agent_id:
-            params[NAV_PARAM_SAAS_AGENT_ID] = str(state.active_saas_agent_id)
-        if state.pending_operation_id:
-            params[NAV_PARAM_PENDING_OPERATION_ID] = state.pending_operation_id
-        if state.pending_operation_args:
-            params[NAV_PARAM_PENDING_OPERATION_ARGS] = dict(state.pending_operation_args)
-        return params
+        return self._navigation.history_params_for_state(state)
 
     def _current_location(self, state: AppGraphState) -> AppGraphNavigationLocation:
-        return AppGraphNavigationLocation(
-            node_id=state.node,
-            surface_id=self._resolved_surface_id(state),
-            params=self._history_params_for_state(state),
-        )
+        return self._navigation.current_location(state)
+
+    def _app_location_from_route_deck(self, location) -> AppGraphNavigationLocation:
+        return self._navigation.app_location_from_route_deck(location)
+
+    def _app_locations_from_route_deck(self, locations) -> list[AppGraphNavigationLocation]:
+        return self._navigation.app_locations_from_route_deck(locations)
 
     def _clear_pending_operation(self, state: AppGraphState) -> None:
         state.pending_operation_id = None
@@ -830,54 +644,20 @@ class CorpusGraphRuntime:
         *,
         preserve_current_params: bool = False,
     ) -> AppGraphNavigationLocation:
-        current = self._current_location(state)
-        params = payload.get("params")
-        next_params = dict(current.params if preserve_current_params else {})
-        if isinstance(params, dict):
-            next_params = dict(params)
-        return AppGraphNavigationLocation(
-            node_id=str(payload.get("node_id") or current.node_id),
-            surface_id=str(payload["surface_id"]) if payload.get("surface_id") is not None else current.surface_id,
-            params=next_params,
+        return self._navigation.location_from_payload(
+            state,
+            payload,
+            preserve_current_params=preserve_current_params,
         )
 
     def _apply_location(self, state: AppGraphState, location: AppGraphNavigationLocation) -> None:
-        params = dict(location.params or {})
-        pending_operation_id = params.pop(NAV_PARAM_PENDING_OPERATION_ID, None)
-        pending_operation_args = params.pop(NAV_PARAM_PENDING_OPERATION_ARGS, {})
-        raw_saas_agent_id = params.pop(NAV_PARAM_SAAS_AGENT_ID, None)
-
-        state.node = location.node_id
-        state.route_params = params
-        state.pending_operation_id = str(pending_operation_id) if pending_operation_id else None
-        state.pending_operation_args = pending_operation_args if isinstance(pending_operation_args, dict) else {}
-        state.active_surface_id = location.surface_id or self._surface_registry.default_surface_id(state)
-        if raw_saas_agent_id:
-            try:
-                state.active_saas_agent_id = uuid.UUID(str(raw_saas_agent_id))
-            except (ValueError, TypeError):
-                pass
+        self._navigation.apply_location(state, location)
 
     def _push_navigation(self, state: AppGraphState, previous: AppGraphNavigationLocation) -> None:
-        current = self._current_location(state)
-        if current == previous:
-            return
-        state.navigation_back_stack.append(previous)
-        state.navigation_forward_stack = []
+        self._navigation.push_navigation(state, previous)
 
     def _cancel_target_location(self, state: AppGraphState) -> AppGraphNavigationLocation | None:
-        node = self._node_by_id.get(state.node)
-        cancel_target_node = getattr(node, "cancel_target_node", None) if node else None
-        if cancel_target_node:
-            params: dict[str, Any] = {}
-            if state.active_saas_agent_id:
-                params[NAV_PARAM_SAAS_AGENT_ID] = str(state.active_saas_agent_id)
-            return AppGraphNavigationLocation(
-                node_id=cancel_target_node,
-                surface_id=self._surface_registry.default_surface_id(AppGraphState(node=cancel_target_node)),
-                params=params,
-            )
-        return state.navigation_back_stack[-1] if state.navigation_back_stack else None
+        return self._navigation.cancel_target_location(state)
 
     def _route_actions(self, state: AppGraphState) -> list[Any]:
         route_actions: list[Any] = [
@@ -893,12 +673,7 @@ class CorpusGraphRuntime:
         return route_actions
 
     def _active_surface_from_projection(self, projection) -> RouteDeckSurface | None:
-        current_surface_id = projection.navigation.current.get("surface_id") if isinstance(projection.navigation.current, dict) else getattr(projection.navigation.current, "surface_id", None)
-        if current_surface_id:
-            for surface in projection.surfaces.values():
-                if surface.surface_id == current_surface_id:
-                    return surface
-        return next((surface for surface in projection.surfaces.values() if surface.role == "active"), None)
+        return self._navigation.active_surface_from_projection(projection)
 
     async def _valid_actions(self, state: AppGraphState, user: User | None, db: AsyncSession):
         node = self._node_by_id.get(state.node) or self._node_by_id[AppNodeIds.HOME]
@@ -1024,6 +799,67 @@ class CorpusGraphRuntime:
             async for event in self._message_delta_events(projection_version=projection_version, text=fallback_message):
                 yield event
 
+    async def _stream_operation_reply_events(
+        self,
+        *,
+        api_key: str,
+        user_input: str,
+        decision_message: str,
+        response: CorpusActionResponse,
+        operation_id: str,
+        projection_version: int,
+    ) -> AsyncIterator[dict[str, Any]]:
+        operation_context = self._operation_stream_context(
+            response=response,
+            operation_id=operation_id,
+        )
+        try:
+            async for delta in self._stream_corpus_operation_message(
+                api_key=api_key,
+                user_input=user_input,
+                decision_message=decision_message,
+                operation_context=operation_context,
+            ):
+                if not delta:
+                    continue
+                yield {"event_type": "message_delta", "projection_version": projection_version, "payload": {"delta": delta}}
+        except Exception as exc:
+            yield {
+                "event_type": "corpus_error",
+                "projection_version": projection_version,
+                "payload": {"message": "Corpus completed the operation but could not stream the model reply.", "error": exc.__class__.__name__},
+            }
+
+    def _operation_stream_context(
+        self,
+        *,
+        response: CorpusActionResponse,
+        operation_id: str,
+    ) -> dict[str, Any]:
+        active_surface = response.active_surface
+        return {
+            "operation_id": operation_id,
+            "effect_summary": self._operation_effect_summary(response),
+            "state": {
+                "has_selected_saas_agent": bool(response.state.active_saas_agent_id),
+                "has_pending_review_operation": bool(response.state.pending_operation_id),
+            },
+            "active_surface": {
+                "label": active_surface.label or active_surface.name,
+                "description": getattr(active_surface, "description", None),
+            } if active_surface else None,
+            "messages": [message.model_dump(mode="json") for message in response.messages],
+        }
+
+    def _operation_effect_summary(self, response: CorpusActionResponse) -> str:
+        messages = [message.content.strip() for message in response.messages if message.content.strip()]
+        if messages:
+            return " ".join(messages)
+        if response.active_surface:
+            label = response.active_surface.label or response.active_surface.name
+            return f"The {label} surface is active. No form has been submitted by this operation."
+        return "The workspace state was updated."
+
     def _message_text_chunks(self, text: str, *, target_size: int = 18) -> list[str]:
         if not text:
             return []
@@ -1086,6 +922,47 @@ class CorpusGraphRuntime:
             messages=[
                 {"role": "system", "content": CORPUS_STREAM_PROMPT},
                 {"role": "user", "content": json.dumps({"user_input": user_input, "planning_context": planning_context})},
+            ],
+            stream=True,
+            **_openai_latency_options(),
+        )
+        async for chunk in stream:
+            content = chunk.choices[0].delta.content if chunk.choices else None
+            if content:
+                yield content
+
+    async def _stream_corpus_operation_message(
+        self,
+        *,
+        api_key: str,
+        user_input: str,
+        decision_message: str,
+        operation_context: dict[str, Any],
+    ) -> AsyncIterator[str]:
+        from openai import AsyncOpenAI
+
+        from backend.core.langsmith import wrap_openai_client
+
+        client = wrap_openai_client(AsyncOpenAI(api_key=api_key))
+        model_operation_context = {
+            key: value
+            for key, value in operation_context.items()
+            if key != "operation_id"
+        }
+        stream = await client.chat.completions.create(
+            model=settings.default_model,
+            messages=[
+                {"role": "system", "content": CORPUS_OPERATION_STREAM_PROMPT},
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "user_input": user_input,
+                            "decision_message": decision_message,
+                            "operation_context": model_operation_context,
+                        }
+                    ),
+                },
             ],
             stream=True,
             **_openai_latency_options(),
@@ -1215,471 +1092,16 @@ class CorpusGraphRuntime:
         return f"{path}?{urlencode({'surface_id': surface_id})}"
 
     async def _context_lens(self, state: AppGraphState, user: User | None, db: AsyncSession) -> AppGraphContextLens:
-        selected = await db.get(SaaSAgent, state.active_saas_agent_id) if state.active_saas_agent_id and user else None
-        connection_count = ready_connection_count = action_count = tool_count = 0
-        router_summary = None
-        pending_status = None
-        if selected is not None:
-            connection_count = int((await db.execute(select(func.count(Connection.id)).where(Connection.saas_agent_id == selected.id))).scalar_one() or 0)
-            ready_connection_count = int((await db.execute(select(func.count(ConnectionActivationState.connection_id)).where(ConnectionActivationState.saas_agent_id == selected.id, ConnectionActivationState.overall_status == "ready"))).scalar_one() or 0)
-            action_count = int((await db.execute(select(func.count(ActionNode.id)).where(ActionNode.saas_agent_id == selected.id))).scalar_one() or 0)
-            tool_count = int((await db.execute(select(func.count(GeneratedTool.id)).where(GeneratedTool.saas_agent_id == selected.id))).scalar_one() or 0)
-            router_summary = router_index_stats(await latest_ready_index(session=db, saas_agent_id=selected.id))
-            if state.pending_trace_id:
-                trace = await db.get(AgentExecutionTrace, state.pending_trace_id)
-                pending_status = trace.status if trace else None
-        node = self._node_by_id.get(state.node)
-        return AppGraphContextLens(
-            selected_saas_agent_id=selected.id if selected else None,
-            selected_saas_agent_name=selected.name if selected else None,
-            selected_saas_agent_slug=selected.slug if selected else None,
-            current_node=state.node,
-            working_on=node.label if node else "Recovery",
-            connection_count=connection_count,
-            ready_connection_count=ready_connection_count,
-            action_count=action_count,
-            tool_count=tool_count,
-            router_index_status=router_summary.get("status") if router_summary else None,
-            router_documents_count=int(router_summary.get("document_count", 0)) if router_summary else 0,
-            router_endpoint_count=int(router_summary.get("endpoint_count", 0)) if router_summary else 0,
-            router_version=router_summary.get("router_version") if router_summary else None,
-            pending_trace_id=state.pending_trace_id,
-            pending_trace_status=pending_status,
-        )
+        return await self._context_queries.context_lens(state, user, db)
 
     async def _list_saas_agents(self, user: User | None, db: AsyncSession) -> list[SaaSAgentRead]:
-        if user is None:
-            return []
-        result = await db.execute(select(SaaSAgent, SaaSAgentMember.role).join(SaaSAgentMember, SaaSAgentMember.saas_agent_id == SaaSAgent.id).where(SaaSAgentMember.user_id == user.id).order_by(SaaSAgent.created_at.desc()))
-        return [
-            SaaSAgentRead(
-                id=agent.id,
-                name=agent.name,
-                slug=agent.slug,
-                system_prompt=agent.system_prompt,
-                instructions=agent.instructions,
-                created_by=agent.created_by,
-                created_at=agent.created_at,
-                role=role.value if hasattr(role, "value") else str(role),
-            )
-            for agent, role in result.all()
-        ]
+        return await self._context_queries.list_saas_agents(user, db)
 
-    async def _require_member(self, saas_agent_id: uuid.UUID, user: User, db: AsyncSession) -> SaaSAgentMember:
-        member = (await db.execute(select(SaaSAgentMember).where(SaaSAgentMember.saas_agent_id == saas_agent_id, SaaSAgentMember.user_id == user.id))).scalar_one_or_none()
-        if member is None:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a member of this SaaS Agent")
-        return member
+    async def _require_member(self, saas_agent_id: uuid.UUID, user: User, db: AsyncSession):
+        return await self._context_queries.require_member(saas_agent_id, user, db)
 
-    async def _handle_route_back(self, state, payload, user, db):
-        if not state.navigation_back_stack:
-            return state, [], []
-        current = self._current_location(state)
-        target = state.navigation_back_stack.pop()
-        state.navigation_forward_stack = [current, *state.navigation_forward_stack]
-        self._apply_location(state, target)
-        return state, [], []
-
-    async def _handle_route_forward(self, state, payload, user, db):
-        if not state.navigation_forward_stack:
-            return state, [], []
-        current = self._current_location(state)
-        target = state.navigation_forward_stack.pop(0)
-        state.navigation_back_stack.append(current)
-        self._apply_location(state, target)
-        return state, [], []
-
-    async def _handle_route_cancel(self, state, payload, user, db):
-        target = self._cancel_target_location(state)
-        if target is None:
-            return state, [], []
-        current = self._current_location(state)
-        if state.navigation_back_stack and state.navigation_back_stack[-1] == target:
-            state.navigation_back_stack.pop()
-        state.navigation_forward_stack = [current, *state.navigation_forward_stack]
-        self._apply_location(state, target)
-        return state, [], []
-
-    async def _handle_route_open_node(self, state, payload, user, db):
-        current = self._current_location(state)
-        target = self._location_from_payload(state, payload, preserve_current_params=False)
-        self._apply_location(state, target)
-        self._push_navigation(state, current)
-        return state, [], []
-
-    async def _handle_route_switch_surface(self, state, payload, user, db):
-        current = self._current_location(state)
-        target = self._location_from_payload(state, payload, preserve_current_params=True)
-        if state.pending_operation_id and target.surface_id != self._surface_registry.operation_review_surface_id(state.pending_operation_id):
-            target.params.pop(NAV_PARAM_PENDING_OPERATION_ID, None)
-            target.params.pop(NAV_PARAM_PENDING_OPERATION_ARGS, None)
-        self._apply_location(state, target)
-        self._push_navigation(state, current)
-        return state, [], []
-
-    async def _handle_navigate_home(self, state, payload, user, db):
-        state.node = AppNodeIds.HOME
-        return state, [], []
-
-    async def _handle_recovery_home(self, state, payload, user, db):
-        return await self._handle_navigate_home(state, payload, user, db)
-
-    async def _handle_auth_sign_in(self, state, payload, user, db):
-        state.node = AppNodeIds.AUTH_SIGN_IN
-        return state, [EntryGraphMessage(content="Sign in, and I will keep the current work ready for you.")], []
-
-    async def _handle_auth_register(self, state, payload, user, db):
-        state.node = AppNodeIds.AUTH_REGISTER
-        return state, [EntryGraphMessage(content="Create your account, and I will continue from here.")], []
-
-    async def _handle_saas_agent_open(self, state, payload, user, db):
-        if user is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
-        raw_id = payload.get("saas_agent_id") or state.active_saas_agent_id
-        if not raw_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="saas_agent_id is required")
-        state.active_saas_agent_id = uuid.UUID(str(raw_id))
-        await self._require_member(state.active_saas_agent_id, user, db)
-        state.node = AppNodeIds.AGENT_HOME
-        return state, [EntryGraphMessage(content="I opened that SaaS Agent.")], [{"type": "saas_agent_selected", "saas_agent_id": str(state.active_saas_agent_id)}]
-
-    async def _handle_saas_agent_create(self, state, payload, user, db):
-        if user is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
-        name = str(payload.get("name") or "").strip()
-        slug = str(payload.get("slug") or "").strip()
-        if not name or not slug:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="name and slug are required")
-        if (await db.execute(select(SaaSAgent).where(SaaSAgent.slug == slug))).scalar_one_or_none():
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="SaaS Agent slug already taken")
-        agent = SaaSAgent(id=uuid.uuid4(), name=name, slug=slug, created_by=user.id)
-        db.add(agent)
-        db.add(SaaSAgentMember(user_id=user.id, saas_agent_id=agent.id, role=SaaSAgentRole.owner))
-        await db.commit()
-        await db.refresh(agent)
-        await create_tenant_schema(agent.id)
-        state.active_saas_agent_id = agent.id
-        state.node = AppNodeIds.AGENT_HOME
-        return state, [EntryGraphMessage(content=f"Created {agent.name}. Next we can connect its API.")], [{"type": "saas_agent_created", "saas_agent_id": str(agent.id)}]
-
-    async def _handle_navigate_agent_home(self, state, payload, user, db):
-        state.node = AppNodeIds.AGENT_HOME
-        return state, [], []
-
-    async def _handle_navigate_connection_configure(self, state, payload, user, db):
-        state.node = AppNodeIds.CONNECTION_CONFIGURE
-        return state, [], []
-
-    async def _handle_connection_preview(self, state, payload, user, db):
-        preview = await preview_openapi_spec(spec_url=str(payload.get("spec_url") or ""), raw_spec=payload.get("raw_spec"))
-        state.node = AppNodeIds.SCHEMA_PREVIEW
-        state.graph_context["schema_preview"] = preview.model_dump()
-        return state, [EntryGraphMessage(content=f"Previewed `{preview.title}` with {preview.endpoint_count} endpoints.")], [{"type": "schema_preview", **preview.model_dump()}]
-
-    async def _handle_connection_activate(self, state, payload, user, db):
-        if user is None or not state.active_saas_agent_id:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="SaaS Agent selection required")
-        await self._require_member(state.active_saas_agent_id, user, db)
-        connection_id = payload.get("connection_id")
-        if connection_id:
-            connection = await db.get(Connection, uuid.UUID(str(connection_id)))
-            if connection is None or connection.saas_agent_id != state.active_saas_agent_id:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connection not found")
-        else:
-            auth_type = str(payload.get("auth_type") or "none")
-            connection = Connection(
-                saas_agent_id=state.active_saas_agent_id,
-                name=str(payload.get("name") or "Primary API"),
-                type=ConnectionType.rest_api,
-                provider="rest_api",
-                config={
-                    "base_url": payload.get("base_url"),
-                    "spec_url": payload.get("spec_url"),
-                    "raw_spec": payload.get("raw_spec"),
-                    "auth_type": auth_type,
-                },
-                auth_type=AuthType(auth_type),
-            )
-            db.add(connection)
-            await db.flush()
-            credential_value = str(payload.get("credential_value") or "")
-            if credential_value:
-                db.add(EncryptedCredential(connection_id=connection.id, credential_type="credential_value", encrypted_value=encrypt_value(credential_value), metadata_={key: payload.get(key) for key in ("header_name", "query_param_name") if payload.get(key)}))
-            db.add(ConnectionActivationState(connection_id=connection.id, saas_agent_id=state.active_saas_agent_id))
-            await db.commit()
-            await db.refresh(connection)
-        state.active_connection_id = connection.id
-        state.node = AppNodeIds.CATALOG_ACTIVATION
-        events = []
-        async for event in ActivationService().activate(connection_id=connection.id, saas_agent_id=state.active_saas_agent_id, session=db):
-            events.append(event)
-        state.node = AppNodeIds.CATALOG
-        state.graph_context["activation_events"] = events
-        state.graph_context["router_index"] = _router_index_from_activation_events(events)
-        return state, [EntryGraphMessage(content="The API catalog is activated and ready to inspect.")], [{"type": "activation", "events": events}]
-
-    async def _handle_catalog_open(self, state, payload, user, db):
-        if state.active_saas_agent_id:
-            catalog = await SaaSAgent_catalog(db, state.active_saas_agent_id)
-            state.graph_context["catalog"] = catalog
-            state.graph_context["router_index"] = catalog.get("router_index")
-        state.node = AppNodeIds.CATALOG
-        return state, [], []
-
-    async def _handle_entities_open(self, state, payload, user, db):
-        state.node = AppNodeIds.ENTITIES
-        return state, [], []
-
-    async def _handle_actions_open(self, state, payload, user, db):
-        state.node = AppNodeIds.ACTIONS
-        return state, [], []
-
-    async def _handle_execution_open(self, state, payload, user, db):
-        state.node = AppNodeIds.EXECUTION_PLANNING
-        return state, [], []
-
-    async def _handle_execution_plan(self, state, payload, user, db):
-        if user is None or not state.active_saas_agent_id:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="SaaS Agent selection required")
-        goal = str(payload.get("goal") or "").strip()
-        if not goal:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="goal is required")
-        candidates = await find_tool_candidates(message=goal, saas_agent_id=state.active_saas_agent_id, db=db, limit=5)
-        if not candidates:
-            state.node = AppNodeIds.RESULT_REVIEW
-            return state, [EntryGraphMessage(content="No generated API tool matched that goal.")], [{"type": "execution_candidates", "candidates": []}]
-        top = candidates[0]
-        inputs, missing = self._extract_inputs(goal, top.tool)
-        summary = _candidate_summary_rows(candidates)
-        risk = _risk_value(top.tool.risk_level)
-        if missing:
-            trace = await create_execution_trace(candidate=top, inputs=inputs, missing=missing, candidate_summary=summary, status="needs_input", approval_state="not_required", route_node=AppNodeIds.NEEDS_INPUT, saas_agent_id=state.active_saas_agent_id, session_id=None, user_id=user.id, db=db)
-            state.pending_trace_id = trace.id
-            state.node = AppNodeIds.NEEDS_INPUT
-            return state, [EntryGraphMessage(content=f"`{top.tool.name}` needs more input before execution.")], [{"type": "needs_input", "trace_id": str(trace.id), "missing": missing, "candidates": summary}]
-        if risk != "read" or top.tool.requires_approval:
-            trace = await create_execution_trace(candidate=top, inputs=inputs, missing=[], candidate_summary=summary, status="approval_required", approval_state="pending", route_node=AppNodeIds.APPROVAL_REQUIRED, saas_agent_id=state.active_saas_agent_id, session_id=None, user_id=user.id, db=db)
-            state.pending_trace_id = trace.id
-            state.node = AppNodeIds.APPROVAL_REQUIRED
-            return state, [EntryGraphMessage(content=f"`{top.tool.name}` requires approval before execution.")], [{"type": "approval_required", "trace_id": str(trace.id), "risk": risk, "candidates": summary}]
-        trace = await create_execution_trace(candidate=top, inputs=inputs, missing=[], candidate_summary=summary, status="executing", approval_state="not_required", route_node=AppNodeIds.EXECUTING, saas_agent_id=state.active_saas_agent_id, session_id=None, user_id=user.id, db=db)
-        result = await execute_rest_tool(top, inputs, db)
-        await finalize_execution_trace(trace, result, db)
-        state.pending_trace_id = trace.id
-        state.node = AppNodeIds.RESULT_REVIEW
-        state.graph_context["execution_result"] = result
-        return state, [EntryGraphMessage(content=f"Executed `{top.tool.name}` with status {result.get('status_code')}.")], [{"type": "execution_result", "trace_id": str(trace.id), "result": result, "candidates": summary, "preview": _preview_body(result.get("body"))}]
-
-    async def _handle_approval_approve(self, state, payload, user, db):
-        if user is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
-        trace_id = uuid.UUID(str(payload.get("trace_id") or state.pending_trace_id))
-        trace = await db.get(AgentExecutionTrace, trace_id)
-        if trace is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trace not found")
-        candidate = await _candidate_from_trace(db, trace)
-        if candidate is None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trace candidate no longer exists")
-        trace.status = "executing"
-        trace.approval_state = "approved"
-        trace.approved_by = user.id
-        await db.commit()
-        result = await execute_rest_tool(candidate, trace.inputs or {}, db)
-        await finalize_execution_trace(trace, result, db)
-        state.pending_trace_id = trace.id
-        state.node = AppNodeIds.RESULT_REVIEW
-        state.graph_context["execution_result"] = result
-        return state, [EntryGraphMessage(content=f"Approved and executed `{trace.tool_name}`.")], [{"type": "approval_approved", "trace_id": str(trace.id), "result": result}]
-
-    async def _handle_approval_reject(self, state, payload, user, db):
-        trace_id = uuid.UUID(str(payload.get("trace_id") or state.pending_trace_id))
-        trace = await db.get(AgentExecutionTrace, trace_id)
-        if trace is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trace not found")
-        trace.status = "canceled"
-        trace.approval_state = "rejected"
-        trace.route_node = AppNodeIds.RESULT_REVIEW
-        trace.approved_by = user.id if user else None
-        await db.commit()
-        state.pending_trace_id = trace.id
-        state.node = AppNodeIds.RESULT_REVIEW
-        return state, [EntryGraphMessage(content=f"Rejected execution trace `{str(trace.id)[:8]}`.")], [{"type": "approval_rejected", "trace_id": str(trace.id)}]
-
-    async def _handle_knowledge_open(self, state, payload, user, db):
-        state.node = AppNodeIds.KNOWLEDGE
-        return state, [], []
-
-    async def _handle_instructions_open(self, state, payload, user, db):
-        state.node = AppNodeIds.INSTRUCTIONS
-        return state, [], []
-
-    async def _handle_deployment_save(self, state, payload, user, db):
-        if user is None or not state.active_saas_agent_id:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="SaaS Agent selection required")
-        member = await self._require_member(state.active_saas_agent_id, user, db)
-        if member.role not in (SaaSAgentRole.owner, SaaSAgentRole.admin):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SaaS Agent admin role required")
-
-        deployment = await get_or_create_deployment(saas_agent_id=state.active_saas_agent_id, db=db)
-        deployment.enabled = _coerce_bool_payload(payload.get("enabled"), default=bool(deployment.enabled), field="enabled")
-        deployment.visitor_auth_mode = _coerce_choice_payload(
-            payload.get("visitor_auth_mode"),
-            default=deployment.visitor_auth_mode or "inherit_from_connection",
-            field="visitor_auth_mode",
-            allowed=DEPLOYMENT_VISITOR_AUTH_MODES,
-        )
-        deployment.execution_mode = _coerce_choice_payload(
-            payload.get("execution_mode"),
-            default=deployment.execution_mode or "sandbox",
-            field="execution_mode",
-            allowed=DEPLOYMENT_EXECUTION_MODES,
-        )
-        deployment.default_write_policy = _coerce_choice_payload(
-            payload.get("default_write_policy"),
-            default=deployment.default_write_policy or "confirm",
-            field="default_write_policy",
-            allowed=DEPLOYMENT_WRITE_POLICIES,
-        )
-        welcome_message = str(payload.get("welcome_message") or deployment.welcome_message or "How can I help?").strip()
-        if not welcome_message:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="welcome_message is required")
-        if len(welcome_message) > 2000:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="welcome_message is too long")
-        deployment.welcome_message = welcome_message
-
-        await db.commit()
-        await db.refresh(deployment)
-        state.node = AppNodeIds.AGENT_HOME
-        state.graph_context["deployment"] = {
-            "enabled": deployment.enabled,
-            "visitor_auth_mode": deployment.visitor_auth_mode,
-            "execution_mode": deployment.execution_mode,
-            "default_write_policy": deployment.default_write_policy,
-        }
-        status_text = "published" if deployment.enabled else "disabled"
-        return (
-            state,
-            [EntryGraphMessage(content=f"Deployment settings saved. Public chat is {status_text}.")],
-            [
-                {
-                    "type": "deployment_saved",
-                    "saas_agent_id": str(state.active_saas_agent_id),
-                    "enabled": deployment.enabled,
-                    "visitor_auth_mode": deployment.visitor_auth_mode,
-                }
-            ],
-        )
-
-    async def _handle_instructions_save(self, state, payload, user, db):
-        if user is None or not state.active_saas_agent_id:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="SaaS Agent selection required")
-        member = await self._require_member(state.active_saas_agent_id, user, db)
-        if member.role not in (SaaSAgentRole.owner, SaaSAgentRole.admin):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SaaS Agent admin role required")
-        agent = await db.get(SaaSAgent, state.active_saas_agent_id)
-        if agent is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SaaS Agent not found")
-        agent.system_prompt = str(payload.get("system_prompt") or "").strip() or None
-        agent.instructions = str(payload.get("instructions") or "").strip() or None
-        await db.commit()
-        await db.refresh(agent)
-        state.node = AppNodeIds.INSTRUCTIONS
-        state.dirty_surfaces.pop("instructions", None)
-        state.graph_context["instructions_saved"] = True
-        return (
-            state,
-            [EntryGraphMessage(content="Saved instructions for this SaaS Agent.")],
-            [
-                {
-                    "type": "instructions_saved",
-                    "saas_agent_id": str(agent.id),
-                    "system_prompt": agent.system_prompt,
-                    "instructions": agent.instructions,
-                }
-            ],
-        )
-
-    async def _handle_knowledge_generate(self, state, payload, user, db):
-        if not state.active_saas_agent_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="SaaS Agent selection required")
-        result = await rag_service.ingest_generated_knowledge(saas_agent_id=state.active_saas_agent_id, db=db)
-        state.node = AppNodeIds.KNOWLEDGE
-        return state, [EntryGraphMessage(content=f"Generated catalog RAG: {result['documents']} documents, {result['chunks']} chunks.")], [{"type": "rag_generation", **result}]
-
-    async def _handle_memory_open(self, state, payload, user, db):
-        state.node = AppNodeIds.MEMORY
-        return state, [], []
-
-    async def _handle_memory_save(self, state, payload, user, db):
-        if user is None or not state.active_saas_agent_id:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="SaaS Agent selection required")
-        memory = await memory_service.save(str(payload.get("content") or ""), saas_agent_id=state.active_saas_agent_id, category=str(payload.get("category") or "fact"), user_id=user.id, db=db)
-        state.node = AppNodeIds.MEMORY
-        return state, [EntryGraphMessage(content="Saved that memory for this SaaS Agent.")], [{"type": "memory_saved", "memory_id": str(memory.id)}]
-
-    async def _handle_learning_open(self, state, payload, user, db):
-        state.node = AppNodeIds.LEARNING
-        return state, [], []
-
-    async def _handle_learning_policy_candidate_open(self, state, payload, user, db):
-        candidate_id = str(payload.get("candidate_id") or "").strip()
-        if not candidate_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="candidate_id is required")
-        state.node = AppNodeIds.LEARNING_POLICY_CANDIDATE
-        state.route_params = {"candidate_id": candidate_id}
-        state.active_surface_id = "learning.policy_candidate.review"
-        return state, [], [{"type": "learning_policy_candidate_opened", "candidate_id": candidate_id}]
-
-    async def _handle_learning_execution_trace_open(self, state, payload, user, db):
-        trace_id = str(payload.get("trace_id") or "").strip()
-        if not trace_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="trace_id is required")
-        state.node = AppNodeIds.LEARNING_EXECUTION_TRACE
-        state.route_params = {"trace_id": trace_id}
-        state.active_surface_id = "learning.execution_trace.review"
-        return state, [], [{"type": "learning_execution_trace_opened", "trace_id": trace_id}]
-
-    async def _handle_learning_active_policy_open(self, state, payload, user, db):
-        candidate_id = str(payload.get("candidate_id") or "").strip()
-        if not candidate_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="candidate_id is required")
-        state.node = AppNodeIds.LEARNING_ACTIVE_POLICY
-        state.route_params = {"candidate_id": candidate_id}
-        state.active_surface_id = "learning.active_policy.review"
-        return state, [], [{"type": "learning_active_policy_opened", "candidate_id": candidate_id}]
-
-    async def _handle_learning_approve(self, state, payload, user, db):
-        return await self._review_learning(state, payload, user, db, "approved")
-
-    async def _handle_learning_reject(self, state, payload, user, db):
-        return await self._review_learning(state, payload, user, db, "rejected")
-
-    async def _review_learning(self, state, payload, user, db, review_status: str):
-        if user is None or not state.active_saas_agent_id:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="SaaS Agent selection required")
-        candidate = await learning_service.review(candidate_id=uuid.UUID(str(payload.get("candidate_id"))), saas_agent_id=state.active_saas_agent_id, status=review_status, reviewed_by=user.id, db=db)
-        if candidate is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Learning candidate not found")
-        state.node = AppNodeIds.LEARNING
-        return state, [EntryGraphMessage(content=f"Learning candidate {review_status}.")], [{"type": "learning_reviewed", "candidate_id": str(candidate.id), "status": candidate.status}]
-
-    async def _handle_qa_open(self, state, payload, user, db):
-        state.node = AppNodeIds.QA
-        return state, [], []
-
-    async def _handle_qa_run(self, state, payload, user, db):
-        state.node = AppNodeIds.QA
-        return state, [EntryGraphMessage(content="QA scenarios are ready to validate the current flow and evidence.")], [{"type": "qa_contract", "scenario_basis": ["node_id", "action_id", "evidence"]}]
-
-    def _extract_inputs(self, goal: str, tool: GeneratedTool) -> tuple[dict[str, Any], list[str]]:
-        values: dict[str, Any] = {}
-        for chunk in goal.split():
-            if "=" in chunk:
-                key, value = chunk.split("=", 1)
-                values[key.strip()] = value.strip().strip(",")
-        schema = (tool.function_schema or {}).get("parameters") or {}
-        required = list(schema.get("required") or []) if isinstance(schema, dict) else []
-        return values, [name for name in required if name not in values]
+    def _apply_navigation_transition(self, state: AppGraphState, transition) -> None:
+        self._navigation.apply_transition(state, transition)
 
 
 corpus_graph_runtime = CorpusGraphRuntime()
@@ -1688,17 +1110,3 @@ corpus_graph_runtime = CorpusGraphRuntime()
 def _openai_latency_options() -> dict[str, Any]:
     effort = settings.openai_reasoning_effort.strip()
     return {"reasoning_effort": effort} if effort else {}
-
-
-def _router_index_from_activation_events(events: list[dict[str, Any]]) -> dict[str, Any] | None:
-    for event in reversed(events):
-        if event.get("type") != "step" or event.get("step") != "router_index" or event.get("status") != "done":
-            continue
-        return {
-            "status": event.get("router_index_status") or "ready",
-            "router_version": event.get("router_version"),
-            "document_count": int(event.get("router_documents_count") or 0),
-            "endpoint_count": int(event.get("router_endpoint_count") or 0),
-            "catalog_fingerprint": event.get("catalog_fingerprint"),
-        }
-    return None

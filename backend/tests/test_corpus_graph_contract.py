@@ -6,13 +6,33 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
-from routedeck_core import RouteDeckOperation, RouteDeckSurface, build_projection
+from routedeck_core import RouteDeckActionDispatcher, RouteDeckActionResult, RouteDeckOperation, RouteDeckSurface, build_projection
 
 from backend.core.schemas import AppGraphContextLens, AppGraphNavigationLocation, AppGraphRequest, AppGraphState, EntryGraphMessage
 from backend.services.app_graph import corpus_graph_runtime
 from backend.services.app_graph.manifest import AppActionIds, route_action_to_card
 from backend.services.app_graph.runtime import CorpusGraphRuntime
 from backend.main import app
+
+
+def patch_action_handler(monkeypatch, action_id: str, handler):
+    async def wrapped_handler(state, payload, context):
+        handled = await handler(state, payload, context.user, context.db)
+        if isinstance(handled, RouteDeckActionResult):
+            return handled
+        next_state, messages, evidence = handled
+        return RouteDeckActionResult(state=next_state, messages=messages, evidence=evidence)
+
+    monkeypatch.setattr(
+        corpus_graph_runtime,
+        "_action_dispatcher",
+        RouteDeckActionDispatcher({action_id: wrapped_handler}),
+    )
+
+
+async def fake_empty_operation_stream_message(*, api_key, user_input, decision_message, operation_context):
+    if False:
+        yield ""
 
 
 def test_corpus_graph_is_the_central_runtime_not_a_wrapper():
@@ -178,10 +198,12 @@ def test_turn_router_decides_before_reply_stream(monkeypatch):
     assert events[-1]["payload"]["status"] == "reply_now"
 
 
-def test_turn_router_waits_for_slow_product_action_instead_of_streaming_reply(monkeypatch):
-    async def forbidden_stream_message(*, api_key, user_input, planning_context):
-        raise AssertionError("product action turns must not stream a reply before the router decides")
-        yield ""
+def test_turn_router_waits_for_slow_product_action_then_streams_operation_reply(monkeypatch):
+    async def fake_operation_stream_message(*, api_key, user_input, decision_message, operation_context):
+        assert operation_context["operation_id"] == AppActionIds.DEPLOYMENT_SAVE
+        assert operation_context["messages"][0]["content"] == "Deployment settings saved."
+        yield "Saved "
+        yield "deployment."
 
     async def fake_turn_plan(*, api_key, user_input, planning_context):
         await asyncio.sleep(0.7)
@@ -243,10 +265,10 @@ def test_turn_router_waits_for_slow_product_action_instead_of_streaming_reply(mo
     async def fake_list_saas_agents(user, db):
         return []
 
-    monkeypatch.setattr(corpus_graph_runtime, "_stream_corpus_message", forbidden_stream_message, raising=False)
+    monkeypatch.setattr(corpus_graph_runtime, "_stream_corpus_operation_message", fake_operation_stream_message, raising=False)
     monkeypatch.setattr(corpus_graph_runtime, "_corpus_turn_plan", fake_turn_plan, raising=False)
     monkeypatch.setattr(corpus_graph_runtime, "route_deck_projection", fake_projection)
-    monkeypatch.setattr(corpus_graph_runtime, "_handle_deployment_save", fake_handler, raising=False)
+    patch_action_handler(monkeypatch, AppActionIds.DEPLOYMENT_SAVE, fake_handler)
     monkeypatch.setattr(corpus_graph_runtime, "_require_member", fake_require_member, raising=False)
     monkeypatch.setattr(corpus_graph_runtime, "_valid_actions", fake_valid_actions, raising=False)
     monkeypatch.setattr(corpus_graph_runtime, "_context_lens", fake_context_lens, raising=False)
@@ -272,11 +294,16 @@ def test_turn_router_waits_for_slow_product_action_instead_of_streaming_reply(mo
 
     events = asyncio.run(collect())
 
-    assert not any(event["event_type"] == "message_delta" for event in events)
+    completed_index = next(index for index, event in enumerate(events) if event["event_type"] == "operation_completed")
+    assert not any(event["event_type"] == "message_delta" for event in events[:completed_index])
     assert not any(event["event_type"] == "corpus_error" for event in events)
     completion = next(event for event in events if event["event_type"] == "operation_completed")
     assert completion["payload"]["operation_id"] == AppActionIds.DEPLOYMENT_SAVE
     assert completion["payload"]["messages"][0]["content"] == "Deployment settings saved."
+    assert [event["payload"]["delta"] for event in events[completed_index + 1 :] if event["event_type"] == "message_delta"] == [
+        "Saved ",
+        "deployment.",
+    ]
 
 
 def test_corpus_surface_intent_updates_ephemeral_presentation_state(monkeypatch):
@@ -377,6 +404,7 @@ def test_corpus_graph_turn_opens_review_surface_for_non_auto_operation(monkeypat
         )
 
     monkeypatch.setattr(corpus_graph_runtime, "_stream_corpus_message", forbidden_stream_message, raising=False)
+    monkeypatch.setattr(corpus_graph_runtime, "_stream_corpus_operation_message", fake_empty_operation_stream_message, raising=False)
     monkeypatch.setattr(corpus_graph_runtime, "_corpus_turn_plan", fake_turn_plan, raising=False)
     monkeypatch.setattr(corpus_graph_runtime, "route_deck_projection", fake_projection)
 
@@ -467,7 +495,7 @@ def test_action_clears_stale_review_surface_after_non_route_node_transition(monk
         return []
 
     monkeypatch.setattr(corpus_graph_runtime, "_valid_actions", fake_valid_actions, raising=False)
-    monkeypatch.setattr(corpus_graph_runtime, "_handle_saas_agent_create", fake_handler, raising=False)
+    patch_action_handler(monkeypatch, AppActionIds.SAAS_AGENT_CREATE, fake_handler)
     monkeypatch.setattr(corpus_graph_runtime, "_eligible_node_or_recovery", passthrough_eligible, raising=False)
     monkeypatch.setattr(corpus_graph_runtime, "_context_lens", fake_context_lens, raising=False)
     monkeypatch.setattr(corpus_graph_runtime, "_list_saas_agents", fake_list_saas_agents, raising=False)
@@ -525,6 +553,11 @@ def test_open_surface_turn_commits_projection_without_prompt_bridge(monkeypatch,
         raise AssertionError("surface opening should not call the slower response stream model")
         yield ""
 
+    async def fake_operation_stream_message(*, api_key, user_input, decision_message, operation_context):
+        assert operation_context["operation_id"] == operation_id
+        yield "Surface "
+        yield "ready."
+
     async def fake_turn_plan(*, api_key, user_input, planning_context):
         nonlocal plan_called
         plan_called = True
@@ -537,6 +570,7 @@ def test_open_surface_turn_commits_projection_without_prompt_bridge(monkeypatch,
         }
 
     monkeypatch.setattr(corpus_graph_runtime, "_stream_corpus_message", forbidden_stream_message, raising=False)
+    monkeypatch.setattr(corpus_graph_runtime, "_stream_corpus_operation_message", fake_operation_stream_message, raising=False)
     monkeypatch.setattr(corpus_graph_runtime, "_corpus_turn_plan", fake_turn_plan, raising=False)
 
     async def collect():
@@ -555,7 +589,8 @@ def test_open_surface_turn_commits_projection_without_prompt_bridge(monkeypatch,
 
     assert "surface_opening" not in event_types
     assert "operation_completed" in event_types
-    assert "message_delta" not in event_types[: event_types.index("operation_completed")]
+    completed_index = event_types.index("operation_completed")
+    assert "message_delta" not in event_types[:completed_index]
     assert plan_called
 
     completion = next(event for event in events if event["event_type"] == "operation_completed")
@@ -564,6 +599,102 @@ def test_open_surface_turn_commits_projection_without_prompt_bridge(monkeypatch,
     assert completion["payload"]["active_surface"]["variant"] == target_node
     assert "surface_prompt" not in completion["payload"]
     assert completion["payload"]["projection"]["navigation"]["current"]["node_id"] == target_node
+    assert [event["payload"]["delta"] for event in events[completed_index + 1 :] if event["event_type"] == "message_delta"] == [
+        "Surface ",
+        "ready.",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("user_input", "router_message", "operation_id", "target_node"),
+    [
+        (
+            "Open the secure API connection form.",
+            "I'll open the secure API connection form.",
+            AppActionIds.CONNECTION_CONFIGURE,
+            "connection_configure",
+        ),
+        (
+            "Open Learning so I can review the policy gap.",
+            "I'll switch to Learning.",
+            AppActionIds.LEARNING_OPEN,
+            "learning",
+        ),
+    ],
+)
+def test_explicit_open_turn_commits_matching_legal_navigation_operation(
+    monkeypatch,
+    user_input,
+    router_message,
+    operation_id,
+    target_node,
+):
+    async def forbidden_stream_message(*, api_key, user_input, planning_context):
+        raise AssertionError("explicit open turns must commit a legal operation instead of narrating navigation")
+        yield ""
+
+    async def fake_operation_stream_message(*, api_key, user_input, decision_message, operation_context):
+        assert operation_context["operation_id"] == operation_id
+        yield "Opened."
+
+    async def fake_turn_plan(*, api_key, user_input, planning_context):
+        return {
+            "intent": "reply_now",
+            "message": router_message,
+            "operation_id": None,
+            "args": {},
+            "surface_intent": {},
+            "confidence": 0.72,
+        }
+
+    async def fake_require_member(saas_agent_id, user, db):
+        return True
+
+    async def fake_context_lens(state, user, db):
+        return AppGraphContextLens(
+            current_node=state.node,
+            working_on="Agent home",
+            selected_saas_agent_id=state.active_saas_agent_id,
+            selected_saas_agent_name="Medusa",
+            selected_saas_agent_slug="medusa",
+        )
+
+    async def fake_list_saas_agents(user, db):
+        return []
+
+    monkeypatch.setattr(corpus_graph_runtime, "_stream_corpus_message", forbidden_stream_message, raising=False)
+    monkeypatch.setattr(corpus_graph_runtime, "_stream_corpus_operation_message", fake_operation_stream_message, raising=False)
+    monkeypatch.setattr(corpus_graph_runtime, "_corpus_turn_plan", fake_turn_plan, raising=False)
+    monkeypatch.setattr(corpus_graph_runtime, "_require_member", fake_require_member, raising=False)
+    monkeypatch.setattr(corpus_graph_runtime, "_context_lens", fake_context_lens, raising=False)
+    monkeypatch.setattr(corpus_graph_runtime, "_list_saas_agents", fake_list_saas_agents, raising=False)
+
+    agent_id = uuid.uuid4()
+
+    async def collect():
+        return [
+            event
+            async for event in corpus_graph_runtime.stream_corpus_turn(
+                request=AppGraphRequest(
+                    user_input=user_input,
+                    state=AppGraphState(node="agent_home", active_saas_agent_id=agent_id),
+                    node_id="agent_home",
+                    saas_agent_id=agent_id,
+                ),
+                user=SimpleNamespace(id=uuid.uuid4()),
+                db=None,
+                openai_api_key="test-key",
+            )
+        ]
+
+    events = asyncio.run(collect())
+    completed_index = next(index for index, event in enumerate(events) if event["event_type"] == "operation_completed")
+
+    assert not any(event["event_type"] == "message_delta" for event in events[:completed_index])
+    completion = next(event for event in events if event["event_type"] == "operation_completed")
+    assert completion["payload"]["operation_id"] == operation_id
+    assert completion["payload"]["state"]["node"] == target_node
+    assert [event["payload"]["delta"] for event in events[completed_index + 1 :] if event["event_type"] == "message_delta"] == ["Opened."]
 
 
 def test_open_surface_intent_requires_llm_router_configuration():
@@ -704,6 +835,10 @@ def test_corpus_graph_turn_maps_surface_intent_to_internal_route_switch(monkeypa
         raise AssertionError("surface switch should not call the slower response stream model")
         yield ""
 
+    async def fake_operation_stream_message(*, api_key, user_input, decision_message, operation_context):
+        assert operation_context["operation_id"] == AppActionIds.ROUTE_SWITCH_SURFACE
+        yield "Switched."
+
     async def fake_turn_plan(*, api_key, user_input, planning_context):
         assert all(
             operation["id"] != AppActionIds.ROUTE_SWITCH_SURFACE
@@ -781,6 +916,7 @@ def test_corpus_graph_turn_maps_surface_intent_to_internal_route_switch(monkeypa
         return node_id
 
     monkeypatch.setattr(corpus_graph_runtime, "_stream_corpus_message", forbidden_stream_message, raising=False)
+    monkeypatch.setattr(corpus_graph_runtime, "_stream_corpus_operation_message", fake_operation_stream_message, raising=False)
     monkeypatch.setattr(corpus_graph_runtime, "_corpus_turn_plan", fake_turn_plan, raising=False)
     monkeypatch.setattr(corpus_graph_runtime, "route_deck_projection", fake_projection)
     monkeypatch.setattr(corpus_graph_runtime, "_eligible_node_or_recovery", passthrough_eligible, raising=False)
@@ -805,6 +941,8 @@ def test_corpus_graph_turn_maps_surface_intent_to_internal_route_switch(monkeypa
 
     assert completed["payload"]["operation_id"] == AppActionIds.ROUTE_SWITCH_SURFACE
     assert completed["payload"]["projection"]["navigation"]["current"]["surface_id"] == "learning.failed_executions"
+    completed_index = next(index for index, event in enumerate(events) if event["event_type"] == "operation_completed")
+    assert [event["payload"]["delta"] for event in events[completed_index + 1 :] if event["event_type"] == "message_delta"] == ["Switched."]
     assert events[-1]["event_type"] == "corpus_done"
     assert events[-1]["payload"]["status"] == "committed"
 
@@ -948,7 +1086,7 @@ def test_corpus_action_surface_hosted_form_operation_commits_without_generic_rev
 
     monkeypatch.setattr(corpus_graph_runtime, "route_deck_projection", fake_projection)
     monkeypatch.setattr(corpus_graph_runtime, "_valid_actions", fake_valid_actions, raising=False)
-    monkeypatch.setattr(corpus_graph_runtime, "_handle_connection_activate", fake_handler, raising=False)
+    patch_action_handler(monkeypatch, AppActionIds.CONNECTION_ACTIVATE, fake_handler)
     monkeypatch.setattr(corpus_graph_runtime, "_eligible_node_or_recovery", passthrough_eligible, raising=False)
     monkeypatch.setattr(corpus_graph_runtime, "_context_lens", fake_context_lens, raising=False)
     monkeypatch.setattr(corpus_graph_runtime, "_list_saas_agents", fake_list_saas_agents, raising=False)
@@ -1039,7 +1177,7 @@ def test_corpus_action_executes_deployment_publish_from_agent_home(monkeypatch):
     async def fake_list_saas_agents(user, db):
         return []
 
-    monkeypatch.setattr(corpus_graph_runtime, "_handle_deployment_save", fake_handler, raising=False)
+    patch_action_handler(monkeypatch, AppActionIds.DEPLOYMENT_SAVE, fake_handler)
     monkeypatch.setattr(corpus_graph_runtime, "_require_member", fake_require_member, raising=False)
     monkeypatch.setattr(corpus_graph_runtime, "_valid_actions", fake_valid_actions, raising=False)
     monkeypatch.setattr(corpus_graph_runtime, "_context_lens", fake_context_lens, raising=False)

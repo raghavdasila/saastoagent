@@ -14,6 +14,9 @@ from routedeck_core import (
     RouteDeckIntrospection,
     RouteDeckProjection,
     RouteDeckRuntimeState,
+    build_dispatch_result,
+    build_projection_update_event,
+    build_runtime_state,
 )
 
 
@@ -35,12 +38,10 @@ class CorpusRouteDeckRuntime:
             db=self._db_from_context(ctx),
             projection_version=self._projection_version_from_context(ctx),
         )
-        return RouteDeckRuntimeState(
+        return build_runtime_state(
             projection=corpus_state.projection,
-            status="idle",
             graph_state=corpus_state.state.model_dump(mode="json"),
             location=corpus_state.replace_path,
-            diagnostics=corpus_state.projection.diagnostics,
         )
 
     async def projection(self, context: dict[str, Any] | None = None) -> RouteDeckProjection:
@@ -61,29 +62,16 @@ class CorpusRouteDeckRuntime:
             db=self._db_from_context(ctx),
             projection_version=request.projection_version or self._projection_version_from_context(ctx),
         )
-        runtime_state = RouteDeckRuntimeState(
+        runtime_state = build_runtime_state(
             projection=response.projection,
-            status="idle",
             graph_state=response.state.model_dump(mode="json"),
             location=response.replace_path,
-            diagnostics=response.projection.diagnostics,
         )
-        return RouteDeckDispatchResult(
+        return build_dispatch_result(
             operation_id=request.operation_id,
-            accepted=True,
             state=runtime_state,
             active_surface=response.active_surface,
             messages=[message.model_dump(mode="json") for message in response.messages],
-            events=[
-                RouteDeckEvent(
-                    event_type="operation_completed",
-                    projection_version=response.projection.projection_version,
-                    payload={
-                        "operation_id": request.operation_id,
-                        "projection": response.projection.model_dump(mode="json"),
-                    },
-                )
-            ],
             metadata={"replace_path": response.replace_path},
         )
 
@@ -119,14 +107,7 @@ class CorpusRouteDeckRuntime:
 
     async def stream(self, context: dict[str, Any] | None = None) -> AsyncIterator[RouteDeckEvent]:
         state = await self.snapshot(context)
-        yield RouteDeckEvent(
-            event_type="projection_update",
-            projection_version=state.projection.projection_version,
-            payload={
-                "projection": state.projection.model_dump(mode="json"),
-                "state": state.model_dump(mode="json"),
-            },
-        )
+        yield build_projection_update_event(state=state)
 
     def _request_from_context(self, context: dict[str, Any]) -> AppGraphRequest:
         request = context.get("request")

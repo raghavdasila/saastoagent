@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from routedeck_core import RouteDeckManifest, RouteDeckProjection, RouteDeckSurface, build_projection
+from routedeck_core import RouteDeckManifest, RouteDeckProjection, RouteDeckStateProjector, RouteDeckSurface
 
 from backend.core.models import User
 from backend.core.schemas import AppGraphContextLens, AppGraphState, SaaSAgentRead
@@ -12,7 +12,7 @@ from backend.services.app_graph.corpus_surfaces import CorpusSurfaceRegistry
 from backend.services.app_graph.manifest import APP_GRAPH_VERSION, CAPABILITY_RAIL_ITEMS
 
 
-class CorpusRouteDeckStateProjector:
+class CorpusRouteDeckStateProjector(RouteDeckStateProjector):
     """Projects Corpus app state into RouteDeck runtime state primitives."""
 
     def __init__(
@@ -24,10 +24,14 @@ class CorpusRouteDeckStateProjector:
         surface_registry: CorpusSurfaceRegistry | None = None,
         navgraph_diagnostics: CorpusNavgraphDiagnostics | None = None,
     ) -> None:
-        self.manifest = manifest
+        operation_policy = operation_policy or CorpusOperationPolicy()
+        surface_registry = surface_registry or CorpusSurfaceRegistry()
+        super().__init__(
+            manifest=manifest,
+            operation_policy=operation_policy,
+            surface_registry=surface_registry,
+        )
         self.node_by_id = node_by_id
-        self.operation_policy = operation_policy or CorpusOperationPolicy()
-        self.surface_registry = surface_registry or CorpusSurfaceRegistry()
         self.navgraph_diagnostics = navgraph_diagnostics or CorpusNavgraphDiagnostics()
 
     def project(
@@ -65,15 +69,15 @@ class CorpusRouteDeckStateProjector:
             saas_agents=saas_agents,
             context=context,
         )
-        current_surface_id = state.active_surface_id
-        review_operation_id = self.surface_registry.operation_id_from_surface_id(current_surface_id)
-        if review_operation_id and state.pending_operation_id != review_operation_id:
-            current_surface_id = None
-        current_surface_id = current_surface_id or self.surface_registry.default_surface_id(state)
-        projection = build_projection(
-            self.manifest,
+        current_surface_id = self.resolve_current_surface_id(
+            active_surface_id=state.active_surface_id,
+            pending_operation_id=state.pending_operation_id,
+            default_surface_id=self.surface_registry.default_surface_id(state),
+        )
+        projection = super().project(
             current_node=state.node,
-            operations=[self.operation_policy.operation_for_action(action) for action in actions],
+            current_context=context,
+            actions=actions,
             surfaces=[
                 frame_surface,
                 RouteDeckSurface(
@@ -100,18 +104,7 @@ class CorpusRouteDeckStateProjector:
             diagnostics={
                 **self.base_diagnostics(state),
                 "capability_rail": CAPABILITY_RAIL_ITEMS,
-                "node_hierarchy": {
-                    node.id: {
-                        "parent": node.parent,
-                        "node_kind": getattr(node, "node_kind", "workflow"),
-                        "capability_id": getattr(node, "capability_id", None),
-                        "cancel_target_node": getattr(node, "cancel_target_node", None),
-                        "dirty_policy": getattr(node, "dirty_policy", "none"),
-                        "show_in_capability_rail": getattr(node, "show_in_capability_rail", True),
-                        "default_surface_id": default_surface_by_node.get(node.id),
-                    }
-                    for node in self.manifest.nodes
-                },
+                "node_hierarchy": self.node_hierarchy(default_surface_by_node=default_surface_by_node),
             },
         )
         introspection = self.navgraph_diagnostics.introspection(
@@ -125,7 +118,7 @@ class CorpusRouteDeckStateProjector:
             diagnostics={**self.base_diagnostics(state), "replace_path": replace_path},
         )
         diagnostics = {**projection.diagnostics, "introspection": introspection}
-        return projection.model_copy(update={"current_context": context, "diagnostics": diagnostics})
+        return projection.model_copy(update={"diagnostics": diagnostics})
 
     def base_diagnostics(self, state: AppGraphState) -> dict[str, Any]:
         return {

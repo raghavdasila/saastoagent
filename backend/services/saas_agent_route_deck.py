@@ -13,7 +13,7 @@ from routedeck_core import build_runtime_snapshot as build_core_runtime_snapshot
 from routedeck_core import reachable_nodes as core_reachable_nodes
 from routedeck_core import validate_manifest
 
-from .route_deck.models import (
+from routedeck_core import (
     RouteDeckActionSpec,
     RouteDeckEdgeSpec,
     RouteDeckFieldSpec,

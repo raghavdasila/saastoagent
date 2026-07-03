@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from backend.services.saas_agent_route_deck import (
     ROUTE_DECK_VERSION,
     SaaSAgentRouteDeckFacts,
@@ -6,6 +8,13 @@ from backend.services.saas_agent_route_deck import (
     infer_current_node,
     validate_saas_agent_route_deck_manifest,
 )
+
+
+def test_saas_agent_route_deck_imports_routedeck_core_directly():
+    source = Path("backend/services/saas_agent_route_deck.py").read_text(encoding="utf-8")
+
+    assert "from .route_deck.models import" not in source
+    assert "from routedeck_core import" in source
 
 
 def test_saas_agent_route_deck_manifest_is_valid():

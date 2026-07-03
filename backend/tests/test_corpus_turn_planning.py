@@ -8,6 +8,7 @@ from backend.core.schemas import AppGraphState
 from backend.services.app_graph.corpus_turn_planning import (
     build_corpus_turn_planning_context,
     normalize_corpus_turn_plan,
+    resolve_explicit_navigation_turn,
 )
 from backend.services.app_graph.manifest import AppActionIds
 
@@ -190,6 +191,72 @@ def _saas_agent_select_projection(*, saas_agent_id: str = "22222222-2222-2222-22
     )
 
 
+def _catalog_learning_projection() -> RouteDeckProjection:
+    return RouteDeckProjection(
+        current_context="catalog",
+        graph_node="catalog",
+        legal_operations=[
+            RouteDeckOperation(
+                id=AppActionIds.CATALOG_OPEN,
+                label="Catalog",
+                description="Inspect generated catalog totals and readiness.",
+                invocation_kind="surface",
+                can_dispatch_now=True,
+                target_node="catalog",
+                required_args=[],
+                missing_args=[],
+                execution_mode="auto",
+                safety_class="navigation",
+                input_schema={"fields": []},
+            ),
+            RouteDeckOperation(
+                id=AppActionIds.LEARNING_OPEN,
+                label="Learning",
+                description="Open Sandbox Learning for policy gaps, failed executions, active policies, and rejected candidates.",
+                invocation_kind="surface",
+                can_dispatch_now=True,
+                target_node="learning",
+                required_args=[],
+                missing_args=[],
+                execution_mode="auto",
+                safety_class="navigation",
+                input_schema={"fields": []},
+            ),
+        ],
+        surfaces={
+            "catalog.active": RouteDeckSurface(
+                name="active",
+                surface_id="catalog.active",
+                component="CatalogSurface",
+                role="active",
+                slot="active",
+                surface_kind="embedded",
+                label="Catalog",
+                default=True,
+                props={"title": "Catalog"},
+            ),
+            "learning.policy_gaps": RouteDeckSurface(
+                name="active",
+                surface_id="learning.policy_gaps",
+                component="LearningSurface",
+                role="active",
+                slot="active",
+                surface_kind="embedded",
+                label="Sandbox learning",
+                props={"title": "Sandbox learning"},
+            ),
+        },
+        navigation={
+            "current": {
+                "node_id": "catalog",
+                "surface_id": "catalog.active",
+                "params": {},
+            }
+        },
+        diagnostics={},
+    )
+
+
 def test_build_turn_planning_context_summarizes_bound_agent_surface_and_operations():
     state = AppGraphState(
         node="connection_configure",
@@ -317,6 +384,32 @@ def test_build_turn_planning_context_falls_back_to_default_active_surface():
 
     assert context["current"]["surface_id"] == "connection_configure.active"
     assert context["active_surface"]["surface_id"] == "connection_configure.active"
+
+
+def test_guardrail_policy_prompt_opens_learning_even_when_router_suggests_catalog_surface():
+    context = build_corpus_turn_planning_context(
+        projection=_catalog_learning_projection(),
+        state=AppGraphState(node="catalog", active_surface_id="catalog.active"),
+    )
+    plan = {
+        "intent": "open_surface",
+        "message": "I'll show the active catalog surface.",
+        "operation_id": None,
+        "args": {},
+        "surface_intent": {"surface_id": "catalog.active"},
+        "confidence": 0.61,
+    }
+
+    resolved = resolve_explicit_navigation_turn(
+        plan,
+        user_input="How will actions be guarded if a shopper tries to check out? Show me the active checkout policies so I can review them.",
+        planning_context=context,
+    )
+
+    assert resolved["intent"] == "open_surface"
+    assert resolved["operation_id"] == AppActionIds.LEARNING_OPEN
+    assert resolved["surface_intent"] == {}
+    assert resolved["confidence"] >= 0.82
 
 
 def test_normalize_turn_plan_keeps_legal_operation_and_defaults_object_fields():

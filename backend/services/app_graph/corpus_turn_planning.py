@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from typing import Any
 
@@ -31,7 +32,54 @@ _INTERNAL_ROUTE_OPERATION_IDS = {
 __all__ = [
     "build_corpus_turn_planning_context",
     "normalize_corpus_turn_plan",
+    "resolve_explicit_navigation_turn",
 ]
+
+_TOKEN_RE = re.compile(r"[a-z0-9]+")
+_NAVIGATION_WORDS = {
+    "connect",
+    "go",
+    "navigate",
+    "open",
+    "show",
+    "start",
+    "switch",
+    "take",
+    "view",
+}
+_STOP_WORDS = {
+    "a",
+    "an",
+    "and",
+    "can",
+    "for",
+    "i",
+    "me",
+    "my",
+    "now",
+    "please",
+    "so",
+    "that",
+    "the",
+    "there",
+    "this",
+    "to",
+    "with",
+}
+_POLICY_REVIEW_TOKENS = {
+    "approval",
+    "approvals",
+    "guard",
+    "guarded",
+    "guardrail",
+    "guardrails",
+    "policy",
+    "policies",
+    "protect",
+    "protected",
+    "safety",
+    "safe",
+}
 
 
 def build_corpus_turn_planning_context(
@@ -125,6 +173,54 @@ def normalize_corpus_turn_plan(
     if normalized["intent"] == "clarify" and not normalized["message"]:
         normalized["message"] = _CLARIFY_SAFE_MESSAGE
     return normalized
+
+
+def resolve_explicit_navigation_turn(
+    plan: Mapping[str, Any],
+    *,
+    user_input: str,
+    planning_context: Mapping[str, Any],
+) -> dict[str, Any]:
+    normalized = dict(plan)
+    priority_operation = _priority_navigation_operation(
+        user_input=user_input,
+        planning_context=planning_context,
+    )
+    if priority_operation is not None:
+        confidence = _normalize_confidence(normalized.get("confidence"))
+        return {
+            **normalized,
+            "intent": "open_surface",
+            "operation_id": priority_operation["id"],
+            "args": {},
+            "surface_intent": {},
+            "confidence": max(confidence, 0.82),
+        }
+
+    surface_intent = normalized.get("surface_intent")
+    if normalized.get("operation_id") or (
+        isinstance(surface_intent, Mapping) and isinstance(surface_intent.get("surface_id"), str)
+    ):
+        return normalized
+    if normalized.get("intent") not in {"reply_now", "clarify", "deep_work"}:
+        return normalized
+    if not _looks_like_explicit_navigation(user_input):
+        return normalized
+
+    request_tokens = _significant_tokens(user_input)
+    operation = _best_navigation_operation(request_tokens, planning_context)
+    if operation is None:
+        return normalized
+
+    confidence = _normalize_confidence(normalized.get("confidence"))
+    return {
+        **normalized,
+        "intent": "open_surface",
+        "operation_id": operation["id"],
+        "args": {},
+        "surface_intent": {},
+        "confidence": max(confidence, 0.78),
+    }
 
 
 def _operation_summary(
@@ -369,6 +465,94 @@ def _normalize_surface_intent(
         return False, {}
     normalized["surface_id"] = surface_id
     return True, normalized
+
+
+def _looks_like_explicit_navigation(text: str) -> bool:
+    return bool(_tokens(text) & _NAVIGATION_WORDS)
+
+
+def _tokens(text: str) -> set[str]:
+    return set(_TOKEN_RE.findall(text.lower()))
+
+
+def _significant_tokens(text: str) -> set[str]:
+    return {
+        token
+        for token in _tokens(text)
+        if token not in _NAVIGATION_WORDS and token not in _STOP_WORDS and len(token) > 1
+    }
+
+
+def _best_navigation_operation(
+    request_tokens: set[str],
+    planning_context: Mapping[str, Any],
+) -> Mapping[str, Any] | None:
+    if not request_tokens:
+        return None
+    scored: list[tuple[int, Mapping[str, Any]]] = []
+    for operation in planning_context.get("legal_operations", []):
+        if not isinstance(operation, Mapping) or not _is_openable_operation(operation):
+            continue
+        operation_tokens = _operation_match_tokens(operation)
+        overlap = request_tokens & operation_tokens
+        if not overlap:
+            continue
+        label = str(operation.get("label") or "").strip().lower()
+        score = len(overlap)
+        if label and label in " ".join(sorted(request_tokens)):
+            score += 3
+        scored.append((score, operation))
+    if not scored:
+        return None
+    scored.sort(key=lambda item: item[0], reverse=True)
+    if len(scored) > 1 and scored[0][0] == scored[1][0]:
+        return None
+    return scored[0][1]
+
+
+def _priority_navigation_operation(
+    *,
+    user_input: str,
+    planning_context: Mapping[str, Any],
+) -> Mapping[str, Any] | None:
+    if not _looks_like_explicit_navigation(user_input):
+        return None
+    request_tokens = _tokens(user_input)
+    if request_tokens.isdisjoint(_POLICY_REVIEW_TOKENS):
+        return None
+    return _legal_openable_operation_by_id(planning_context, AppActionIds.LEARNING_OPEN)
+
+
+def _legal_openable_operation_by_id(
+    planning_context: Mapping[str, Any],
+    operation_id: str,
+) -> Mapping[str, Any] | None:
+    for operation in planning_context.get("legal_operations", []):
+        if isinstance(operation, Mapping) and operation.get("id") == operation_id and _is_openable_operation(operation):
+            return operation
+    return None
+
+
+def _is_openable_operation(operation: Mapping[str, Any]) -> bool:
+    if operation.get("execution_mode") != "auto":
+        return False
+    if operation.get("can_dispatch_now") is not True:
+        return False
+    if operation.get("required_args") or operation.get("missing_args"):
+        return False
+    if operation.get("kind") == "form":
+        return False
+    return operation.get("invocation_kind") in {"direct", "surface"}
+
+
+def _operation_match_tokens(operation: Mapping[str, Any]) -> set[str]:
+    parts = [
+        operation.get("id"),
+        operation.get("label"),
+        operation.get("description"),
+        operation.get("target_node"),
+    ]
+    return _significant_tokens(" ".join(part for part in parts if isinstance(part, str)))
 
 
 def _clarify_safe_result() -> dict[str, Any]:

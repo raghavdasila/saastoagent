@@ -138,6 +138,8 @@ def test_product_runtime_has_no_medusa_presets_or_defaults():
         root / "backend" / "services" / "saas_agent_route_deck.py",
         root / "backend" / "services" / "route_deck" / "catalog.py",
         root / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx",
+        root / "frontend" / "src" / "components" / "appGraph" / "corpusActiveSurfaces.tsx",
+        root / "frontend" / "src" / "components" / "appGraph" / "corpusFrameSurfaces.tsx",
         root / "frontend" / "src" / "components" / "appGraph" / "corpusRouteDeckClient.ts",
         root / "frontend" / "src" / "components" / "appGraph" / "corpusOperations.tsx",
         root / "frontend" / "src" / "components" / "appGraph" / "corpusSurfaces.tsx",
@@ -269,12 +271,13 @@ def test_material_workbench_rail_is_node_switcher_not_disabled_action_dock():
 def test_material_workbench_review_surface_is_route_deck_hosted():
     app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
     shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    active_surface_source = (app_graph_path / "corpusActiveSurfaces.tsx").read_text(encoding="utf-8")
     surface_source = (app_graph_path / "corpusSurfaces.tsx").read_text(encoding="utf-8")
     catalog_source = (app_graph_path / "corpusRouteDeckCatalog.ts").read_text(encoding="utf-8")
 
     assert "function ProposalPanel" not in shell_source
     assert "pendingProposal" not in shell_source
-    assert "RouteDeckSurfaceHost" in surface_source
+    assert "RouteDeckSurfaceHost" in active_surface_source
     assert "CorpusOperationReviewSurface" in catalog_source
     assert 'data-testid="corpus-operation-review-surface"' in surface_source
 
@@ -445,18 +448,19 @@ def test_saas_agent_open_is_selector_not_one_click_dispatch_without_agent_id():
 
 def test_material_workbench_only_one_click_dispatches_ready_operations():
     app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
-    source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    frame_source = (app_graph_path / "corpusFrameSurfaces.tsx").read_text(encoding="utf-8")
+    source = shell_source + "\n" + frame_source
     operations_source = (app_graph_path / "corpusOperations.tsx").read_text(encoding="utf-8")
     quick_actions_source = operations_source.split("function corpusQuickActions", 1)[1].split("function operationToQuickAction", 1)[0]
-    quick_action_handler_source = source.split("const handleQuickAction", 1)[1].split("const handleRailSelect", 1)[0]
-    dashboard_markup_source = source.split("if (surface.component === corpusSurfaceComponents.dashboard)", 1)[1].split("return (", 1)[1].split("return (", 1)[0]
+    quick_action_handler_source = shell_source.split("const handleQuickAction", 1)[1].split("const handleRailSelect", 1)[0]
 
     assert "operation.can_dispatch_now" in quick_actions_source
     assert "operation.invocation_kind" in quick_actions_source
     assert "operation.can_dispatch_now === false" in quick_action_handler_source
     assert "saas_agent_id: agent.id" in source
     assert "onOpenSaaSAgent" in source
-    assert "onOpenSaaSAgent(agent)" in dashboard_markup_source
+    assert "onOpenSaaSAgent(agent)" in frame_source
 
 
 def test_node_navigation_uses_routedeck_controls_with_dirty_surface_prompt_bridge():
@@ -527,11 +531,13 @@ def test_instructions_save_is_app_graph_owned():
     app_graph_path = root / "frontend" / "src" / "components" / "appGraph"
     manifest_source = (root / "backend" / "services" / "app_graph" / "manifest.py").read_text(encoding="utf-8")
     runtime_source = (root / "backend" / "services" / "app_graph" / "runtime.py").read_text(encoding="utf-8")
+    content_handler_source = (root / "backend" / "services" / "app_graph" / "corpus_handlers" / "content.py").read_text(encoding="utf-8")
     catalog_source = (app_graph_path / "corpusRouteDeckCatalog.ts").read_text(encoding="utf-8")
     surface_source = (app_graph_path / "corpusSurfaces.tsx").read_text(encoding="utf-8")
 
     assert 'INSTRUCTIONS_SAVE = "instructions.save"' in manifest_source
-    assert "_handle_instructions_save" in runtime_source
+    assert "async def instructions_save" in content_handler_source
+    assert "_handle_instructions_save" not in runtime_source
     assert "corpusOperationIds.instructionsSave" in surface_source
     assert "routeDeckStore.dispatch" in surface_source
     assert "api.put<SaaSAgent>(`/saas-agents/${saasAgentId}/instructions`" not in surface_source
@@ -611,26 +617,27 @@ def test_corpus_routedeck_ids_are_read_from_catalog():
     app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
     catalog_source = (app_graph_path / "corpusRouteDeckCatalog.ts").read_text(encoding="utf-8")
     shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    active_surface_source = (app_graph_path / "corpusActiveSurfaces.tsx").read_text(encoding="utf-8")
+    frame_source = (app_graph_path / "corpusFrameSurfaces.tsx").read_text(encoding="utf-8")
     surface_source = (app_graph_path / "corpusSurfaces.tsx").read_text(encoding="utf-8")
+    product_source = shell_source + "\n" + active_surface_source + "\n" + frame_source + "\n" + surface_source
 
     assert "corpusOperationIds" in catalog_source
     assert "corpusSurfaceComponents" in catalog_source
     assert "corpusNodeIds" in catalog_source
-    assert "corpusOperationIds.openSaaSAgent" in shell_source + surface_source
-    assert "corpusOperationIds.listSaaSAgents" in shell_source
-    assert "corpusSurfaceComponents.entities" in surface_source
-    assert "operation_id: 'saas_agent.open'" not in shell_source + surface_source
+    assert "corpusOperationIds.openSaaSAgent" in product_source
+    assert "corpusOperationIds.listSaaSAgents" in frame_source
+    assert "corpusSurfaceComponents.entities" in active_surface_source
+    assert "operation_id: 'saas_agent.open'" not in product_source
 
 
 def test_material_workbench_dashboard_limits_agents_and_routes_to_list_surface():
-    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
-    source = shell_path.read_text(encoding="utf-8")
-    frame_source = source.split("function FrameSurfacePanel", 1)[1].split("function StatusPill", 1)[0]
-    dashboard_source = source.split("if (surface.component === corpusSurfaceComponents.dashboard)", 1)[1].split("return (", 1)[1].split("return (", 1)[0]
+    frame_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "corpusFrameSurfaces.tsx"
+    frame_source = frame_path.read_text(encoding="utf-8")
 
-    assert "saasAgents.slice(0, 2)" in dashboard_source
+    assert "saasAgents.slice(0, 2)" in frame_source
     assert "corpusOperationIds.listSaaSAgents" in frame_source
-    assert "List agents" in dashboard_source
+    assert "List agents" in frame_source
     assert "agent_count" in frame_source
 
 
@@ -660,6 +667,7 @@ def test_auto_operation_stream_emits_done_after_operation_completed():
 def test_material_workbench_review_surface_uses_route_deck_active_surface_state():
     app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
     shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    active_surface_source = (app_graph_path / "corpusActiveSurfaces.tsx").read_text(encoding="utf-8")
     surface_source = (app_graph_path / "corpusSurfaces.tsx").read_text(encoding="utf-8")
     quick_action_source = shell_source.split("const handleQuickAction", 1)[1].split("const handleRailSelect", 1)[0]
     review_open_source = shell_source.split("const openReviewSurface", 1)[1].split("useEffect(() => {", 1)[0]
@@ -669,7 +677,8 @@ def test_material_workbench_review_surface_uses_route_deck_active_surface_state(
     assert "setCorpusStatus('Preparing proposal')" not in quick_action_source
     assert "pendingProposal ? (" not in conversation_source
     assert "activeSurfacePanel" in conversation_source
-    assert "RouteDeckSurfaceHost" in surface_source
+    assert "RouteDeckSurfaceHost" in active_surface_source
+    assert 'data-testid="corpus-operation-review-surface"' in surface_source
     assert "operation_id: 'route.open_node'" not in review_open_source
     assert "pending_operation_id" not in review_open_source
 
@@ -712,17 +721,23 @@ def test_catalog_schema_includes_router_index_readiness():
 
 def test_catalog_surface_contract_includes_request_matching_without_router_copy():
     backend_surface_path = Path(__file__).parents[1] / "services" / "app_graph" / "corpus_surfaces.py"
+    backend_surface_catalog_path = Path(__file__).parents[1] / "services" / "app_graph" / "corpus_surface_catalog.py"
     activation_path = Path(__file__).parents[1] / "services" / "discovery" / "activation.py"
+    frontend_active_surface_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "corpusActiveSurfaces.tsx"
     frontend_surface_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "corpusSurfaces.tsx"
     shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
     runtime_path = Path(__file__).parents[1] / "services" / "app_graph" / "runtime.py"
     internal_source = (
         backend_surface_path.read_text(encoding="utf-8")
         + "\n"
+        + backend_surface_catalog_path.read_text(encoding="utf-8")
+        + "\n"
         + runtime_path.read_text(encoding="utf-8")
     )
     product_visible_source = (
         activation_path.read_text(encoding="utf-8")
+        + "\n"
+        + frontend_active_surface_path.read_text(encoding="utf-8")
         + "\n"
         + frontend_surface_path.read_text(encoding="utf-8")
         + "\n"

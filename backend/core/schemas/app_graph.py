@@ -4,6 +4,13 @@ import uuid
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+from routedeck_core import (
+    RouteDeckContextLens,
+    RouteDeckGraphNavigationLocation,
+    RouteDeckGraphRequest,
+    RouteDeckGraphResponse,
+    RouteDeckGraphState,
+)
 
 from .entry import (
     EntryActionCard,
@@ -15,35 +22,21 @@ from .entry import (
 from .saas_agent import SaaSAgentRead
 
 
-class AppGraphNavigationLocation(BaseModel):
-    node_id: str
-    surface_id: str | None = None
-    params: dict[str, Any] = Field(default_factory=dict)
+class AppGraphNavigationLocation(RouteDeckGraphNavigationLocation):
+    pass
 
 
-class AppGraphState(BaseModel):
-    node: str = "home"
+class AppGraphState(RouteDeckGraphState):
     active_saas_agent_id: uuid.UUID | None = None
     active_connection_id: uuid.UUID | None = None
     pending_trace_id: uuid.UUID | None = None
-    active_surface_id: str | None = None
-    route_params: dict[str, Any] = Field(default_factory=dict)
     navigation_back_stack: list[AppGraphNavigationLocation] = Field(default_factory=list)
     navigation_forward_stack: list[AppGraphNavigationLocation] = Field(default_factory=list)
-    pending_operation_id: str | None = None
-    pending_operation_args: dict[str, Any] = Field(default_factory=dict)
-    dirty_surfaces: dict[str, bool] = Field(default_factory=dict)
-    graph_context: dict[str, Any] = Field(default_factory=dict)
-    executed_nodes: list[str] = Field(default_factory=list)
 
 
-class AppGraphRequest(BaseModel):
+class AppGraphRequest(RouteDeckGraphRequest):
     state: AppGraphState | None = None
-    node_id: str | None = Field(default=None, max_length=120)
     saas_agent_id: uuid.UUID | None = None
-    selected_action_id: str | None = Field(default=None, max_length=160)
-    action_payload: dict[str, Any] = Field(default_factory=dict)
-    user_input: str | None = Field(default=None, max_length=8_000)
 
 
 class AppGraphRouterDecision(BaseModel):
@@ -57,12 +50,10 @@ class AppGraphRouterDecision(BaseModel):
     model: str | None = None
 
 
-class AppGraphContextLens(BaseModel):
+class AppGraphContextLens(RouteDeckContextLens):
     selected_saas_agent_id: uuid.UUID | None = None
     selected_saas_agent_name: str | None = None
     selected_saas_agent_slug: str | None = None
-    current_node: str
-    working_on: str
     connection_count: int = 0
     ready_connection_count: int = 0
     action_count: int = 0
@@ -75,20 +66,16 @@ class AppGraphContextLens(BaseModel):
     pending_trace_status: str | None = None
 
 
-class AppGraphResponse(BaseModel):
+class AppGraphResponse(RouteDeckGraphResponse):
     state: AppGraphState
-    graph_version: str
     graph_manifest: EntryGraphManifest
     route_deck_snapshot: EntryRouteDeckRuntimeSnapshot
     context_lens: AppGraphContextLens
     available_actions: list[EntryActionCard] = Field(default_factory=list)
     persistent_actions: list[EntryActionCard] = Field(default_factory=list)
     ui_artifacts: list[EntryUIArtifact] = Field(default_factory=list)
-    evidence: list[dict[str, Any]] = Field(default_factory=list)
-    diagnostics: dict[str, Any] = Field(default_factory=dict)
     messages: list[EntryGraphMessage] = Field(default_factory=list)
     saas_agents: list[SaaSAgentRead] = Field(default_factory=list)
-    replace_path: str | None = None
 
 
 class AppGraphTurnResponse(AppGraphResponse):
