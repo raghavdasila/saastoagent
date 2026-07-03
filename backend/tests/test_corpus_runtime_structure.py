@@ -49,8 +49,8 @@ def test_operation_request_plumbing_lives_outside_runtime():
     request_source = (APP_GRAPH_ROOT / "corpus_operation_requests.py").read_text(encoding="utf-8")
 
     assert "CorpusOperationRequests" in runtime_source
-    assert "def validated_payload" in request_source
-    assert "def review_state_for_operation" in request_source
+    assert "RouteDeckOperationRequestPolicy" in request_source
+    assert "RouteDeckRouteActionIds" in request_source
     for forbidden in [
         "def _validated_operation_payload",
         "def _validated_route_open_node_args",
@@ -58,3 +58,29 @@ def test_operation_request_plumbing_lives_outside_runtime():
         "def _sanitize_operation_args",
     ]:
         assert forbidden not in runtime_source
+        assert forbidden not in request_source
+
+
+def test_corpus_navigation_configures_routedeck_controller_not_duplicate_navigation_logic():
+    navigation_source = (APP_GRAPH_ROOT / "corpus_routedeck_navigation.py").read_text(encoding="utf-8")
+
+    assert "RouteDeckGraphNavigationController" in navigation_source
+    assert "class CorpusRouteDeckNavigation(RouteDeckGraphNavigationController)" in navigation_source
+    assert "def extra_history_params" in navigation_source
+    assert "def apply_extra_history_params" in navigation_source
+    assert "NAV_PARAM_SAAS_AGENT_ID" in navigation_source
+
+    for forbidden in [
+        "def active_surface_ids",
+        "def legal_target_node_ids_from_projection",
+        "def resolved_surface_id",
+        "def history_params_for_state",
+        "def current_location",
+        "def apply_location",
+        "def push_navigation",
+        "def move_back",
+        "def move_forward",
+        "def open_node",
+        "def switch_surface",
+    ]:
+        assert forbidden not in navigation_source

@@ -628,10 +628,10 @@ class CorpusGraphRuntime:
         return self._navigation.current_location(state)
 
     def _app_location_from_route_deck(self, location) -> AppGraphNavigationLocation:
-        return self._navigation.app_location_from_route_deck(location)
+        return self._navigation.location_from_route_deck(location)
 
     def _app_locations_from_route_deck(self, locations) -> list[AppGraphNavigationLocation]:
-        return self._navigation.app_locations_from_route_deck(locations)
+        return self._navigation.locations_from_route_deck(locations)
 
     def _clear_pending_operation(self, state: AppGraphState) -> None:
         state.pending_operation_id = None
