@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 import uuid
 from typing import Any, AsyncGenerator
@@ -41,6 +42,11 @@ logger = structlog.get_logger()
 
 _STREAM_DONE = object()
 _THINK_PATTERN = re.compile(r"<think>(.*?)</think>", re.DOTALL)
+
+REST_OPERATOR_STREAM_PROMPT = """You write the user-facing reply for a deployed SaaS agent after a deterministic API operation has already run.
+The operation_result is the source of truth. Preserve exact ids, product names, variants, prices, totals, currencies, statuses, and trace tokens.
+Do not invent actions, orders, inventory, or approvals. Do not say you will do something that the operation_result says is already done.
+Be concise and conversational."""
 
 
 class ChatService:
@@ -252,10 +258,22 @@ class ChatService:
                     timing=timing,
                 )
             if rest_content is not None:
-                full_content = rest_content
-                with timing.span("sse.enqueue_first_message"):
-                    await queue.put(message_delta(full_content))
-                rest_follow_ups = _rest_follow_ups(full_content)
+                with timing.span("agent.rest_operator_response_stream"):
+                    async for delta in self._stream_rest_operator_message(
+                        message=messages[-1].content if messages else "",
+                        operation_result=rest_content,
+                        saas_agent_name=saas_agent_name,
+                        public_response=public_response,
+                        reasoning_mode=reasoning_mode,
+                        memory_context=memory_context,
+                    ):
+                        if not delta:
+                            continue
+                        full_content += delta
+                        await queue.put(message_delta(delta))
+                if not full_content.strip():
+                    raise RuntimeError("Model stream returned no deployed-agent response content.")
+                rest_follow_ups = _rest_follow_ups(f"{rest_content}\n{full_content}")
                 if rest_follow_ups:
                     await queue.put(follow_ups(rest_follow_ups))
                 assistant_message = AgentMessage(
@@ -459,6 +477,47 @@ class ChatService:
 
         return None
 
+    async def _stream_rest_operator_message(
+        self,
+        *,
+        message: str,
+        operation_result: str,
+        saas_agent_name: str,
+        public_response: bool,
+        reasoning_mode: str,
+        memory_context: str,
+    ) -> AsyncGenerator[str, None]:
+        from openai import AsyncOpenAI
+
+        from backend.core.langsmith import wrap_openai_client
+
+        client = wrap_openai_client(AsyncOpenAI(api_key=settings.openai_api_key))
+        stream = await client.chat.completions.create(
+            model=settings.default_model,
+            messages=[
+                {"role": "system", "content": REST_OPERATOR_STREAM_PROMPT},
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "user_input": message,
+                            "saas_agent_name": saas_agent_name,
+                            "public_response": public_response,
+                            "reasoning_mode": reasoning_mode,
+                            "memory_context": memory_context,
+                            "operation_result": operation_result,
+                        }
+                    ),
+                },
+            ],
+            stream=True,
+            **_openai_latency_options(),
+        )
+        async for chunk in stream:
+            content = chunk.choices[0].delta.content if chunk.choices else None
+            if content:
+                yield content
+
 
 chat_service = ChatService()
 
@@ -526,3 +585,8 @@ def _rest_follow_ups(content: str) -> list[str]:
     if "needs more inputs" in content.lower():
         return ["Inspect the generated actions", "Tell me the missing inputs"]
     return ["Inspect the generated actions", "Ask me to run another read-only API action"]
+
+
+def _openai_latency_options() -> dict[str, Any]:
+    effort = settings.openai_reasoning_effort.strip()
+    return {"reasoning_effort": effort} if effort else {}

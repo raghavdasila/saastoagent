@@ -1,4 +1,7 @@
 import asyncio
+import json
+import uuid
+from contextlib import nullcontext
 from types import SimpleNamespace
 
 import pytest
@@ -117,6 +120,113 @@ def test_public_json_details_include_full_read_result_for_dev_use():
     assert '"Product 0"' in details
     assert '"Product 7"' in details
     assert '"__preview_truncated"' not in details
+
+
+def test_public_write_success_summarizes_completed_order():
+    result = {
+        "body": {
+            "type": "order",
+            "order": {
+                "id": "order_123",
+                "display_id": 42,
+                "currency_code": "eur",
+                "total": 20,
+                "items": [
+                    {
+                        "title": "Medusa Sweatshirt",
+                        "variant_sku": "SWEATSHIRT-M",
+                        "quantity": 1,
+                    }
+                ],
+            },
+        }
+    }
+
+    message = rest_operator._format_public_execution_success(result=result, method="POST")
+
+    assert "order #42 (order_123)" in message
+    assert "1 x Medusa Sweatshirt (SWEATSHIRT-M)" in message
+    assert "20 EUR" in message
+
+
+def test_public_product_read_success_is_compact_for_shoppers():
+    result = {
+        "body": {
+            "products": [
+                {
+                    "title": "Medusa Sweatshirt",
+                    "options": [
+                        {
+                            "title": "Size",
+                            "values": [{"value": "S"}, {"value": "M"}, {"value": "L"}],
+                        }
+                    ],
+                    "variants": [{"id": "var_m", "title": "M", "sku": "SWEATSHIRT-M"}],
+                }
+            ],
+            "count": 1,
+        }
+    }
+
+    message = rest_operator._format_public_execution_success(result=result, method="GET")
+
+    assert "Medusa Sweatshirt: sizes S, M, L" in message
+    assert "```json" not in message
+
+
+def test_public_shipping_options_read_success_prompts_for_choice():
+    result = {
+        "body": {
+            "shipping_options": [
+                {"id": "so_standard", "name": "Standard Shipping"},
+                {"id": "so_express", "name": "Express Shipping"},
+            ]
+        }
+    }
+
+    message = rest_operator._format_public_execution_success(result=result, method="GET")
+
+    assert "- Standard Shipping" in message
+    assert "- Express Shipping" in message
+    assert "Reply with the option name" in message
+
+
+def test_public_payment_providers_read_success_prompts_for_provider_id():
+    result = {"body": {"payment_providers": [{"id": "pp_system_default", "is_enabled": True}]}}
+
+    message = rest_operator._format_public_execution_success(result=result, method="GET")
+
+    assert "- pp_system_default" in message
+    assert "Reply with the provider id" in message
+    assert "```json" not in message
+
+
+def test_public_order_read_success_is_compact():
+    result = {
+        "body": {
+            "order": {
+                "id": "order_123",
+                "display_id": 42,
+                "status": "pending",
+                "currency_code": "eur",
+                "total": 20,
+                "items": [
+                    {
+                        "title": "Medusa Sweatshirt",
+                        "variant_sku": "SWEATSHIRT-M",
+                        "quantity": 1,
+                    }
+                ],
+            }
+        }
+    }
+
+    message = rest_operator._format_public_execution_success(result=result, method="GET")
+
+    assert "Order #42 (order_123)" in message
+    assert "Status: pending" in message
+    assert "1 x Medusa Sweatshirt (SWEATSHIRT-M)" in message
+    assert "```json" not in message
 
 
 def test_rest_operator_infers_status_from_natural_language():
@@ -240,6 +350,367 @@ def test_write_intent_bonus_prefers_mutating_action_over_read_action():
         product_action,
         tool,
     )
+
+
+def test_order_collection_read_intent_prefers_orders_read_over_cart_write():
+    orders_action = SimpleNamespace(method="GET", path="/store/orders", description="Retrieve the orders of the logged-in customer.")
+    store_credit_action = SimpleNamespace(method="POST", path="/store/carts/{id}/store-credits", description="Add a Store Credit to a cart.")
+    tool = SimpleNamespace(name="tool")
+
+    assert rest_operator._looks_like_collection_read_request("show my orders")
+    assert _operation_intent_bonus("show my orders", orders_action, tool) > _operation_intent_bonus(
+        "show my orders",
+        store_credit_action,
+        tool,
+    )
+
+
+def test_exact_order_read_intent_prefers_order_get_by_id_over_checkout_write():
+    order_action = SimpleNamespace(method="GET", path="/store/orders/{id}", description="Retrieve an order by its ID.")
+    cart_action = SimpleNamespace(method="GET", path="/store/carts/{id}", description="Retrieve a cart by its ID.")
+    complete_action = SimpleNamespace(method="POST", path="/store/carts/{id}/complete", description="Complete a cart and place an order.")
+    order_tool = SimpleNamespace(name="getorder", function_schema={"parameters": {"required": ["id"], "properties": {"id": {}}}})
+    cart_tool = SimpleNamespace(name="getcart", function_schema={"parameters": {"required": ["id"], "properties": {"id": {}}}})
+    complete_tool = SimpleNamespace(name="completecart", function_schema={"parameters": {"required": ["id"], "properties": {"id": {}}}})
+
+    assert not rest_operator._has_write_intent("show order order_123")
+    assert _operation_intent_bonus("show order order_123", order_action, order_tool) > _operation_intent_bonus(
+        "show order order_123",
+        complete_action,
+        complete_tool,
+    )
+    assert _operation_intent_bonus("show order order_123", order_action, order_tool) > _operation_intent_bonus(
+        "show order order_123",
+        cart_action,
+        cart_tool,
+    )
+
+
+def test_build_inputs_extracts_resource_prefixed_id_for_matching_path():
+    order_action = SimpleNamespace(method="GET", path="/store/orders/{id}", parameters=[])
+    cart_action = SimpleNamespace(method="GET", path="/store/carts/{id}", parameters=[])
+    tool = SimpleNamespace(function_schema={"parameters": {"required": ["id"], "properties": {"id": {"type": "string"}}}})
+
+    order_inputs, order_missing = _build_inputs("show order order_123", order_action, tool)
+    cart_inputs, cart_missing = _build_inputs("show order order_123", cart_action, tool)
+
+    assert order_inputs == {"id": "order_123"}
+    assert order_missing == []
+    assert cart_inputs == {}
+    assert cart_missing == ["id"]
+
+
+def test_shipping_options_read_does_not_look_like_cart_write_intent():
+    shipping_action = SimpleNamespace(method="GET", path="/store/shipping-options", description="Retrieve shipping options for a cart.")
+    cart_update_action = SimpleNamespace(method="POST", path="/store/carts/{id}", description="Update a cart.")
+    tool = SimpleNamespace(name="tool")
+
+    assert rest_operator._looks_like_collection_read_request("show available shipping options for my cart")
+    assert rest_operator._looks_like_active_resource_read_dependency("show available shipping options for my cart")
+    assert not rest_operator._has_write_intent("show available shipping options for my cart")
+    assert _operation_intent_bonus("show available shipping options for my cart", shipping_action, tool) > _operation_intent_bonus(
+        "show available shipping options for my cart",
+        cart_update_action,
+        tool,
+    )
+
+
+def test_payment_collection_intent_prefers_payment_collection_over_cart_update():
+    payment_collection_action = SimpleNamespace(method="POST", path="/store/payment-collections", description="Create a payment collection.")
+    cart_update_action = SimpleNamespace(method="POST", path="/store/carts/{id}", description="Update a cart.")
+    tool = SimpleNamespace(name="tool")
+
+    assert _operation_intent_bonus("create a payment collection for my cart", payment_collection_action, tool) > _operation_intent_bonus(
+        "create a payment collection for my cart",
+        cart_update_action,
+        tool,
+    )
+
+
+def test_payment_session_intent_prefers_payment_session_over_cart_complete():
+    payment_session_action = SimpleNamespace(method="POST", path="/store/payment-collections/{id}/payment-sessions", description="Initialize a payment session.")
+    cart_complete_action = SimpleNamespace(method="POST", path="/store/carts/{id}/complete", description="Complete a cart and place an order.")
+    tool = SimpleNamespace(name="tool")
+
+    assert _operation_intent_bonus("create a payment session using provider_id=pp_system_default", payment_session_action, tool) > _operation_intent_bonus(
+        "create a payment session using provider_id=pp_system_default",
+        cart_complete_action,
+        tool,
+    )
+
+
+def test_frame_rerank_prefers_payment_provider_read_for_payment_options_question():
+    frame = {
+        "active_resource": {
+            "collection_path": "/store/carts",
+            "id": "cart_123",
+            "source_action_path": "/store/carts/{id}/line-items",
+        }
+    }
+    providers_candidate = rest_operator.ToolCandidate(
+        tool=SimpleNamespace(name="getpaymentproviders", function_schema={"parameters": {"required": [], "properties": {"region_id": {}}}}),
+        action=SimpleNamespace(method="GET", path="/store/payment-providers", description="Retrieve payment providers.", parameters=[]),
+        connection=SimpleNamespace(),
+        score=10,
+        reason="",
+    )
+    collection_candidate = rest_operator.ToolCandidate(
+        tool=SimpleNamespace(name="postpaymentcollections", function_schema={"parameters": {"required": ["cart_id"], "properties": {"cart_id": {}}}}),
+        action=SimpleNamespace(method="POST", path="/store/payment-collections", description="Create a payment collection.", parameters=[]),
+        connection=SimpleNamespace(),
+        score=80,
+        reason="",
+    )
+
+    ranked = rest_operator._rerank_candidates_for_frame(
+        message="What payment options can I use?",
+        candidates=[collection_candidate, providers_candidate],
+        frame=frame,
+    )
+
+    assert ranked[0].action.path == "/store/payment-providers"
+
+
+def test_context_rerank_strictly_prefers_payment_session_path():
+    frame = {
+        "variables": {
+            "resource./store/payment-collections.id": {
+                "value": "pay_col_123",
+                "resource": {"collection_path": "/store/payment-collections", "resource_id": "pay_col_123"},
+            },
+            "resource./store/carts.id": {
+                "value": "cart_123",
+                "resource": {"collection_path": "/store/carts", "resource_id": "cart_123"},
+            },
+        },
+        "active_resource": {"collection_path": "/store/carts", "id": "cart_123"},
+    }
+    payment_collection_candidate = rest_operator.ToolCandidate(
+        tool=SimpleNamespace(name="postpaymentcollections", function_schema={"parameters": {"required": ["cart_id"], "properties": {"cart_id": {}}}}),
+        action=SimpleNamespace(method="POST", path="/store/payment-collections", description="Create a payment collection.", parameters=[]),
+        connection=SimpleNamespace(),
+        score=250,
+        reason="",
+    )
+    payment_session_candidate = rest_operator.ToolCandidate(
+        tool=SimpleNamespace(
+            name="postpaymentsessions",
+            function_schema={"parameters": {"required": ["id", "provider_id"], "properties": {"id": {}, "provider_id": {}}}},
+        ),
+        action=SimpleNamespace(method="POST", path="/store/payment-collections/{id}/payment-sessions", description="Create a payment session.", parameters=[]),
+        connection=SimpleNamespace(),
+        score=1,
+        reason="",
+    )
+
+    ranked = rest_operator._rerank_candidates_for_frame(
+        message="Create a payment session for the current payment collection using provider_id=pp_system_default.",
+        candidates=[payment_collection_candidate, payment_session_candidate],
+        frame=frame,
+    )
+
+    assert ranked[0].action.path == "/store/payment-collections/{id}/payment-sessions"
+
+
+def test_named_value_strips_sentence_punctuation():
+    assert rest_operator._extract_named_value("use provider_id=pp_system_default.", "provider_id") == "pp_system_default"
+
+
+def test_payment_collection_result_uses_created_collection_path_not_active_cart():
+    candidate = rest_operator.ToolCandidate(
+        tool=SimpleNamespace(name="postpaymentcollections", function_schema={}),
+        action=SimpleNamespace(method="POST", path="/store/payment-collections"),
+        connection=SimpleNamespace(),
+        score=1,
+        reason="",
+    )
+    active_resource = {"collection_path": "/store/carts", "id": "cart_123"}
+
+    assert rest_operator._result_collection_path_for_frame(candidate=candidate, active_resource=active_resource) == "/store/payment-collections"
+
+
+def test_payment_session_result_uses_payment_collection_parent_path():
+    candidate = rest_operator.ToolCandidate(
+        tool=SimpleNamespace(name="postpaymentsession", function_schema={}),
+        action=SimpleNamespace(method="POST", path="/store/payment-collections/{id}/payment-sessions"),
+        connection=SimpleNamespace(),
+        score=1,
+        reason="",
+    )
+    active_resource = {"collection_path": "/store/carts", "id": "cart_123"}
+
+    assert rest_operator._result_collection_path_for_frame(candidate=candidate, active_resource=active_resource) == "/store/payment-collections"
+
+
+def test_checkout_completion_result_uses_returned_order_collection_path():
+    candidate = rest_operator.ToolCandidate(
+        tool=SimpleNamespace(name="postcartcomplete", function_schema={}),
+        action=SimpleNamespace(method="POST", path="/store/carts/{id}/complete"),
+        connection=SimpleNamespace(),
+        score=1,
+        reason="",
+    )
+    result = {"body": {"order": {"id": "order_123", "display_id": 20}}, "error": None}
+    active_resource = {"collection_path": "/store/carts", "id": "cart_123"}
+
+    assert (
+        rest_operator._result_collection_path_for_frame(
+            candidate=candidate,
+            active_resource=active_resource,
+            result=result,
+        )
+        == "/store/orders"
+    )
+
+
+def test_frame_context_keeps_shipping_options_read_a_read():
+    frame = {
+        "active_resource": {
+            "collection_path": "/store/carts",
+            "id": "cart_123",
+            "source_action_path": "/store/carts/{id}/line-items",
+        }
+    }
+    shipping_candidate = rest_operator.ToolCandidate(
+        tool=SimpleNamespace(name="getshippingoptions", function_schema={"parameters": {"required": ["cart_id"], "properties": {"cart_id": {}}}}),
+        action=SimpleNamespace(method="GET", path="/store/shipping-options", description="Retrieve shipping options for a cart.", parameters=[]),
+        connection=SimpleNamespace(),
+        score=1,
+        reason="",
+    )
+    shipping_write_candidate = rest_operator.ToolCandidate(
+        tool=SimpleNamespace(name="postshippingmethod", function_schema={"parameters": {"required": ["id", "option_id"], "properties": {"id": {}, "option_id": {}}}}),
+        action=SimpleNamespace(method="POST", path="/store/carts/{id}/shipping-methods", description="Add a shipping method to a cart.", parameters=[]),
+        connection=SimpleNamespace(),
+        score=1,
+        reason="",
+    )
+
+    message = "show available shipping options for my cart"
+
+    assert rest_operator._context_candidate_score(message=message, candidate=shipping_candidate, frame=frame) > rest_operator._context_candidate_score(
+        message=message,
+        candidate=shipping_write_candidate,
+        frame=frame,
+    )
+
+
+def test_natural_shipping_question_reranks_against_active_cart():
+    frame = {
+        "active_resource": {
+            "collection_path": "/store/carts",
+            "id": "cart_123",
+            "source_action_path": "/store/carts/{id}/line-items",
+        }
+    }
+    shipping_candidate = rest_operator.ToolCandidate(
+        tool=SimpleNamespace(name="getshippingoptions", function_schema={"parameters": {"required": ["cart_id"], "properties": {"cart_id": {}}}}),
+        action=SimpleNamespace(method="GET", path="/store/shipping-options", description="Retrieve shipping options for a cart.", parameters=[]),
+        connection=SimpleNamespace(),
+        score=1,
+        reason="",
+    )
+    shipping_write_candidate = rest_operator.ToolCandidate(
+        tool=SimpleNamespace(name="postshippingmethod", function_schema={"parameters": {"required": ["id", "option_id"], "properties": {"id": {}, "option_id": {}}}}),
+        action=SimpleNamespace(method="POST", path="/store/carts/{id}/shipping-methods", description="Add a shipping method to a cart.", parameters=[]),
+        connection=SimpleNamespace(),
+        score=20,
+        reason="",
+    )
+
+    message = "What shipping options do I have?"
+
+    assert rest_operator._looks_like_active_resource_read_dependency(message)
+
+    ranked = rest_operator._rerank_candidates_for_frame(
+        message=message,
+        candidates=[shipping_write_candidate, shipping_candidate],
+        frame=frame,
+    )
+
+    assert ranked[0].action.path == "/store/shipping-options"
+
+
+def test_frame_rerank_prefers_selected_shipping_option_action_over_line_item_delete():
+    frame = {
+        "active_resource": {
+            "collection_path": "/store/carts",
+            "id": "cart_123",
+            "source_action_path": "/store/carts/{id}/line-items",
+        },
+        "entities": [
+            {
+                "entity_type": "shipping_options",
+                "id": "so_standard",
+                "label": "Standard Shipping",
+                "aliases": ["standard shipping"],
+                "raw": {"id": "so_standard", "name": "Standard Shipping"},
+            }
+        ],
+    }
+    shipping_method_candidate = rest_operator.ToolCandidate(
+        tool=SimpleNamespace(name="postshippingmethod", function_schema={"parameters": {"required": ["id", "option_id"], "properties": {"id": {}, "option_id": {}}}}),
+        action=SimpleNamespace(method="POST", path="/store/carts/{id}/shipping-methods", description="Add a shipping method to a cart.", parameters=[]),
+        connection=SimpleNamespace(),
+        score=1,
+        reason="",
+    )
+    line_item_delete_candidate = rest_operator.ToolCandidate(
+        tool=SimpleNamespace(name="deletelineitem", function_schema={"parameters": {"required": ["id", "line_id"], "properties": {"id": {}, "line_id": {}}}}),
+        action=SimpleNamespace(method="DELETE", path="/store/carts/{id}/line-items/{line_id}", description="Delete a line item from a cart.", parameters=[]),
+        connection=SimpleNamespace(),
+        score=20,
+        reason="",
+    )
+
+    ranked = rest_operator._rerank_candidates_for_frame(
+        message="Standard Shipping",
+        candidates=[line_item_delete_candidate, shipping_method_candidate],
+        frame=frame,
+    )
+
+    assert ranked[0].action.path == "/store/carts/{id}/shipping-methods"
+
+
+def test_frame_rerank_prefers_cart_write_over_product_detail_for_add_request():
+    frame = {
+        "kind": "result_context",
+        "entities": [
+            {
+                "entity_type": "products",
+                "id": "prod_1",
+                "label": "Medusa Sweatshirt",
+                "aliases": ["medusa sweatshirt", "sweatshirt"],
+                "raw": {
+                    "id": "prod_1",
+                    "title": "Medusa Sweatshirt",
+                    "variants": [{"id": "var_m", "title": "M", "sku": "SWEATSHIRT-M", "options": [{"value": "M"}]}],
+                },
+            }
+        ],
+    }
+    product_detail_candidate = rest_operator.ToolCandidate(
+        tool=SimpleNamespace(name="getproduct", function_schema={"parameters": {"required": ["id"], "properties": {"id": {}}}}),
+        action=SimpleNamespace(method="GET", path="/store/products/{id}", description="Retrieve a product.", parameters=[]),
+        connection=SimpleNamespace(),
+        score=20,
+        reason="",
+    )
+    line_item_candidate = rest_operator.ToolCandidate(
+        tool=SimpleNamespace(name="postlineitem", function_schema={"parameters": {"required": ["id", "variant_id", "quantity"], "properties": {"id": {}, "variant_id": {}, "quantity": {}}}}),
+        action=SimpleNamespace(method="POST", path="/store/carts/{id}/line-items", description="Add a product variant as a line item in the cart.", parameters=[]),
+        connection=SimpleNamespace(),
+        score=1,
+        reason="",
+    )
+
+    ranked = rest_operator._rerank_candidates_for_frame(
+        message="Add one Medusa Sweatshirt in size M to my cart.",
+        candidates=[product_detail_candidate, line_item_candidate],
+        frame=frame,
+    )
+
+    assert ranked[0].action.path == "/store/carts/{id}/line-items"
 
 
 def test_frame_rerank_prefers_action_with_entity_fillable_required_inputs():
@@ -529,6 +1000,74 @@ def test_chat_service_threads_session_into_rest_operator_runtime():
     assert "session=session," in rest_call
 
 
+@pytest.mark.asyncio
+async def test_chat_service_streams_rest_operator_reply_from_model_chunks(monkeypatch):
+    from backend.services.agent import chat_service as chat_module
+
+    class FakeDb:
+        def __init__(self):
+            self.added = []
+
+        def add(self, item):
+            self.added.append(item)
+
+        async def commit(self):
+            return None
+
+        async def get(self, *_args, **_kwargs):
+            return None
+
+    async def fake_run_rest_operator_turn(**_kwargs):
+        return "Operation result: order_123 completed."
+
+    async def fake_stream_rest_operator_message(**kwargs):
+        assert kwargs["operation_result"] == "Operation result: order_123 completed."
+        yield "Order "
+        yield "order_123 completed."
+
+    def fake_build_agent_graph(**_kwargs):
+        return SimpleNamespace()
+
+    service = chat_module.ChatService()
+    queue = asyncio.Queue()
+    session_id = uuid.uuid4()
+    db = FakeDb()
+
+    monkeypatch.setattr(chat_module, "build_agent_graph", fake_build_agent_graph)
+    monkeypatch.setattr(chat_module, "run_rest_operator_turn", fake_run_rest_operator_turn)
+    monkeypatch.setattr(service, "_stream_rest_operator_message", fake_stream_rest_operator_message, raising=False)
+
+    await service._run_agent(
+        queue=queue,
+        saas_agent_id=uuid.uuid4(),
+        saas_agent_name="Medusa demo",
+        custom_system_prompt="",
+        custom_instructions="",
+        user_id=None,
+        messages=[SimpleNamespace(content="checkout my cart")],
+        reasoning_mode="balanced",
+        session_id=session_id,
+        session=SimpleNamespace(metadata_={"handoff_context": {"channel": "deployed_web"}}),
+        memory_context="",
+        public_response=True,
+        db=db,
+        timing=SimpleNamespace(span=lambda _name: nullcontext(), snapshot=lambda: {}),
+    )
+
+    deltas = []
+    while not queue.empty():
+        item = await queue.get()
+        if item is chat_module._STREAM_DONE:
+            break
+        if not isinstance(item, str) or not item.startswith("event: message_delta"):
+            continue
+        data_line = next(line for line in item.splitlines() if line.startswith("data: "))
+        deltas.append(json.loads(data_line.removeprefix("data: "))["content"])
+
+    assert deltas == ["Order ", "order_123 completed."]
+    assert db.added[-1].content == "Order order_123 completed."
+
+
 def test_docker_runtime_uses_stable_dev_encryption_key():
     from pathlib import Path
 
@@ -558,6 +1097,25 @@ async def test_find_tool_candidates_uses_fusion_ranker_directly(monkeypatch):
     assert calls["message"] == "list products"
     assert calls["saas_agent_id"] == "agent-1"
     assert calls["limit"] == 7
+
+
+def test_tool_search_message_expands_natural_payment_language():
+    message = rest_operator._tool_search_message("How can I pay?")
+
+    assert "payment" in message
+    assert "payment providers" in message
+    assert "payment methods" in message
+    assert "payment session" not in message
+
+
+def test_tool_search_message_strips_synthetic_active_context_for_payment_options():
+    message = rest_operator._tool_search_message(
+        "What payment options can I use? Active resource collection /store/carts Active resource id available internally"
+    )
+
+    assert message.startswith("What payment options can I use?")
+    assert "payment providers" in message
+    assert "Active resource collection" not in message
 
 
 @pytest.mark.asyncio

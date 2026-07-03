@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.models import AgentSession
 from backend.services.agent.state_variables import (
     remember_resource_id_variable,
+    put_variable,
     resolve_input_from_variables,
 )
 
@@ -31,6 +32,7 @@ _WORKFLOW_TERMS = {
     "delivery",
     "finish",
     "order",
+    "pay",
     "payment",
     "place",
     "ship",
@@ -88,9 +90,16 @@ def capture_result_frame(
     }
 
 
-def preserve_selected_entity(frame: dict[str, Any], selected_entity: dict[str, Any]) -> dict[str, Any]:
+def preserve_selected_entity(
+    frame: dict[str, Any],
+    selected_entity: dict[str, Any],
+    *,
+    message: str | None = None,
+) -> dict[str, Any]:
     updated = deepcopy(frame)
     updated["selected_entity"] = deepcopy(selected_entity)
+    if message:
+        _remember_selected_variant(updated, message, selected_entity)
     return updated
 
 
@@ -161,8 +170,7 @@ def operation_frame_from_candidate(
 def find_entity_reference(message: str, frame: dict[str, Any] | None) -> dict[str, Any] | None:
     if not frame:
         return None
-    if active_resource_context(frame) is not None and _looks_like_workflow_continuation(message):
-        return None
+    workflow_continuation = active_resource_context(frame) is not None and _looks_like_workflow_continuation(message)
 
     entities = [entity for entity in frame.get("entities") or [] if isinstance(entity, dict)]
     normalized_message = _normalize(message)
@@ -170,6 +178,9 @@ def find_entity_reference(message: str, frame: dict[str, Any] | None) -> dict[st
     for entity in entities:
         if _entity_matches_message(entity, normalized_message, compact_message):
             return entity
+
+    if workflow_continuation:
+        return None
 
     selected = frame.get("selected_entity")
     if isinstance(selected, dict):
@@ -232,6 +243,23 @@ def build_inputs_from_frame(
     props = schema.get("properties") if isinstance(schema, dict) else {}
     required = list(schema.get("required") or []) if isinstance(schema, dict) else []
     active_resource = active_resource_context(frame)
+    for name in props or {}:
+        if name in inputs:
+            continue
+        value = resolve_input_from_variables(frame, str(name), action=action)
+        if value is not None:
+            inputs[str(name)] = value
+
+    for param in getattr(action, "parameters", None) or []:
+        if not isinstance(param, dict) or not param.get("name"):
+            continue
+        name = str(param["name"])
+        if name in inputs:
+            continue
+        value = resolve_input_from_variables(frame, name, action=action)
+        if value is not None:
+            inputs[name] = value
+
     if active_resource is not None:
         for name in props or {}:
             if name in inputs:
@@ -363,6 +391,11 @@ def _value_from_entity_for_input(name: str, message: str, entity: dict[str, Any]
         return entity.get("id")
     if lowered.endswith("_id") and lowered.split("_id", 1)[0] in {"product", "item", "entity"}:
         return entity.get("id")
+    entity_type = str(entity.get("entity_type") or "")
+    if lowered in {"option_id", "shipping_option_id"} and "shipping" in entity_type:
+        return entity.get("id")
+    if lowered == "provider_id" and "provider" in entity_type:
+        return entity.get("id")
     if lowered in {"variant_id", "sku_id"}:
         return _resolve_variant_id(message, raw)
     if lowered in {"quantity", "qty"} and _looks_like_purchase(message):
@@ -370,6 +403,27 @@ def _value_from_entity_for_input(name: str, message: str, entity: dict[str, Any]
     if lowered in {"size", "option_size"}:
         return _extract_size(message)
     return None
+
+
+def _remember_selected_variant(frame: dict[str, Any], message: str, entity: dict[str, Any]) -> None:
+    raw = entity.get("raw") if isinstance(entity.get("raw"), dict) else {}
+    variant_id = _resolve_variant_id(message, raw)
+    if not variant_id:
+        return
+    put_variable(
+        frame,
+        name="selected.variant_id",
+        value=variant_id,
+        visibility="private",
+        value_type="string",
+        tags=["selected_entity", "variant_id"],
+        aliases=["variant_id", "sku_id"],
+        resource={
+            "collection_path": f"/{str(entity.get('entity_type') or 'entities')}",
+            "resource_id": str(entity.get("id") or ""),
+        },
+        origin={"field_path": "selected_entity.raw.variants", "message": message},
+    )
 
 
 def _value_from_active_resource_for_input(name: str, action: Any, active_resource: dict[str, Any]) -> Any:
@@ -407,31 +461,58 @@ def _resolve_variant_id(message: str, raw: dict[str, Any]) -> str | None:
     if len(variants) == 1 and isinstance(variants[0], dict):
         return str(variants[0].get("id")) if variants[0].get("id") else None
     message_tokens = set(_tokens(message))
+    requested_size = _extract_size(message)
+    if requested_size:
+        for variant in variants:
+            if not isinstance(variant, dict) or not variant.get("id"):
+                continue
+            if requested_size in _variant_specific_tokens(variant):
+                return str(variant["id"])
+
+    product_tokens = set()
+    for key in ("title", "name", "handle", "sku"):
+        if raw.get(key):
+            product_tokens.update(_tokens(str(raw[key])))
     for variant in variants:
         if not isinstance(variant, dict) or not variant.get("id"):
             continue
-        variant_tokens = set()
-        for key in ("title", "name", "sku"):
-            if variant.get(key):
-                variant_tokens.update(_tokens(str(variant[key])))
-        options = variant.get("options")
-        if isinstance(options, dict):
-            for value in options.values():
-                variant_tokens.update(_tokens(str(value)))
-        elif isinstance(options, list):
-            for option in options:
-                if isinstance(option, dict):
-                    variant_tokens.update(_tokens(str(option.get("value") or option.get("title") or "")))
+        variant_tokens = set(token.lower() for token in _variant_specific_tokens(variant))
+        variant_tokens -= product_tokens
         if variant_tokens & message_tokens:
             return str(variant["id"])
     return None
 
 
+def _variant_specific_tokens(variant: dict[str, Any]) -> set[str]:
+    tokens: set[str] = set()
+    for key in ("title", "name", "sku"):
+        if variant.get(key):
+            tokens.update(token.upper() for token in _tokens(str(variant[key])))
+    options = variant.get("options")
+    if isinstance(options, dict):
+        for value in options.values():
+            tokens.update(token.upper() for token in _tokens(str(value)))
+    elif isinstance(options, list):
+        for option in options:
+            if isinstance(option, dict):
+                tokens.update(token.upper() for token in _tokens(str(option.get("value") or option.get("title") or "")))
+    return tokens
+
+
 def _extract_size(message: str) -> str | None:
+    normalized = _normalize(message)
+    if "extra large" in normalized:
+        return "XL"
+    if "extra small" in normalized:
+        return "XS"
     tokens = [token.upper() for token in _tokens(message)]
+    word_sizes = {"SMALL": "S", "MEDIUM": "M", "LARGE": "L"}
     for token in tokens:
         if token in {"XS", "S", "M", "L", "XL", "XXL"}:
             return token
+        mapped = word_sizes.get(token)
+        if mapped:
+            return mapped
     return None
 
 

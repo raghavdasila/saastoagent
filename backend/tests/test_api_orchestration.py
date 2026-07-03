@@ -116,6 +116,74 @@ def test_dependency_id_can_be_reused_from_execution_frame():
     assert frame == {"kind": "result_context"}
 
 
+@pytest.mark.asyncio
+async def test_public_generic_capability_greeting_does_not_route_rest_operator(monkeypatch):
+    saas_agent_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+    product_list = _candidate(method="GET", path="/store/products", name="listProducts", risk="read", required=[])
+
+    async def fake_find_tool_candidates(*, message, saas_agent_id, db, limit=5):
+        return [product_list]
+
+    async def fake_route_and_maybe_execute(**kwargs):
+        raise AssertionError("generic public greeting should stay in normal chat")
+
+    monkeypatch.setattr(rest_operator, "find_tool_candidates", fake_find_tool_candidates)
+    monkeypatch.setattr(rest_operator, "_route_and_maybe_execute", fake_route_and_maybe_execute)
+
+    async def emit(_event_name, _payload):
+        return None
+
+    content = await rest_operator.run_rest_operator_turn(
+        message="Hi, what can you help me with?",
+        saas_agent_id=saas_agent_id,
+        session_id=session_id,
+        user_id=None,
+        session=SimpleNamespace(metadata_={}),
+        db=FakeDb(),
+        emit=emit,
+        public_response=True,
+    )
+
+    assert content is None
+
+
+@pytest.mark.asyncio
+async def test_public_product_catalog_question_still_routes_rest_operator(monkeypatch):
+    saas_agent_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+    product_list = _candidate(method="GET", path="/store/products", name="listProducts", risk="read", required=[])
+    routed = {}
+
+    async def fake_find_tool_candidates(*, message, saas_agent_id, db, limit=5):
+        return [product_list]
+
+    async def fake_route_and_maybe_execute(**kwargs):
+        routed["message"] = kwargs["message"]
+        routed["candidate_path"] = kwargs["candidates"][0].action.path
+        return "Here are products."
+
+    monkeypatch.setattr(rest_operator, "find_tool_candidates", fake_find_tool_candidates)
+    monkeypatch.setattr(rest_operator, "_route_and_maybe_execute", fake_route_and_maybe_execute)
+
+    async def emit(_event_name, _payload):
+        return None
+
+    content = await rest_operator.run_rest_operator_turn(
+        message="What products do you have?",
+        saas_agent_id=saas_agent_id,
+        session_id=session_id,
+        user_id=None,
+        session=SimpleNamespace(metadata_={}),
+        db=FakeDb(),
+        emit=emit,
+        public_response=True,
+    )
+
+    assert content == "Here are products."
+    assert routed == {"message": "What products do you have?", "candidate_path": "/store/products"}
+
+
 def test_dependency_result_stores_scalar_fields_for_later_internal_resolution():
     frame = {"kind": "result_context"}
     result = {
@@ -343,6 +411,194 @@ async def test_approved_public_policy_executes_dependency_then_target(monkeypatc
     ]
     assert "Done" in content
     assert "cart_123" not in content
+
+
+@pytest.mark.asyncio
+async def test_approved_public_policy_executes_prepared_financial_target(monkeypatch):
+    saas_agent_id = uuid.uuid4()
+    target = _candidate(
+        path="/store/payment-collections/{id}/payment-sessions",
+        name="createPaymentSession",
+        risk="financial",
+        required=["id", "provider_id"],
+    )
+    frame = remember_resource_id_variable(
+        {"kind": "result_context"},
+        collection_path="/store/payment-collections",
+        resource_id="pay_col_123",
+    )
+    executed = {}
+
+    async def fake_create_execution_trace(**kwargs):
+        assert kwargs["inputs"] == {"id": "pay_col_123", "provider_id": "pp_system_default"}
+        assert kwargs["missing"] == []
+        assert kwargs["approval_state"] == "approved_by_policy"
+        return SimpleNamespace(id=uuid.uuid4())
+
+    class FakeLearningService:
+        async def approved_domain_policy(self, *, saas_agent_id, action_paths, db):
+            assert action_paths == ["/store/payment-collections/{id}/payment-sessions"]
+            return SimpleNamespace(id=uuid.uuid4())
+
+        async def propose_domain_policy_gap(self, **kwargs):
+            raise AssertionError("approved target policy should not create a policy gap")
+
+    async def fake_execute_rest_tool(candidate, inputs, db):
+        executed.update(inputs)
+        return {"status_code": 200, "body": {"payment_session": {"id": "pay_sess_123"}}, "duration_ms": 1, "error": None}
+
+    async def fake_finalize_execution_trace(trace, result, db):
+        return None
+
+    monkeypatch.setattr(rest_operator, "create_execution_trace", fake_create_execution_trace)
+    monkeypatch.setattr(rest_operator, "learning_service", FakeLearningService())
+    monkeypatch.setattr(rest_operator, "execute_rest_tool", fake_execute_rest_tool)
+    monkeypatch.setattr(rest_operator, "finalize_execution_trace", fake_finalize_execution_trace)
+
+    async def emit(_event_name, _payload):
+        return None
+
+    content = await rest_operator._route_and_maybe_execute(
+        message="Create a payment session for the current payment collection using provider_id=pp_system_default.",
+        candidates=[target],
+        saas_agent_id=saas_agent_id,
+        session_id=uuid.uuid4(),
+        user_id=None,
+        session=SimpleNamespace(metadata_={"execution_frame_v1": frame}),
+        db=FakeDb(),
+        emit=emit,
+        public_response=True,
+        frame=frame,
+    )
+
+    assert executed == {"id": "pay_col_123", "provider_id": "pp_system_default"}
+    assert "Done" in content
+    assert "pay_col_123" not in content
+
+
+@pytest.mark.asyncio
+async def test_exact_order_lookup_bypasses_active_cart_frame(monkeypatch):
+    saas_agent_id = uuid.uuid4()
+    order_candidate = _candidate(
+        method="GET",
+        path="/store/orders/{id}",
+        name="getOrder",
+        risk="read",
+        required=["id"],
+    )
+    frame = {
+        "kind": "result_context",
+        "active_resource": {
+            "collection_path": "/store/carts",
+            "id": "cart_123",
+            "source_action_path": "/store/carts/{id}/complete",
+            "reason": "checkout_completed",
+        },
+    }
+    captured = {}
+
+    async def fake_find_candidate_for_action_path(*, saas_agent_id, db, action_path, allowed_methods=None):
+        assert action_path == "/store/orders/{id}"
+        assert allowed_methods == {"GET"}
+        return order_candidate
+
+    async def fake_route_and_maybe_execute(**kwargs):
+        captured.update(kwargs)
+        return "Order #8 (order_123)"
+
+    monkeypatch.setattr(rest_operator, "find_candidate_for_action_path", fake_find_candidate_for_action_path)
+    monkeypatch.setattr(rest_operator, "_route_and_maybe_execute", fake_route_and_maybe_execute)
+
+    async def emit(_event_name, _payload):
+        return None
+
+    content = await rest_operator._maybe_resume_execution_frame(
+        message="Show order order_123.",
+        saas_agent_id=saas_agent_id,
+        session_id=uuid.uuid4(),
+        user_id=None,
+        session=SimpleNamespace(metadata_={"execution_frame_v1": frame}),
+        db=FakeDb(),
+        emit=emit,
+        public_response=True,
+    )
+
+    assert content == "Order #8 (order_123)"
+    assert captured["candidates"] == [order_candidate]
+    assert captured["frame"] == frame
+
+
+@pytest.mark.asyncio
+async def test_active_order_read_uses_stored_order_id_without_user_repeating_id(monkeypatch):
+    saas_agent_id = uuid.uuid4()
+    order_candidate = _candidate(
+        method="GET",
+        path="/store/orders/{id}",
+        name="getOrder",
+        risk="read",
+        required=["id"],
+    )
+    frame = remember_resource_id_variable(
+        {"kind": "result_context"},
+        collection_path="/store/orders",
+        resource_id="order_123",
+        origin={"source_action_path": "/store/carts/{id}/complete"},
+    )
+    frame["active_resource"] = {
+        "collection_path": "/store/orders",
+        "id": "order_123",
+        "source_action_path": "/store/carts/{id}/complete",
+        "reason": "workflow_result",
+    }
+    captured = {}
+
+    async def fake_find_tool_candidates(*, message, saas_agent_id, db, limit=5):
+        captured["routed_message"] = message
+        return [
+            _candidate(method="GET", path="/store/orders", name="listOrders", risk="read", required=[]),
+            order_candidate,
+        ]
+
+    async def fake_create_execution_trace(**kwargs):
+        captured["trace_inputs"] = dict(kwargs["inputs"])
+        captured["trace_path"] = kwargs["candidate"].action.path
+        return SimpleNamespace(id=uuid.uuid4(), inputs=kwargs["inputs"])
+
+    async def fake_execute_rest_tool(candidate, inputs, db):
+        captured["executed"] = (candidate.action.path, dict(inputs))
+        return {
+            "status_code": 200,
+            "body": {"order": {"id": inputs["id"], "display_id": 8, "status": "placed"}},
+            "duration_ms": 1,
+            "error": None,
+        }
+
+    async def fake_finalize_execution_trace(trace, result, db):
+        return None
+
+    monkeypatch.setattr(rest_operator, "find_tool_candidates", fake_find_tool_candidates)
+    monkeypatch.setattr(rest_operator, "create_execution_trace", fake_create_execution_trace)
+    monkeypatch.setattr(rest_operator, "execute_rest_tool", fake_execute_rest_tool)
+    monkeypatch.setattr(rest_operator, "finalize_execution_trace", fake_finalize_execution_trace)
+
+    async def emit(_event_name, _payload):
+        return None
+
+    content = await rest_operator._maybe_resume_execution_frame(
+        message="Can you show my order?",
+        saas_agent_id=saas_agent_id,
+        session_id=uuid.uuid4(),
+        user_id=None,
+        session=SimpleNamespace(metadata_={"execution_frame_v1": frame}),
+        db=FakeDb(),
+        emit=emit,
+        public_response=True,
+    )
+
+    assert captured["trace_path"] == "/store/orders/{id}"
+    assert captured["trace_inputs"] == {"id": "order_123"}
+    assert captured["executed"] == ("/store/orders/{id}", {"id": "order_123"})
+    assert "Order #8" in content
 
 
 @pytest.mark.asyncio

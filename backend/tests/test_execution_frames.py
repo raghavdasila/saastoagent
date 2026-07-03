@@ -14,6 +14,7 @@ from backend.services.agent.execution_frames import (
     preserve_selected_entity,
 )
 from backend.services.agent import rest_operator
+from backend.services.agent.state_variables import remember_resource_id_variable
 
 
 def test_execution_frame_captures_catalog_entities_from_read_result():
@@ -86,6 +87,144 @@ def test_execution_frame_resolves_named_product_variant_and_default_quantity():
     assert entity["id"] == "prod_1"
     assert inputs == {"variant_id": "var_l", "quantity": 1}
     assert missing == []
+
+
+def test_execution_frame_prefers_requested_size_over_product_tokens_in_sku():
+    frame = {
+        "kind": "result_context",
+        "entities": [
+            {
+                "entity_type": "products",
+                "id": "prod_1",
+                "label": "Medusa Sweatshirt",
+                "aliases": ["medusa sweatshirt", "sweatshirt"],
+                "raw": {
+                    "id": "prod_1",
+                    "title": "Medusa Sweatshirt",
+                    "handle": "sweatshirt",
+                    "variants": [
+                        {"id": "var_s", "title": "S", "sku": "SWEATSHIRT-S", "options": [{"value": "S"}]},
+                        {"id": "var_m", "title": "M", "sku": "SWEATSHIRT-M", "options": [{"value": "M"}]},
+                    ],
+                },
+            }
+        ],
+    }
+    action = SimpleNamespace(parameters=[])
+    tool = SimpleNamespace(
+        function_schema={
+            "parameters": {
+                "type": "object",
+                "properties": {"variant_id": {"type": "string"}, "quantity": {"type": "integer"}},
+                "required": ["variant_id", "quantity"],
+            }
+        }
+    )
+
+    inputs, missing = build_inputs_from_frame(
+        message="add one Medusa Sweatshirt in size M to my cart",
+        action=action,
+        tool=tool,
+        frame=frame,
+        base_inputs={},
+    )
+
+    assert inputs == {"variant_id": "var_m", "quantity": 1}
+    assert missing == []
+
+
+def test_execution_frame_fills_shipping_option_id_from_selected_option_entity():
+    frame = promote_active_resource(
+        {
+            "kind": "result_context",
+            "entities": [
+                {
+                    "entity_type": "shipping_options",
+                    "id": "so_standard",
+                    "label": "Standard Shipping",
+                    "aliases": ["standard shipping"],
+                    "raw": {"id": "so_standard", "name": "Standard Shipping"},
+                }
+            ],
+        },
+        collection_path="/store/carts",
+        resource_id="cart_123",
+        source_action_path="/store/carts/{id}/line-items",
+    )
+    action = SimpleNamespace(path="/store/carts/{id}/shipping-methods", parameters=[])
+    tool = SimpleNamespace(
+        function_schema={
+            "parameters": {
+                "type": "object",
+                "properties": {"id": {"type": "string"}, "option_id": {"type": "string"}},
+                "required": ["id", "option_id"],
+            }
+        }
+    )
+
+    entity = find_entity_reference("Standard Shipping", frame)
+    inputs, missing = build_inputs_from_frame(
+        message="Standard Shipping",
+        action=action,
+        tool=tool,
+        frame=frame,
+        base_inputs={},
+    )
+
+    assert entity is not None
+    assert inputs == {"id": "cart_123", "option_id": "so_standard"}
+    assert missing == []
+
+
+def test_execution_frame_fills_cart_id_from_resource_variable_without_active_resource():
+    frame = remember_resource_id_variable(
+        {"kind": "result_context"},
+        collection_path="/store/carts",
+        resource_id="cart_123",
+    )
+    action = SimpleNamespace(path="/store/shipping-options", parameters=[])
+    tool = SimpleNamespace(
+        function_schema={
+            "parameters": {
+                "type": "object",
+                "properties": {"cart_id": {"type": "string"}},
+                "required": ["cart_id"],
+            }
+        }
+    )
+
+    frame.pop("active_resource", None)
+    inputs, missing = build_inputs_from_frame(
+        message="What shipping options do I have?",
+        action=action,
+        tool=tool,
+        frame=frame,
+        base_inputs={},
+    )
+
+    assert inputs == {"cart_id": "cart_123"}
+    assert missing == []
+
+
+def test_execution_frame_augments_natural_pay_question_with_active_cart_not_last_shipping_read():
+    frame = {
+        "source": {
+            "tool_name": "getshippingoptions",
+            "action_name": "GetShippingOptions",
+            "method": "GET",
+            "path": "/store/shipping-options",
+        },
+        "active_resource": {
+            "collection_path": "/store/carts",
+            "id": "cart_123",
+            "source_action_path": "/store/carts/{id}/shipping-methods",
+        },
+    }
+
+    routed = augment_message_with_frame_context("How can I pay?", {}, frame)
+
+    assert "Active resource collection /store/carts" in routed
+    assert "/store/shipping-options" not in routed
 
 
 def test_execution_frame_explicit_entity_switch_beats_previous_selection():
@@ -210,6 +349,57 @@ def test_execution_frame_preserves_selected_entity_after_followup_read():
 
     assert updated["selected_entity"] == selected
     assert "selected_entity" not in frame
+
+
+def test_execution_frame_remembers_selected_variant_for_affirmative_cart_followup():
+    frame = {"kind": "result_context", "entities": []}
+    selected = {
+        "entity_type": "products",
+        "id": "prod_1",
+        "label": "Medusa Sweatshirt",
+        "aliases": ["medusa sweatshirt", "sweatshirt"],
+        "raw": {
+            "id": "prod_1",
+            "title": "Medusa Sweatshirt",
+            "variants": [
+                {"id": "var_s", "title": "S", "sku": "SWEATSHIRT-S"},
+                {"id": "var_m", "title": "M", "sku": "SWEATSHIRT-M"},
+                {"id": "var_l", "title": "L", "sku": "SWEATSHIRT-L"},
+            ],
+        },
+    }
+    frame = preserve_selected_entity(frame, selected, message="I'll take a medium.")
+    frame = promote_active_resource(
+        frame,
+        collection_path="/store/carts",
+        resource_id="cart_123",
+        source_action_path="/store/carts/{id}/line-items",
+    )
+    action = SimpleNamespace(path="/store/carts/{id}/line-items", parameters=[])
+    tool = SimpleNamespace(
+        function_schema={
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "variant_id": {"type": "string"},
+                    "quantity": {"type": "integer"},
+                },
+                "required": ["id", "variant_id", "quantity"],
+            }
+        }
+    )
+
+    inputs, missing = build_inputs_from_frame(
+        message="Yes, please add it to my cart.",
+        action=action,
+        tool=tool,
+        frame=frame,
+        base_inputs={"quantity": 1},
+    )
+
+    assert inputs == {"id": "cart_123", "variant_id": "var_m", "quantity": 1}
+    assert missing == []
 
 
 def test_execution_frame_augments_slot_only_reply_with_pending_operation_context():
@@ -408,5 +598,5 @@ async def test_rest_operator_resumes_active_frame_before_fresh_routing(monkeypat
     )
 
     assert executed_inputs == {"product_id": "prod_1", "quantity": 1}
-    assert "Here's what I found" in content or "Here" in content
+    assert content == "Done. I handled that for you."
     assert session.metadata_[FRAME_METADATA_KEY]["selected_entity"]["id"] == "prod_1"

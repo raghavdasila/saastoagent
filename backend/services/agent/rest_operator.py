@@ -43,6 +43,7 @@ from backend.services.agent.state_variables import (
     pending_choice_target_path_for_message,
     remember_choice_variable,
     remember_resource_result_variables,
+    resource_variable_name,
     resolve_dependency_id_from_variables,
     resolve_input_from_variables,
 )
@@ -110,6 +111,9 @@ async def run_rest_operator_turn(
     if approval_result is not None:
         return approval_result
 
+    if public_response and _is_generic_public_capability_message(message):
+        return None
+
     with _timing_span(timing, "rest.execution_frame_resume_check"):
         frame_result = await _maybe_resume_execution_frame(
             message=message,
@@ -166,6 +170,35 @@ async def _maybe_resume_execution_frame(
     active_resource = active_resource_context(frame)
     read_refinement_path = _last_read_collection_path(frame) if _looks_like_read_refinement(message) else None
     if frame is None or (entity is None and active_resource is None and read_refinement_path is None):
+        return None
+    if _has_explicit_resource_id(message, "order"):
+        order_candidate = await find_candidate_for_action_path(
+            saas_agent_id=saas_agent_id,
+            db=db,
+            action_path="/store/orders/{id}",
+            allowed_methods={"GET"},
+        )
+        if order_candidate is not None:
+            return await _route_and_maybe_execute(
+                message=message,
+                candidates=[order_candidate],
+                saas_agent_id=saas_agent_id,
+                session_id=session_id,
+                user_id=user_id,
+                session=session,
+                db=db,
+                emit=emit,
+                public_response=public_response,
+                frame=frame,
+                selected_entity=entity,
+                timing=timing,
+            )
+    if (
+        entity is None
+        and _looks_like_collection_read_request(message)
+        and not _looks_like_active_resource_read_dependency(message)
+        and not _looks_like_active_resource_read_request(message, active_resource)
+    ):
         return None
     pending_choice_path = pending_choice_target_path_for_message(frame, message)
     if pending_choice_path:
@@ -334,6 +367,26 @@ async def _route_and_maybe_execute(
             )
             if public_policy_result is not None:
                 return public_policy_result
+            if await _approved_public_policy_for_action(
+                saas_agent_id=saas_agent_id,
+                action_path=str(top.action.path or ""),
+                db=db,
+                timing=timing,
+            ):
+                return await _execute_public_target_with_internal_id(
+                    message=message,
+                    top=top,
+                    inputs=inputs,
+                    candidate_summary_rows=candidate_summary_rows,
+                    saas_agent_id=saas_agent_id,
+                    session_id=session_id,
+                    user_id=user_id,
+                    session=session,
+                    db=db,
+                    frame=frame,
+                    selected_entity=selected_entity,
+                    timing=timing,
+                )
         trace = await create_execution_trace(
             candidate=top,
             inputs=inputs,
@@ -434,8 +487,10 @@ async def _route_and_maybe_execute(
             )
     else:
         next_frame = capture_result_frame(message=message, tool=top.tool, action=top.action, result=result)
+        if frame is not None and active_resource_context(frame) is not None:
+            next_frame = _preserve_active_resource_context(next_frame, frame)
         if selected_entity is not None:
-            next_frame = preserve_selected_entity(next_frame or frame or {}, selected_entity)
+            next_frame = preserve_selected_entity(next_frame or frame or {}, selected_entity, message=message)
         await save_execution_frame(session, next_frame, db)
     output_text = json.dumps(result, default=str)[:5000]
     if not public_response:
@@ -450,11 +505,7 @@ async def _route_and_maybe_execute(
         )
 
     if public_response:
-        return (
-            "Here’s what I found.\n\n"
-            f"```json\n{_preview_body_json(result.get('body'))}\n```\n\n"
-            "You can ask me to check another item or narrow the result."
-        )
+        return _format_public_execution_success(result=result, method=top.action.method)
 
     return (
         "Here’s what I found.\n\n"
@@ -652,7 +703,7 @@ async def _handle_public_missing_inputs(
         source_action_path=str(top.action.path or ""),
     )
     if selected_entity is not None:
-        next_frame = preserve_selected_entity(next_frame, selected_entity)
+        next_frame = preserve_selected_entity(next_frame, selected_entity, message=message)
     await save_execution_frame(session, next_frame, db)
     return await _execute_public_target_with_internal_id(
         message=message,
@@ -669,6 +720,24 @@ async def _handle_public_missing_inputs(
         existing_trace=trace,
         timing=timing,
     )
+
+
+async def _approved_public_policy_for_action(
+    *,
+    saas_agent_id: uuid.UUID,
+    action_path: str,
+    db: AsyncSession,
+    timing: RequestTiming | None = None,
+) -> bool:
+    if not action_path:
+        return False
+    with _timing_span(timing, "policy.lookup"):
+        approved_policy = await learning_service.approved_domain_policy(
+            saas_agent_id=saas_agent_id,
+            action_paths=[action_path],
+            db=db,
+        )
+    return approved_policy is not None
 
 
 async def _handle_public_active_resource_policy(
@@ -777,7 +846,9 @@ async def find_candidate_for_action_path(
     saas_agent_id: uuid.UUID,
     db: AsyncSession,
     action_path: str,
+    allowed_methods: set[str] | None = None,
 ) -> ToolCandidate | None:
+    methods = allowed_methods or {"POST", "PUT", "PATCH", "DELETE"}
     result = await db.execute(
         select(GeneratedTool, ActionNode, Connection)
         .join(ActionNode, GeneratedTool.action_node_id == ActionNode.id)
@@ -792,7 +863,7 @@ async def find_candidate_for_action_path(
     candidates = [
         ToolCandidate(tool=tool, action=action, connection=connection, score=100, reason="pending_internal_choice")
         for tool, action, connection in rows
-        if str(getattr(action, "method", "") or "").upper() in {"POST", "PUT", "PATCH", "DELETE"}
+        if str(getattr(action, "method", "") or "").upper() in methods
     ]
     if not candidates:
         return None
@@ -903,10 +974,11 @@ async def _execute_public_target_with_internal_id(
         return _format_execution_failure(tool_name=top.tool.name, result=result, trace_token=str(trace.id)[:8], public_response=True)
     next_frame = capture_result_frame(message=message, tool=top.tool, action=top.action, result=result)
     active_resource = active_resource_context(frame)
-    if active_resource is not None:
+    result_collection_path = _result_collection_path_for_frame(candidate=top, active_resource=active_resource, result=result)
+    if result_collection_path is not None:
         next_frame = remember_resource_result_variables(
             next_frame or frame,
-            collection_path=active_resource["collection_path"],
+            collection_path=result_collection_path,
             result=result,
             origin={
                 "method": str(top.action.method or ""),
@@ -914,8 +986,23 @@ async def _execute_public_target_with_internal_id(
                 "tool_name": str(top.tool.name or ""),
             },
         )
+        should_promote_result = _terminal_result_collection_path(str(top.action.path or ""), result) == result_collection_path
+        result_resource_id = resolve_dependency_id_from_variables(next_frame, result_collection_path)
+        if should_promote_result and result_resource_id:
+            next_frame = promote_active_resource(
+                next_frame,
+                collection_path=result_collection_path,
+                resource_id=result_resource_id,
+                source_action_path=str(top.action.path or ""),
+            )
+            next_frame["active_resource"]["reason"] = "workflow_result"
+        elif active_resource is not None and result_collection_path != active_resource["collection_path"]:
+            next_frame["active_resource"] = active_resource
+            active_ref = resource_variable_name(active_resource["collection_path"], "id")
+            if isinstance(next_frame.get("variables"), dict) and active_ref in next_frame["variables"]:
+                next_frame["active_resource_ref"] = active_ref
     if selected_entity is not None:
-        next_frame = preserve_selected_entity(next_frame or frame or {}, selected_entity)
+        next_frame = preserve_selected_entity(next_frame or frame or {}, selected_entity, message=message)
     await save_execution_frame(session, next_frame or frame, db)
     return _format_public_execution_success(result=result, method=top.action.method)
 
@@ -1063,7 +1150,7 @@ async def _maybe_handle_public_execution_failure_recovery(
             },
         )
     if selected_entity is not None:
-        next_frame = preserve_selected_entity(next_frame or {}, selected_entity)
+        next_frame = preserve_selected_entity(next_frame or {}, selected_entity, message=message)
     await save_execution_frame(session, next_frame, db)
 
     return await _execute_public_target_with_internal_id(
@@ -1499,12 +1586,231 @@ def _public_policy_needed_message() -> str:
 
 def _format_public_execution_success(*, result: dict[str, Any], method: str | None) -> str:
     if str(method or "").upper() in {"POST", "PUT", "PATCH", "DELETE"}:
+        order = _extract_order_body(result.get("body"))
+        if order is not None:
+            return _format_public_order_success(order)
         return "Done. I handled that for you."
+    formatted = _format_public_read_success(result.get("body"))
+    if formatted is not None:
+        return formatted
     return (
         "Here's what I found.\n\n"
         f"```json\n{_preview_body_json(result.get('body'))}\n```\n\n"
         "You can ask me to check another item or narrow the result."
     )
+
+
+def _preserve_active_resource_context(next_frame: dict[str, Any] | None, previous_frame: dict[str, Any]) -> dict[str, Any]:
+    updated = copy.deepcopy(next_frame or previous_frame)
+    for key in ("active_resource", "active_resource_ref"):
+        if key in previous_frame and key not in updated:
+            updated[key] = copy.deepcopy(previous_frame[key])
+    previous_variables = previous_frame.get("variables")
+    next_variables = updated.get("variables")
+    if isinstance(previous_variables, dict):
+        merged = copy.deepcopy(previous_variables)
+        if isinstance(next_variables, dict):
+            merged.update(copy.deepcopy(next_variables))
+        updated["variables"] = merged
+    return updated
+
+
+def _format_public_read_success(body: Any) -> str | None:
+    if not isinstance(body, dict):
+        return None
+    order = _extract_order_body(body)
+    if order is not None:
+        return _format_public_order_read_success(order)
+    shipping_options = body.get("shipping_options")
+    if isinstance(shipping_options, list):
+        return _format_shipping_options_success(shipping_options)
+    payment_providers = body.get("payment_providers")
+    if isinstance(payment_providers, list):
+        return _format_payment_providers_success(payment_providers)
+    products = body.get("products")
+    if isinstance(products, list):
+        return _format_products_success(products, total_count=body.get("count"))
+    return None
+
+
+def _format_public_order_read_success(order: dict[str, Any]) -> str:
+    order_id = str(order.get("id") or "").strip()
+    display_id = str(order.get("display_id") or order.get("custom_display_id") or "").strip()
+    status_text = str(order.get("status") or "").strip()
+    if order_id and display_id:
+        first_line = f"Order #{display_id} ({order_id})"
+    elif order_id:
+        first_line = f"Order {order_id}"
+    else:
+        first_line = "Order details"
+    details: list[str] = []
+    if status_text:
+        details.append(f"Status: {status_text}.")
+    item_summary = _format_order_item_summary(order)
+    if item_summary:
+        details.append(f"Items: {item_summary}.")
+    total_summary = _format_order_total(order)
+    if total_summary:
+        details.append(f"Total: {total_summary}.")
+    return " ".join([first_line + ".", *details])
+
+
+def _format_shipping_options_success(options: list[Any]) -> str | None:
+    names = [str(item.get("name") or item.get("title") or "").strip() for item in options if isinstance(item, dict)]
+    names = [name for name in names if name]
+    if not names:
+        return None
+    lines = ["I found these shipping options.", ""]
+    lines.extend(f"- {name}" for name in names[:6])
+    if len(names) > 6:
+        lines.append(f"- {len(names) - 6} more")
+    lines.extend(["", "Reply with the option name to use it."])
+    return "\n".join(lines)
+
+
+def _format_payment_providers_success(providers: list[Any]) -> str | None:
+    names = []
+    for item in providers:
+        if not isinstance(item, dict):
+            continue
+        provider_id = str(item.get("id") or item.get("provider_id") or "").strip()
+        if provider_id:
+            names.append(provider_id)
+    names = _dedupe_preserve_order(names)
+    if not names:
+        return None
+    lines = ["I found these payment providers.", ""]
+    lines.extend(f"- {name}" for name in names[:6])
+    if len(names) > 6:
+        lines.append(f"- {len(names) - 6} more")
+    lines.extend(["", "Reply with the provider id to use it."])
+    return "\n".join(lines)
+
+
+def _format_products_success(products: list[Any], *, total_count: Any = None) -> str | None:
+    lines = ["Here's what I found.", ""]
+    shown = 0
+    for product in products[:6]:
+        if not isinstance(product, dict):
+            continue
+        title = str(product.get("title") or product.get("handle") or product.get("id") or "").strip()
+        if not title:
+            continue
+        sizes = _product_size_values(product)
+        if sizes:
+            lines.append(f"- {title}: sizes {', '.join(sizes)}")
+        else:
+            lines.append(f"- {title}")
+        shown += 1
+    if shown == 0:
+        return None
+    if isinstance(total_count, int) and total_count > shown:
+        lines.append(f"- {total_count - shown} more")
+    lines.extend(["", "Tell me which product and size you want to add."])
+    return "\n".join(lines)
+
+
+def _product_size_values(product: dict[str, Any]) -> list[str]:
+    values: list[str] = []
+    for option in product.get("options") or []:
+        if not isinstance(option, dict):
+            continue
+        if str(option.get("title") or "").strip().lower() != "size":
+            continue
+        for value in option.get("values") or []:
+            raw = value.get("value") if isinstance(value, dict) else value
+            if raw not in (None, ""):
+                values.append(str(raw))
+    if not values:
+        for variant in product.get("variants") or []:
+            if not isinstance(variant, dict):
+                continue
+            title = str(variant.get("title") or "").strip()
+            if title:
+                values.append(title.split("/", 1)[0].strip())
+    return _dedupe_preserve_order(values)
+
+
+def _dedupe_preserve_order(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for value in values:
+        key = value.strip().lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        deduped.append(value.strip())
+    return deduped
+
+
+def _extract_order_body(body: Any) -> dict[str, Any] | None:
+    if not isinstance(body, dict):
+        return None
+    nested_order = body.get("order")
+    if isinstance(nested_order, dict):
+        return nested_order
+    order_id = str(body.get("id") or "")
+    if body.get("type") == "order" or order_id.startswith("order_"):
+        return body
+    return None
+
+
+def _format_public_order_success(order: dict[str, Any]) -> str:
+    order_id = str(order.get("id") or "").strip()
+    display_id = str(order.get("display_id") or order.get("custom_display_id") or "").strip()
+    if order_id and display_id:
+        first_line = f"Done. I placed order #{display_id} ({order_id})."
+    elif order_id:
+        first_line = f"Done. I placed order {order_id}."
+    else:
+        first_line = "Done. I placed the order."
+
+    details: list[str] = []
+    item_summary = _format_order_item_summary(order)
+    if item_summary:
+        details.append(f"Items: {item_summary}.")
+    total_summary = _format_order_total(order)
+    if total_summary:
+        details.append(f"Total: {total_summary}.")
+    return " ".join([first_line, *details])
+
+
+def _format_order_item_summary(order: dict[str, Any]) -> str | None:
+    items = order.get("items")
+    if not isinstance(items, list):
+        return None
+    chunks: list[str] = []
+    for item in items[:3]:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "").strip()
+        sku = str(item.get("variant_sku") or item.get("sku") or "").strip()
+        if not sku and isinstance(item.get("variant"), dict):
+            sku = str(item["variant"].get("sku") or "").strip()
+        label = title or sku
+        if title and sku:
+            label = f"{title} ({sku})"
+        if not label:
+            continue
+        quantity = item.get("quantity")
+        if quantity not in (None, ""):
+            label = f"{quantity} x {label}"
+        chunks.append(label)
+    if len(items) > 3:
+        chunks.append(f"{len(items) - 3} more")
+    return ", ".join(chunks) or None
+
+
+def _format_order_total(order: dict[str, Any]) -> str | None:
+    total = order.get("total")
+    currency = str(order.get("currency_code") or "").strip().upper()
+    if total in (None, "") or not currency:
+        return None
+    if isinstance(total, float):
+        total_text = f"{total:g}"
+    else:
+        total_text = str(total)
+    return f"{total_text} {currency}"
 
 
 async def create_execution_trace(
@@ -1734,18 +2040,31 @@ async def find_tool_candidates(
     db: AsyncSession,
     limit: int = 5,
 ) -> list[ToolCandidate]:
-    ranked = await rank_generated_tools(message=message, saas_agent_id=saas_agent_id, db=db, limit=limit)
+    search_message = _tool_search_message(message)
+    ranked = await rank_generated_tools(message=search_message, saas_agent_id=saas_agent_id, db=db, limit=limit)
     candidates = [
         ToolCandidate(
             tool=row.tool,
             action=row.action,
             connection=row.connection,
-            score=max(1, row.score + _operation_intent_bonus(message, row.action, row.tool)),
+            score=max(1, row.score + _operation_intent_bonus(search_message, row.action, row.tool)),
             reason=row.reason,
         )
         for row in ranked
     ]
     return sorted(candidates, key=lambda row: (-row.score, _required_count(row.tool), row.tool.name))[:limit]
+
+
+def _tool_search_message(message: str) -> str:
+    visible_message = message.split(" Active resource collection ", 1)[0]
+    search_message = visible_message if _looks_like_payment_options_request(visible_message) else message
+    tokens = set(_tokens(search_message))
+    expansions: list[str] = []
+    if tokens & {"paid", "pay", "paying", "payment", "payments"}:
+        expansions.append("payment payments payment providers payment provider payment options payment methods checkout")
+    if not expansions:
+        return search_message
+    return " ".join([search_message, *expansions])
 
 
 def _operation_intent_bonus(message: str, action: ActionNode, tool: GeneratedTool) -> int:
@@ -1761,8 +2080,10 @@ def _operation_intent_bonus(message: str, action: ActionNode, tool: GeneratedToo
     hay_tokens = set(_tokens(haystack))
     method = str(getattr(action, "method", "") or "").upper()
     bonus = 0
-    write_intent = tokens & {"add", "create", "update", "delete", "remove", "send", "submit", "buy", "purchase", "order"}
+    write_intent = tokens & {"add", "create", "update", "delete", "remove", "send", "submit", "buy", "purchase"}
     read_intent = tokens & {"list", "show", "find", "fetch", "search", "filter", "get"}
+    explicit_id_prefixes = _explicit_resource_id_prefixes(message)
+    resource = _collection_resource_from_path(str(getattr(action, "path", "") or ""))
     if write_intent:
         if method in {"POST", "PUT", "PATCH", "DELETE"}:
             bonus += 3
@@ -1772,11 +2093,17 @@ def _operation_intent_bonus(message: str, action: ActionNode, tool: GeneratedToo
             bonus += 1
     if read_intent and method in {"GET", "HEAD", "OPTIONS"}:
         bonus += 1
+    elif read_intent and method in {"POST", "PUT", "PATCH", "DELETE"} and not _has_write_intent(message):
+        bonus -= 6
+    bonus += _resource_phrase_bonus(tokens=tokens, candidate_tokens=hay_tokens, method=method)
+    if read_intent and method == "GET" and _required_count(tool) > 0 and explicit_id_prefixes:
+        resource_names = {resource, _singular(resource)}
+        bonus += 80 if resource_names & explicit_id_prefixes else -30
     if _has_collection_read_intent(tokens=tokens, action=action):
         if method == "GET" and "{" not in str(getattr(action, "path", "") or ""):
             bonus += 8
         elif method == "GET" and _required_count(tool) > 0:
-            bonus -= 8
+            bonus += 8 if _has_explicit_resource_id(message=message, resource=resource) else -8
     return bonus
 
 
@@ -1794,8 +2121,40 @@ def _collection_resource_from_path(path: str) -> str:
     return segments[-1] if segments else ""
 
 
+def _has_explicit_resource_id(*, message: str, resource: str) -> bool:
+    singular = _singular(resource)
+    return bool(re.search(rf"\b(?:{re.escape(resource)}|{re.escape(singular)})_[a-z0-9]", message or "", re.IGNORECASE))
+
+
+def _resource_phrase_bonus(*, tokens: set[str], candidate_tokens: set[str], method: str) -> int:
+    bonus = 0
+    phrases = [
+        ({"payment", "collection"}, 70),
+        ({"payment", "session"}, 70),
+        ({"shipping", "method"}, 45),
+        ({"shipping", "option"}, 45),
+    ]
+    for phrase, weight in phrases:
+        if not phrase <= tokens:
+            continue
+        if phrase <= candidate_tokens:
+            bonus += weight
+        elif method in {"POST", "PUT", "PATCH", "DELETE"}:
+            bonus -= 20
+    return bonus
+
+
+def _explicit_resource_id_prefixes(message: str) -> set[str]:
+    return {match.group(1).lower() for match in re.finditer(r"\b([a-z][a-z0-9]*)_[a-z0-9]", message or "", re.IGNORECASE)}
+
+
 def _rerank_candidates_for_frame(*, message: str, candidates: list[ToolCandidate], frame: dict[str, Any]) -> list[ToolCandidate]:
-    if not (_has_write_intent(message) or _looks_like_read_refinement(message)):
+    if not (
+        _has_write_intent(message)
+        or _looks_like_read_refinement(message)
+        or _looks_like_collection_read_request(message)
+        or find_entity_reference(message, frame) is not None
+    ):
         return candidates
     adjusted = [_candidate_with_score(row, _context_candidate_score(message=message, candidate=row, frame=frame)) for row in candidates]
     return sorted(
@@ -1882,6 +2241,24 @@ def _context_candidate_score(*, message: str, candidate: ToolCandidate, frame: d
     required = ((candidate.tool.function_schema or {}).get("parameters") or {}).get("required") or []
     filled_required = sum(1 for name in required if str(name) in inputs and str(name) not in base_inputs)
     score = candidate.score + (filled_required * 8)
+    method = str(getattr(candidate.action, "method", "") or "").upper()
+    candidate_path = str(getattr(candidate.action, "path", "") or "")
+    if _looks_like_payment_options_request(message):
+        if method in {"GET", "HEAD", "OPTIONS"} and "payment-providers" in candidate_path:
+            score += 140
+        elif method in {"POST", "PUT", "PATCH", "DELETE"} and "payment" in candidate_path:
+            score -= 110
+    if _has_write_intent(message):
+        if method in {"POST", "PUT", "PATCH", "DELETE"}:
+            score += 30
+        elif method in {"GET", "HEAD", "OPTIONS"}:
+            score -= 45
+    score += _strict_resource_path_bonus(message=message, candidate_path=candidate_path)
+    if required:
+        if all(str(name) in inputs for name in required):
+            score += 35
+        else:
+            score -= 10
     active_resource = active_resource_context(frame)
     last_read_path = _last_read_collection_path(frame)
     if last_read_path and _looks_like_read_refinement(message):
@@ -1894,8 +2271,11 @@ def _context_candidate_score(*, message: str, candidate: ToolCandidate, frame: d
                 score += 4
     if active_resource is not None:
         active_path = str(active_resource.get("collection_path") or "").rstrip("/")
-        candidate_path = str(getattr(candidate.action, "path", "") or "")
-        method = str(getattr(candidate.action, "method", "") or "").upper()
+        if _looks_like_collection_read_request(message):
+            if method in {"GET", "HEAD", "OPTIONS"}:
+                score += 45
+            else:
+                score -= 45
         if active_path and (candidate_path == active_path or candidate_path.startswith(active_path + "/")):
             score += 10
         score += _workflow_action_bonus(message, candidate)
@@ -1919,6 +2299,8 @@ def _candidate_missing_after_frame(message: str, candidate: ToolCandidate, frame
 
 
 def _looks_like_workflow_message(message: str) -> bool:
+    if _looks_like_collection_read_request(message):
+        return False
     return bool(set(_tokens(message)) & {"checkout", "complete", "finish", "order", "payment", "place", "ship", "shipping", "submit"})
 
 
@@ -1943,6 +2325,29 @@ def _workflow_action_bonus(message: str, candidate: ToolCandidate) -> int:
     if "payment" in message_tokens and candidate_tokens & {"payment", "payments"}:
         return 12
     return 0
+
+
+def _strict_resource_path_bonus(*, message: str, candidate_path: str) -> int:
+    tokens = set(_tokens(message))
+    path_tokens = set(_tokens(candidate_path))
+    if {"payment", "session"} <= tokens:
+        return 300 if "sessions" in path_tokens or "session" in path_tokens else -120
+    if {"payment", "collection"} <= tokens:
+        if "sessions" in path_tokens or "session" in path_tokens:
+            return -80
+        return 220 if {"payment", "collection"} <= path_tokens else -60
+    return 0
+
+
+def _looks_like_payment_options_request(message: str) -> bool:
+    tokens = set(_tokens(message))
+    if not tokens & {"pay", "payment", "payments"}:
+        return False
+    if tokens & {"collection", "collections", "create", "initialize", "initiate", "session", "sessions", "start"}:
+        return False
+    question_terms = {"available", "can", "how", "what", "which"}
+    option_terms = {"method", "methods", "option", "options", "provider", "providers"}
+    return bool(tokens & question_terms and (tokens & option_terms or "pay" in tokens))
 
 
 def _active_resource_input_names(candidate: ToolCandidate, inputs: dict[str, Any], active_resource: dict[str, Any]) -> list[str]:
@@ -2041,6 +2446,72 @@ def _created_collection_path(candidate: ToolCandidate) -> str | None:
     return path
 
 
+def _result_collection_path_for_frame(
+    *,
+    candidate: ToolCandidate,
+    active_resource: dict[str, Any] | None,
+    result: dict[str, Any] | None = None,
+) -> str | None:
+    candidate_path = str(getattr(candidate.action, "path", "") or "").rstrip("/")
+    transition_path = _terminal_result_collection_path(candidate_path, result)
+    if transition_path:
+        return transition_path
+    created_path = _created_collection_path(candidate)
+    if created_path:
+        return created_path
+    if not candidate_path:
+        return None
+    active_path = str((active_resource or {}).get("collection_path") or "").rstrip("/")
+    if active_path and (candidate_path == active_path or candidate_path.startswith(active_path + "/")):
+        return active_path
+    parent_path = _parent_collection_path_for_parameterized_action(candidate_path)
+    if parent_path:
+        return parent_path
+    return active_path or None
+
+
+def _parent_collection_path_for_parameterized_action(path: str) -> str | None:
+    segments = [segment for segment in str(path or "").split("/") if segment]
+    for index, segment in enumerate(segments):
+        if segment.startswith("{") and segment.endswith("}") and index > 0:
+            return "/" + "/".join(segments[:index])
+    return None
+
+
+def _terminal_result_collection_path(path: str, result: dict[str, Any] | None) -> str | None:
+    if _last_path_segment(path).lower().replace("-", "_") not in {"checkout", "complete", "submit"}:
+        return None
+    parent_path = _parent_collection_path_for_parameterized_action(path)
+    if not parent_path:
+        return None
+    keys = _top_level_result_resource_keys(result)
+    if not keys:
+        return None
+    parent_segment = _last_path_segment(parent_path).replace("-", "_")
+    selected_key = keys[0]
+    for key in keys:
+        if _pluralize_resource_segment(key).replace("-", "_") != parent_segment:
+            selected_key = key
+            break
+    prefix = parent_path.rsplit("/", 1)[0]
+    if not prefix:
+        return None
+    return f"{prefix}/{_pluralize_resource_segment(selected_key)}"
+
+
+def _top_level_result_resource_keys(result: dict[str, Any] | None) -> list[str]:
+    body = result.get("body") if isinstance(result, dict) else None
+    if not isinstance(body, dict):
+        return []
+    keys: list[str] = []
+    for key, value in body.items():
+        if not isinstance(value, dict):
+            continue
+        if isinstance(value.get("id"), str) and value.get("id"):
+            keys.append(str(key).strip().replace("_", "-"))
+    return [key for key in keys if key]
+
+
 def _candidate_path_targets_collection(candidate: ToolCandidate, collection_path: str) -> bool:
     path = str(getattr(candidate.action, "path", "") or "")
     normalized = collection_path.rstrip("/")
@@ -2056,16 +2527,89 @@ def _singular(value: str) -> str:
     return value[:-1] if value.endswith("s") else value
 
 
+def _pluralize_resource_segment(value: str) -> str:
+    normalized = str(value or "").strip().replace("_", "-")
+    if not normalized:
+        return ""
+    if normalized.endswith("s"):
+        return normalized
+    if normalized.endswith("y"):
+        return f"{normalized[:-1]}ies"
+    return f"{normalized}s"
+
+
 def _has_write_intent(message: str) -> bool:
-    return bool(
-        set(_tokens(message))
-        & {"add", "checkout", "complete", "create", "delete", "finish", "order", "payment", "purchase", "remove", "send", "ship", "shipping", "submit", "update"}
-    )
+    if _looks_like_payment_options_request(message):
+        return False
+    tokens = set(_tokens(message))
+    if tokens & {"add", "buy", "checkout", "complete", "create", "delete", "finish", "place", "purchase", "remove", "send", "ship", "submit", "update"}:
+        return True
+    context_verbs = {"apply", "choose", "initialize", "initiate", "select", "set", "start", "use"}
+    context_targets = {"delivery", "method", "option", "options", "payment", "session", "shipping", "shipment"}
+    return bool(tokens & context_verbs and tokens & context_targets)
 
 
 def _looks_like_read_refinement(message: str) -> bool:
     tokens = set(_tokens(message))
     return bool(tokens & _READ_REFINEMENT_TERMS) and not _has_write_intent(message)
+
+
+def _looks_like_collection_read_request(message: str) -> bool:
+    tokens = set(_tokens(message))
+    if _has_write_intent(message):
+        return False
+    if tokens & {"fetch", "find", "get", "list", "search", "show"}:
+        return True
+    question_terms = {"available", "have", "what", "which"}
+    dependency_terms = {
+        "delivery",
+        "method",
+        "methods",
+        "option",
+        "options",
+        "payment",
+        "payments",
+        "provider",
+        "providers",
+        "shipping",
+        "shipment",
+    }
+    return bool(tokens & question_terms and tokens & dependency_terms)
+
+
+def _looks_like_active_resource_read_dependency(message: str) -> bool:
+    tokens = set(_tokens(message))
+    if not _looks_like_collection_read_request(message):
+        return False
+    dependency_terms = {
+        "delivery",
+        "method",
+        "methods",
+        "option",
+        "options",
+        "payment",
+        "payments",
+        "provider",
+        "providers",
+        "shipping",
+        "shipment",
+    }
+    return bool(tokens & dependency_terms)
+
+
+def _looks_like_active_resource_read_request(message: str, active_resource: dict[str, Any] | None) -> bool:
+    if active_resource is None or not _looks_like_collection_read_request(message):
+        return False
+    active_path = str(active_resource.get("collection_path") or "")
+    segment = _last_path_segment(active_path).replace("-", "_")
+    if not segment:
+        return False
+    singular = _singular(segment)
+    names = {segment, singular, _pluralize_resource_segment(singular).replace("-", "_")}
+    tokens = set(_tokens(message))
+    if tokens & names:
+        return True
+    return bool(tokens & {"it", "that", "this"} and tokens & {"fetch", "get", "show"})
 
 
 def _last_read_collection_path(frame: dict[str, Any] | None) -> str | None:
@@ -2178,6 +2722,10 @@ def _build_inputs(message: str, action: ActionNode, tool: GeneratedTool) -> tupl
             status = _extract_status_value(message)
             if status is not None:
                 inputs[name] = status
+        elif lowered == "id":
+            resource_id = _extract_resource_id_for_action(message, action)
+            if resource_id is not None:
+                inputs[name] = resource_id
         elif lowered in {"limit", "per_page", "page_size", "count", "top_k"}:
             inputs[name] = 5
         elif lowered in {"q", "query", "search", "search_query", "keyword", "name"}:
@@ -2196,6 +2744,8 @@ def _build_inputs(message: str, action: ActionNode, tool: GeneratedTool) -> tupl
             inputs_value = _extract_named_value(message, name) or _extract_enum_value(message, prop)
             if inputs_value is None and name.lower() == "status":
                 inputs_value = _extract_status_value(message)
+            if inputs_value is None and name.lower() == "id":
+                inputs_value = _extract_resource_id_for_action(message, action)
             if inputs_value is not None:
                 inputs[name] = inputs_value
 
@@ -2209,8 +2759,22 @@ def _extract_named_value(message: str, name: str) -> str | None:
     pattern = re.compile(rf"\b{re.escape(name)}\s*[:=]\s*([^\s,;]+)", re.IGNORECASE)
     match = pattern.search(message)
     if match:
-        return match.group(1).strip()
+        return match.group(1).strip().strip(".,;:!?\"'")
     return None
+
+
+def _extract_resource_id_for_action(message: str, action: ActionNode) -> str | None:
+    resource = _collection_resource_from_path(str(getattr(action, "path", "") or ""))
+    if not resource:
+        return None
+    singular = _singular(resource)
+    match = re.search(rf"\b((?:{re.escape(resource)}|{re.escape(singular)})_[A-Za-z0-9_]+)\b", message or "", re.IGNORECASE)
+    return match.group(1) if match else None
+
+
+def _has_explicit_resource_id(message: str, resource: str) -> bool:
+    singular = _singular(resource)
+    return bool(re.search(rf"\b(?:{re.escape(resource)}|{re.escape(singular)})_[A-Za-z0-9_]+\b", message or "", re.IGNORECASE))
 
 
 def _extract_enum_value(message: str, prop: dict[str, Any]) -> str | None:
@@ -2458,8 +3022,54 @@ def _looks_like_api_task(message: str) -> bool:
     return bool(set(_tokens(message)) & _EXECUTION_HINTS)
 
 
+def _is_generic_public_capability_message(message: str) -> bool:
+    tokens = set(_tokens(message))
+    if not tokens:
+        return False
+    domain_terms = {
+        "address",
+        "basket",
+        "buy",
+        "cart",
+        "catalog",
+        "checkout",
+        "country",
+        "delivery",
+        "inventory",
+        "item",
+        "items",
+        "order",
+        "orders",
+        "payment",
+        "product",
+        "products",
+        "purchase",
+        "region",
+        "sell",
+        "selling",
+        "ship",
+        "shipping",
+        "size",
+        "sizes",
+        "store",
+    }
+    if tokens & domain_terms or _has_write_intent(message) or _looks_like_collection_read_request(message):
+        return False
+    greeting_terms = {"hello", "hey", "hi"}
+    filler_terms = {"again", "me", "please", "there", "with", "you"}
+    if tokens & greeting_terms and tokens <= greeting_terms | filler_terms:
+        return True
+    if tokens & {"capability", "capabilities"}:
+        return True
+    if "help" in tokens:
+        return True
+    if {"what", "you"} <= tokens and tokens & {"can", "could"} and "do" in tokens:
+        return True
+    return False
+
+
 def _required_count(tool: GeneratedTool) -> int:
-    schema = (tool.function_schema or {}).get("parameters") or {}
+    schema = (getattr(tool, "function_schema", None) or {}).get("parameters") or {}
     return len(schema.get("required") or []) if isinstance(schema, dict) else 0
 
 
