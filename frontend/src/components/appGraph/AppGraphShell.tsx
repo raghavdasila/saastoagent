@@ -9,7 +9,6 @@ import {
   useRouteDeckProjection,
   useRouteDeckState,
   useRouteDeckStore,
-  useRouteDeckSurface,
   type RouteDeckEvent,
   type RouteDeckOperation,
   type RouteDeckProjection,
@@ -52,6 +51,9 @@ import type { AgentApproval, AgentApprovalDecision, SaaSAgent, SaaSAgentDeployme
 import { CorpusRouteDeckDiagnostics as DiagnosticsPanel } from './CorpusRouteDeckDiagnostics'
 import {
   ActiveSurfacePanel,
+} from './corpusActiveSurfaces'
+import { FrameSurfacePanel } from './corpusFrameSurfaces'
+import {
   type ActiveSurfaceDirtyState,
   activeSurfaceFromProjection,
   contextLensFromProjection,
@@ -625,7 +627,6 @@ function AppGraphShellRuntime({ nodeId, saasAgentId }: AppGraphShellProps) {
             status={visibleStatus}
             railNotice={railNotice}
             operationBusy={executeOperation.isPending}
-            onOperationSubmit={(operationId, args) => executeOperation.mutate({ operationId, args })}
           />
           <DiagnosticsPanel
             projection={projection}
@@ -973,122 +974,6 @@ function CapabilityStatusIcon({ status }: { status: 'active' | 'ready' | 'locked
   return <Lock className="h-4 w-4" />
 }
 
-function FrameSurfacePanel() {
-  const projection = useRouteDeckProjection()
-  const routeDeckStore = useRouteDeckStore()
-  const surface = useRouteDeckSurface('main')
-  const contextLens = contextLensFromProjection(projection)
-  const setMirroredSaaSAgentId = useSaaSAgentUiStore((state) => state.setMirroredSaaSAgentId)
-  const [openingAgentId, setOpeningAgentId] = useState<string | null>(null)
-  if (!surface) return null
-
-  const onOpenSaaSAgent = async (agent: SaaSAgent) => {
-    setOpeningAgentId(agent.id)
-    try {
-      const response = await routeDeckStore.dispatch({
-        operation_id: corpusOperationIds.openSaaSAgent,
-        args: { saas_agent_id: agent.id },
-      })
-      const nextGraphState = graphStateFromRouteDeckState(response.state)
-      setMirroredSaaSAgentId(nextGraphState?.active_saas_agent_id || agent.id)
-    } finally {
-      setOpeningAgentId(null)
-    }
-  }
-
-  const onListSaaSAgents = async () => {
-    await routeDeckStore.dispatch({
-      operation_id: corpusOperationIds.listSaaSAgents,
-      args: {},
-    })
-  }
-
-  if (surface.component === corpusSurfaceComponents.lounge) {
-    return (
-      <div className="md3-surface-low p-5">
-        <div className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="h-4 w-4 text-primary" />{String(surface.props?.title || 'Explore SaaStoAgent')}</div>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          {String(
-            surface.props?.subtitle ||
-              'Ask about the platform, then let Corpus guide you into the next graph node when needed.',
-          )}
-        </p>
-      </div>
-    )
-  }
-
-  if (surface.component === corpusSurfaceComponents.dashboard) {
-    const saasAgents = Array.isArray(surface.props?.saas_agents)
-      ? (surface.props?.saas_agents as SaaSAgent[])
-      : []
-    const agentCount = Number(surface.props?.agent_count ?? saasAgents.length)
-    return (
-      <div className="relative overflow-hidden rounded-[0.9rem] border border-border/20 bg-gradient-to-br from-card via-muted/75 to-card p-5 shadow-[0_22px_52px_-42px_hsl(var(--foreground)/0.68)] dark:border-white/10 dark:from-muted/80 dark:via-card dark:to-muted/50">
-        <div className="pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-secondary/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-28 left-1/4 h-52 w-52 rounded-full bg-primary/10 blur-3xl" />
-        <div className="flex items-start justify-between gap-4">
-          <div className="relative min-w-0">
-            <div className="text-sm font-semibold">Dashboard</div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Corpus stays in the center. The dashboard remains contextual until you ask to open or create an agent.
-            </p>
-          </div>
-          <div className="relative shrink-0 whitespace-nowrap rounded-full bg-secondary px-3 py-1 text-[11px] font-semibold text-secondary-foreground shadow-[0_12px_26px_-18px_hsl(var(--secondary)/0.9)]">
-            {agentCount} agents
-          </div>
-        </div>
-        {saasAgents.length > 0 && (
-          <div className="relative mt-4 grid gap-2 sm:grid-cols-2">
-            {saasAgents.slice(0, 2).map((agent) => (
-              <button
-                key={agent.id}
-                type="button"
-                onClick={() => void onOpenSaaSAgent(agent)}
-                disabled={openingAgentId === agent.id}
-                className="rounded-[0.75rem] border border-border/20 bg-card/90 p-3 text-left text-sm shadow-[0_16px_32px_-28px_hsl(var(--foreground)/0.55)] transition hover:border-primary/35 hover:bg-primary/5 disabled:opacity-60 dark:border-white/10 dark:bg-background/30"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0 font-semibold">{agent.name}</div>
-                  <span className="rounded-full bg-secondary/10 px-2 py-0.5 text-[11px] font-semibold text-secondary">
-                    {openingAgentId === agent.id ? 'Opening' : 'Open'}
-                  </span>
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground">Configure API or continue setup</div>
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="relative mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => void onListSaaSAgents()}
-            className="rounded-full border border-border/30 bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm transition hover:border-primary/35 hover:bg-primary/5"
-          >
-            List agents
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="md3-surface-low p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-sm font-semibold">{String(surface.props?.title || contextLens?.working_on || displayWork(projection.graph_node))}</div>
-        <span className="shrink-0 whitespace-nowrap rounded-full bg-secondary px-3 py-1 text-[11px] font-semibold text-secondary-foreground shadow-sm">
-          Current node
-        </span>
-      </div>
-      <div className="mt-2 text-sm text-muted-foreground">
-        {contextLens?.selected_saas_agent_name
-          ? `Focused on ${contextLens.selected_saas_agent_name}.`
-          : 'Context is graph-owned and can change when Corpus commits the next legal operation.'}
-      </div>
-    </div>
-  )
-}
-
-
 function SurfaceTransitionPrompt({
   busy,
   onSaveAndContinue,
@@ -1141,16 +1026,13 @@ function ContextPanel({
   status,
   railNotice,
   operationBusy,
-  onOperationSubmit,
 }: {
   projection: RouteDeckProjection
   status: WorkbenchStatus
   railNotice: RailSelectionNotice | null
   operationBusy: boolean
-  onOperationSubmit: (operationId: string, args: Record<string, unknown>) => void
 }) {
   const lens = contextLensFromProjection(projection)
-  const deploymentOperation = projection.legal_operations.find((operation) => operation.id === corpusOperationIds.saveDeployment) || null
   return (
     <section>
       <h2 className="text-sm font-medium">Context / Evidence</h2>
@@ -1177,9 +1059,7 @@ function ContextPanel({
           <DeploymentCard
             saasAgentId={lens.selected_saas_agent_id}
             slug={lens.selected_saas_agent_slug}
-            deploymentOperation={deploymentOperation}
             busy={operationBusy}
-            onOperationSubmit={onOperationSubmit}
           />
           <PendingApprovalsCard
             saasAgentId={lens.selected_saas_agent_id}
@@ -1194,23 +1074,28 @@ function ContextPanel({
 function DeploymentCard({
   saasAgentId,
   slug,
-  deploymentOperation,
   busy,
-  onOperationSubmit,
 }: {
   saasAgentId: string
   slug: string
-  deploymentOperation: RouteDeckOperation | null
   busy: boolean
-  onOperationSubmit: (operationId: string, args: Record<string, unknown>) => void
 }) {
   const agentApi = api.withSaaSAgent(saasAgentId)
+  const queryClient = useQueryClient()
   const [draft, setDraft] = useState<SaaSAgentDeployment | null>(null)
   const deployUrl = `${window.location.origin}/a/${slug}`
   const query = useQuery({
     queryKey: ['saas-agent-deployment', saasAgentId],
     queryFn: () => agentApi.get<SaaSAgentDeployment>(`/saas-agents/${saasAgentId}/deployment`),
     enabled: Boolean(saasAgentId),
+  })
+  const saveDeployment = useMutation({
+    mutationFn: (payload: Pick<SaaSAgentDeployment, 'enabled' | 'visitor_auth_mode' | 'execution_mode' | 'default_write_policy' | 'welcome_message'>) =>
+      agentApi.put<SaaSAgentDeployment>(`/saas-agents/${saasAgentId}/deployment`, payload),
+    onSuccess: (saved) => {
+      setDraft(saved)
+      void queryClient.invalidateQueries({ queryKey: ['saas-agent-deployment', saasAgentId] })
+    },
   })
 
   useEffect(() => {
@@ -1226,7 +1111,7 @@ function DeploymentCard({
   }
 
   return (
-    <div className="mt-4 rounded-xl border border-border/25 bg-card/80 p-3 text-xs shadow-sm">
+    <div className="mt-4 rounded-xl border border-border/25 bg-card/80 p-3 text-xs shadow-sm" data-testid="deployment-settings-card">
       <div className="flex items-center justify-between gap-2">
         <div>
           <div className="font-semibold text-foreground">Deployed chat URL</div>
@@ -1238,6 +1123,7 @@ function DeploymentCard({
           <input
             type="checkbox"
             checked={draft.enabled}
+            data-qa-field="enabled"
             onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })}
           />
           Enabled
@@ -1248,6 +1134,7 @@ function DeploymentCard({
         <select
           className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1"
           value={draft.visitor_auth_mode}
+          data-qa-field="visitor_auth_mode"
           onChange={(event) => setDraft({ ...draft, visitor_auth_mode: event.target.value as SaaSAgentDeployment['visitor_auth_mode'] })}
         >
           <option value="inherit_from_connection">Inherit from connection</option>
@@ -1256,34 +1143,60 @@ function DeploymentCard({
         </select>
       </label>
       <label className="mt-3 block">
+        <span className="text-muted-foreground">Execution mode</span>
+        <select
+          className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1"
+          value={draft.execution_mode}
+          data-qa-field="execution_mode"
+          onChange={(event) => setDraft({ ...draft, execution_mode: event.target.value as SaaSAgentDeployment['execution_mode'] })}
+        >
+          <option value="sandbox">Sandbox</option>
+          <option value="live">Live</option>
+        </select>
+      </label>
+      <label className="mt-3 block">
+        <span className="text-muted-foreground">Write policy</span>
+        <select
+          className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1"
+          value={draft.default_write_policy}
+          data-qa-field="default_write_policy"
+          onChange={(event) => setDraft({ ...draft, default_write_policy: event.target.value as SaaSAgentDeployment['default_write_policy'] })}
+        >
+          <option value="confirm">Confirm before writes</option>
+          <option value="owner_approval">Owner approval</option>
+          <option value="block">Block writes</option>
+        </select>
+      </label>
+      <label className="mt-3 block">
         <span className="text-muted-foreground">Welcome message</span>
         <textarea
           className="mt-1 min-h-16 w-full rounded-md border border-input bg-background px-2 py-1"
           value={draft.welcome_message}
+          data-qa-field="welcome_message"
           onChange={(event) => setDraft({ ...draft, welcome_message: event.target.value })}
         />
       </label>
-      {!deploymentOperation && (
-        <div className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
-          Deployment save is not currently legal for this graph state.
+      {saveDeployment.isError && (
+        <div className="mt-2 rounded-md bg-destructive/10 px-2 py-1 text-destructive">
+          Deployment settings could not be saved.
         </div>
       )}
       <button
         type="button"
-        onClick={() =>
-          deploymentOperation &&
-          onOperationSubmit(deploymentOperation.id, {
+        onClick={() => {
+          if (!draft) return
+          saveDeployment.mutate({
             enabled: draft.enabled,
             visitor_auth_mode: draft.visitor_auth_mode,
             execution_mode: draft.execution_mode,
             default_write_policy: draft.default_write_policy,
             welcome_message: draft.welcome_message,
           })
-        }
-        disabled={busy || !deploymentOperation}
+        }}
+        disabled={busy || saveDeployment.isPending}
         className="surface-solid-button mt-3 w-full rounded-md px-3 py-2"
       >
-        {busy ? 'Saving...' : 'Save deployment'}
+        {busy || saveDeployment.isPending ? 'Saving...' : 'Save deployment'}
       </button>
     </div>
   )

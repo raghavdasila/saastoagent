@@ -33,13 +33,9 @@ export function LearningPanel({
 
   const review = useMutation({
     mutationFn: ({ id, action }: { id: string; action: 'approve' | 'reject' }) =>
-      routeDeckStore.dispatch({
-        operation_id:
-          action === 'approve'
-            ? corpusOperationIds.learningApprove
-            : corpusOperationIds.learningReject,
-        args: { candidate_id: id },
-      }),
+      action === 'approve'
+        ? agentApi.post<AgentLearningCandidate>(`/saas-agents/${saasAgentId}/agent/learnings/${id}/approve`)
+        : agentApi.post<AgentLearningCandidate>(`/saas-agents/${saasAgentId}/agent/learnings/${id}/reject`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agent-learnings', saasAgentId] })
     },

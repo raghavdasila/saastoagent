@@ -84,8 +84,8 @@ export function DeployedAgentChatPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.16),transparent_34%),linear-gradient(135deg,#f8fafc,#eef2f7)] text-foreground dark:bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.16),transparent_34%),linear-gradient(135deg,#09090b,#111827)]">
-      <header className="border-b border-border/60 bg-background/82 px-4 py-4 shadow-sm backdrop-blur md:px-8">
+    <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.16),transparent_34%),linear-gradient(135deg,#f8fafc,#eef2f7)] text-foreground dark:bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.16),transparent_34%),linear-gradient(135deg,#09090b,#111827)]">
+      <header className="shrink-0 border-b border-border/60 bg-background/82 px-4 py-4 shadow-sm backdrop-blur md:px-8">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
@@ -114,7 +114,7 @@ export function DeployedAgentChatPage() {
         </div>
       </header>
 
-      <main className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-5xl flex-col px-4 py-5 md:px-8">
+      <main className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col px-4 py-5 md:px-8">
         {authBlocked ? (
           <DeployedAuthGate
             onLogin={login}
@@ -124,7 +124,7 @@ export function DeployedAgentChatPage() {
           />
         ) : (
           <>
-            <section className="flex-1 overflow-y-auto rounded-3xl border border-border/70 bg-background/80 shadow-xl shadow-slate-950/5 backdrop-blur dark:bg-background/55">
+            <section className="min-h-0 flex-1 overflow-y-auto rounded-3xl border border-border/70 bg-background/80 shadow-xl shadow-slate-950/5 backdrop-blur dark:bg-background/55">
               {messages.length === 0 && !isStreaming ? (
                 <div className="mx-auto flex max-w-2xl flex-col items-center px-6 py-16 text-center">
                   <Bot className="h-10 w-10 text-primary" />
@@ -147,7 +147,7 @@ export function DeployedAgentChatPage() {
               )}
             </section>
 
-            <section className="mt-4 rounded-2xl border border-border/70 bg-background/90 p-3 shadow-lg shadow-slate-950/5 backdrop-blur">
+            <section className="mt-4 shrink-0 rounded-2xl border border-border/70 bg-background/90 p-3 shadow-lg shadow-slate-950/5 backdrop-blur">
               {error && (
                 <div className="mb-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
                   {error}

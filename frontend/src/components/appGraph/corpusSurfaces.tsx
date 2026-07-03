@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import {
-  RouteDeckSurfaceHost,
   useRouteDeckStore,
   type RouteDeckOperation,
   type RouteDeckProjection,
@@ -9,25 +8,16 @@ import {
 } from '@routedeck/react'
 import {
   AlertTriangle,
-  Boxes,
   FileText,
   KeyRound,
   Loader2,
-  Play,
-  ShieldCheck,
 } from 'lucide-react'
 
-import { AdminPanel } from '@/components/agent/AdminPanel'
-import { AttachmentsPanel } from '@/components/agent/AttachmentsPanel'
-import { LearningPanel } from '@/components/agent/LearningPanel'
-import { ActionsCanvas } from '@/components/saasAgent/ActionsCanvas'
-import { EntitiesCanvas } from '@/components/saasAgent/EntitiesCanvas'
-import { QAAgentPanel } from '@/components/qa/QAAgentPanel'
 import { useAuth } from '@/context/AuthContext'
 import { isValidEmail } from '@/lib/entryGraph'
 import { api } from '@/lib/api'
 import { useSaaSAgentUiStore } from '@/stores/saasAgentUiStore'
-import type { AppGraphContextLens, AppGraphState } from '@/types/appGraph'
+import type { AppGraphContextLens } from '@/types/appGraph'
 import type { SaaSAgent } from '@/types/domain'
 
 import {
@@ -39,7 +29,13 @@ import {
 } from './corpusOperations'
 import { graphStateFromRouteDeckState } from './corpusRouteDeckClient'
 import { corpusOperationIds, corpusSurfaceComponents } from './corpusRouteDeckCatalog'
-import { displayWork } from './workbenchDisplay'
+
+export interface ActiveSurfaceDirtyState {
+  surfaceId: string
+  dirty: boolean
+  save?: () => Promise<boolean>
+}
+
 export function OperationForm({
   operation,
   busy,
@@ -258,202 +254,6 @@ export function ConnectionSetupSurface({
         )}
       </div>
     </InfoSurface>
-  )
-}
-
-export function ActiveSurfacePanel({
-  projection,
-  graphState,
-  busy,
-  onOperationSubmit,
-  onDirtyStateChange,
-}: {
-  projection: RouteDeckProjection
-  graphState: AppGraphState | null
-  busy: boolean
-  onOperationSubmit: (operationId: string, args: Record<string, unknown>) => void
-  onDirtyStateChange?: (state: ActiveSurfaceDirtyState | null) => void
-}) {
-  const contextLens = contextLensFromProjection(projection)
-
-  return (
-    <section className="py-4" data-testid="active-surface-panel">
-      <RouteDeckSurfaceHost>
-        {(activeSurface) => {
-          if (!activeSurface) return null
-          return (
-            <div className="rounded-[0.9rem] border border-border/30 bg-card p-5 shadow-[0_26px_64px_-42px_hsl(var(--foreground)/0.65)] dark:border-white/15 dark:bg-muted dark:shadow-black/40">
-              <div className="mb-4 flex items-center justify-between gap-3 pb-3">
-                <div>
-                  <h2 className="text-base font-semibold">{surfaceTitle(activeSurface, contextLens)}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">Opened from committed graph state.</p>
-                </div>
-                <span className="shrink-0 whitespace-nowrap rounded-full bg-secondary px-3 py-1 text-[11px] font-semibold text-secondary-foreground shadow-sm">
-                  Active surface
-                </span>
-              </div>
-              <SurfaceRenderer
-                surface={activeSurface}
-                contextLens={contextLens}
-                graphState={graphState}
-                projection={projection}
-                busy={busy}
-                onOperationSubmit={onOperationSubmit}
-                onDirtyStateChange={onDirtyStateChange}
-              />
-            </div>
-          )
-        }}
-      </RouteDeckSurfaceHost>
-    </section>
-  )
-}
-
-export interface ActiveSurfaceDirtyState {
-  surfaceId: string
-  dirty: boolean
-  save?: () => Promise<boolean>
-}
-
-export function SurfaceRenderer({
-  surface,
-  contextLens,
-  graphState,
-  projection,
-  busy,
-  onOperationSubmit,
-  onDirtyStateChange,
-}: {
-  surface: RouteDeckSurface
-  contextLens: AppGraphContextLens | null
-  graphState: AppGraphState | null
-  projection: RouteDeckProjection
-  busy: boolean
-  onOperationSubmit: (operationId: string, args: Record<string, unknown>) => void
-  onDirtyStateChange?: (state: ActiveSurfaceDirtyState | null) => void
-}) {
-  if (surface.component === corpusSurfaceComponents.auth) {
-    return <AuthSurfaceCard surface={surface} />
-  }
-  if (surface.component === corpusSurfaceComponents.operationReview) {
-    return (
-      <OperationReviewSurface
-        projection={projection}
-        surface={surface}
-        busy={busy}
-        onOperationSubmit={onOperationSubmit}
-      />
-    )
-  }
-  const activeSaaSAgentId = graphState?.active_saas_agent_id || null
-  if (surface.component === corpusSurfaceComponents.entities) return <EntitiesCanvas saasAgentId={activeSaaSAgentId} />
-  if (surface.component === corpusSurfaceComponents.actions) return <ActionsCanvas saasAgentId={activeSaaSAgentId} />
-  if (surface.component === corpusSurfaceComponents.knowledge) return <AttachmentsPanel saasAgentId={activeSaaSAgentId} />
-  if (surface.component === corpusSurfaceComponents.learning) {
-    return <LearningPanel saasAgentId={activeSaaSAgentId} filter={String(surface.props?.filter || 'policy_gaps')} />
-  }
-  if (surface.component === corpusSurfaceComponents.learningPolicyCandidate) {
-    return (
-      <LearningPanel
-        saasAgentId={activeSaaSAgentId}
-        candidateId={String(surface.props?.candidate_id || '')}
-        readonly={Boolean(surface.props?.readonly)}
-      />
-    )
-  }
-  if (surface.component === corpusSurfaceComponents.learningExecutionTrace) {
-    return (
-      <InfoSurface title="Execution trace" description="Owner-only trace review for the selected public or owner execution." icon={<Play className="h-5 w-5" />}>
-        <dl className="grid gap-2 text-sm sm:grid-cols-2">
-          <Fact label="Trace ID" value={String(surface.props?.trace_id || 'No trace selected')} />
-          <Fact label="Visibility" value="Owner only" />
-        </dl>
-      </InfoSurface>
-    )
-  }
-  if (surface.component === corpusSurfaceComponents.qa) return <QAAgentPanel onResetRuntime={async () => undefined} />
-  if (surface.component === corpusSurfaceComponents.instructions) {
-    return (
-      <InstructionsSurface
-        saasAgentId={activeSaaSAgentId}
-        surfaceId={surface.surface_id || 'instructions.active'}
-        onDirtyStateChange={onDirtyStateChange}
-      />
-    )
-  }
-  if (surface.component === corpusSurfaceComponents.memory) {
-    const agents = Array.isArray(surface.props?.saas_agents) ? (surface.props?.saas_agents as SaaSAgent[]) : []
-    const activeAgent = agents.find((agent) => agent.id === activeSaaSAgentId)
-    return <AdminPanel saasAgent={activeAgent} saasAgentId={activeSaaSAgentId} />
-  }
-  if (surface.component === corpusSurfaceComponents.schemaPreview) {
-    const preview = surface.props?.schema_preview as Record<string, unknown> | undefined
-    return (
-      <InfoSurface title="Schema preview" description="Review the detected API shape before activation." icon={<FileText className="h-5 w-5" />}>
-        <dl className="grid gap-2 text-sm sm:grid-cols-3">
-          <Fact label="Title" value={String(preview?.title || 'Pending preview')} />
-          <Fact label="Version" value={String(preview?.version || 'Unknown')} />
-          <Fact label="Endpoints" value={String(preview?.endpoint_count || 0)} />
-        </dl>
-      </InfoSurface>
-    )
-  }
-  if (surface.component === corpusSurfaceComponents.catalog) {
-    const activationEvents = Array.isArray(surface.props?.activation_events)
-      ? (surface.props?.activation_events as unknown[])
-      : []
-    const catalog = surface.props?.catalog as Record<string, unknown> | undefined
-    const routerIndex =
-      (surface.props?.router_index as Record<string, unknown> | undefined) ||
-      (catalog?.router_index as Record<string, unknown> | undefined) ||
-      (contextLens?.router_index_status
-        ? {
-            status: contextLens.router_index_status,
-            document_count: contextLens.router_documents_count,
-            endpoint_count: contextLens.router_endpoint_count,
-            router_version: contextLens.router_version,
-          }
-        : undefined)
-    const requestReferenceCount = Number(routerIndex?.document_count || contextLens?.router_documents_count || 0)
-    const requestMatchingStatus = routerIndex ? requestMatchingStatusLabel(String(routerIndex.status || 'unknown')) : null
-    return (
-      <InfoSurface title="Catalog" description="Activated API capabilities and generated tools appear here as they become available." icon={<Boxes className="h-5 w-5" />}>
-        <div className="grid gap-3 sm:grid-cols-4">
-          <Metric label="Ready APIs" value={contextLens?.ready_connection_count || 0} icon={<KeyRound className="h-4 w-4" />} />
-          <Metric label="Actions" value={contextLens?.action_count || 0} icon={<Play className="h-4 w-4" />} />
-          <Metric label="Tools" value={contextLens?.tool_count || 0} icon={<ShieldCheck className="h-4 w-4" />} />
-          <Metric label="API references" value={requestReferenceCount} icon={<FileText className="h-4 w-4" />} />
-        </div>
-        {requestMatchingStatus && (
-          <p className="mt-3 text-sm text-slate-500">
-            Request matching: {requestMatchingStatus}
-          </p>
-        )}
-        {activationEvents.length > 0 && (
-          <p className="mt-3 text-sm text-slate-500">{activationEvents.length} activation events captured for diagnostics.</p>
-        )}
-      </InfoSurface>
-    )
-  }
-  if (surface.component === corpusSurfaceComponents.connectionSetup) {
-    return <ConnectionSetupSurface projection={projection} busy={busy} onOperationSubmit={onOperationSubmit} />
-  }
-  if (surface.component === corpusSurfaceComponents.saaSAgentList) {
-    const agents = Array.isArray(surface.props?.saas_agents) ? (surface.props?.saas_agents as SaaSAgent[]) : []
-    return <SaaSAgentListSurface agents={agents} />
-  }
-  if (surface.component === corpusSurfaceComponents.execution) {
-    return (
-      <InfoSurface title="Execution" description="Corpus will propose execution inputs or approvals when the graph requires them." icon={<Play className="h-5 w-5" />} />
-    )
-  }
-  if (surface.component === corpusSurfaceComponents.recovery) {
-    return (
-      <InfoSurface title="Recovery" description="This path needs a different prerequisite. Diagnostics can explain why it is blocked." icon={<AlertTriangle className="h-5 w-5" />} />
-    )
-  }
-  return (
-    <InfoSurface title={surfaceTitle(surface, contextLens)} description="This surface is available from the current node." icon={<Boxes className="h-5 w-5" />} />
   )
 }
 
@@ -814,14 +614,6 @@ export function Metric({ label, value, icon }: { label: string; value: number; i
       <div className="mt-2 text-2xl font-medium">{value}</div>
     </div>
   )
-}
-
-function requestMatchingStatusLabel(status: string) {
-  if (status === 'ready') return 'Ready'
-  if (status === 'building') return 'Preparing'
-  if (status === 'stale') return 'Refreshing'
-  if (status === 'failed') return 'Needs attention'
-  return 'Pending'
 }
 
 export function InfoSurface({
