@@ -31,12 +31,11 @@ class CorpusSurfaceRegistry(RouteDeckSurfaceRegistry):
         node_by_id: dict[str, Any],
     ) -> RouteDeckSurface:
         spec = self._catalog.frame_spec(state=state, lens=lens, saas_agents=saas_agents, context=context)
-        return self._build_surface(
+        return self.build_surface_from_spec(
             spec=spec,
-            state=state,
-            lens=lens,
-            saas_agents=saas_agents,
             variant=self.surface_variant(state, presentation_state, "main", spec.variant, node_by_id),
+            label=spec.label or lens.working_on,
+            props=spec.resolve_props(state=state, lens=lens, saas_agents=saas_agents),
         )
 
     def active_surface(
@@ -137,27 +136,4 @@ class CorpusSurfaceRegistry(RouteDeckSurfaceRegistry):
             **state.graph_context,
             "router_index": state.graph_context.get("router_index") or self._catalog.router_index_from_lens(lens),
         }
-        return self._build_surface(spec=spec, state=state, lens=lens, saas_agents=saas_agents, props=props)
-
-    def _build_surface(
-        self,
-        *,
-        spec: CorpusSurfaceSpec,
-        state: AppGraphState,
-        lens: AppGraphContextLens,
-        saas_agents: list[SaaSAgentRead],
-        variant: str | None = None,
-        props: dict[str, Any] | None = None,
-    ) -> RouteDeckSurface:
-        return self.build_surface(
-            name=spec.name,
-            surface_id=spec.surface_id,
-            component=spec.component,
-            variant=variant or spec.variant,
-            role=spec.role,
-            slot=spec.slot,
-            surface_kind=spec.surface_kind,
-            label=spec.label or lens.working_on,
-            props=props if props is not None else spec.resolve_props(state=state, lens=lens, saas_agents=saas_agents),
-            lifecycle=spec.lifecycle,
-        )
+        return self.build_surface_from_spec(spec=spec, label=spec.label or lens.working_on, props=props)

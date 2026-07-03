@@ -13,6 +13,8 @@ def test_corpus_surface_registry_is_thin_adapter_over_surface_catalog():
 
     assert "CorpusSurfaceCatalog" in registry_source
     assert "CorpusSurfaceSpec" in catalog_source
+    assert "build_surface_from_spec" in registry_source
+    assert "def _build_surface" not in registry_source
     assert "elif state.node" not in registry_source
     assert registry_source.count("RouteDeckSurface(") <= 3
 
