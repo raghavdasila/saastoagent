@@ -24,6 +24,10 @@ export default defineConfig({
       { find: /^react$/, replacement: path.resolve(frontendRoot, './node_modules/react') },
       { find: 'react/jsx-runtime', replacement: path.resolve(frontendRoot, './node_modules/react/jsx-runtime.js') },
       { find: /^@xyflow\/react$/, replacement: path.resolve(frontendRoot, './node_modules/@xyflow/react/dist/esm/index.js') },
+      {
+        find: /^@xyflow\/react\/dist\/style\.css$/,
+        replacement: path.resolve(frontendRoot, './node_modules/@xyflow/react/dist/style.css'),
+      },
     ],
   },
   server: {

@@ -16,6 +16,7 @@ Session activity records.
 
 ## Log Index
 
+- `20260701_1730_chat_first_medusa_checkpoint_video_prep.md` - chat-first Medusa recording rehearsal, checkout/order-readback fixes, and checkpoint proof
 - `20260521_1107_corpus_workbench_and_routedeck_debugger_closeout.md` - Corpus workbench shell refinement, shared RouteDeck debugger routing/topology validation, and session closeout
 - `20260519_2123_routedeck_runtime_store_closeout.md` - RouteDeck runtime-store foundation, anti-drift documentation reset, and cleanup audit closeout
 - `20260517_1214_agent_ux_architecture_reframe_closeout.md` - RouteDeck/Corpus architecture reframe and closeout
