@@ -1,9 +1,9 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 
-import { AppGraphShell } from '@/components/appGraph/AppGraphShell'
+import { CorpusShell } from '@/components/corpus/CorpusShell'
 import { DeployedAgentChatPage } from '@/pages/DeployedAgentChatPage'
 
-function AppGraphRoute() {
+function CorpusRoute() {
   const location = useLocation()
   const appPath = location.pathname.replace(/^\/app\/?/, '')
   const segments = appPath.split('/').filter(Boolean).map((segment) => decodeURIComponent(segment))
@@ -14,9 +14,9 @@ function AppGraphRoute() {
   if (segments[0] === 'agents') {
     const saasAgentId = segments[1]
     if (!saasAgentId) return <Navigate to="/app/home" replace />
-    return <AppGraphShell saasAgentId={saasAgentId} nodeId={segments[2]} />
+    return <CorpusShell saasAgentId={saasAgentId} nodeId={segments[2]} />
   }
-  return <AppGraphShell nodeId={segments[0]} />
+  return <CorpusShell nodeId={segments[0]} />
 }
 
 function LegacySaaSAgentRoute() {
@@ -31,7 +31,7 @@ export function App() {
     <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
       <Routes>
         {/* Corpus owns product interaction; RouteDeck projects graph state into UI context. */}
-        <Route path="/app/*" element={<AppGraphRoute />} />
+        <Route path="/app/*" element={<CorpusRoute />} />
         <Route path="/a/:slug" element={<DeployedAgentChatPage />} />
 
         {/* Compatibility links hydrate graph context; they do not bypass Corpus. */}

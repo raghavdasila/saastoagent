@@ -4,7 +4,7 @@ import { Check, ExternalLink, FlaskConical, X } from 'lucide-react'
 
 import { api } from '@/lib/api'
 import type { AgentLearningCandidate } from '@/types/agent'
-import { corpusOperationIds } from '@/components/appGraph/corpusRouteDeckCatalog'
+import { corpusOperationIds } from '@/components/corpus/corpusRouteDeckCatalog'
 
 interface LearningPanelProps {
   saasAgentId?: string | null
@@ -33,9 +33,10 @@ export function LearningPanel({
 
   const review = useMutation({
     mutationFn: ({ id, action }: { id: string; action: 'approve' | 'reject' }) =>
-      action === 'approve'
-        ? agentApi.post<AgentLearningCandidate>(`/saas-agents/${saasAgentId}/agent/learnings/${id}/approve`)
-        : agentApi.post<AgentLearningCandidate>(`/saas-agents/${saasAgentId}/agent/learnings/${id}/reject`),
+      routeDeckStore.dispatch({
+        operation_id: action === 'approve' ? corpusOperationIds.learningApprove : corpusOperationIds.learningReject,
+        args: { candidate_id: id },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agent-learnings', saasAgentId] })
     },

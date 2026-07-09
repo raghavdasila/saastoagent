@@ -1,26 +1,30 @@
 from __future__ import annotations
 
-from backend.services.app_graph import (
+from backend.services.corpus import (
     ACTION_TARGETS,
-    APP_GRAPH_GROUPS,
-    APP_GRAPH_VERSION,
+    CORPUS_GRAPH_GROUPS,
+    CORPUS_GRAPH_VERSION,
     NODE_HANDLERS,
-    build_app_graph_manifest,
-    corpus_graph_runtime,
-    validate_app_graph_manifest,
+    build_corpus_manifest,
+    validate_corpus_manifest,
 )
-from backend.services.app_graph.manifest import ACTION_SPECS, AppActionIds
-from backend.services.app_graph.corpus_surfaces import CorpusSurfaceRegistry
+from backend.services.corpus.corpus_operations import CorpusOperationPolicy
+from backend.services.corpus.manifest import ACTION_SPECS, CorpusActionIds
+from backend.services.corpus.corpus_surfaces import CorpusSurfaceRegistry
 from routedeck_langgraph import validate_langgraph_contract
 from pathlib import Path
 from backend.core.schemas import ActionCatalogRead
 
 
-def test_app_graph_manifest_is_valid_and_handler_complete():
-    assert validate_app_graph_manifest() == []
-    manifest = build_app_graph_manifest()
+def _operation_for_action(action):
+    return CorpusOperationPolicy().operation_for_action(action)
 
-    assert manifest.version == APP_GRAPH_VERSION
+
+def test_app_graph_manifest_is_valid_and_handler_complete():
+    assert validate_corpus_manifest() == []
+    manifest = build_corpus_manifest()
+
+    assert manifest.version == CORPUS_GRAPH_VERSION
     assert manifest.nodes[0].id == "home"
     assert {node.id for node in manifest.nodes} == set(NODE_HANDLERS)
     assert {
@@ -41,12 +45,12 @@ def test_app_graph_manifest_is_valid_and_handler_complete():
 
 
 def test_app_graph_route_deck_matches_langgraph_contract():
-    manifest = build_app_graph_manifest()
+    manifest = build_corpus_manifest()
     assert validate_langgraph_contract(
         manifest,
         NODE_HANDLERS,
         {},
-        groups=APP_GRAPH_GROUPS,
+        groups=CORPUS_GRAPH_GROUPS,
     ) == []
 
     node_ids = {node.id for node in manifest.nodes}
@@ -59,21 +63,21 @@ def test_app_graph_route_deck_matches_langgraph_contract():
 
 
 def test_app_graph_manifest_edges_are_semantic_topology_not_global_actions():
-    manifest = build_app_graph_manifest()
+    manifest = build_corpus_manifest()
     edges = {(edge.from_stage, edge.to_stage, edge.action_id) for edge in manifest.edges}
 
     assert len(manifest.edges) < len(manifest.nodes) * 2
-    assert ("home", "auth_register", AppActionIds.AUTH_REGISTER) in edges
-    assert ("agent_home", "connection_configure", AppActionIds.CONNECTION_CONFIGURE) in edges
-    assert ("connection_configure", "schema_preview", AppActionIds.CONNECTION_PREVIEW) in edges
-    assert ("schema_preview", "catalog_activation", AppActionIds.CONNECTION_ACTIVATE) in edges
+    assert ("home", "auth_register", CorpusActionIds.AUTH_REGISTER) in edges
+    assert ("agent_home", "connection_configure", CorpusActionIds.CONNECTION_CONFIGURE) in edges
+    assert ("connection_configure", "schema_preview", CorpusActionIds.CONNECTION_PREVIEW) in edges
+    assert ("schema_preview", "catalog_activation", CorpusActionIds.CONNECTION_ACTIVATE) in edges
     assert ("catalog_activation", "catalog", None) in edges
-    assert ("qa", "home", AppActionIds.HOME) not in edges
-    assert ("memory", "agent_home", AppActionIds.AGENT_HOME) not in edges
+    assert ("qa", "home", CorpusActionIds.HOME) not in edges
+    assert ("memory", "agent_home", CorpusActionIds.AGENT_HOME) not in edges
 
 
 def test_app_graph_actions_are_scoped_and_target_typed_nodes():
-    manifest = build_app_graph_manifest()
+    manifest = build_corpus_manifest()
     node_ids = {node.id for node in manifest.nodes}
     action_ids = {action.id for action in manifest.actions}
 
@@ -86,9 +90,9 @@ def test_app_graph_actions_are_scoped_and_target_typed_nodes():
 
 
 def test_app_graph_free_text_policy_is_not_phrase_list_routing():
-    manifest = build_app_graph_manifest()
+    manifest = build_corpus_manifest()
     policy = manifest.policies["navigation"]
-    assert policy["source_of_truth"] == "backend_app_graph"
+    assert policy["source_of_truth"] == "backend_corpus_graph"
     assert policy["no_frontend_workflow_authority"] is True
 
     action_ids = {action.id for action in manifest.actions}
@@ -97,7 +101,7 @@ def test_app_graph_free_text_policy_is_not_phrase_list_routing():
 
 
 def test_corpus_runtime_has_no_phrase_routing_helpers():
-    runtime_path = Path(__file__).parents[2] / "backend" / "services" / "app_graph" / "runtime.py"
+    runtime_path = Path(__file__).parents[2] / "backend" / "services" / "corpus" / "corpus_routedeck_runtime.py"
     source = runtime_path.read_text(encoding="utf-8")
 
     forbidden = [
@@ -119,7 +123,7 @@ def test_corpus_runtime_has_no_phrase_routing_helpers():
 
 
 def test_app_graph_connection_activation_is_user_configured_not_target_preset():
-    action = next(action for action in ACTION_SPECS if action.id == AppActionIds.CONNECTION_ACTIVATE)
+    action = next(action for action in ACTION_SPECS if action.id == CorpusActionIds.CONNECTION_ACTIVATE)
     field_by_key = {field.key: field for field in action.fields}
 
     assert "api_target" not in field_by_key
@@ -134,16 +138,16 @@ def test_app_graph_connection_activation_is_user_configured_not_target_preset():
 def test_product_runtime_has_no_medusa_presets_or_defaults():
     root = Path(__file__).parents[2]
     product_paths = [
-        root / "backend" / "services" / "app_graph" / "manifest.py",
+        root / "backend" / "services" / "corpus" / "manifest.py",
         root / "backend" / "services" / "saas_agent_route_deck.py",
         root / "backend" / "services" / "route_deck" / "catalog.py",
-        root / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx",
-        root / "frontend" / "src" / "components" / "appGraph" / "corpusActiveSurfaces.tsx",
-        root / "frontend" / "src" / "components" / "appGraph" / "corpusFrameSurfaces.tsx",
-        root / "frontend" / "src" / "components" / "appGraph" / "corpusRouteDeckClient.ts",
-        root / "frontend" / "src" / "components" / "appGraph" / "corpusOperations.tsx",
-        root / "frontend" / "src" / "components" / "appGraph" / "corpusSurfaces.tsx",
-        root / "frontend" / "src" / "components" / "appGraph" / "CorpusRouteDeckDiagnostics.tsx",
+        root / "frontend" / "src" / "components" / "corpus" / "CorpusShell.tsx",
+        root / "frontend" / "src" / "components" / "corpus" / "corpusActiveSurfaces.tsx",
+        root / "frontend" / "src" / "components" / "corpus" / "corpusFrameSurfaces.tsx",
+        root / "frontend" / "src" / "components" / "corpus" / "corpusRouteDeckClient.ts",
+        root / "frontend" / "src" / "components" / "corpus" / "corpusOperations.tsx",
+        root / "frontend" / "src" / "components" / "corpus" / "corpusSurfaces.tsx",
+        root / "frontend" / "src" / "components" / "corpus" / "CorpusRouteDeckDiagnostics.tsx",
         root / "frontend" / "src" / "components" / "saasAgent" / "ConnectSetupView.tsx",
     ]
     for path in product_paths:
@@ -152,8 +156,8 @@ def test_product_runtime_has_no_medusa_presets_or_defaults():
 
 
 def test_app_graph_product_shell_hides_internal_route_deck_copy():
-    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
-    source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus"
+    source = (app_graph_path / "CorpusShell.tsx").read_text(encoding="utf-8")
     diagnostics_source = (app_graph_path / "CorpusRouteDeckDiagnostics.tsx").read_text(encoding="utf-8")
     product_source = source
 
@@ -173,8 +177,8 @@ def test_app_graph_product_shell_hides_internal_route_deck_copy():
 
 
 def test_product_shell_uses_corpus_and_routedeck_contracts_not_legacy_app_graph_endpoints():
-    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
-    shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus"
+    shell_source = (app_graph_path / "CorpusShell.tsx").read_text(encoding="utf-8")
     client_source = (app_graph_path / "corpusRouteDeckClient.ts").read_text(encoding="utf-8")
     product_source = shell_source + "\n" + client_source
 
@@ -215,7 +219,7 @@ def test_corpus_state_and_action_routes_use_routedeck_runtime_boundary():
 
 def test_app_graph_backend_exports_only_corpus_routedeck_runtime_name():
     root = Path(__file__).parents[1]
-    app_graph_paths = list((root / "services" / "app_graph").glob("*.py"))
+    app_graph_paths = list((root / "services" / "corpus").glob("*.py"))
     test_paths = [
         path
         for path in (root / "tests").glob("test_*routedeck*.py")
@@ -224,7 +228,7 @@ def test_app_graph_backend_exports_only_corpus_routedeck_runtime_name():
     old_runtime_name = "SaaStoAgent" + "RouteDeck" + "Adapter"
     old_module_name = "routedeck_" + "adapter"
 
-    assert not (root / "services" / "app_graph" / f"{old_module_name}.py").exists()
+    assert not (root / "services" / "corpus" / f"{old_module_name}.py").exists()
     for path in [*app_graph_paths, *test_paths]:
         source = path.read_text(encoding="utf-8")
         assert old_runtime_name not in source, path
@@ -233,7 +237,7 @@ def test_app_graph_backend_exports_only_corpus_routedeck_runtime_name():
 
 
 def test_auth_surface_completion_does_not_force_page_reload():
-    surface_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "corpusSurfaces.tsx"
+    surface_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus" / "corpusSurfaces.tsx"
     source = surface_path.read_text(encoding="utf-8")
     auth_surface_source = source.split("export function AuthSurfaceCard", 1)[1].split("export function Fact", 1)[0]
 
@@ -242,7 +246,7 @@ def test_auth_surface_completion_does_not_force_page_reload():
 
 
 def test_material_workbench_renders_corpus_chips_and_auth_identity_without_raw_ids():
-    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
+    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus" / "CorpusShell.tsx"
     source = shell_path.read_text(encoding="utf-8")
     conversation_source = source.split("function AgentConversation", 1)[1].split("function QuickActionChips", 1)[0]
     quick_action_source = source.split("function QuickActionChips", 1)[1].split("function CapabilityRail", 1)[0]
@@ -257,7 +261,7 @@ def test_material_workbench_renders_corpus_chips_and_auth_identity_without_raw_i
 
 
 def test_material_workbench_rail_is_node_switcher_not_disabled_action_dock():
-    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
+    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus" / "CorpusShell.tsx"
     source = shell_path.read_text(encoding="utf-8")
     rail_source = source.split("function CapabilityRail", 1)[1].split("function CapabilityStatusIcon", 1)[0]
 
@@ -269,8 +273,8 @@ def test_material_workbench_rail_is_node_switcher_not_disabled_action_dock():
 
 
 def test_material_workbench_review_surface_is_route_deck_hosted():
-    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
-    shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus"
+    shell_source = (app_graph_path / "CorpusShell.tsx").read_text(encoding="utf-8")
     active_surface_source = (app_graph_path / "corpusActiveSurfaces.tsx").read_text(encoding="utf-8")
     surface_source = (app_graph_path / "corpusSurfaces.tsx").read_text(encoding="utf-8")
     catalog_source = (app_graph_path / "corpusRouteDeckCatalog.ts").read_text(encoding="utf-8")
@@ -283,7 +287,7 @@ def test_material_workbench_review_surface_is_route_deck_hosted():
 
 
 def test_connection_setup_surface_renders_real_api_forms():
-    surface_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "corpusSurfaces.tsx"
+    surface_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus" / "corpusSurfaces.tsx"
     source = surface_path.read_text(encoding="utf-8")
     connection_source = source.split("export function ConnectionSetupSurface", 1)[1].split("export function ActiveSurfacePanel", 1)[0]
 
@@ -295,7 +299,7 @@ def test_connection_setup_surface_renders_real_api_forms():
 
 
 def test_builder_surface_exposes_owner_approval_controls():
-    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
+    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus" / "CorpusShell.tsx"
     source = shell_path.read_text(encoding="utf-8")
     pending_card_source = source.split("function PendingApprovalsCard", 1)[1].split("function ", 1)[0]
 
@@ -324,7 +328,7 @@ def test_deployed_chat_collapses_raw_json_payloads_without_hiding_builder_diagno
     message_source = (frontend_root / "components" / "agent" / "MessageBubble.tsx").read_text(encoding="utf-8")
     json_source = (frontend_root / "components" / "agent" / "CollapsibleJsonMessage.tsx").read_text(encoding="utf-8")
     diagnostics_source = (
-        frontend_root / "components" / "appGraph" / "CorpusRouteDeckDiagnostics.tsx"
+        frontend_root / "components" / "corpus" / "CorpusRouteDeckDiagnostics.tsx"
     ).read_text(encoding="utf-8")
 
     assert "collapseJsonPayloads" in page_source
@@ -357,8 +361,8 @@ def test_docker_e2e_harness_is_first_class_and_uses_external_artifacts():
 
 
 def test_agent_route_without_node_uses_agent_home_state_not_home():
-    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
-    shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus"
+    shell_source = (app_graph_path / "CorpusShell.tsx").read_text(encoding="utf-8")
     client_source = (app_graph_path / "corpusRouteDeckClient.ts").read_text(encoding="utf-8")
     corpus_state_path_source = client_source.split("function corpusStatePath", 1)[1].split("function createSaaStoAgentRouteDeckStore", 1)[0]
     turn_source = shell_source.split("const turn = useMutation", 1)[1].split("const hasStreamingCorpusMessage", 1)[0]
@@ -369,7 +373,7 @@ def test_agent_route_without_node_uses_agent_home_state_not_home():
 
 
 def test_routedeck_location_sync_does_not_trigger_browser_navigation():
-    client_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "corpusRouteDeckClient.ts"
+    client_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus" / "corpusRouteDeckClient.ts"
     source = client_path.read_text(encoding="utf-8")
 
     assert "createCorpusRouteCodec" in source
@@ -379,20 +383,20 @@ def test_routedeck_location_sync_does_not_trigger_browser_navigation():
 
 
 def test_connection_configure_operation_is_exposed_as_surface_context():
-    action = next(action for action in ACTION_SPECS if action.id == AppActionIds.CONNECTION_CONFIGURE)
-    operation = corpus_graph_runtime._operation_for_action(action)
+    action = next(action for action in ACTION_SPECS if action.id == CorpusActionIds.CONNECTION_CONFIGURE)
+    operation = _operation_for_action(action)
 
-    assert ACTION_TARGETS[AppActionIds.CONNECTION_CONFIGURE] == "connection_configure"
+    assert ACTION_TARGETS[CorpusActionIds.CONNECTION_CONFIGURE] == "connection_configure"
     assert operation.can_dispatch_now is True
     assert operation.target_node == "connection_configure"
 
 
 def test_deployment_publish_is_product_operation_available_from_agent_context():
-    action = next(action for action in ACTION_SPECS if action.id == AppActionIds.DEPLOYMENT_SAVE)
-    operation = corpus_graph_runtime._operation_for_action(action)
+    action = next(action for action in ACTION_SPECS if action.id == CorpusActionIds.DEPLOYMENT_SAVE)
+    operation = _operation_for_action(action)
 
     field_keys = {field.key for field in action.fields}
-    assert ACTION_TARGETS[AppActionIds.DEPLOYMENT_SAVE] == "agent_home"
+    assert ACTION_TARGETS[CorpusActionIds.DEPLOYMENT_SAVE] == "agent_home"
     assert action.label == "Save deployment"
     assert action.category == "deployment"
     assert operation.execution_mode == "review"
@@ -402,7 +406,7 @@ def test_deployment_publish_is_product_operation_available_from_agent_context():
 
 
 def test_router_prompt_uses_planning_context_not_raw_projection():
-    runtime_path = Path(__file__).parents[2] / "backend" / "services" / "app_graph" / "runtime.py"
+    runtime_path = Path(__file__).parents[2] / "backend" / "services" / "corpus" / "corpus_routedeck_runtime.py"
     source = runtime_path.read_text(encoding="utf-8")
 
     assert '"planning_context"' in source
@@ -415,12 +419,12 @@ def test_router_prompt_uses_planning_context_not_raw_projection():
 
 
 def test_saas_agent_list_is_dispatchable_surface_and_open_is_bound_only():
-    list_action = next(action for action in ACTION_SPECS if action.id == AppActionIds.SAAS_AGENT_LIST)
-    open_action = next(action for action in ACTION_SPECS if action.id == AppActionIds.SAAS_AGENT_OPEN)
-    list_operation = corpus_graph_runtime._operation_for_action(list_action)
-    open_operation = corpus_graph_runtime._operation_for_action(open_action)
+    list_action = next(action for action in ACTION_SPECS if action.id == CorpusActionIds.SAAS_AGENT_LIST)
+    open_action = next(action for action in ACTION_SPECS if action.id == CorpusActionIds.SAAS_AGENT_OPEN)
+    list_operation = _operation_for_action(list_action)
+    open_operation = _operation_for_action(open_action)
 
-    assert ACTION_TARGETS[AppActionIds.SAAS_AGENT_LIST] == "saas_agent_select"
+    assert ACTION_TARGETS[CorpusActionIds.SAAS_AGENT_LIST] == "saas_agent_select"
     assert list_action.invocation_kind == "surface"
     assert list_operation.invocation_kind == "surface"
     assert list_operation.can_dispatch_now is True
@@ -436,8 +440,8 @@ def test_saas_agent_select_node_uses_list_surface():
 
 
 def test_saas_agent_open_is_selector_not_one_click_dispatch_without_agent_id():
-    action = next(action for action in ACTION_SPECS if action.id == AppActionIds.SAAS_AGENT_OPEN)
-    operation = corpus_graph_runtime._operation_for_action(action)
+    action = next(action for action in ACTION_SPECS if action.id == CorpusActionIds.SAAS_AGENT_OPEN)
+    operation = _operation_for_action(action)
 
     assert action.invocation_kind == "entity_selector"
     assert operation.invocation_kind == "entity_selector"
@@ -447,8 +451,8 @@ def test_saas_agent_open_is_selector_not_one_click_dispatch_without_agent_id():
 
 
 def test_material_workbench_only_one_click_dispatches_ready_operations():
-    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
-    shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus"
+    shell_source = (app_graph_path / "CorpusShell.tsx").read_text(encoding="utf-8")
     frame_source = (app_graph_path / "corpusFrameSurfaces.tsx").read_text(encoding="utf-8")
     source = shell_source + "\n" + frame_source
     operations_source = (app_graph_path / "corpusOperations.tsx").read_text(encoding="utf-8")
@@ -464,8 +468,8 @@ def test_material_workbench_only_one_click_dispatches_ready_operations():
 
 
 def test_node_navigation_uses_routedeck_controls_with_dirty_surface_prompt_bridge():
-    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
-    shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus"
+    shell_source = (app_graph_path / "CorpusShell.tsx").read_text(encoding="utf-8")
     routedeck_provider_source = (
         Path(__file__).parents[3] / "routedeck" / "react" / "src" / "RouteDeckProvider.tsx"
     ).read_text(encoding="utf-8")
@@ -482,8 +486,8 @@ def test_node_navigation_uses_routedeck_controls_with_dirty_surface_prompt_bridg
 
 
 def test_capability_rail_is_projected_by_routedeck_not_hardcoded_in_frontend():
-    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
-    shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus"
+    shell_source = (app_graph_path / "CorpusShell.tsx").read_text(encoding="utf-8")
 
     assert "projection.diagnostics?.capability_rail" in shell_source
     assert "function capabilityItems()" not in shell_source
@@ -512,7 +516,7 @@ def test_builder_surfaces_do_not_use_zustand_as_agent_source_of_truth():
 def test_learning_detail_navigation_uses_app_owned_routedeck_operations():
     frontend_root = Path(__file__).parents[2] / "frontend" / "src"
     learning_source = (frontend_root / "components" / "agent" / "LearningPanel.tsx").read_text(encoding="utf-8")
-    catalog_source = (frontend_root / "components" / "appGraph" / "corpusRouteDeckCatalog.ts").read_text(encoding="utf-8")
+    catalog_source = (frontend_root / "components" / "corpus" / "corpusRouteDeckCatalog.ts").read_text(encoding="utf-8")
 
     assert "learningPolicyCandidateOpen" in catalog_source
     assert "learningActivePolicyOpen" in catalog_source
@@ -528,10 +532,10 @@ def test_learning_detail_navigation_uses_app_owned_routedeck_operations():
 
 def test_instructions_save_is_app_graph_owned():
     root = Path(__file__).parents[2]
-    app_graph_path = root / "frontend" / "src" / "components" / "appGraph"
-    manifest_source = (root / "backend" / "services" / "app_graph" / "manifest.py").read_text(encoding="utf-8")
-    runtime_source = (root / "backend" / "services" / "app_graph" / "runtime.py").read_text(encoding="utf-8")
-    content_handler_source = (root / "backend" / "services" / "app_graph" / "corpus_handlers" / "content.py").read_text(encoding="utf-8")
+    app_graph_path = root / "frontend" / "src" / "components" / "corpus"
+    manifest_source = (root / "backend" / "services" / "corpus" / "manifest.py").read_text(encoding="utf-8")
+    runtime_source = (root / "backend" / "services" / "corpus" / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
+    content_handler_source = (root / "backend" / "services" / "corpus" / "corpus_handlers" / "content.py").read_text(encoding="utf-8")
     catalog_source = (app_graph_path / "corpusRouteDeckCatalog.ts").read_text(encoding="utf-8")
     surface_source = (app_graph_path / "corpusSurfaces.tsx").read_text(encoding="utf-8")
 
@@ -545,8 +549,8 @@ def test_instructions_save_is_app_graph_owned():
 
 
 def test_product_workbench_does_not_expose_routedeck_copy():
-    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
-    shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus"
+    shell_source = (app_graph_path / "CorpusShell.tsx").read_text(encoding="utf-8")
 
     assert "active RouteDeck node" not in shell_source
     assert "RouteDeck Nodes" not in shell_source
@@ -564,8 +568,8 @@ def test_routedeck_debugger_does_not_label_navgraph_edges_with_actions():
 
 
 def test_corpus_workbench_derives_agent_context_from_routedeck_state():
-    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
-    shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus"
+    shell_source = (app_graph_path / "CorpusShell.tsx").read_text(encoding="utf-8")
     client_source = (app_graph_path / "corpusRouteDeckClient.ts").read_text(encoding="utf-8")
 
     assert "function activeSaaSAgentIdFromRouteDeckState" in client_source
@@ -582,7 +586,7 @@ def test_corpus_api_uses_explicit_saas_agent_context_not_storage_header():
         frontend_root / "components" / "agent" / "AgentChat.tsx",
         frontend_root / "components" / "agent" / "AttachmentsPanel.tsx",
         frontend_root / "components" / "agent" / "LearningPanel.tsx",
-        frontend_root / "components" / "appGraph" / "AppGraphShell.tsx",
+        frontend_root / "components" / "corpus" / "CorpusShell.tsx",
         frontend_root / "components" / "saasAgent" / "ActionsCanvas.tsx",
         frontend_root / "components" / "saasAgent" / "ConnectSetupView.tsx",
         frontend_root / "components" / "saasAgent" / "EntitiesCanvas.tsx",
@@ -614,9 +618,9 @@ def test_zustand_store_is_named_as_ui_state_not_routedeck_state():
 
 
 def test_corpus_routedeck_ids_are_read_from_catalog():
-    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus"
     catalog_source = (app_graph_path / "corpusRouteDeckCatalog.ts").read_text(encoding="utf-8")
-    shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    shell_source = (app_graph_path / "CorpusShell.tsx").read_text(encoding="utf-8")
     active_surface_source = (app_graph_path / "corpusActiveSurfaces.tsx").read_text(encoding="utf-8")
     frame_source = (app_graph_path / "corpusFrameSurfaces.tsx").read_text(encoding="utf-8")
     surface_source = (app_graph_path / "corpusSurfaces.tsx").read_text(encoding="utf-8")
@@ -632,7 +636,7 @@ def test_corpus_routedeck_ids_are_read_from_catalog():
 
 
 def test_material_workbench_dashboard_limits_agents_and_routes_to_list_surface():
-    frame_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "corpusFrameSurfaces.tsx"
+    frame_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus" / "corpusFrameSurfaces.tsx"
     frame_source = frame_path.read_text(encoding="utf-8")
 
     assert "saasAgents.slice(0, 2)" in frame_source
@@ -642,8 +646,8 @@ def test_material_workbench_dashboard_limits_agents_and_routes_to_list_surface()
 
 
 def test_material_workbench_agent_list_surface_binds_agent_open_operation():
-    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
-    surface_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "corpusSurfaces.tsx"
+    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus" / "CorpusShell.tsx"
+    surface_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus" / "corpusSurfaces.tsx"
     source = shell_path.read_text(encoding="utf-8") + "\n" + surface_path.read_text(encoding="utf-8")
 
     assert "SaaSAgentListSurface" in source
@@ -656,17 +660,17 @@ def test_material_workbench_agent_list_surface_binds_agent_open_operation():
 
 
 def test_auto_operation_stream_emits_done_after_operation_completed():
-    runtime_path = Path(__file__).parents[1] / "services" / "app_graph" / "runtime.py"
+    runtime_path = Path(__file__).parents[1] / "services" / "corpus" / "corpus_routedeck_runtime.py"
     source = runtime_path.read_text(encoding="utf-8")
 
-    assert '"event_type": "operation_completed"' in source
+    assert '.events[0].model_dump(mode="json")' in source
     assert '"event_type": "corpus_done"' in source
-    assert 'done_status = "committed"' in source
+    assert 'done_status = "review" if response.state.pending_operation_id == operation.id else "committed"' in source
 
 
 def test_material_workbench_review_surface_uses_route_deck_active_surface_state():
-    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph"
-    shell_source = (app_graph_path / "AppGraphShell.tsx").read_text(encoding="utf-8")
+    app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus"
+    shell_source = (app_graph_path / "CorpusShell.tsx").read_text(encoding="utf-8")
     active_surface_source = (app_graph_path / "corpusActiveSurfaces.tsx").read_text(encoding="utf-8")
     surface_source = (app_graph_path / "corpusSurfaces.tsx").read_text(encoding="utf-8")
     quick_action_source = shell_source.split("const handleQuickAction", 1)[1].split("const handleRailSelect", 1)[0]
@@ -683,6 +687,19 @@ def test_material_workbench_review_surface_uses_route_deck_active_surface_state(
     assert "pending_operation_id" not in review_open_source
 
 
+def test_frontend_reads_context_lens_from_projection_not_side_surface_props():
+    surface_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus" / "corpusSurfaces.tsx"
+    source = surface_path.read_text(encoding="utf-8")
+    helper_source = source.split("export function contextLensFromProjection", 1)[1].split(
+        "export function activeSurfaceFromProjection",
+        1,
+    )[0]
+
+    assert "projection.context_lens" in helper_source
+    assert "projection.surfaces.side" not in helper_source
+    assert "sideSurface" not in helper_source
+
+
 def test_material_tokens_share_primary_and_secondary_across_themes():
     css_path = Path(__file__).parents[2] / "frontend" / "src" / "index.css"
     source = css_path.read_text(encoding="utf-8")
@@ -697,7 +714,7 @@ def test_material_tokens_share_primary_and_secondary_across_themes():
 
 
 def test_product_diagnostics_are_read_only():
-    diagnostics_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "CorpusRouteDeckDiagnostics.tsx"
+    diagnostics_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus" / "CorpusRouteDeckDiagnostics.tsx"
     diagnostics_source = diagnostics_path.read_text(encoding="utf-8")
 
     assert "onActionSelect" not in diagnostics_source
@@ -720,13 +737,13 @@ def test_catalog_schema_includes_router_index_readiness():
 
 
 def test_catalog_surface_contract_includes_request_matching_without_router_copy():
-    backend_surface_path = Path(__file__).parents[1] / "services" / "app_graph" / "corpus_surfaces.py"
-    backend_surface_catalog_path = Path(__file__).parents[1] / "services" / "app_graph" / "corpus_surface_catalog.py"
+    backend_surface_path = Path(__file__).parents[1] / "services" / "corpus" / "corpus_surfaces.py"
+    backend_surface_catalog_path = Path(__file__).parents[1] / "services" / "corpus" / "corpus_surface_catalog.py"
     activation_path = Path(__file__).parents[1] / "services" / "discovery" / "activation.py"
-    frontend_active_surface_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "corpusActiveSurfaces.tsx"
-    frontend_surface_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "corpusSurfaces.tsx"
-    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "appGraph" / "AppGraphShell.tsx"
-    runtime_path = Path(__file__).parents[1] / "services" / "app_graph" / "runtime.py"
+    frontend_active_surface_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus" / "corpusActiveSurfaces.tsx"
+    frontend_surface_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus" / "corpusSurfaces.tsx"
+    shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus" / "CorpusShell.tsx"
+    runtime_path = Path(__file__).parents[1] / "services" / "corpus" / "corpus_routedeck_runtime.py"
     internal_source = (
         backend_surface_path.read_text(encoding="utf-8")
         + "\n"

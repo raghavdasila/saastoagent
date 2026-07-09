@@ -4,13 +4,13 @@ import uuid
 
 from routedeck_core import RouteDeckOperation, RouteDeckProjection, RouteDeckSurface
 
-from backend.core.schemas import AppGraphState
-from backend.services.app_graph.corpus_turn_planning import (
+from backend.core.schemas import CorpusContextLens, CorpusGraphState
+from backend.services.corpus.corpus_turn_planning import (
     build_corpus_turn_planning_context,
     normalize_corpus_turn_plan,
     resolve_explicit_navigation_turn,
 )
-from backend.services.app_graph.manifest import AppActionIds
+from backend.services.corpus.manifest import CorpusActionIds
 
 
 def _projection(
@@ -53,7 +53,7 @@ def _projection(
                 },
             ),
             RouteDeckOperation(
-                id=AppActionIds.ROUTE_SWITCH_SURFACE,
+                id=CorpusActionIds.ROUTE_SWITCH_SURFACE,
                 label="Switch surface",
                 description="Switch between current node surfaces.",
                 invocation_kind="hidden",
@@ -65,7 +65,7 @@ def _projection(
                 safety_class="navigation",
             ),
             RouteDeckOperation(
-                id=AppActionIds.ROUTE_OPEN_NODE,
+                id=CorpusActionIds.ROUTE_OPEN_NODE,
                 label="Open node",
                 description="Open another legal node.",
                 invocation_kind="hidden",
@@ -78,15 +78,6 @@ def _projection(
             ),
         ],
         surfaces={
-            "lens": RouteDeckSurface(
-                name="side",
-                component="CorpusContextLens",
-                role="frame",
-                props={
-                    "selected_saas_agent_name": "Billing Agent",
-                    "selected_saas_agent_slug": "billing-agent",
-                },
-            ),
             "connection_configure.active": RouteDeckSurface(
                 name="active",
                 surface_id="connection_configure.active",
@@ -109,6 +100,12 @@ def _projection(
                 props={"title": "Knowledge"},
             ),
         },
+        context_lens=CorpusContextLens(
+            current_node="connection_configure",
+            working_on="Connection setup",
+            selected_saas_agent_name="Billing Agent",
+            selected_saas_agent_slug="billing-agent",
+        ),
         navigation={
             "current": {
                 "node_id": "connection_configure",
@@ -136,7 +133,7 @@ def _saas_agent_select_projection(*, saas_agent_id: str = "22222222-2222-2222-22
         graph_node="saas_agent_select",
         legal_operations=[
             RouteDeckOperation(
-                id=AppActionIds.SAAS_AGENT_OPEN,
+                id=CorpusActionIds.SAAS_AGENT_OPEN,
                 label="Open SaaS Agent",
                 description="Open the selected SaaS Agent.",
                 invocation_kind="entity_selector",
@@ -172,7 +169,7 @@ def _saas_agent_select_projection(*, saas_agent_id: str = "22222222-2222-2222-22
                             "label": "Live Commerce",
                             "slug": "live-commerce",
                             "description": "live-commerce",
-                            "operation_id": AppActionIds.SAAS_AGENT_OPEN,
+                            "operation_id": CorpusActionIds.SAAS_AGENT_OPEN,
                             "args": {"saas_agent_id": saas_agent_id},
                         }
                     ],
@@ -197,7 +194,7 @@ def _catalog_learning_projection() -> RouteDeckProjection:
         graph_node="catalog",
         legal_operations=[
             RouteDeckOperation(
-                id=AppActionIds.CATALOG_OPEN,
+                id=CorpusActionIds.CATALOG_OPEN,
                 label="Catalog",
                 description="Inspect generated catalog totals and readiness.",
                 invocation_kind="surface",
@@ -210,7 +207,7 @@ def _catalog_learning_projection() -> RouteDeckProjection:
                 input_schema={"fields": []},
             ),
             RouteDeckOperation(
-                id=AppActionIds.LEARNING_OPEN,
+                id=CorpusActionIds.LEARNING_OPEN,
                 label="Learning",
                 description="Open Sandbox Learning for policy gaps, failed executions, active policies, and rejected candidates.",
                 invocation_kind="surface",
@@ -258,7 +255,7 @@ def _catalog_learning_projection() -> RouteDeckProjection:
 
 
 def test_build_turn_planning_context_summarizes_bound_agent_surface_and_operations():
-    state = AppGraphState(
+    state = CorpusGraphState(
         node="connection_configure",
         active_saas_agent_id=uuid.UUID("11111111-1111-1111-1111-111111111111"),
         active_surface_id="connection_configure.active",
@@ -291,8 +288,8 @@ def test_build_turn_planning_context_summarizes_bound_agent_surface_and_operatio
         "knowledge.active",
     ]
     operations = {operation["id"]: operation for operation in context["legal_operations"]}
-    assert AppActionIds.ROUTE_SWITCH_SURFACE not in operations
-    assert AppActionIds.ROUTE_OPEN_NODE not in operations
+    assert CorpusActionIds.ROUTE_SWITCH_SURFACE not in operations
+    assert CorpusActionIds.ROUTE_OPEN_NODE not in operations
     assert operations["connection.configure"] == {
         "id": "connection.configure",
         "label": "Configure connection",
@@ -337,7 +334,7 @@ def test_build_turn_planning_context_exposes_visible_entities_for_selectable_sur
     saas_agent_id = "33333333-3333-3333-3333-333333333333"
     context = build_corpus_turn_planning_context(
         projection=_saas_agent_select_projection(saas_agent_id=saas_agent_id),
-        state=AppGraphState(node="saas_agent_select", active_surface_id="saas_agent_select.active"),
+        state=CorpusGraphState(node="saas_agent_select", active_surface_id="saas_agent_select.active"),
     )
 
     assert context["active_surface"] == {
@@ -355,7 +352,7 @@ def test_build_turn_planning_context_exposes_visible_entities_for_selectable_sur
                 "label": "Live Commerce",
                 "slug": "live-commerce",
                 "description": "live-commerce",
-                "operation_id": AppActionIds.SAAS_AGENT_OPEN,
+                "operation_id": CorpusActionIds.SAAS_AGENT_OPEN,
                 "args": {"saas_agent_id": saas_agent_id},
             }
         ],
@@ -368,14 +365,14 @@ def test_build_turn_planning_context_exposes_visible_entities_for_selectable_sur
             "label": "Live Commerce",
             "slug": "live-commerce",
             "description": "live-commerce",
-            "operation_id": AppActionIds.SAAS_AGENT_OPEN,
+            "operation_id": CorpusActionIds.SAAS_AGENT_OPEN,
             "args": {"saas_agent_id": saas_agent_id},
         }
     ]
 
 
 def test_build_turn_planning_context_falls_back_to_default_active_surface():
-    state = AppGraphState(node="connection_configure")
+    state = CorpusGraphState(node="connection_configure")
 
     context = build_corpus_turn_planning_context(
         projection=_projection(current_surface_id="missing.surface"),
@@ -389,7 +386,7 @@ def test_build_turn_planning_context_falls_back_to_default_active_surface():
 def test_guardrail_policy_prompt_opens_learning_even_when_router_suggests_catalog_surface():
     context = build_corpus_turn_planning_context(
         projection=_catalog_learning_projection(),
-        state=AppGraphState(node="catalog", active_surface_id="catalog.active"),
+        state=CorpusGraphState(node="catalog", active_surface_id="catalog.active"),
     )
     plan = {
         "intent": "open_surface",
@@ -407,7 +404,7 @@ def test_guardrail_policy_prompt_opens_learning_even_when_router_suggests_catalo
     )
 
     assert resolved["intent"] == "open_surface"
-    assert resolved["operation_id"] == AppActionIds.LEARNING_OPEN
+    assert resolved["operation_id"] == CorpusActionIds.LEARNING_OPEN
     assert resolved["surface_intent"] == {}
     assert resolved["confidence"] >= 0.82
 
@@ -415,7 +412,7 @@ def test_guardrail_policy_prompt_opens_learning_even_when_router_suggests_catalo
 def test_normalize_turn_plan_keeps_legal_operation_and_defaults_object_fields():
     context = build_corpus_turn_planning_context(
         projection=_projection(),
-        state=AppGraphState(node="connection_configure"),
+        state=CorpusGraphState(node="connection_configure"),
     )
 
     plan = normalize_corpus_turn_plan(
@@ -443,7 +440,7 @@ def test_normalize_turn_plan_keeps_legal_operation_and_defaults_object_fields():
 def test_normalize_turn_plan_keeps_declared_operation_fields_only():
     context = build_corpus_turn_planning_context(
         projection=_projection(),
-        state=AppGraphState(node="connection_configure"),
+        state=CorpusGraphState(node="connection_configure"),
     )
 
     plan = normalize_corpus_turn_plan(
@@ -469,7 +466,7 @@ def test_normalize_turn_plan_keeps_declared_operation_fields_only():
 def test_normalize_turn_plan_treats_valid_operation_id_as_action_even_with_reply_intent():
     context = build_corpus_turn_planning_context(
         projection=_projection(),
-        state=AppGraphState(node="connection_configure"),
+        state=CorpusGraphState(node="connection_configure"),
     )
 
     plan = normalize_corpus_turn_plan(
@@ -496,7 +493,7 @@ def test_normalize_turn_plan_treats_valid_operation_id_as_action_even_with_reply
 def test_normalize_turn_plan_accepts_valid_product_surface_intent():
     context = build_corpus_turn_planning_context(
         projection=_projection(),
-        state=AppGraphState(node="connection_configure", active_surface_id="connection_configure.active"),
+        state=CorpusGraphState(node="connection_configure", active_surface_id="connection_configure.active"),
     )
 
     plan = normalize_corpus_turn_plan(
@@ -518,7 +515,7 @@ def test_normalize_turn_plan_accepts_valid_product_surface_intent():
 def test_normalize_turn_plan_rejects_invalid_product_surface_intent():
     context = build_corpus_turn_planning_context(
         projection=_projection(),
-        state=AppGraphState(node="connection_configure", active_surface_id="connection_configure.active"),
+        state=CorpusGraphState(node="connection_configure", active_surface_id="connection_configure.active"),
     )
 
     plan = normalize_corpus_turn_plan(
@@ -538,14 +535,14 @@ def test_normalize_turn_plan_rejects_invalid_product_surface_intent():
 def test_normalize_turn_plan_rejects_hidden_route_operation():
     context = build_corpus_turn_planning_context(
         projection=_projection(),
-        state=AppGraphState(node="connection_configure", active_surface_id="connection_configure.active"),
+        state=CorpusGraphState(node="connection_configure", active_surface_id="connection_configure.active"),
     )
 
     plan = normalize_corpus_turn_plan(
         {
             "intent": "open_surface",
             "message": "Open knowledge review.",
-            "operation_id": AppActionIds.ROUTE_OPEN_NODE,
+            "operation_id": CorpusActionIds.ROUTE_OPEN_NODE,
             "args": {"node_id": "knowledge"},
         },
         planning_context=context,
@@ -557,7 +554,7 @@ def test_normalize_turn_plan_rejects_hidden_route_operation():
 def test_normalize_turn_plan_downgrades_illegal_operation_to_clarify():
     context = build_corpus_turn_planning_context(
         projection=_projection(),
-        state=AppGraphState(node="connection_configure"),
+        state=CorpusGraphState(node="connection_configure"),
     )
 
     plan = normalize_corpus_turn_plan(
@@ -587,7 +584,7 @@ def test_normalize_turn_plan_downgrades_illegal_operation_to_clarify():
 def test_normalize_turn_plan_rejects_unknown_intent_and_non_object_payloads():
     context = build_corpus_turn_planning_context(
         projection=_projection(),
-        state=AppGraphState(node="connection_configure"),
+        state=CorpusGraphState(node="connection_configure"),
     )
 
     plan = normalize_corpus_turn_plan(

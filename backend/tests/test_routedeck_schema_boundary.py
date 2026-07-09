@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from backend.core.schemas import (
-    AppGraphContextLens,
-    AppGraphNavigationLocation,
-    AppGraphRequest,
-    AppGraphResponse,
-    AppGraphState,
+    CorpusContextLens,
+    CorpusGraphNavigationLocation,
+    CorpusGraphRequest,
+    CorpusGraphResponse,
+    CorpusGraphState,
     EntryActionCard,
     EntryActionField,
     EntryGraphManifest,
@@ -13,7 +15,7 @@ from backend.core.schemas import (
     EntryRouteDeckRuntimeSnapshot,
     EntryUIArtifact,
 )
-from backend.core.schemas.entry import EntryGraphManifestAction, EntryGraphManifestEdge, EntryGraphManifestNode
+from backend.core.schemas.corpus import EntryGraphManifestAction, EntryGraphManifestEdge, EntryGraphManifestNode
 from routedeck_core import (
     RouteDeckActionCard,
     RouteDeckActionField,
@@ -33,16 +35,24 @@ from routedeck_core import (
 
 
 def test_corpus_app_graph_schemas_extend_routedeck_foundation_models():
-    assert issubclass(AppGraphNavigationLocation, RouteDeckGraphNavigationLocation)
-    assert issubclass(AppGraphState, RouteDeckGraphState)
-    assert issubclass(AppGraphRequest, RouteDeckGraphRequest)
-    assert issubclass(AppGraphContextLens, RouteDeckContextLens)
-    assert issubclass(AppGraphResponse, RouteDeckGraphResponse)
+    assert issubclass(CorpusGraphNavigationLocation, RouteDeckGraphNavigationLocation)
+    assert issubclass(CorpusGraphState, RouteDeckGraphState)
+    assert issubclass(CorpusGraphRequest, RouteDeckGraphRequest)
+    assert issubclass(CorpusContextLens, RouteDeckContextLens)
+    assert issubclass(CorpusGraphResponse, RouteDeckGraphResponse)
 
     assert "saas_agents" not in RouteDeckGraphResponse.model_fields
-    assert "saas_agents" in AppGraphResponse.model_fields
+    assert "saas_agents" in CorpusGraphResponse.model_fields
     assert "selected_saas_agent_id" not in RouteDeckContextLens.model_fields
-    assert "selected_saas_agent_id" in AppGraphContextLens.model_fields
+    assert "selected_saas_agent_id" in CorpusContextLens.model_fields
+
+
+def test_corpus_schema_module_owns_product_graph_contracts():
+    schema_root = Path(__file__).parents[1] / "core" / "schemas"
+
+    assert (schema_root / "corpus.py").exists()
+    assert not (schema_root / "app_graph.py").exists()
+    assert not (schema_root / "entry.py").exists()
 
 
 def test_entry_contract_schemas_are_routedeck_foundation_models_with_legacy_names():
