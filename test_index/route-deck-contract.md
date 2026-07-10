@@ -1,6 +1,6 @@
 # RouteDeck Contract And Debugger Validation
 
-Date: 2026-05-26
+Date: 2026-07-10
 
 ## Scope
 
@@ -42,8 +42,30 @@ SaaStoAgent diagnostics.
 - Corpus owner-workbench chat does not rely on Python phrase routing.
 - Active-surface selectable entities can be projected into planning context so
   visible list items can be opened through typed legal operations.
+- Active Corpus backend code lives under `backend/corpus/`; the retired
+  `backend/services/corpus/` package is absent.
+- Corpus backend contracts import RouteDeck primitives directly and do not
+  export active Entry aliases or persistence models.
+- Source-boundary tests protect the current vertical-slice package layout while
+  the next refactor moves generic runtime/event work into RouteDeck.
 
 ## Current Evidence
+
+Checkpoint evidence from 2026-07-10:
+
+- Python 3.12 `compileall` passed for the moved Corpus package, routes, model
+  base, and compatibility RouteDeck catalogs.
+- Direct execution of the dependency-free source-boundary suites passed 32
+  tests: 29 from `test_corpus_runtime_structure.py` and 3 from
+  `test_corpus_surface_structure.py`.
+- The prior Mac mini Tailscale smoke documented in the session handoff passed
+  backend health, `/api/corpus/state`, container compilation, Entry-boundary
+  assertions, and the browser register-to-create-agent flow.
+- Full dependency-backed pytest was not rerun locally because the available
+  bundled Python lacks the backend dependency set; this limitation is carried
+  into the checkpoint rather than represented as a pass.
+
+Historical evidence from earlier sessions, not rerun on 2026-07-10:
 
 - `python -m pytest backend/tests/test_corpus_turn_planning.py backend/tests/test_corpus_graph_contract.py backend/tests/test_app_graph_contract.py -q`: passed, 81 tests.
 - `python -m pytest backend/tests/test_app_graph_contract.py backend/tests/test_corpus_graph_contract.py backend/tests/test_corpus_routedeck_runtime.py backend/tests/test_corpus_routedeck_state.py -q`: passed, 87 tests.
@@ -85,6 +107,7 @@ Earlier debugger evidence:
 
 ```powershell
 python -m pytest backend/tests/test_app_graph_contract.py -q
+python -m pytest backend/tests/test_corpus_runtime_structure.py backend/tests/test_corpus_surface_structure.py backend/tests/test_routedeck_schema_boundary.py -q
 python -m pytest backend/tests/test_corpus_turn_planning.py backend/tests/test_corpus_graph_contract.py backend/tests/test_app_graph_contract.py -q
 python -m pytest backend/tests/test_app_graph_contract.py backend/tests/test_corpus_graph_contract.py backend/tests/test_corpus_routedeck_runtime.py backend/tests/test_corpus_routedeck_state.py -q
 python -m pytest backend/tests -q

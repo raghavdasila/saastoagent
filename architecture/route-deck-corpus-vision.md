@@ -1,7 +1,7 @@
 # RouteDeck + Corpus Vision
 
-Date: 2026-05-26
-Status: Canonical anti-drift vision for the current RouteDeck/Corpus boundary
+Date: 2026-07-10
+Status: Canonical anti-drift vision for the current and target RouteDeck/Corpus boundary
 Scope: SaaStoAgent v0.1 owner workbench, RouteDeck integration, Corpus planning,
 and diagnostics
 
@@ -9,6 +9,41 @@ Framework anchors:
 
 - `../../routedeck/docs/agentic-ui-state-runtime.md`
 - `../../routedeck/docs/using-routedeck.md`
+- `../../routedeck/decisions/ADR-001-langgraph-native-routedeck.md`
+- `../../routedeck/decisions/ADR-002-two-adoption-modes-one-kernel.md`
+
+## Target Architecture
+
+Corpus is a lightweight SaaStoAgent application definition. It imports
+RouteDeck and declares domain state, user-facing flows and interaction nodes,
+operations, product guards, domain handlers, context providers, prompts, and
+surfaces. Those declarations are the single source of truth for the
+product-facing interaction contract.
+
+That specification also produces the versioned client contract consumed by the
+Corpus frontend. The frontend maps declared component keys to Corpus React
+components; it does not maintain a second node/flow/operation/surface catalog.
+
+RouteDeck implements the application as the Full Flow framework: it validates
+and compiles the Corpus definition over LangGraph, owns generic runtime and
+interaction mechanics, emits the shared typed event protocol, exposes filtered
+SSE channel views, builds projection/diagnostics, and drives the React store and
+surface host. Its golden path uses an atomic dispatch claim and a coordinated
+durable state/event/outbox backend so public state, idempotent results, and
+terminal events do not silently diverge.
+
+```text
+Corpus application definition and domain behavior
+  -> RouteDeck compiler/runtime and shared interaction kernel
+    -> LangGraph execution
+      -> RouteDeck event, projection, diagnostics, and store pipeline
+        -> Corpus product surfaces and conversation
+```
+
+Corpus must not own generic projection assembly, navigation/history mechanics,
+review staging, event sequencing, SSE framing, or LangGraph scaffolding. The
+current implementation remains transitional until those responsibilities move
+into RouteDeck.
 
 ## Current Implementation Checkpoint
 
@@ -29,6 +64,12 @@ The active backend boundary:
   projection events for empty/state subscriptions
 - `GET /api/diagnostics/stream` -> read-only RouteDeck introspection
 
+The active backend source now lives under `backend/corpus/` with product graph
+definitions, schemas, and runtime-extension wiring. The prior
+`backend/services/corpus/` and Entry persistence/schema layers are retired. The
+remaining large `backend/corpus/graph/app.py` still contains framework-shaped
+runtime, projection, guard, and SSE work that the Full Flow refactor must absorb.
+
 The active frontend boundary:
 
 - one `/app/*` shell owns the workbench mount
@@ -38,8 +79,9 @@ The active frontend boundary:
 
 ## Core Rule
 
-RouteDeck exposes what can happen. Corpus decides what the user means. The
-runtime validates and commits.
+Corpus declares what the product means and chooses product intent. RouteDeck
+exposes what can happen, validates the interaction, drives LangGraph execution,
+and projects the committed result.
 
 Corpus must not patch graph state, infer hidden permissions, use backend phrase
 tables, or ask users for internal ids when the current surface already exposes a
@@ -86,6 +128,8 @@ dispatch; the model does not need to emit `route.open_node` or
 
 ### RouteDeck Owns
 
+- Full Flow application compilation and runtime mechanics
+- custom-agent/custom-graph executor integration contract
 - product-neutral runtime state contract
 - projection contracts
 - legal operation metadata
@@ -94,6 +138,10 @@ dispatch; the model does not need to emit `route.open_node` or
 - navigation/runtime operation primitives
 - diagnostics and introspection contracts
 - reusable React store/hooks/debugger primitives
+- typed event envelope, ordering, channel filtering, SSE framing, and replay
+- versioned client-contract export derived from the application specification
+- atomic dispatch/idempotency and coordinated durable state/event/outbox
+  semantics
 
 ### RouteDeck Must Not Own
 
@@ -107,6 +155,7 @@ dispatch; the model does not need to emit `route.open_node` or
 
 ### Corpus Owns
 
+- SaaStoAgent application declarations and domain handlers
 - SaaStoAgent product-agent behavior
 - user-facing owner-workbench conversation
 - product-safe clarification wording
@@ -120,6 +169,9 @@ dispatch; the model does not need to emit `route.open_node` or
 - graph truth
 - invariant enforcement
 - direct raw state mutation
+- generic projection or navigation assembly
+- review staging, event sequencing, or SSE formatting
+- LangGraph scaffolding that belongs to RouteDeck Full Flow
 - browser URL replay
 - hidden route inference
 - deterministic phrase routers or alias tables for normal chat
@@ -145,8 +197,9 @@ dispatch; the model does not need to emit `route.open_node` or
 
 ## Surface Model
 
-Surfaces are graph-declared and RouteDeck-projected. They are not arbitrary
-local React panels that define workflow truth.
+Surfaces are declared once in the Corpus application specification and
+RouteDeck-projected. They are not arbitrary local React panels or a second
+surface catalog that defines workflow truth.
 
 Use peer surfaces for alternate same-node views:
 

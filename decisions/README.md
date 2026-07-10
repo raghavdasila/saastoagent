@@ -29,4 +29,4 @@ Older ADRs that describe visible `available_actions` or `persistent_actions` as 
 - `ADR-010-saas-agent-domain-authority.md` - replace Workspace with SaaSAgent as the domain authority and require one RouteDeck runtime per SaaS Agent
 - `ADR-011-full-application-graph-ownership.md` - make the backend app graph the navigation/capability authority and RouteDeck the frontend bridge for all nodes
 - `ADR-012-openapi-driven-target-fixtures.md` - keep product runtime OpenAPI/user-config driven and restrict Medusa/other targets to fixtures unless imported as generic presets
-- `ADR-013-routedeck-corpus-boundary.md` - keep RouteDeck framework concerns separate from Corpus product conversation/surfaces while allowing Corpus to consume RouteDeck
+- `ADR-013-routedeck-corpus-boundary.md` - make Corpus the lightweight application definition/domain layer and RouteDeck the LangGraph-native full-stack interaction/runtime/event framework

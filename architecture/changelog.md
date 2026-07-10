@@ -1,5 +1,19 @@
 # Architecture Changelog
 
+## 2026-07-10
+
+- Moved the active Corpus backend from `backend/services/corpus/` into the
+  product-owned `backend/corpus/` vertical slice.
+- Removed the active Entry persistence and backend contract alias layer.
+- Updated Corpus routes and compatibility catalogs to use RouteDeck contracts
+  directly.
+- Locked the next architecture target: Corpus becomes a lightweight application
+  definition while RouteDeck supplies the LangGraph-native Full Flow compiler,
+  shared interaction kernel, typed event/SSE architecture, projections, and
+  React state path.
+- Required two standalone RouteDeck examples independent of Corpus: Full Flow
+  and Core Integration.
+
 ## 2026-05-05
 
 - Initialized architecture documentation scaffold for `saastoagent-v0.1`

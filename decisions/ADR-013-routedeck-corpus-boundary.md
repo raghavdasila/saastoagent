@@ -1,161 +1,138 @@
 # ADR-013: RouteDeck And Corpus Boundary
 
 Date: 2026-05-22
+Amended: 2026-07-10
 Status: Accepted
-Implementation status: Boundary cleanup, hardcoding removal, internal-route
-filtering, `surface_id` URL alignment, and chat-navigation remount regression
-repair are implemented as of 2026-05-26. Public deployed-chat response shaping
-still has known debt.
+Implementation status: The direct-contract/package cleanup is committed in
+`189a6559`; the Full Flow compiler/runtime migration is planned and not yet
+implemented.
 
 ## Context
 
-RouteDeck is reusable graph-backed state infrastructure for agentic UI. Corpus
-is the SaaStoAgent product agent that consumes RouteDeck to drive the owner
-builder experience.
+Corpus is the SaaStoAgent product agent and application definition. RouteDeck is
+the reusable full-stack framework that will compile and run that definition over
+LangGraph while supplying state and interaction management, guards, review,
+projections, surfaces, typed events/SSE, diagnostics, and React state.
 
-The boundary exists because two failure modes are costly:
+The boundary prevents two costly failures:
 
 - RouteDeck absorbs SaaStoAgent-specific concepts and stops being reusable.
-- Corpus or the product UI leaks framework operations directly to users, such
-  as generic `Open node` / `Switch surface` controls, hidden ids, or endpoint
-  paths.
+- Corpus reimplements generic framework mechanics and becomes a second
+  RouteDeck runtime.
 
-The intended model is integration, not fusion.
+The intended model is consumption, not fusion or wrapper rebranding.
 
 ## Decision
 
-RouteDeck exposes validated app state and legal capabilities. Corpus interprets
-normal chat against product-facing context. The graph/runtime validates and
-commits typed operations.
-
 ```text
-RouteDeck exposes.
-Corpus decides.
-Runtime validates and commits.
-Product UI renders product language.
-Diagnostics expose internals read-only.
+Corpus declares product behavior and product meaning.
+RouteDeck validates, compiles, coordinates, and projects it.
+LangGraph executes the first-class backend flow.
+Product UI renders Corpus language and surface components.
+Diagnostics expose sanitized internals read-only.
 ```
+
+The RouteDeck application specification is the single public interaction source
+of truth for Corpus nodes, flows/outcomes, operations, surface identity and
+placement, affordances, and declared events. Corpus context/surface providers
+resolve live domain facts and props; they do not repeat the contract in parallel
+catalogs.
 
 ## RouteDeck Responsibilities
 
-RouteDeck owns:
+RouteDeck owns product-neutral:
 
-- graph-backed runtime/store projection
-- current node and active surface metadata
-- operation metadata and readiness:
-  `invocation_kind`, `can_dispatch_now`, `required_args`, `missing_args`,
-  `accepted_arg_keys`
-- surface contracts
-- hidden/internal navigation operation primitives
-- generic dispatch result contracts
-- generic diagnostics/debugger primitives
-- reusable React store and hooks
+- application validation and Full Flow compilation over LangGraph
+- server-authoritative session state, projection versions, dispatch claims, and
+  idempotency
+- operation/input validation, guard and review lifecycle, and recovery
+- declared flow outcome validation, navigation, projection, and surface hosting
+- typed event payloads, channels, visibility, sequencing, persistence, replay,
+  and SSE framing
+- FastAPI transport factories and the React store/event/surface runtime
+- diagnostics/debugger primitives and two-mode conformance tests
 
-RouteDeck does not decide user intent and does not own SaaStoAgent product
-behavior.
+RouteDeck does not own SaaStoAgent prompts, domain data, auth policy, business
+side effects, provider calls, product copy, or React product components.
 
 ## Corpus Responsibilities
 
 Corpus owns:
 
-- user-facing conversation
-- product-safe clarification and response wording
-- interpreting normal chat against current planning context
-- selecting product legal operations
-- selecting product surface intents from `surface_options`
-- binding visible entities such as SaaS Agent rows to typed operation payloads
-- keeping SaaStoAgent-specific prompts, ids, surfaces, and copy outside reusable
-  RouteDeck framework code
+- Corpus-specific state fields and domain models
+- user-facing flows, operations, product guards, and declared surfaces
+- prompts, model choices, conversation meaning, clarification, and response copy
+- context queries, tenancy/auth facts, domain handlers, database work, and
+  external side effects
+- dynamic surface props and product React components
+- product-safe entity binding and redaction
 
 Corpus must not:
 
-- mutate graph state directly
-- infer hidden routes or hidden permissions
-- use deterministic phrase routers or alias tables for normal chat
-- ask for hidden internal ids when visible entities are projected
-- expose internal operation ids, endpoint paths, trace ids, approval ids, or API
-  auth details in public chat
+- subclass generic RouteDeck runtime behavior after Full Flow migration
+- assemble generic projections, navigation stacks, reviews, or diagnostics
+- allocate event sequence numbers, own generic subscriber queues, or format SSE
+- accept client graph state as authoritative
+- re-export RouteDeck primitives under Corpus or Entry names
+- duplicate nodes, targets, operations, or surface identity in backend/frontend
+  catalogs
+- expose internal route operations, ids, traces, credentials, or auth details in
+  public chat
 
-## Two Navigation Lanes
+## Navigation And Product Interaction
 
-Internal navigation lane:
+Internal operations such as `route.open_node`, `route.switch_surface`,
+`route.back`, `route.forward`, and `route.cancel` remain hidden runtime plumbing.
+They may support replay/diagnostics but are not ordinary product quick actions.
 
-- `route.open_node`
-- `route.switch_surface`
-- `route.back`
-- `route.forward`
-- `route.cancel`
+Surface clicks and chat-selected capabilities converge on the same typed
+RouteDeck dispatch boundary. Direct operations execute only when currently
+legal; form/review/entity selection behavior is derived from the current
+projection and validated by the server-authoritative runtime.
 
-These remain in RouteDeck/runtime for browser replay, history, diagnostics, and
-validated runtime plumbing. They are `hidden` and must not appear as ordinary
-product quick actions.
+## Event Boundary
 
-Corpus planning lane:
+Corpus owns assistant meaning, prompts, and product-safe payload content.
+RouteDeck owns the common `assistant`, `runtime`, `tool`, `surface`, and
+`diagnostic` event architecture, including schema validation, correlation,
+ordering, visibility, persistence, replay, and SSE transport. Filtered streams
+must not leak diagnostics or private graph state into public assistant clients.
 
-- product legal operations
-- active surface summaries
-- `surface_options`
-- visible entities with bound operation args
-- labels, descriptions, and accepted args
+## Current Transitional State
 
-Corpus may choose a product operation or product surface intent. Runtime maps a
-validated surface intent to internal route dispatch where needed.
+Implemented in `189a6559`:
 
-## Product UI Rule
+- active backend Corpus code lives under `backend/corpus/`
+- active Entry persistence/contracts and `backend/services/corpus/` are retired
+- active Corpus backend imports RouteDeck contracts directly
+- `/api/corpus/*` routes use the product-owned Corpus package
+- source-boundary tests protect the direct-contract package shape
 
-- direct operations may execute only when `can_dispatch_now=true`
-- form operations open forms or review surfaces
-- entity-selector operations bind a selected product entity before dispatch
-- surface operations open product surfaces
-- hidden operations are not rendered as generic product actions
-- legal operations are not automatically quick-action chips
+Remaining:
+
+- `backend/corpus/graph/app.py` still owns generic runtime, projection, event,
+  SSE, diagnostics, and planning orchestration
+- pass-through Corpus surface/navigation wrappers and frontend Entry aliases
+  remain
+- duplicate `ACTION_TARGETS`/flow/catalog truth remains
+- active execution does not yet use the target RouteDeck Full Flow compiler
+
+The migration must move one real vertical operation through RouteDeck at a time
+and delete compatibility paths only after call-site and regression proof. A file
+split is not success unless framework mechanics actually leave Corpus.
 
 ## Consequences
 
-- Future RouteDeck changes must be reviewed for product-specific leakage.
-- Future Corpus changes must not bypass RouteDeck readiness metadata.
-- Clickable UI controls and chat-driven actions must converge on the same typed
-  operation validation path.
-- Browser URL replay is validated location replay, not product intent.
-- Owner diagnostics may expose internals; deployed public chat cannot.
-- Public chat result formatting must be tested separately from owner workbench
-  planning because it has stricter safety requirements.
-
-## Current Implementation State
-
-Implemented:
-
-- `/api/corpus/state` calls RouteDeck runtime snapshot.
-- `/api/corpus/action` dispatches through RouteDeck runtime.
-- `/api/corpus/stream` handles Corpus turn streaming and projection updates.
-- `CorpusPlanningContext` is product-facing.
-- Hidden/internal route operations are excluded from normal planning context.
-- Blocked operations are not part of normal planning context.
-- Product `surface_options` represent valid surface switches for Corpus.
-- Visible entities can expose bound product operations such as `saas_agent.open`.
-- Product quick actions filter hidden/internal route operations.
-- The frontend uses one `/app/*` shell to avoid chat-navigation remounts.
-- Frontend/backend URL handling standardizes on `surface_id`.
-- Medusa remains an acceptance fixture, not product hardcoding.
-
-Known debt:
-
-- Public deployed chat can still ask over-technical clarifying questions in some
-  natural product queries.
-- Public chat must be hardened so it never asks visitors for connection-level
-  API auth headers or internal ids.
-- Compatibility endpoints/routes should continue to shrink as tests and callers
-  move to the primary Corpus/RouteDeck boundary.
+- RouteDeck must be proven independently through Full Flow and Core Integration
+  standalone examples; Corpus is not the only framework example.
+- Corpus keeps product behavior but becomes much lighter.
+- Missing real models, stores, APIs, or invariants fail loudly. Product paths do
+  not substitute fixtures, canned output, or heuristic success.
+- Runtime/browser verification must use the user-selected location: local, Mac
+  mini LAN, or Mac mini Tailscale.
 
 ## Validation
 
-Relevant validation commands:
-
-```powershell
-python -m pytest backend/tests/test_corpus_turn_planning.py backend/tests/test_corpus_graph_contract.py backend/tests/test_app_graph_contract.py -q
-python -m pytest backend/tests/test_app_graph_contract.py backend/tests/test_corpus_graph_contract.py backend/tests/test_corpus_routedeck_runtime.py backend/tests/test_corpus_routedeck_state.py -q
-cd frontend
-npm run type-check
-npm run e2e:docker
-npm run e2e:medusa:docker
-```
+Current commands and evidence are maintained in
+`../test_index/route-deck-contract.md`. The full target matrix is maintained in
+`../../routedeck/docs/superpowers/plans/2026-07-10-routedeck-full-stack-framework-refactor.md`.
