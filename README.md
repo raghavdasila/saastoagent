@@ -48,9 +48,10 @@ Key project paths:
 - `decisions/` - accepted ADRs, including the RouteDeck/Corpus boundary
 - `context.md` - current restart/status handoff for future sessions
 - `SYSTEM_FLOW_INDEX.md` - current flow and architecture index
-- `../routedeck/` - sibling reusable RouteDeck framework packages and docs
-- `../../test_targets/` - Medusa fixture Docker target and generated fixture
-  credentials
+- `vendor/routedeck-v0-compat/` - pinned RouteDeck v0 compatibility snapshot
+  required by this mature product runtime; see its `PROVENANCE.md`
+- `../routedeck/` - optional sibling standalone RouteDeck repository containing
+  the real Medusa acceptance fixture used by the browser E2E
 
 ## Prerequisites
 
@@ -61,11 +62,12 @@ Required locally:
 - Python for backend tests and optional schema serving
 - An OpenAI API key for AI-backed Corpus and deployed-agent chat turns
 
-The Docker compose file builds the backend with the sibling RouteDeck package as
-an additional context. Run commands from this directory unless noted otherwise:
+The app builds only from this repository. RouteDeck v0 compatibility code is
+vendored explicitly, so a sibling checkout is not required to build or test the
+product. Run commands from this directory unless noted otherwise:
 
 ```powershell
-cd "D:\Dev\AI Projects\agent-core\agent-lab-powered-projects\saastoagent-v0.1"
+cd "D:\Dev\AI Projects\saastoagent-v0.1"
 ```
 
 Useful environment variables:
@@ -76,8 +78,9 @@ Useful environment variables:
 - `STA_AUTH_SECRET` - defaults to a local dev secret
 - `STA_ENCRYPTION_KEY` - defaults to a local dev Fernet key for fixture/dev use
 
-Do not commit real credentials. Local fixture credentials live outside this app
-under `D:\Dev\AI Projects\agent-core\test_targets\CREDS.md`.
+Do not commit real credentials. For the optional real-Medusa acceptance run,
+the sibling RouteDeck fixture generates its ignored credentials at
+`..\routedeck\examples\medusa-agent\infra\CREDS.generated.env`.
 
 ## Run The App
 
@@ -105,12 +108,12 @@ Expected ports:
 - backend API: `8085`
 - app Postgres: Docker-internal only
 
-The frontend container runs `npm install --no-package-lock && npm run build &&
-npm run preview`. For local frontend-only development, use:
+The frontend image installs from `package-lock.json`; the container runs
+`npm run build && npm run preview`. For local frontend-only development, use:
 
 ```powershell
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
@@ -138,19 +141,21 @@ connect to a real commerce API from OpenAPI, generate actions/tools, execute
 read operations, stage policy gaps, approve learning, and complete a public chat
 flow without hardcoding Medusa behavior into the product runtime.
 
-Start the target fixture from the workspace root:
+Provision and start the target fixture from the sibling RouteDeck repository.
+RouteDeck's extraction report records the isolated port override used during
+this migration; its normal demo port is 9100:
 
 ```powershell
-cd "D:\Dev\AI Projects\agent-core\test_targets"
-docker compose up -d --build
-Invoke-RestMethod http://localhost:9000/health
+cd "D:\Dev\AI Projects\routedeck"
+.\examples\medusa-agent\scripts\demo-stack.ps1 Provision
+.\examples\medusa-agent\scripts\demo-stack.ps1 Up -Services medusa
+Invoke-RestMethod http://127.0.0.1:9100/health
 ```
 
 Medusa ports:
 
-- backend/admin API: `http://localhost:9000`
-- storefront: `http://localhost:8000`
-- fixture Postgres: `localhost:5434`
+- backend/admin API: `http://127.0.0.1:9100`
+- fixture Postgres and Redis: Docker-internal only
 
 Use the detailed guide for schema serving, publishable key setup, and public
 chat validation:
@@ -181,8 +186,11 @@ npm run e2e:docker
 npm run e2e:medusa:docker
 ```
 
-The Medusa E2E starts its own schema server on port `9110` and expects the
-Medusa target and SaaStoAgent Docker services to be reachable.
+The Medusa E2E starts its own schema server on port `9110` by default and
+expects both the real Medusa target and SaaStoAgent Docker services to be
+reachable. Set `E2E_MEDUSA_BACKEND_URL` when the target is mapped to a port
+other than 9100, and set `E2E_MEDUSA_SCHEMA_PORT` to a distinct port when
+needed.
 
 ## Troubleshooting
 
@@ -208,5 +216,6 @@ Medusa target and SaaStoAgent Docker services to be reachable.
 - RouteDeck/Corpus vision: `architecture/route-deck-corpus-vision.md`
 - Boundary ADR: `decisions/ADR-013-routedeck-corpus-boundary.md`
 - RouteDeck product guide: `docs/route-deck/route-deck-overview.md`
-- RouteDeck framework guide: `../routedeck/docs/using-routedeck.md`
+- Vendored compatibility provenance:
+  `vendor/routedeck-v0-compat/PROVENANCE.md`
 - Medusa setup guide: `docs/medusa-api-agent-test-guide.md`

@@ -1,10 +1,16 @@
 # Hostinger Deployment Reference: Corpus SaaStoAgent
 
-Last updated: 2026-05-28  
+Last verified against the live host: 2026-05-28
+Standalone repository boundary updated: 2026-07-15
 Public URL: https://corpus.saastoagent.com  
 Repo: https://github.com/Highpolar-Softwares/saastoagent-corpus  
 Server: Hostinger VPS `82.112.255.56`  
 SSH: `ssh -p 22785 root@82.112.255.56`
+
+> This is an operator reference, not proof of current live state. Re-verify the
+> host before changing production. The standalone repository no longer needs a
+> RouteDeck checkout or monorepo sparse clone; its pinned compatibility package
+> is included under `vendor/routedeck-v0-compat`.
 
 ## 1. Production topology
 
@@ -12,12 +18,8 @@ SSH: `ssh -p 22785 root@82.112.255.56`
 App repo path:
 /home/info_highpolar/saastoagent-v0.1
 
-RouteDeck symlink:
-/home/info_highpolar/routedeck
--> /home/info_highpolar/the-agent-lab-sparse/agent-lab-powered-projects/routedeck
-
-RouteDeck sparse source:
-/home/info_highpolar/the-agent-lab-sparse
+RouteDeck v0 compatibility source:
+/home/info_highpolar/saastoagent-v0.1/vendor/routedeck-v0-compat
 
 Env file:
 /etc/corpus-saastoagent/corpus.env
@@ -153,21 +155,11 @@ Clone standalone repo:
 sudo -iu info_highpolar git clone https://github.com/Highpolar-Softwares/saastoagent-corpus.git /home/info_highpolar/saastoagent-v0.1
 ```
 
-Clone RouteDeck dependency using sparse checkout:
-
-```bash
-sudo -iu info_highpolar git clone --filter=blob:none --sparse --branch saastoagent https://github.com/Highpolar-Softwares/the-agent-lab.git /home/info_highpolar/the-agent-lab-sparse
-
-sudo -u info_highpolar git -C /home/info_highpolar/the-agent-lab-sparse sparse-checkout set agent-lab-powered-projects/routedeck test_targets
-
-sudo -u info_highpolar ln -s /home/info_highpolar/the-agent-lab-sparse/agent-lab-powered-projects/routedeck /home/info_highpolar/routedeck
-```
-
 Verify:
 
 ```bash
-ls -lah /home/info_highpolar/routedeck
-ls -lah /home/info_highpolar/routedeck/react
+test -f /home/info_highpolar/saastoagent-v0.1/vendor/routedeck-v0-compat/PROVENANCE.md
+test -f /home/info_highpolar/saastoagent-v0.1/vendor/routedeck-v0-compat/pyproject.toml
 ```
 
 Create env file as shown in section 6, then create the Hostinger compose override shown in section 5.
@@ -356,15 +348,9 @@ curl -I https://corpus.saastoagent.com
 curl -i https://corpus.saastoagent.com/api/health
 ```
 
-If RouteDeck changes are needed:
-
-```bash
-sudo -u info_highpolar git -C /home/info_highpolar/the-agent-lab-sparse pull origin saastoagent
-
-cd /home/info_highpolar/saastoagent-v0.1
-
-sudo docker compose   -f docker-compose.yml   -f docker-compose.hostinger.yml   --env-file /etc/corpus-saastoagent/corpus.env   up -d --build backend frontend
-```
+RouteDeck compatibility changes are versioned inside this repository. Do not
+update them from an unrelated checkout on the host; update and test the pinned
+vendor snapshot in a reviewed repository commit, then rebuild this app.
 
 ## 13. Logs
 

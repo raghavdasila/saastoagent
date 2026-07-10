@@ -1,5 +1,12 @@
 # Medusa VPS Deployment For Corpus
 
+> Historical deployment design. It has not been revalidated against the
+> extracted RouteDeck Medusa fixture and its compose shape below predates the
+> protected `examples/medusa-agent/infra/compose.yaml` stack. Do not execute it
+> as a current runbook. Use `medusa-api-agent-test-guide.md` for the verified
+> local acceptance path, and produce a reviewed VPS-specific compose before a
+> future deployment.
+
 This is the smallest practical path for running the Medusa fixture on our own
 VPS so hosted Corpus can use it.
 
@@ -36,18 +43,18 @@ the full Medusa fixture is available.
 
 ## Files To Deploy
 
-Copy the current Medusa target source to the VPS:
+Copy the current Medusa target source from the sibling standalone RouteDeck
+repository to the VPS:
 
 ```powershell
-D:\Dev\AI Projects\agent-core\test_targets\medusa-backend
-D:\Dev\AI Projects\agent-core\test_targets\medusa
-D:\Dev\AI Projects\agent-core\test_targets\docker\medusa-image-setup.sh
+D:\Dev\AI Projects\routedeck\examples\medusa-agent\medusa
+D:\Dev\AI Projects\routedeck\examples\medusa-agent\infra\medusa-setup.sh
 ```
 
 Also copy the Store OpenAPI schema from:
 
 ```powershell
-D:\Dev\AI Projects\agent-core\agent-lab-powered-projects\saastoagent-v0.1\integration_prep\openapi_toolrouter\vendor\openapi_toolrouter_benchmark\artifacts\raw_openapi\medusa_store.yaml
+D:\Dev\AI Projects\saastoagent-v0.1\integration_prep\openapi_toolrouter\vendor\openapi_toolrouter_benchmark\artifacts\raw_openapi\medusa_store.yaml
 ```
 
 Place it beside the compose file so the reverse proxy can serve it as a static
