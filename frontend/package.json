@@ -12,7 +12,7 @@
     "preview": "vite preview --host 0.0.0.0 --port 3000"
   },
   "dependencies": {
-    "@routedeck/react": "file:../../routedeck/react",
+    "@routedeck/react": "file:../vendor/routedeck-v0-compat/react",
     "@tanstack/react-query": "^5.62.0",
     "@xyflow/react": "^12.10.2",
     "clsx": "^2.1.1",

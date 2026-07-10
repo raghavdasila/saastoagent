@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "saastoagent-routedeck-v0-compat"
+version = "0.1.0"
+description = "Pinned RouteDeck v0 contract used explicitly by SaaStoAgent v0.1."
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.0,<3",
+    "jsonschema==4.26.0",
+    "langgraph>=0.2.0",
+    "langchain-core>=0.3.0",
+]
+readme = "PROVENANCE.md"
+license = "MIT"
+
+[tool.hatch.build.targets.wheel]
+packages = ["routedeck_core", "routedeck_langgraph"]
+license-files = ["LICENSE"]

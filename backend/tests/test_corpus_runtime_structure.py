@@ -219,8 +219,12 @@ def test_corpus_surface_registry_does_not_rewrap_routedeck_surface_mechanics():
 def test_corpus_projection_assembly_uses_routedeck_navigation_projection_helper():
     runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
     routedeck_projector_source = (
-        Path(__file__).parents[2] / ".." / "routedeck" / "routedeck_core" / "projector.py"
-    ).resolve().read_text(encoding="utf-8")
+        Path(__file__).parents[2]
+        / "vendor"
+        / "routedeck-v0-compat"
+        / "routedeck_core"
+        / "projector.py"
+    ).read_text(encoding="utf-8")
 
     assert "def project_state(" in routedeck_projector_source
     assert "navigation=self.navigation_for_state(state)" in routedeck_projector_source
@@ -233,8 +237,12 @@ def test_corpus_projection_assembly_uses_routedeck_review_surface_helper():
     app_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
     runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
     routedeck_projector_source = (
-        Path(__file__).parents[2] / ".." / "routedeck" / "routedeck_core" / "projector.py"
-    ).resolve().read_text(encoding="utf-8")
+        Path(__file__).parents[2]
+        / "vendor"
+        / "routedeck-v0-compat"
+        / "routedeck_core"
+        / "projector.py"
+    ).read_text(encoding="utf-8")
     surface_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
     assert "def surfaces_with_review(" in routedeck_projector_source
@@ -247,7 +255,7 @@ def test_corpus_projection_assembly_uses_routedeck_review_surface_helper():
 def test_corpus_projection_assembly_passes_context_lens_to_routedeck_projection():
     runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
-    assert "context_lens=lens" in runtime_source
+    assert 'context_lens=lens.model_dump(mode="json")' in runtime_source
     assert 'component="CorpusContextLens"' not in runtime_source
     assert "props=lens.model_dump" not in runtime_source
 

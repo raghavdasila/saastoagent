@@ -44,6 +44,7 @@ def test_corpus_routedeck_runtime_projects_context_lens_as_first_class_projectio
     assert state.projection.context_lens.legal_operation_ids == [
         operation.id for operation in state.projection.legal_operations
     ]
+    assert state.projection.context_lens.model_dump()["connection_count"] == 0
 
 
 def test_corpus_routedeck_runtime_dispatch_preserves_current_contract():
@@ -147,6 +148,7 @@ def test_corpus_state_route_conversion_preserves_routedeck_runtime_state():
     assert response.state.node == "home"
     assert response.projection.graph_node == "home"
     assert response.projection.projection_version == state.projection.projection_version
+    assert response.model_dump(mode="json")["projection"]["context_lens"]["connection_count"] == 0
     assert response.replace_path == "/app/home"
 
 

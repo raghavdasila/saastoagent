@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=routedeck . /app/routedeck/
+COPY vendor/routedeck-v0-compat /app/saastoagent-v0.1/vendor/routedeck-v0-compat
 COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 

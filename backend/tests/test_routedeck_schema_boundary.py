@@ -33,6 +33,21 @@ def test_corpus_app_graph_schemas_extend_routedeck_foundation_models():
     assert "selected_saas_agent_id" in CorpusContextLens.model_fields
 
 
+def test_framework_context_lens_preserves_product_extension_values():
+    lens = RouteDeckContextLens.model_validate(
+        {
+            "current_node": "catalog",
+            "working_on": "Catalog",
+            "selected_saas_agent_id": "agent-1",
+            "ready_connection_count": 1,
+        }
+    )
+
+    assert "selected_saas_agent_id" not in RouteDeckContextLens.model_fields
+    assert lens.model_dump()["selected_saas_agent_id"] == "agent-1"
+    assert lens.model_dump()["ready_connection_count"] == 1
+
+
 def test_corpus_schemas_do_not_reintroduce_legacy_entry_contract_layer():
     schema_root = Path(__file__).parents[1] / "corpus" / "schemas"
     legacy_schema_root = Path(__file__).parents[1] / "core" / "schemas"

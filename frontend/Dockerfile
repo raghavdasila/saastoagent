@@ -1,12 +1,12 @@
-FROM node:20-alpine
+FROM node:24-alpine
 
-WORKDIR /app
+WORKDIR /app/frontend
 
-COPY --from=routedeck_react . /routedeck/react
-COPY package*.json ./
-RUN npm install --no-package-lock
+COPY vendor/routedeck-v0-compat /app/vendor/routedeck-v0-compat
+COPY frontend/package*.json ./
+RUN npm ci
 
-COPY . .
+COPY frontend/ .
 
 EXPOSE 3000
 

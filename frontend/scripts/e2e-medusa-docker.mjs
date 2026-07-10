@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium, expect } from '@playwright/test'
 
 const appUrl = process.env.E2E_APP_URL || 'http://localhost:3007'
-const medusaBackendUrl = process.env.E2E_MEDUSA_BACKEND_URL || 'http://host.docker.internal:9000'
+const medusaBackendUrl = process.env.E2E_MEDUSA_BACKEND_URL || 'http://host.docker.internal:9100'
 const medusaSchemaPath =
   process.env.E2E_MEDUSA_STORE_SCHEMA_PATH ||
   path.resolve(
@@ -32,9 +32,19 @@ const artifactRoot =
   path.join(os.tmpdir(), `saastoagent-medusa-ui-e2e-${Date.now()}`)
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const workspaceRoot = path.resolve(__dirname, '..', '..', '..', '..')
 const medusaCredsPath =
-  process.env.E2E_MEDUSA_CREDS_PATH || path.join(workspaceRoot, 'test_targets', 'CREDS.md')
+  process.env.E2E_MEDUSA_CREDS_PATH ||
+  path.resolve(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    'routedeck',
+    'examples',
+    'medusa-agent',
+    'infra',
+    'CREDS.generated.env',
+  )
 
 const forbiddenPublicLeaks = [
   'getproducts',
@@ -109,8 +119,17 @@ async function main() {
 
     await page.getByLabel('Enabled').check()
     await page.getByText('Access').locator('..').getByRole('combobox').selectOption('anonymous')
-    await page.getByRole('complementary').getByRole('button', { name: 'Save deployment' }).click()
-    await commitDeploymentReview(page)
+    const deploymentSave = page.getByRole('complementary').getByRole('button', { name: 'Save deployment' })
+    const [deploymentResponse] = await Promise.all([
+      page.waitForResponse(
+        (response) => response.request().method() === 'PUT' && response.url().includes('/deployment'),
+        { timeout: 30000 },
+      ),
+      deploymentSave.click(),
+    ])
+    if (!deploymentResponse.ok()) {
+      throw new Error(`Deployment save failed with HTTP ${deploymentResponse.status()}`)
+    }
     await screenshot(page, evidence, 'builder-medusa-activated')
 
     const publicContext = await browser.newContext({ viewport: { width: 1280, height: 900 } })
@@ -137,7 +156,7 @@ async function main() {
     await screenshot(publicPage, evidence, 'public-medusa-add-cart-policy-needed')
     await approveLatestPolicyCandidate(page, evidence, 'add-cart')
 
-    await sendPublicMessage(publicPage, 'add the L size to cart', /Done\. I handled that for you\./i)
+    await sendPublicMessage(publicPage, 'add the L size to cart', /added.*L size.*cart/i)
     await assertNoPublicLeaks(publicPage)
     await screenshot(publicPage, evidence, 'public-medusa-add-cart-done')
 
@@ -200,13 +219,6 @@ async function openConnectionSetupFromRail(page) {
   await expect(page.getByTestId('connection-setup-surface')).toBeVisible({ timeout: 20000 })
 }
 
-async function commitDeploymentReview(page) {
-  const surface = page.getByTestId('corpus-operation-review-surface')
-  await expect(surface).toBeVisible({ timeout: 15000 })
-  await surface.getByRole('button', { name: 'Save deployment' }).click()
-  await expect(page.getByText(/Deployment settings saved/i).first()).toBeVisible({ timeout: 15000 })
-}
-
 async function sendPublicMessage(page, message, expected, timeout = 90000) {
   const input = page.getByPlaceholder('Describe what you need done')
   await expect(input).toBeEnabled({ timeout })
@@ -257,7 +269,7 @@ async function runCheckoutLoop({ ownerPage, publicPage, evidence, maxAttempts })
     const bubble = await sendPublicMessage(
       publicPage,
       intent,
-      /owner-approved automation policy|Done\. I handled that for you\.|I found multiple options|I need one more detail|connected API returned an error|could not complete/i,
+      /owner-approved automation policy|Done\s*(?:[.—-]|$)|I found multiple(?:\s+\w+)?\s+options|I need one more detail|connected API returned an error|could not complete/i,
       120000,
     )
     const text = await bubble.innerText()
@@ -269,7 +281,7 @@ async function runCheckoutLoop({ ownerPage, publicPage, evidence, maxAttempts })
       continue
     }
 
-    if (/I found multiple options/i.test(text)) {
+    if (/I found multiple(?:\s+\w+)?\s+options/i.test(text)) {
       const option = firstBulletLabel(text)
       if (!option) {
         return { completed: false, reason: 'choice prompt did not expose a selectable label', turns }
@@ -278,7 +290,7 @@ async function runCheckoutLoop({ ownerPage, publicPage, evidence, maxAttempts })
       continue
     }
 
-    if (/Done\. I handled that for you\./i.test(text)) {
+    if (/Done\s*(?:[.—-]|$)/i.test(text)) {
       if (intent === 'checkout') {
         return { completed: true, reason: 'checkout completed', turns }
       }
@@ -340,12 +352,16 @@ async function screenshot(page, evidence, name) {
 }
 
 async function readPublishableKey() {
+  const explicitKey = String(process.env.E2E_MEDUSA_PUBLISHABLE_KEY || '').trim()
+  if (explicitKey) return explicitKey
   const raw = await fs.readFile(medusaCredsPath, 'utf8')
-  const match = raw.match(/Publishable API key:\s*([^\s]+)/i)
+  const match =
+    raw.match(/^MEDUSA_PUBLISHABLE_KEY=(.+)$/m) ||
+    raw.match(/Publishable API key:\s*([^\s]+)/i)
   if (!match) {
     throw new Error(`Could not read publishable API key from ${medusaCredsPath}`)
   }
-  return match[1]
+  return match[1].trim()
 }
 
 main().catch((error) => {

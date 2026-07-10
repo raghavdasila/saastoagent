@@ -2220,7 +2220,10 @@ def _recovery_candidate_score(*, message: str, error_detail: str, candidate: Too
         if not known_path:
             continue
         if candidate_path == known_path and str(getattr(candidate.action, "method", "") or "").upper() == "POST":
-            score -= 55
+            # Recovery must continue from a resource already captured in the
+            # execution frame, not recreate that dependency because its
+            # original retrieval score happened to be higher.
+            score -= 100
         child_match = re.fullmatch(re.escape(known_path) + r"/\{[^/]+\}/(.+)", candidate_path)
         if child_match:
             child_tokens = set(_tokens(child_match.group(1)))

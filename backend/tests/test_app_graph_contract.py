@@ -471,7 +471,12 @@ def test_node_navigation_uses_routedeck_controls_with_dirty_surface_prompt_bridg
     app_graph_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus"
     shell_source = (app_graph_path / "CorpusShell.tsx").read_text(encoding="utf-8")
     routedeck_provider_source = (
-        Path(__file__).parents[3] / "routedeck" / "react" / "src" / "RouteDeckProvider.tsx"
+        Path(__file__).parents[2]
+        / "vendor"
+        / "routedeck-v0-compat"
+        / "react"
+        / "src"
+        / "RouteDeckProvider.tsx"
     ).read_text(encoding="utf-8")
 
     assert "useRouteDeckSurfaceOpening" in routedeck_provider_source
@@ -558,7 +563,13 @@ def test_product_workbench_does_not_expose_routedeck_copy():
 
 
 def test_routedeck_debugger_does_not_label_navgraph_edges_with_actions():
-    routedeck_root = Path(__file__).parents[3] / "routedeck" / "react" / "src"
+    routedeck_root = (
+        Path(__file__).parents[2]
+        / "vendor"
+        / "routedeck-v0-compat"
+        / "react"
+        / "src"
+    )
     debugger_source = (routedeck_root / "RouteDeckDebugger.tsx").read_text(encoding="utf-8")
     routing_source = (routedeck_root / "routeDeckDebuggerRouting.ts").read_text(encoding="utf-8")
 

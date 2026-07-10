@@ -2060,7 +2060,11 @@ class CorpusRouteDeckRuntime(RouteDeckRuntimeBase[CorpusGraphState, RouteDeckGra
                 projection_context=projection_context,
                 presentation_state=presentation_state,
             ),
-            context_lens=lens,
+            # Serialize the product lens before crossing the framework model
+            # boundary. Pydantic otherwise preserves the subclass in memory
+            # but serializes it through the RouteDeckContextLens annotation,
+            # dropping Corpus-only readiness fields from the API response.
+            context_lens=lens.model_dump(mode="json"),
             presentation_state={"context": projection_context, **presentation_state},
             projection_version=projection_version,
             diagnostics=self._projection_diagnostics(state),
