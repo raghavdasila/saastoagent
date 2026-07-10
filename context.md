@@ -1,88 +1,93 @@
 # SaaStoAgent v0.1 Context
 
-Last updated: 2026-07-10 08:51 IST
+Last updated: 2026-07-10
 Project: SaaStoAgent v0.1
 Branch: `saastoagent`
 Current boundary checkpoint: `189a6559 refactor(corpus): use RouteDeck contracts directly`
-Status: Backend identity/package cleanup is committed; the full RouteDeck
-framework refactor is planned but not yet implemented.
+Status: Corpus remains the working feature baseline. RouteDeck extraction is
+governed by ADR-003; the former full-framework refactor plan is retired.
 
 ## Start Here
 
-1. `critical_prompt.md`
-2. `context.md`
-3. `context_checkpoints/context_checkpoint_10-07-2026-08-51AM.md`
-4. `../routedeck/decisions/ADR-001-langgraph-native-routedeck.md`
-5. `../routedeck/decisions/ADR-002-two-adoption-modes-one-kernel.md`
-6. `../routedeck/docs/superpowers/plans/2026-07-10-routedeck-full-stack-framework-refactor.md`
-7. `architecture/route-deck-corpus-vision.md`
-8. `architecture/code-map.md`
-9. `test_index/route-deck-contract.md`
+1. [Critical prompt](./critical_prompt.md)
+2. [ADR-003: RouteDeck Governs Agentic Interaction State](../routedeck/decisions/ADR-003-agentic-interaction-state-governor.md)
+3. [Current context](./context.md)
+4. [RouteDeck/Corpus historical vision](./architecture/route-deck-corpus-vision.md) for the historical ownership
+   analysis, subject to ADR-003 where target language conflicts
+5. [Architecture code map](./architecture/code-map.md)
+6. [RouteDeck contract test index](./test_index/route-deck-contract.md)
+7. [RouteDeck context](../routedeck/context.md)
 
-## Locked Vision
+Do not resume the
+[retired full-stack refactor plan](../routedeck/docs/superpowers/plans/2026-07-10-routedeck-full-stack-framework-refactor.md).
 
-Corpus is the SaaStoAgent application definition. It imports RouteDeck and
-defines domain state, user-facing flows and interaction nodes, operations,
-product guards, domain handlers, prompts/context, and surfaces.
+## Pre-Implementation Review Gate
 
-RouteDeck implements that definition as the full-stack framework: application
-validation/compilation, LangGraph execution integration, generic runtime and
-interaction mechanics, review, projection, navigation, typed events, SSE
-channel views, diagnostics, and React store/surface hosting.
+> **Temporary gate — remove this entire section when implementation begins.**
+> The user must thoroughly review and approve
+> [RouteDeck ADR-003](../routedeck/decisions/ADR-003-agentic-interaction-state-governor.md)
+> before any RouteDeck or Corpus implementation starts. Until that review is
+> complete, keep work in documentation/analysis only.
 
-LangGraph remains the execution substrate. Corpus must stay product-specific
-and light; it must not become a second RouteDeck runtime.
+## Locked RouteDeck/Corpus Vision
 
-```text
-Corpus application definition and domain behavior
-  -> RouteDeck Full Flow compiler/runtime
-    -> LangGraph execution
-      -> RouteDeck event, projection, diagnostics, and store pipeline
-        -> Corpus product conversation and surfaces
-```
+Corpus is the SaaStoAgent product agent and the first behavioral reference for
+RouteDeck.
 
-## Current Committed State
+RouteDeck is the reusable state-management and interaction-governance layer. It
+owns the mechanics that keep an agent grounded: navgraph state, scoped context,
+tool-call supervision, real-ID allowlists, guards and feedback, surface state,
+navigation/deep links, tool-result observation, SSE interaction updates, and
+read-only diagnostics.
 
-The 2026-07-10 boundary checkpoint moved active backend Corpus code to:
+Corpus owns SaaStoAgent domain records, product tools, tool execution, prompts,
+model calls, product language, domain data, and surface components.
 
 ```text
-backend/corpus/
-  graph/app.py
-  graph/definitions.py
-  schemas/graph.py
+Corpus supplies trusted product facts, guards, tools, and UI components
+  -> RouteDeck builds scoped context and supervises every tool call
+    -> Corpus/host agent runtime executes an allowed tool
+      -> RouteDeck observes the result and updates interaction state,
+         surfaces, events, and feedback
 ```
 
-Completed in that checkpoint:
+RouteDeck does not execute Corpus tools. It allows, blocks, requests input, or
+requires review before the host runtime executes them.
 
-- retired `backend/services/corpus/`
-- retired active Entry persistence models
-- retired `backend/core/schemas/corpus.py` and Entry contract aliases
-- updated `/api/corpus/*` routes to import the product-owned Corpus package
-- changed compatibility RouteDeck catalogs to use RouteDeck action contracts
-  directly
-- updated backend boundary/structure tests for the active package
+## Corpus Feature Baseline
 
-## Current Reality And Remaining Gap
+The first extraction must preserve the existing product behavior rather than
+replace it with speculative framework infrastructure.
 
-The identity boundary is substantially cleaner, but the architecture is still
-transitional:
+Baseline capabilities include:
 
-- `backend/corpus/graph/app.py` is approximately 2,545 lines and still contains
-  business handlers, context queries, guard/eligibility logic, surface registry,
-  projection enrichment, diagnostics, LLM planning, event sequencing, and
-  Corpus SSE orchestration.
-- active Corpus execution does not yet run through the first-class RouteDeck
-  LangGraph compiler target
-- pass-through Corpus surface/navigation wrappers remain
-- active frontend Corpus types still depend on some Entry-named contracts
-- `ACTION_TARGETS`, manifest edges, capability rail, runtime eligibility, and
-  frontend catalogs duplicate portions of interaction truth
-- compatibility RouteDeck catalogs/endpoints still need explicit canonical,
-  compatibility, or retired status
+- 26 interaction nodes and 40 operations spanning auth, SaaS Agent setup,
+  connection/catalog activation, entities/actions, execution, approval,
+  results, knowledge, memory, learning, QA, and recovery
+- planning context limited to the current node, active surface, active SaaS
+  Agent, visible selectable entities, surface options, and legal operations
+- real IDs attached to visible entities and action arguments
+- authentication, membership, selected-agent, connection/tool readiness, and
+  pending-trace guards
+- hidden internal route operations and safe clarification for illegal model
+  output
+- active, frame, peer, detail, form, and review surfaces
+- dirty-form handling, surface selection, back/forward/cancel/recovery, and
+  product-owned deep links
+- review-gated execution, needs-input, tool-result evidence, and result review
+- Corpus status, message delta, projection update, completion, error, and
+  operation SSE behavior
+- frontend projection/surface synchronization and public/internal redaction
+- read-only introspection, blocked-action reasons, and guard explanations
 
-Do not split `app.py` merely for aesthetics. The next refactor must first move
-generic compiler/runtime/event responsibilities into RouteDeck and prove them
-through a real vertical flow.
+Where current ownership is tangled, the behavior still counts as the oracle.
+
+## Real Identifier Rule
+
+The first extraction continues using real IDs. RouteDeck must validate that an
+agent-supplied ID is currently visible and allowed for the selected tool and
+session state. Fabricated, stale, hidden, or ineligible IDs are blocked with
+structured feedback before the host tool runner sees them.
 
 ## Active Runtime Interfaces
 
@@ -96,8 +101,8 @@ through a real vertical flow.
 - `/app/agents/:saasAgentId/:nodeId`
 - public deployed chat at `/a/{slug}`
 
-Hidden route operations remain runtime plumbing and must not render as ordinary
-product actions:
+Hidden route operations remain interaction plumbing and never appear as normal
+product-agent tools or UI actions:
 
 - `route.open_node`
 - `route.switch_surface`
@@ -105,62 +110,52 @@ product actions:
 - `route.forward`
 - `route.cancel`
 
-## Validation Snapshot
+## Current Reality
 
-Fresh checkpoint validation on 2026-07-10:
+The active backend Corpus package lives under `backend/corpus/`, but
+`backend/corpus/graph/app.py` still combines product behavior with generic
+context filtering, guard evaluation, projection/surface assembly, navigation,
+diagnostics, agent planning, result observation, and SSE orchestration.
 
-- Python 3.12 `compileall`: passed for the moved Corpus package and changed
-  backend files.
-- Dependency-free source boundary checks: `32` passed (`29` runtime-structure,
-  `3` surface-structure).
-- `git diff --check` for the scoped refactor: passed.
-- Prior Mac mini Tailscale smoke from the handoff: backend health, Corpus state,
-  container compilation, Entry-boundary assertions, and browser
-  register-to-create-agent flow passed.
+This is a boundary problem, not permission to redesign the behavior. The next
+implementation must extract one working vertical capability at a time and keep
+the active routes compatible.
 
-Full dependency-backed pytest was not rerun locally because the bundled Python
-does not contain the backend dependency set. Do not reinterpret compilation and
-source-boundary checks as the full runtime suite.
+## First Extraction Boundary
 
-The context/architecture closeout additionally passed both documentation
-coverage scripts, all `13` dependency-free RouteDeck reference guards, a
-relative-link check over `39` changed/new Markdown files with `0` missing, and a
-scoped whitespace check. No services were started.
+Included only when already demonstrated by Corpus:
 
-## Next Goal
+- interaction/session state
+- navgraph and guarded navigation
+- scoped context and real-ID allowlisting
+- before/after supervision for every application-semantic tool call
+- legal/blocked/needs-input/review feedback
+- surfaces, selections, deep links, recovery, diagnostics, and existing SSE
+  behavior
 
-Execute the RouteDeck full-stack framework refactor plan. The goal includes:
+Deferred:
 
-1. one shared RouteDeck application/interaction kernel
-2. Full Flow compilation over LangGraph for ordinary/vibe developers
-3. Core Integration for existing/custom agents through an executor adapter
-4. one typed event architecture with assistant, runtime, tool, surface, and
-   diagnostic channels plus robust SSE ordering/replay/terminal behavior
-5. one backend-derived client contract for Corpus nodes, flows, operations,
-   surfaces, affordances, and declared events
-6. atomic dispatch claims plus a durable coordinated state/event/outbox backend
-7. migration of generic runtime/projection/event mechanics out of Corpus
-8. contract, integration, durability, SSE, React, and browser tests
-9. `examples/full-flow-change-planner` and
-   `examples/core-integration-document-review`, independent of Corpus
+- RouteDeck executing product tools
+- opaque IDs
+- required LangGraph/compiler work
+- new SQLite/outbox/durable replay systems
+- multiple framework modes or independent examples
 
-No fallback fixtures, synthetic product behavior, or fake success paths may be
-introduced into product examples. Test fixtures remain isolated to tests.
+Medusa is the later portability proof, not a prerequisite for the first Corpus
+parity extraction.
 
-## Runtime Location Rule
+## Validation Rule
 
-No services were started during this checkpoint. Before future runtime or
-browser verification, ask whether to use local, Mac mini LAN, or Mac mini
-Tailscale and report the exact command and smoke URL.
+The committed boundary checkpoint previously passed Python compilation, 32
+dependency-free source-boundary checks, and the documented Mac mini runtime and
+browser smoke. Those checks predate later abandoned RouteDeck WIP and are not a
+fresh live baseline.
 
-## Context Architecture Closeout
+Before extracting code:
 
-- Log: `logs/20260710_0851_corpus_routedeck_boundary_checkpoint.md`
-- Checkpoint: `context_checkpoints/context_checkpoint_10-07-2026-08-51AM.md`
-- Archived context:
-  `context_history/20260710_context_before_routedeck_full_refactor_goal.md`
-- Validated architecture note:
-  `architecture/dev_validated_docs/2026-07-10_corpus_routedeck_contract_cleanup.md`
+1. choose local, Mac mini LAN, or Mac mini Tailscale for runtime work
+2. prove current Corpus state, action, stream, and representative browser flows
+3. preserve that evidence as the baseline
+4. after every slice, rerun the affected backend and browser behavior
 
-Unrelated research, evaluation, and playground work remains outside this
-checkpoint and was intentionally not staged or committed with Corpus.
+Compilation or RouteDeck-only test counts do not prove Corpus parity.

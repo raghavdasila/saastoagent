@@ -5,8 +5,16 @@ Status: Canonical anti-drift vision for the current and target RouteDeck/Corpus 
 Scope: SaaStoAgent v0.1 owner workbench, RouteDeck integration, Corpus planning,
 and diagnostics
 
+> **Superseded target notice (2026-07-10):**
+> `../../routedeck/decisions/ADR-003-agentic-interaction-state-governor.md`
+> controls the current target. This file remains valuable as a Corpus feature
+> and ownership inventory, but its Full Flow compiler, LangGraph-required,
+> durable outbox, and multi-mode target language is historical and must not be
+> used as first-release scope.
+
 Framework anchors:
 
+- `../../routedeck/decisions/ADR-003-agentic-interaction-state-governor.md`
 - `../../routedeck/docs/agentic-ui-state-runtime.md`
 - `../../routedeck/docs/using-routedeck.md`
 - `../../routedeck/decisions/ADR-001-langgraph-native-routedeck.md`

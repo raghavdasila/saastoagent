@@ -43,38 +43,33 @@ The following are explicitly out of scope for v0.1:
 
 ## RouteDeck And Corpus Rule
 
-Corpus is the SaaStoAgent application definition. It imports RouteDeck and
-defines how the product behaves: domain state, user-facing flows, interaction
-nodes, operations, guards, handlers, context, and surfaces. This product
-definition is the single source of truth for the user-facing application
-contract.
+The controlling decision is
+[RouteDeck ADR-003](../routedeck/decisions/ADR-003-agentic-interaction-state-governor.md).
 
-RouteDeck implements that definition as a full-stack agentic application
-framework. It validates and compiles the app over LangGraph, owns generic
-runtime mechanics, interaction and state management, review staging,
-projection, navigation, typed events, SSE transport, diagnostics, and the React
-store/surface host. The application specification exports the versioned
-frontend contract, and RouteDeck coordinates atomic dispatch/idempotency with
-durable state/event/outbox semantics. LangGraph remains the execution substrate for nodes,
-branching, checkpoints, retries, tools, and streaming.
+Corpus is the working behavioral reference for RouteDeck. RouteDeck is the
+reusable interaction/session state and tool-supervision layer underneath it.
 
-The intended ownership is:
+Corpus supplies trusted product facts, prompts, model calls, product guards,
+domain tools, tool execution, domain records, product language, and product
+surface components. RouteDeck supplies scoped agent context, navgraph state,
+real-ID allowlisting, legal/blocked tool feedback, review interaction state,
+surface lifecycle, navigation/deep links, tool-result observation, existing SSE
+mechanics, frontend projection state, and diagnostics.
 
-- Corpus owns SaaStoAgent-specific declarations, conversation behavior, setup
-  behavior, SaaS Agent selection, domain handlers, prompts, recovery wording,
-  public chat behavior, product surface definitions/components, and product copy.
-- RouteDeck owns the shared application compiler/runtime and full typed event
-  protocol. Assistant, runtime, tool, surface, and diagnostic events share one
-  envelope and ordering model while retaining separate semantic channels and
-  visibility rules.
-- LangGraph owns execution truth. Corpus must not grow a parallel state-machine,
-  event loop, projection builder, or SSE formatter beside RouteDeck.
+Every application-semantic read or write tool call crosses RouteDeck before the
+Corpus/host agent runtime executes it. RouteDeck allows, blocks, requests input,
+or requires review and returns structured feedback. RouteDeck does not execute
+the product tool.
 
-Do not move Corpus/SaaStoAgent product semantics into reusable RouteDeck
-framework code. Do not bypass RouteDeck when exposing agentic graph state to the
-frontend. Corpus should use RouteDeck on both backend and frontend as its
-agentic application spine and should remain light enough to serve as a product
-example, not as the place where missing framework mechanics accumulate.
+Real IDs remain in use. An ID may reach a tool runner only when a trusted Corpus
+provider exposed it in the current context and RouteDeck confirms that it is
+allowed for the selected tool and current session/navgraph state.
+
+Do not move SaaStoAgent product semantics into RouteDeck. Do not redesign
+working Corpus behavior while extracting it. The first extraction is limited to
+features already demonstrated by Corpus; new LangGraph compiler, SQLite/outbox,
+durable replay, multi-mode, or example-project work is deferred. Medusa is the
+later portability proof after Corpus parity is stable.
 
 ## Continuous Improvement Loop
 
