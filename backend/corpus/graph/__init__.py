@@ -1,4 +1,4 @@
-from .manifest import (
+from .definitions import (
     ACTION_TARGETS,
     CORPUS_GRAPH_GROUPS,
     CORPUS_GRAPH_VERSION,
@@ -6,8 +6,7 @@ from .manifest import (
     build_corpus_manifest,
     validate_corpus_manifest,
 )
-from .corpus_app import corpus_route_deck_app, route_deck_runtime
-from .corpus_routedeck_runtime import CorpusRouteDeckRuntime
+from .app import CorpusRouteDeckRuntime, corpus_route_deck_app, route_deck_runtime
 
 __all__ = [
     "ACTION_TARGETS",

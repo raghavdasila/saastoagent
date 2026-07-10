@@ -4,8 +4,73 @@ from pathlib import Path
 
 
 BACKEND_ROOT = Path(__file__).parents[1]
-CORPUS_ROOT = BACKEND_ROOT / "services" / "corpus"
+CORPUS_ROOT = BACKEND_ROOT / "corpus"
+CORPUS_GRAPH_ROOT = CORPUS_ROOT / "graph"
+CORPUS_SCHEMA_ROOT = CORPUS_ROOT / "schemas"
+RETIRED_SERVICE_CORPUS_ROOT = BACKEND_ROOT / "services" / "corpus"
 RETIRED_GRAPH_ROOT = BACKEND_ROOT / "services" / "app_graph"
+ALLOWED_CORPUS_IMPLEMENTATION_FILES = {
+    "__init__.py",
+    "graph/__init__.py",
+    "graph/app.py",
+    "graph/definitions.py",
+    "schemas/__init__.py",
+    "schemas/graph.py",
+}
+
+
+def test_corpus_backend_package_is_a_vertical_slice_with_graph_and_product_schemas():
+    implementation_files = {
+        path.relative_to(CORPUS_ROOT).as_posix()
+        for path in CORPUS_ROOT.rglob("*.py")
+        if "__pycache__" not in path.parts
+    }
+
+    assert implementation_files == ALLOWED_CORPUS_IMPLEMENTATION_FILES
+    assert CORPUS_GRAPH_ROOT.exists()
+    assert CORPUS_SCHEMA_ROOT.exists()
+    assert not RETIRED_SERVICE_CORPUS_ROOT.exists()
+
+
+def test_corpus_app_builder_is_the_only_runtime_wiring_module():
+    app_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
+
+    assert "from backend.corpus.graph.definitions import" in app_source
+    for retired_module in [
+        "business_logic",
+        "corpus_context",
+        "corpus_handlers",
+        "corpus_navgraph",
+        "corpus_operation_requests",
+        "corpus_operations",
+        "corpus_routedeck_navigation",
+        "corpus_routedeck_runtime",
+        "corpus_surface_catalog",
+        "corpus_surfaces",
+        "corpus_turn_planning",
+        "manifest",
+    ]:
+        assert f"backend.corpus.graph.{retired_module}" not in app_source
+
+
+def test_corpus_definitions_and_business_logic_are_intentionally_separate():
+    definitions_source = (CORPUS_GRAPH_ROOT / "definitions.py").read_text(encoding="utf-8")
+    app_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
+
+    assert "class CorpusNodeIds" in definitions_source
+    assert "class CorpusActionIds" in definitions_source
+    assert "CORPUS_MANIFEST" in definitions_source
+    assert "class CorpusSurfaceCatalog" in definitions_source
+
+    for handler_name in [
+        "handle_saas_agent_create",
+        "handle_connection_activate",
+        "handle_execution_plan",
+        "handle_instructions_save",
+        "handle_learning_approve",
+    ]:
+        assert f"async def {handler_name}" in app_source
+        assert handler_name not in definitions_source
 
 
 def test_corpus_package_owns_routedeck_runtime_and_app_graph_package_is_retired():
@@ -13,9 +78,11 @@ def test_corpus_package_owns_routedeck_runtime_and_app_graph_package_is_retired(
     assert not RETIRED_GRAPH_ROOT.exists()
 
     init_source = (CORPUS_ROOT / "__init__.py").read_text(encoding="utf-8")
-    app_source = (CORPUS_ROOT / "corpus_app.py").read_text(encoding="utf-8")
+    graph_init_source = (CORPUS_GRAPH_ROOT / "__init__.py").read_text(encoding="utf-8")
+    app_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
-    assert "from .corpus_app import corpus_route_deck_app, route_deck_runtime" in init_source
+    assert "from .graph import" not in init_source
+    assert "from .app import CorpusRouteDeckRuntime, corpus_route_deck_app, route_deck_runtime" in graph_init_source
     assert "route_deck_runtime = corpus_route_deck_app.compile()" in app_source
     assert "from .runtime import CorpusGraphRuntime, corpus_graph_runtime" not in init_source
     assert '"CorpusGraphRuntime"' not in init_source
@@ -23,8 +90,8 @@ def test_corpus_package_owns_routedeck_runtime_and_app_graph_package_is_retired(
 
 
 def test_corpus_package_uses_corpus_named_graph_schema_and_manifest_contracts():
-    schema_source = (BACKEND_ROOT / "core" / "schemas" / "corpus.py").read_text(encoding="utf-8")
-    manifest_source = (CORPUS_ROOT / "manifest.py").read_text(encoding="utf-8")
+    schema_source = (CORPUS_SCHEMA_ROOT / "graph.py").read_text(encoding="utf-8")
+    manifest_source = (CORPUS_GRAPH_ROOT / "definitions.py").read_text(encoding="utf-8")
     init_source = (CORPUS_ROOT / "__init__.py").read_text(encoding="utf-8")
     legacy_builder_name = "build_" + "app_graph_manifest"
     legacy_validator_name = "validate_" + "app_graph_manifest"
@@ -43,7 +110,7 @@ def test_corpus_package_uses_corpus_named_graph_schema_and_manifest_contracts():
 
 
 def test_corpus_route_deck_app_declares_product_extensions_in_one_builder():
-    app_source = (CORPUS_ROOT / "corpus_app.py").read_text(encoding="utf-8")
+    app_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
     assert "RouteDeckApp(CorpusGraphState, runtime_base=CorpusRouteDeckRuntime" in app_source
     assert ".manifest(CORPUS_MANIFEST)" in app_source
@@ -60,68 +127,56 @@ def test_corpus_route_deck_app_declares_product_extensions_in_one_builder():
 
 
 def test_legacy_corpus_graph_runtime_module_is_retired():
-    assert not (CORPUS_ROOT / "runtime.py").exists()
+    assert not (CORPUS_GRAPH_ROOT / "runtime.py").exists()
 
 
 def test_corpus_runtime_uses_explicit_action_dispatcher_not_reflection_handlers():
-    runtime_source = (CORPUS_ROOT / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
+    runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
     assert "build_corpus_action_dispatcher" in runtime_source
     assert "self._action_dispatcher" in runtime_source
     assert "getattr(self, f\"_handle_" not in runtime_source
 
 
-def test_corpus_business_handlers_live_in_domain_modules_not_runtime():
-    runtime_source = (CORPUS_ROOT / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
-    handlers_root = CORPUS_ROOT / "corpus_handlers"
+def test_corpus_business_handlers_live_in_single_business_logic_module_not_runtime():
+    runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
+    app_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
+    handlers_root = CORPUS_GRAPH_ROOT / "corpus_handlers"
 
-    assert handlers_root.exists()
-    for module_name in [
-        "agent.py",
-        "connection.py",
-        "execution.py",
-        "content.py",
-        "learning.py",
-        "navigation.py",
-        "registry.py",
+    assert not handlers_root.exists()
+    for handler_name in [
+        "handle_saas_agent_create",
+        "handle_connection_activate",
+        "handle_execution_plan",
+        "handle_deployment_save",
+        "handle_instructions_save",
+        "handle_memory_save",
+        "handle_learning_approve",
     ]:
-        assert (handlers_root / module_name).exists()
+        assert f"async def {handler_name}" in app_source
 
-    forbidden_runtime_handlers = [
-        "_handle_saas_agent_create",
-        "_handle_connection_activate",
-        "_handle_execution_plan",
-        "_handle_deployment_save",
-        "_handle_instructions_save",
-        "_handle_memory_save",
-        "_handle_learning_approve",
-    ]
-    for handler_name in forbidden_runtime_handlers:
-        assert handler_name not in runtime_source
+    assert "build_corpus_action_dispatcher(" in runtime_source
 
 
-def test_operation_request_plumbing_lives_outside_runtime():
-    app_source = (CORPUS_ROOT / "corpus_app.py").read_text(encoding="utf-8")
-    runtime_source = (CORPUS_ROOT / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
-    request_source = (CORPUS_ROOT / "corpus_operation_requests.py").read_text(encoding="utf-8")
+def test_operation_request_plumbing_lives_in_app_builder_module_without_old_split_file():
+    app_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
+    assert not (CORPUS_GRAPH_ROOT / "corpus_operation_requests.py").exists()
     assert ".operation_requests(CorpusOperationRequests)" in app_source
-    assert "RouteDeckOperationRequestPolicy" in request_source
-    assert "RouteDeckRouteActionIds" in request_source
-    assert "CorpusActionIds" not in request_source
-    assert "route_actions: RouteDeckRouteActionIds" in request_source
+    assert "class CorpusOperationRequests(RouteDeckOperationRequestPolicy)" in app_source
+    assert "RouteDeckRouteActionIds" in app_source
+    assert "route_actions: RouteDeckRouteActionIds" in app_source
     for forbidden in [
         "def _validated_operation_payload",
         "def _validated_route_open_node_args",
         "def _validated_route_switch_surface_args",
         "def _sanitize_operation_args",
     ]:
-        assert forbidden not in runtime_source
-        assert forbidden not in request_source
+        assert forbidden not in app_source
 
 
 def test_corpus_navigation_configures_routedeck_controller_not_duplicate_navigation_logic():
-    navigation_source = (CORPUS_ROOT / "corpus_routedeck_navigation.py").read_text(encoding="utf-8")
+    navigation_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
     assert "RouteDeckGraphNavigationController" in navigation_source
     assert "class CorpusRouteDeckNavigation(RouteDeckGraphNavigationController)" in navigation_source
@@ -146,7 +201,7 @@ def test_corpus_navigation_configures_routedeck_controller_not_duplicate_navigat
 
 
 def test_corpus_surface_registry_does_not_rewrap_routedeck_surface_mechanics():
-    surface_source = (CORPUS_ROOT / "corpus_surfaces.py").read_text(encoding="utf-8")
+    surface_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
     assert "class CorpusSurfaceRegistry(RouteDeckSurfaceRegistry)" in surface_source
     assert "def active_surfaces(" in surface_source
@@ -162,7 +217,7 @@ def test_corpus_surface_registry_does_not_rewrap_routedeck_surface_mechanics():
 
 
 def test_corpus_projection_assembly_uses_routedeck_navigation_projection_helper():
-    runtime_source = (CORPUS_ROOT / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
+    runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
     routedeck_projector_source = (
         Path(__file__).parents[2] / ".." / "routedeck" / "routedeck_core" / "projector.py"
     ).resolve().read_text(encoding="utf-8")
@@ -175,12 +230,12 @@ def test_corpus_projection_assembly_uses_routedeck_navigation_projection_helper(
 
 
 def test_corpus_projection_assembly_uses_routedeck_review_surface_helper():
-    app_source = (CORPUS_ROOT / "corpus_app.py").read_text(encoding="utf-8")
-    runtime_source = (CORPUS_ROOT / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
+    app_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
+    runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
     routedeck_projector_source = (
         Path(__file__).parents[2] / ".." / "routedeck" / "routedeck_core" / "projector.py"
     ).resolve().read_text(encoding="utf-8")
-    surface_source = (CORPUS_ROOT / "corpus_surfaces.py").read_text(encoding="utf-8")
+    surface_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
     assert "def surfaces_with_review(" in routedeck_projector_source
     assert "review_surface_props=" in runtime_source
@@ -190,7 +245,7 @@ def test_corpus_projection_assembly_uses_routedeck_review_surface_helper():
 
 
 def test_corpus_projection_assembly_passes_context_lens_to_routedeck_projection():
-    runtime_source = (CORPUS_ROOT / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
+    runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
     assert "context_lens=lens" in runtime_source
     assert 'component="CorpusContextLens"' not in runtime_source
@@ -198,7 +253,7 @@ def test_corpus_projection_assembly_passes_context_lens_to_routedeck_projection(
 
 
 def test_corpus_turn_planning_reads_context_lens_from_projection_not_surface_props():
-    turn_planning_source = (CORPUS_ROOT / "corpus_turn_planning.py").read_text(encoding="utf-8")
+    turn_planning_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
     lens_helper_source = turn_planning_source.split("def _lens_props", 1)[1].split("def _coerce_mapping", 1)[0]
 
     assert "projection.context_lens" in lens_helper_source
@@ -207,10 +262,10 @@ def test_corpus_turn_planning_reads_context_lens_from_projection_not_surface_pro
 
 
 def test_corpus_has_no_product_owned_route_deck_projector():
-    runtime_source = (CORPUS_ROOT / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
-    app_source = (CORPUS_ROOT / "corpus_app.py").read_text(encoding="utf-8")
+    runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
+    app_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
-    assert not (CORPUS_ROOT / "corpus_routedeck_state.py").exists()
+    assert not (CORPUS_GRAPH_ROOT / "corpus_routedeck_state.py").exists()
     assert "CorpusRouteDeckStateProjector" not in runtime_source
     assert "CorpusRouteDeckStateProjector" not in app_source
     assert ".projector(" not in app_source
@@ -218,7 +273,7 @@ def test_corpus_has_no_product_owned_route_deck_projector():
 
 
 def test_corpus_routedeck_runtime_extends_route_deck_runtime_base_not_wrapper():
-    runtime_source = (CORPUS_ROOT / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
+    runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
     assert "RouteDeckRuntimeBase" in runtime_source
     assert "class CorpusRouteDeckRuntime(RouteDeckRuntimeBase[" in runtime_source
@@ -227,7 +282,7 @@ def test_corpus_routedeck_runtime_extends_route_deck_runtime_base_not_wrapper():
 
 
 def test_corpus_routedeck_runtime_does_not_delegate_projection_lifecycle_to_corpus_graph_runtime():
-    runtime_source = (CORPUS_ROOT / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
+    runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
     for forbidden in [
         ".corpus_state(",
@@ -238,28 +293,28 @@ def test_corpus_routedeck_runtime_does_not_delegate_projection_lifecycle_to_corp
 
 
 def test_corpus_routedeck_runtime_does_not_delegate_dispatch_lifecycle_to_corpus_graph_runtime():
-    runtime_source = (CORPUS_ROOT / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
+    runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
     assert "async def dispatch(" not in runtime_source
     assert ".corpus_action(" not in runtime_source
 
 
 def test_corpus_routedeck_runtime_does_not_reach_through_corpus_graph_private_runtime():
-    runtime_source = (CORPUS_ROOT / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
+    runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
     assert "self._corpus_graph._" not in runtime_source
 
 
 def test_corpus_routedeck_runtime_does_not_wrap_legacy_corpus_graph_runtime():
-    runtime_source = (CORPUS_ROOT / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
+    runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
     assert "CorpusGraphRuntime" not in runtime_source
     assert "self._corpus_graph" not in runtime_source
 
 
 def test_corpus_app_builder_declares_extension_components_instead_of_runtime_redeclarations():
-    app_source = (CORPUS_ROOT / "corpus_app.py").read_text(encoding="utf-8")
-    runtime_source = (CORPUS_ROOT / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
+    app_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
+    runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
     assert ".surfaces(CorpusSurfaceRegistry)" in app_source
     assert ".navigation(CorpusRouteDeckNavigation)" in app_source
@@ -289,7 +344,7 @@ def test_corpus_app_builder_declares_extension_components_instead_of_runtime_red
 
 
 def test_corpus_routedeck_runtime_uses_routedeck_route_action_helpers():
-    runtime_source = (CORPUS_ROOT / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
+    runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
     assert "self.route_actions_for_state(state)" in runtime_source
     assert "self.is_route_action_id(action_id)" in runtime_source
@@ -297,7 +352,7 @@ def test_corpus_routedeck_runtime_uses_routedeck_route_action_helpers():
 
 
 def test_corpus_routedeck_runtime_uses_routedeck_surface_intent_and_presentation_state_helpers():
-    runtime_source = (CORPUS_ROOT / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
+    runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
     assert "self.surface_navigation_id_from_intent(surface_intent)" in runtime_source
     assert "self.surface_variant_intent_from_intent(surface_intent)" in runtime_source
@@ -314,7 +369,7 @@ def test_corpus_routedeck_runtime_uses_routedeck_surface_intent_and_presentation
 
 
 def test_corpus_routedeck_runtime_leaves_surface_query_location_encoding_to_routedeck():
-    runtime_source = (CORPUS_ROOT / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
+    runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
     assert "def base_location_for_state(" in runtime_source
     assert '"replace_path": self.location_for_state(state, context)' in runtime_source
@@ -337,7 +392,7 @@ def test_corpus_routes_use_routedeck_runtime_not_legacy_corpus_graph_runtime():
 
 
 def test_corpus_routedeck_runtime_stream_turn_uses_inherited_dispatch_path():
-    runtime_source = (CORPUS_ROOT / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
+    runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
     assert "async def stream_corpus_turn(" in runtime_source
     assert "await self.dispatch(" in runtime_source
@@ -345,7 +400,7 @@ def test_corpus_routedeck_runtime_stream_turn_uses_inherited_dispatch_path():
 
 
 def test_corpus_routedeck_runtime_uses_routedeck_dispatch_events_not_local_store_event_builder():
-    runtime_source = (CORPUS_ROOT / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
+    runtime_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
 
     assert "def _operation_completed_event(" not in runtime_source
     assert ".events[0].model_dump(mode=\"json\")" in runtime_source

@@ -4,13 +4,13 @@ import uuid
 
 from routedeck_core import RouteDeckOperation, RouteDeckProjection, RouteDeckSurface
 
-from backend.core.schemas import CorpusContextLens, CorpusGraphState
-from backend.services.corpus.corpus_turn_planning import (
+from backend.corpus.schemas import CorpusContextLens, CorpusGraphState
+from backend.corpus.graph.app import (
     build_corpus_turn_planning_context,
     normalize_corpus_turn_plan,
     resolve_explicit_navigation_turn,
 )
-from backend.services.corpus.manifest import CorpusActionIds
+from backend.corpus.graph.definitions import CorpusActionIds
 
 
 def _projection(

@@ -4,12 +4,12 @@ import asyncio
 
 from routedeck_core import RouteDeckDispatchInput, RouteDeckRuntime, RouteDeckRuntimeState
 
-from backend.core.schemas import CorpusGraphRequest, CorpusGraphState
+from backend.corpus.schemas import CorpusGraphRequest, CorpusGraphState
 from backend.routes.corpus_graph import (
     _corpus_action_response_from_routedeck_result,
     _corpus_state_response_from_routedeck_state,
 )
-from backend.services.corpus.corpus_app import corpus_route_deck_app
+from backend.corpus.graph.app import corpus_route_deck_app
 
 
 def _runtime():

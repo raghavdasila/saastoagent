@@ -6,14 +6,20 @@ from typing import Any, AsyncIterator
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from routedeck_core import RouteDeckDispatchInput, RouteDeckDispatchResult, RouteDeckRuntimeState
+from routedeck_core import RouteDeckDispatchInput, RouteDeckDispatchResult, RouteDeckGraphMessage, RouteDeckRuntimeState
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.auth import current_optional_active_user
 from backend.core.database import get_async_session
 from backend.core.models import User
-from backend.core.schemas import CorpusGraphRequest, CorpusGraphState, CorpusActionRequest, CorpusActionResponse, CorpusStateResponse, EntryGraphMessage
-from backend.services.corpus import route_deck_runtime
+from backend.corpus.schemas import (
+    CorpusActionRequest,
+    CorpusActionResponse,
+    CorpusGraphRequest,
+    CorpusGraphState,
+    CorpusStateResponse,
+)
+from backend.corpus.graph import route_deck_runtime
 
 router = APIRouter(tags=["corpus-graph"])
 
@@ -177,7 +183,7 @@ def _corpus_action_response_from_routedeck_result(result: RouteDeckDispatchResul
         state=CorpusGraphState.model_validate(result.state.graph_state or {}),
         projection=result.state.projection,
         active_surface=result.active_surface,
-        messages=[EntryGraphMessage.model_validate(message) for message in result.messages],
+        messages=[RouteDeckGraphMessage.model_validate(message) for message in result.messages],
         replace_path=result.state.location or result.metadata.get("replace_path"),
     )
 

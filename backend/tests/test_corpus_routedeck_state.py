@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from backend.core.schemas import CorpusContextLens, CorpusGraphState, CorpusSurface
-from backend.services.corpus.corpus_operations import CorpusOperationPolicy
-from backend.services.corpus.corpus_surfaces import CorpusSurfaceRegistry
-from backend.services.corpus.manifest import ACTION_SPECS, CorpusActionIds
+from backend.corpus.schemas import CorpusContextLens, CorpusGraphState, CorpusSurface
+from backend.corpus.graph.app import CorpusOperationPolicy
+from backend.corpus.graph.app import CorpusSurfaceRegistry
+from backend.corpus.graph.definitions import ACTION_SPECS, CorpusActionIds
 
 
 def _action(action_id: str):

@@ -3,14 +3,15 @@ from __future__ import annotations
 from pathlib import Path
 
 
-CORPUS_ROOT = Path(__file__).parents[1] / "services" / "corpus"
+CORPUS_GRAPH_ROOT = Path(__file__).parents[1] / "corpus" / "graph"
+CORPUS_SCHEMA_ROOT = Path(__file__).parents[1] / "corpus" / "schemas"
 FRONTEND_CORPUS_ROOT = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus"
 
 
 def test_corpus_surface_registry_is_thin_adapter_over_surface_catalog():
-    registry_source = (CORPUS_ROOT / "corpus_surfaces.py").read_text(encoding="utf-8")
-    catalog_source = (CORPUS_ROOT / "corpus_surface_catalog.py").read_text(encoding="utf-8")
-    schema_source = (Path(__file__).parents[1] / "core" / "schemas" / "corpus.py").read_text(encoding="utf-8")
+    registry_source = (CORPUS_GRAPH_ROOT / "app.py").read_text(encoding="utf-8")
+    catalog_source = (CORPUS_GRAPH_ROOT / "definitions.py").read_text(encoding="utf-8")
+    schema_source = (CORPUS_SCHEMA_ROOT / "graph.py").read_text(encoding="utf-8")
 
     assert "CorpusSurfaceCatalog" in registry_source
     assert "CorpusSurfaceSpec" in catalog_source
@@ -27,7 +28,7 @@ def test_corpus_surface_registry_is_thin_adapter_over_surface_catalog():
 
 
 def test_surface_catalog_owns_product_surface_descriptors():
-    catalog_source = (CORPUS_ROOT / "corpus_surface_catalog.py").read_text(encoding="utf-8")
+    catalog_source = (CORPUS_GRAPH_ROOT / "definitions.py").read_text(encoding="utf-8")
 
     for surface_id in [
         "learning.policy_gaps",

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from backend.core.schemas import EntryActionCard, EntryActionField
+from routedeck_core import RouteDeckActionCard, RouteDeckActionField
 from routedeck_core import build_runtime_snapshot as build_core_runtime_snapshot
 from routedeck_core import reachable_nodes as core_reachable_nodes
 from routedeck_core import validate_manifest
@@ -512,12 +512,12 @@ def get_action_spec(action_id: str) -> RouteDeckActionSpec:
     return spec
 
 
-def _field_card(field: RouteDeckFieldSpec, draft: dict[str, Any] | None = None) -> EntryActionField:
+def _field_card(field: RouteDeckFieldSpec, draft: dict[str, Any] | None = None) -> RouteDeckActionField:
     draft = draft or {}
     default = draft.get(field.key, field.default)
     if field.sensitive:
         default = ""
-    return EntryActionField(
+    return RouteDeckActionField(
         key=field.key,
         label=field.label,
         field_type=field.field_type,
@@ -538,16 +538,16 @@ def action_card(
     description: str | None = None,
     emphasis: str | None = None,
     kind: str | None = None,
-    fields: list[EntryActionField] | None = None,
+    fields: list[RouteDeckActionField] | None = None,
     payload: dict[str, Any] | None = None,
     draft: dict[str, Any] | None = None,
     disabled_reason: str | None = None,
-) -> EntryActionCard:
+) -> RouteDeckActionCard:
     spec = get_action_spec(action_id)
     resolved_fields = fields
     if resolved_fields is None:
         resolved_fields = [_field_card(field, draft=draft) for field in spec.fields]
-    return EntryActionCard(
+    return RouteDeckActionCard(
         id=action_id,
         label=label or spec.label,
         capability_id=spec.capability_id,
@@ -572,10 +572,10 @@ def is_action_allowed_for_node(node: str | None, action_id: str) -> bool:
     return any(_matches_action(allowed_node, node) for allowed_node in spec.allowed_nodes)
 
 
-def contextual_actions_for_node(node: str | None) -> list[EntryActionCard]:
+def contextual_actions_for_node(node: str | None) -> list[RouteDeckActionCard]:
     if node is None or node not in NODE_SPECS:
         return []
-    actions: list[EntryActionCard] = []
+    actions: list[RouteDeckActionCard] = []
     for action_id in NODE_SPECS[node].allowed_actions:
         if action_id.endswith("*"):
             continue
@@ -585,10 +585,10 @@ def contextual_actions_for_node(node: str | None) -> list[EntryActionCard]:
     return actions
 
 
-def navigation_actions_for_node(node: str | None) -> list[EntryActionCard]:
+def navigation_actions_for_node(node: str | None) -> list[RouteDeckActionCard]:
     if node is None or node not in NODE_SPECS:
         return []
-    actions: list[EntryActionCard] = []
+    actions: list[RouteDeckActionCard] = []
     for action_id in (RouteDeckActionIds.NAV_BACK, RouteDeckActionIds.NAV_CANCEL):
         if is_action_allowed_for_node(node, action_id):
             actions.append(action_card(action_id))
@@ -600,7 +600,7 @@ def persistent_actions_for_context(
     node: str | None,
     current_user: "User | None",
     active_saas_agent_id: Any | None = None,
-) -> list[EntryActionCard]:
+) -> list[RouteDeckActionCard]:
     if current_user is None:
         actions = [
             action_card(RouteDeckActionIds.ENTRY_LEARN_PLATFORM),
@@ -640,7 +640,7 @@ def blocked_actions_for_node(node: str | None) -> list[dict[str, str]]:
     return blocked
 
 
-def recover_from_invalid_action(node: str | None, action_id: str) -> tuple[str, list[EntryActionCard]]:
+def recover_from_invalid_action(node: str | None, action_id: str) -> tuple[str, list[RouteDeckActionCard]]:
     node_spec = NODE_SPECS.get(node or "")
     valid_actions = contextual_actions_for_node(node)
     message = (
@@ -654,7 +654,7 @@ def build_runtime_snapshot(
     *,
     current_node: str | None,
     executed_nodes: list[str] | None = None,
-    valid_actions: list[EntryActionCard] | None = None,
+    valid_actions: list[RouteDeckActionCard] | None = None,
     diagnostics: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     actions = valid_actions if valid_actions is not None else contextual_actions_for_node(current_node)

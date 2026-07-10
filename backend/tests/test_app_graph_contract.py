@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from backend.services.corpus import (
+from backend.corpus.graph import (
     ACTION_TARGETS,
     CORPUS_GRAPH_GROUPS,
     CORPUS_GRAPH_VERSION,
@@ -8,9 +8,9 @@ from backend.services.corpus import (
     build_corpus_manifest,
     validate_corpus_manifest,
 )
-from backend.services.corpus.corpus_operations import CorpusOperationPolicy
-from backend.services.corpus.manifest import ACTION_SPECS, CorpusActionIds
-from backend.services.corpus.corpus_surfaces import CorpusSurfaceRegistry
+from backend.corpus.graph.app import CorpusOperationPolicy
+from backend.corpus.graph.definitions import ACTION_SPECS, CorpusActionIds
+from backend.corpus.graph.app import CorpusSurfaceRegistry
 from routedeck_langgraph import validate_langgraph_contract
 from pathlib import Path
 from backend.core.schemas import ActionCatalogRead
@@ -101,7 +101,7 @@ def test_app_graph_free_text_policy_is_not_phrase_list_routing():
 
 
 def test_corpus_runtime_has_no_phrase_routing_helpers():
-    runtime_path = Path(__file__).parents[2] / "backend" / "services" / "corpus" / "corpus_routedeck_runtime.py"
+    runtime_path = Path(__file__).parents[2] / "backend" / "corpus" / "graph" / "app.py"
     source = runtime_path.read_text(encoding="utf-8")
 
     forbidden = [
@@ -138,7 +138,7 @@ def test_app_graph_connection_activation_is_user_configured_not_target_preset():
 def test_product_runtime_has_no_medusa_presets_or_defaults():
     root = Path(__file__).parents[2]
     product_paths = [
-        root / "backend" / "services" / "corpus" / "manifest.py",
+        root / "backend" / "corpus" / "graph" / "definitions.py",
         root / "backend" / "services" / "saas_agent_route_deck.py",
         root / "backend" / "services" / "route_deck" / "catalog.py",
         root / "frontend" / "src" / "components" / "corpus" / "CorpusShell.tsx",
@@ -406,7 +406,7 @@ def test_deployment_publish_is_product_operation_available_from_agent_context():
 
 
 def test_router_prompt_uses_planning_context_not_raw_projection():
-    runtime_path = Path(__file__).parents[2] / "backend" / "services" / "corpus" / "corpus_routedeck_runtime.py"
+    runtime_path = Path(__file__).parents[2] / "backend" / "corpus" / "graph" / "app.py"
     source = runtime_path.read_text(encoding="utf-8")
 
     assert '"planning_context"' in source
@@ -533,14 +533,14 @@ def test_learning_detail_navigation_uses_app_owned_routedeck_operations():
 def test_instructions_save_is_app_graph_owned():
     root = Path(__file__).parents[2]
     app_graph_path = root / "frontend" / "src" / "components" / "corpus"
-    manifest_source = (root / "backend" / "services" / "corpus" / "manifest.py").read_text(encoding="utf-8")
-    runtime_source = (root / "backend" / "services" / "corpus" / "corpus_routedeck_runtime.py").read_text(encoding="utf-8")
-    content_handler_source = (root / "backend" / "services" / "corpus" / "corpus_handlers" / "content.py").read_text(encoding="utf-8")
+    manifest_source = (root / "backend" / "corpus" / "graph" / "definitions.py").read_text(encoding="utf-8")
+    runtime_source = (root / "backend" / "corpus" / "graph" / "app.py").read_text(encoding="utf-8")
+    content_handler_source = (root / "backend" / "corpus" / "graph" / "app.py").read_text(encoding="utf-8")
     catalog_source = (app_graph_path / "corpusRouteDeckCatalog.ts").read_text(encoding="utf-8")
     surface_source = (app_graph_path / "corpusSurfaces.tsx").read_text(encoding="utf-8")
 
     assert 'INSTRUCTIONS_SAVE = "instructions.save"' in manifest_source
-    assert "async def instructions_save" in content_handler_source
+    assert "async def handle_instructions_save" in content_handler_source
     assert "_handle_instructions_save" not in runtime_source
     assert "corpusOperationIds.instructionsSave" in surface_source
     assert "routeDeckStore.dispatch" in surface_source
@@ -660,7 +660,7 @@ def test_material_workbench_agent_list_surface_binds_agent_open_operation():
 
 
 def test_auto_operation_stream_emits_done_after_operation_completed():
-    runtime_path = Path(__file__).parents[1] / "services" / "corpus" / "corpus_routedeck_runtime.py"
+    runtime_path = Path(__file__).parents[1] / "corpus" / "graph" / "app.py"
     source = runtime_path.read_text(encoding="utf-8")
 
     assert '.events[0].model_dump(mode="json")' in source
@@ -737,13 +737,13 @@ def test_catalog_schema_includes_router_index_readiness():
 
 
 def test_catalog_surface_contract_includes_request_matching_without_router_copy():
-    backend_surface_path = Path(__file__).parents[1] / "services" / "corpus" / "corpus_surfaces.py"
-    backend_surface_catalog_path = Path(__file__).parents[1] / "services" / "corpus" / "corpus_surface_catalog.py"
+    backend_surface_path = Path(__file__).parents[1] / "corpus" / "graph" / "app.py"
+    backend_surface_catalog_path = Path(__file__).parents[1] / "corpus" / "graph" / "definitions.py"
     activation_path = Path(__file__).parents[1] / "services" / "discovery" / "activation.py"
     frontend_active_surface_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus" / "corpusActiveSurfaces.tsx"
     frontend_surface_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus" / "corpusSurfaces.tsx"
     shell_path = Path(__file__).parents[2] / "frontend" / "src" / "components" / "corpus" / "CorpusShell.tsx"
-    runtime_path = Path(__file__).parents[1] / "services" / "corpus" / "corpus_routedeck_runtime.py"
+    runtime_path = Path(__file__).parents[1] / "corpus" / "graph" / "app.py"
     internal_source = (
         backend_surface_path.read_text(encoding="utf-8")
         + "\n"

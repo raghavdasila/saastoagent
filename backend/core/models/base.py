@@ -1,9 +1,3 @@
-from sqlalchemy.orm import DeclarativeBase
+from backend.core.model_base import Base, TenantBase
 
-
-class Base(DeclarativeBase):
-    pass
-
-
-class TenantBase(DeclarativeBase):
-    pass
+__all__ = ["Base", "TenantBase"]

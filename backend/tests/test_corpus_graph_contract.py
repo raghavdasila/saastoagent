@@ -4,10 +4,10 @@ import asyncio
 
 from routedeck_core import RouteDeckDispatchInput, RouteDeckRuntime
 
-import backend.services.corpus as app_graph
-from backend.core.schemas import CorpusGraphRequest, CorpusGraphState
-from backend.services.corpus import route_deck_runtime
-from backend.services.corpus.manifest import CorpusActionIds
+import backend.corpus.graph as app_graph
+from backend.corpus.schemas import CorpusGraphRequest, CorpusGraphState
+from backend.corpus.graph import route_deck_runtime
+from backend.corpus.graph.definitions import CorpusActionIds
 
 
 def test_corpus_runtime_owner_is_routedeck_runtime_not_legacy_graph_runtime():

@@ -8,14 +8,15 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.models import ActionNode, AgentExecutionTrace, Connection, ConnectionActivationState, GeneratedTool, SaaSAgent
-from backend.core.schemas import EntryActionCard, EntryActionField
 from routedeck_core import build_runtime_snapshot as build_core_runtime_snapshot
 from routedeck_core import reachable_nodes as core_reachable_nodes
 from routedeck_core import validate_manifest
 
 from routedeck_core import (
+    RouteDeckActionCard,
     RouteDeckActionSpec,
     RouteDeckEdgeSpec,
+    RouteDeckActionField,
     RouteDeckFieldSpec,
     RouteDeckManifest,
     RouteDeckNodeSpec,
@@ -417,12 +418,12 @@ class SaaSAgentRouteDeckFacts:
     latest_execution_risk: str | None = None
 
 
-def _field_card(field: RouteDeckFieldSpec, draft: dict[str, Any] | None = None) -> EntryActionField:
+def _field_card(field: RouteDeckFieldSpec, draft: dict[str, Any] | None = None) -> RouteDeckActionField:
     draft = draft or {}
     default = draft.get(field.key, field.default)
     if field.sensitive:
         default = ""
-    return EntryActionField(
+    return RouteDeckActionField(
         key=field.key,
         label=field.label,
         field_type=field.field_type,
@@ -436,9 +437,9 @@ def _field_card(field: RouteDeckFieldSpec, draft: dict[str, Any] | None = None) 
     )
 
 
-def action_card(action_id: str, *, disabled_reason: str | None = None) -> EntryActionCard:
+def action_card(action_id: str, *, disabled_reason: str | None = None) -> RouteDeckActionCard:
     spec = ACTION_SPECS[action_id]
-    return EntryActionCard(
+    return RouteDeckActionCard(
         id=spec.id,
         label=spec.label,
         capability_id=spec.capability_id,
@@ -492,7 +493,7 @@ def infer_current_node(facts: SaaSAgentRouteDeckFacts) -> str:
     return SaaSAgentRouteNodeIds.SCHEMA_PREVIEW
 
 
-def contextual_actions_for_node(node: str) -> list[EntryActionCard]:
+def contextual_actions_for_node(node: str) -> list[RouteDeckActionCard]:
     node_spec = NODE_SPECS[node]
     return [action_card(action_id) for action_id in node_spec.allowed_actions]
 
