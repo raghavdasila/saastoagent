@@ -1,0 +1,53 @@
+# Python environments and build products
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+*.whl
+pip-log.txt
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.staging
+!.env.example
+
+# Node environments and logs
+node_modules/
+.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Editors, OS files, and local tool state
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+.langgraph_api
+test-results/
+*.log
+.cache/
+reference_projects
+.netlify
+.codex/
+_tmp/
+
+# Preserved local artifacts and private Codex context
+artifacts/
+frontend/recordings/
+codex_chats_and_memories/
