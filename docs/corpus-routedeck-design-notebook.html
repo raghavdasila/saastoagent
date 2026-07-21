@@ -1,0 +1,2400 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <title>Corpus + RouteDeck Design Notebook</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172033;
+      --muted: #667085;
+      --paper: #f5f7fb;
+      --panel: #ffffff;
+      --line: #d8dfeb;
+      --soft: #edf2f8;
+      --accent: #3157d5;
+      --accent-soft: #e8edff;
+      --green: #087a55;
+      --green-soft: #dff7ec;
+      --amber: #9a5b00;
+      --amber-soft: #fff2d6;
+      --red: #b42318;
+      --red-soft: #fee9e7;
+      --radius: 18px;
+      --shadow: 0 14px 36px rgba(31, 43, 68, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      min-width: 280px;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      line-height: 1.52;
+    }
+
+    button, textarea { font: inherit; }
+
+    button { touch-action: manipulation; }
+
+    .shell {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      padding: 0 14px 56px;
+    }
+
+    .masthead {
+      margin: 0 -14px;
+      padding: calc(22px + env(safe-area-inset-top)) 18px 22px;
+      color: white;
+      background:
+        radial-gradient(circle at 88% 14%, rgba(114, 142, 255, 0.42), transparent 30%),
+        linear-gradient(145deg, #101827 0%, #172a58 58%, #253d83 100%);
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0.78;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      max-width: 760px;
+      margin-bottom: 12px;
+      font-size: clamp(1.85rem, 7vw, 3.4rem);
+      line-height: 1.04;
+      letter-spacing: -0.045em;
+    }
+
+    h2 {
+      margin-bottom: 10px;
+      font-size: clamp(1.45rem, 5vw, 2rem);
+      line-height: 1.15;
+      letter-spacing: -0.025em;
+    }
+
+    h3 {
+      margin-bottom: 8px;
+      font-size: 1.05rem;
+      line-height: 1.25;
+    }
+
+    .lede {
+      max-width: 760px;
+      margin-bottom: 18px;
+      color: #dbe5ff;
+      font-size: 1rem;
+    }
+
+    .meta-row, .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: #344054;
+      font-size: 0.76rem;
+      font-weight: 750;
+    }
+
+    .masthead .chip {
+      background: rgba(255, 255, 255, 0.14);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .chip.corrected { background: var(--green-soft); color: var(--green); }
+    .chip.proposed { background: var(--accent-soft); color: var(--accent); }
+    .chip.open { background: var(--amber-soft); color: var(--amber); }
+    .chip.removed { background: var(--red-soft); color: var(--red); }
+
+    .tabs-wrap {
+      position: sticky;
+      z-index: 20;
+      top: 0;
+      margin: 0 -14px 22px;
+      padding: 10px 14px;
+      background: rgba(245, 247, 251, 0.94);
+      border-bottom: 1px solid rgba(216, 223, 235, 0.9);
+      backdrop-filter: blur(14px);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .tabs::-webkit-scrollbar { display: none; }
+
+    .tab {
+      flex: 0 0 auto;
+      min-height: 42px;
+      padding: 9px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: white;
+      color: #475467;
+      font-weight: 760;
+      cursor: pointer;
+    }
+
+    .tab[aria-selected="true"] {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: white;
+    }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .section-intro {
+      max-width: 780px;
+      margin-bottom: 18px;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .card {
+      min-width: 0;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .card.accent { border-top: 4px solid var(--accent); }
+    .card.green { border-top: 4px solid var(--green); }
+    .card.amber { border-top: 4px solid #d58a16; }
+
+    .card p:last-child, .card ul:last-child { margin-bottom: 0; }
+
+    .callout {
+      padding: 16px;
+      border-left: 4px solid var(--accent);
+      border-radius: 12px;
+      background: var(--accent-soft);
+      color: #243b80;
+    }
+
+    .callout.warning {
+      border-left-color: #d58a16;
+      background: var(--amber-soft);
+      color: #754500;
+    }
+
+    .callout strong { color: inherit; }
+
+    .term {
+      display: grid;
+      grid-template-columns: minmax(88px, 0.35fr) 1fr;
+      gap: 12px;
+      padding: 14px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .term:first-child { border-top: 0; padding-top: 0; }
+    .term:last-child { padding-bottom: 0; }
+
+    .term dt { font-weight: 850; }
+    .term dd { margin: 0; color: var(--muted); }
+
+    .ownership-map {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border: 1px dashed #aebbd2;
+      border-radius: var(--radius);
+      background: #fbfcff;
+    }
+
+    .ownership-group {
+      padding: 14px;
+      border-radius: 14px;
+      background: white;
+      border: 1px solid var(--line);
+    }
+
+    .ownership-group h3 { margin-bottom: 4px; }
+    .ownership-group p { margin-bottom: 10px; color: var(--muted); font-size: 0.9rem; }
+
+    .feature-card details { margin-top: 12px; }
+
+    summary {
+      color: var(--accent);
+      font-weight: 780;
+      cursor: pointer;
+    }
+
+    .feature-detail {
+      display: grid;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .label {
+      margin-bottom: 4px;
+      color: #475467;
+      font-size: 0.72rem;
+      font-weight: 850;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .value { margin: 0; }
+
+    .surface-list {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .surface-list li {
+      display: grid;
+      grid-template-columns: minmax(82px, 0.32fr) 1fr;
+      gap: 10px;
+      padding: 10px;
+      border-radius: 12px;
+      background: var(--soft);
+    }
+
+    .surface-list strong { font-size: 0.86rem; }
+    .surface-list span { color: var(--muted); font-size: 0.88rem; }
+
+    .not-navgraph {
+      position: relative;
+      padding-top: 32px;
+    }
+
+    .not-navgraph::before {
+      content: "FEATURE OWNERSHIP MAP — NOT THE NAVGRAPH";
+      position: absolute;
+      top: 0;
+      left: 0;
+      color: var(--red);
+      font-size: 0.7rem;
+      font-weight: 900;
+      letter-spacing: 0.09em;
+    }
+
+    .navgraph-summary {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 16px;
+      padding: 16px;
+      border: 1px solid #aebbd2;
+      border-radius: var(--radius);
+      background:
+        linear-gradient(rgba(49, 87, 213, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(49, 87, 213, 0.035) 1px, transparent 1px),
+        white;
+      background-size: 24px 24px;
+    }
+
+    .navgraph-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .nav-feature {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: white;
+      box-shadow: var(--shadow);
+    }
+
+    .nav-feature > summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 58px;
+      padding: 14px 16px;
+      color: var(--ink);
+      list-style: none;
+    }
+
+    .nav-feature > summary::-webkit-details-marker { display: none; }
+
+    .nav-feature > summary::after {
+      content: "+";
+      flex: 0 0 auto;
+      color: var(--accent);
+      font-size: 1.35rem;
+      font-weight: 800;
+    }
+
+    .nav-feature[open] > summary::after { content: "-"; }
+
+    .nav-feature-title {
+      display: grid;
+      gap: 2px;
+    }
+
+    .nav-feature-title small {
+      color: var(--muted);
+      font-weight: 650;
+    }
+
+    .nav-nodes {
+      display: grid;
+      gap: 10px;
+      padding: 0 12px 12px;
+    }
+
+    .nav-node {
+      padding: 13px;
+      border: 1px solid #cdd6e5;
+      border-radius: 14px;
+      background: #fbfcff;
+    }
+
+    .nav-node.entry { border-left: 5px solid var(--green); }
+    .nav-node.crossroad { border-left: 5px solid var(--accent); }
+
+    .nav-node-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 7px;
+    }
+
+    .nav-node p {
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .edge-list {
+      display: grid;
+      gap: 7px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .edge {
+      display: grid;
+      gap: 4px;
+      padding: 9px 10px;
+      border-radius: 10px;
+      background: var(--accent-soft);
+      font-size: 0.8rem;
+    }
+
+    .edge-operation { color: #243b80; font-weight: 800; }
+    .edge-target { color: #46536c; }
+
+    .edge-target::before {
+      content: "outcome -> ";
+      color: #72809a;
+      font-weight: 700;
+    }
+
+    .graph-code {
+      margin: 0 12px 12px;
+      padding: 14px;
+      overflow-x: auto;
+      border: 1px solid #cdd6e5;
+      border-radius: 14px;
+      background: #101827;
+      color: #dfe7f8;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 0.78rem;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .graph-code .entry-mark { color: #67e0ae; }
+
+    .flow-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .flow-button {
+      min-height: 40px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: white;
+      color: var(--ink);
+      font-weight: 780;
+      cursor: pointer;
+    }
+
+    .flow-button:active { transform: translateY(1px); }
+
+    .flow-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 40px;
+      padding: 7px 11px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: white;
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 720;
+    }
+
+    .flow-layout {
+      display: grid;
+      gap: 12px;
+    }
+
+    .flow-viewport {
+      position: relative;
+      min-height: 64vh;
+      max-height: 760px;
+      overflow: hidden;
+      border: 1px solid #b9c4d6;
+      border-radius: var(--radius);
+      background:
+        radial-gradient(circle, rgba(87, 106, 148, 0.22) 1.2px, transparent 1.2px),
+        #f8faff;
+      background-size: 22px 22px;
+      box-shadow: var(--shadow);
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .flow-viewport.panning { cursor: grabbing; }
+
+    .flow-world {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 2500px;
+      height: 1760px;
+      transform-origin: 0 0;
+      will-change: transform;
+    }
+
+    .flow-groups, .flow-nodes, .flow-edges {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .flow-groups { z-index: 0; }
+    .flow-edges { z-index: 1; overflow: visible; pointer-events: none; }
+    .flow-nodes { z-index: 2; pointer-events: none; }
+
+    .flow-group {
+      position: absolute;
+      border: 2px solid color-mix(in srgb, var(--group-color) 30%, white);
+      border-radius: 22px;
+      background: color-mix(in srgb, var(--group-color) 7%, white);
+    }
+
+    .flow-group-label {
+      position: absolute;
+      top: 11px;
+      left: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: color-mix(in srgb, var(--group-color) 76%, #162034);
+      font-size: 15px;
+      font-weight: 850;
+    }
+
+    .flow-group-label::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--group-color);
+    }
+
+    .flow-node {
+      position: absolute;
+      width: 210px;
+      min-height: 108px;
+      padding: 12px;
+      border: 2px solid color-mix(in srgb, var(--node-color) 52%, white);
+      border-radius: 15px;
+      background: white;
+      color: var(--ink);
+      box-shadow: 0 9px 22px rgba(31, 43, 68, 0.13);
+      cursor: grab;
+      touch-action: none;
+      transition: opacity 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+      text-align: left;
+      pointer-events: auto;
+    }
+
+    .flow-node:active { cursor: grabbing; }
+
+    .flow-node:hover, .flow-node:focus-visible {
+      border-color: var(--node-color);
+      box-shadow: 0 12px 28px rgba(31, 43, 68, 0.2);
+      outline: none;
+    }
+
+    .flow-node.selected {
+      border-color: #14285f;
+      box-shadow: 0 0 0 4px rgba(49, 87, 213, 0.2), 0 15px 30px rgba(31, 43, 68, 0.2);
+    }
+
+    .flow-node.dimmed { opacity: 0.28; }
+
+    .flow-node-feature {
+      margin-bottom: 7px;
+      color: var(--node-color);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    .flow-node-id {
+      display: block;
+      margin-bottom: 8px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      font-weight: 850;
+      overflow-wrap: anywhere;
+    }
+
+    .flow-node-count {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .flow-edge {
+      fill: none;
+      stroke: #9caac1;
+      stroke-width: 2.2;
+      opacity: 0.48;
+      marker-end: url(#flow-arrow);
+      vector-effect: non-scaling-stroke;
+      transition: opacity 120ms ease, stroke 120ms ease, stroke-width 120ms ease;
+    }
+
+    .flow-edge.cross-feature { stroke: #6078c7; }
+    .flow-edge.highlighted { stroke: #173ea6; stroke-width: 3.6; opacity: 1; }
+    .flow-edge.dimmed { opacity: 0.08; }
+
+    .flow-edge-label {
+      display: none;
+      fill: #3d4d6a;
+      paint-order: stroke;
+      stroke: #f8faff;
+      stroke-width: 5px;
+      stroke-linejoin: round;
+      font-size: 10px;
+      font-weight: 750;
+      pointer-events: none;
+    }
+
+    .flow-world.show-labels .flow-edge-label { display: block; }
+
+    .flow-inspector {
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: white;
+      box-shadow: var(--shadow);
+    }
+
+    .flow-inspector h3 { margin-bottom: 4px; }
+    .flow-inspector p { color: var(--muted); }
+
+    .flow-inspector-list {
+      display: grid;
+      gap: 7px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .flow-inspector-list li {
+      padding: 9px;
+      border-radius: 10px;
+      background: var(--soft);
+      font-size: 0.78rem;
+    }
+
+    .flow-hint {
+      margin: 8px 0 16px;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .adjacency-reference {
+      margin-top: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: white;
+    }
+
+    .adjacency-reference > summary { padding: 16px; }
+
+    .adjacency-reference .navgraph-stack { padding: 0 12px 12px; }
+
+    .transition-example {
+      display: grid;
+      gap: 10px;
+      align-items: center;
+      margin-top: 16px;
+    }
+
+    .node-box, .edge-box {
+      padding: 12px;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .node-box {
+      border: 1px solid #aab8d3;
+      background: white;
+      font-weight: 800;
+    }
+
+    .edge-box {
+      background: var(--accent-soft);
+      color: #26429a;
+      font-size: 0.86rem;
+      font-weight: 760;
+    }
+
+    code {
+      padding: 0.12em 0.35em;
+      border-radius: 6px;
+      background: #edf0f6;
+      color: #273451;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 0.88em;
+      overflow-wrap: anywhere;
+    }
+
+    .compare {
+      display: grid;
+      gap: 12px;
+    }
+
+    .compare > div {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: white;
+    }
+
+    .compare .yes { border-left: 5px solid var(--green); }
+    .compare .no { border-left: 5px solid var(--red); }
+
+    .note-box {
+      margin-top: 18px;
+      padding: 16px;
+      border-radius: var(--radius);
+      background: #18233a;
+      color: white;
+    }
+
+    .note-box label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 800;
+    }
+
+    .note-box small {
+      display: block;
+      margin-bottom: 10px;
+      color: #bfc9de;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 116px;
+      resize: vertical;
+      padding: 12px;
+      border: 1px solid #4a5a79;
+      border-radius: 12px;
+      background: #101827;
+      color: white;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: #8da4ff;
+      box-shadow: 0 0 0 3px rgba(141, 164, 255, 0.2);
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .button {
+      min-height: 42px;
+      padding: 9px 14px;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      background: var(--accent);
+      color: white;
+      font-weight: 780;
+      cursor: pointer;
+    }
+
+    .button.secondary {
+      border-color: #657596;
+      background: transparent;
+      color: white;
+    }
+
+    .toast {
+      min-height: 22px;
+      margin-top: 8px;
+      color: #bcebd9;
+      font-size: 0.86rem;
+    }
+
+    .decision-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .decision {
+      padding: 14px;
+      border-radius: 14px;
+      background: white;
+      border: 1px solid var(--line);
+    }
+
+    .decision p { margin-bottom: 0; color: var(--muted); }
+
+    footer {
+      margin-top: 30px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    @media (min-width: 700px) {
+      .shell { padding-inline: 24px; }
+      .masthead { margin-inline: -24px; padding-inline: 34px; }
+      .tabs-wrap { margin-inline: -24px; padding-inline: 24px; }
+      .grid.two, .compare { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .feature-detail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .ownership-map { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .nav-nodes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .navgraph-summary { grid-template-columns: 1fr auto; align-items: center; }
+      .transition-example { grid-template-columns: 1fr auto 1fr; }
+      .edge-box { min-width: 220px; }
+    }
+
+    @media (min-width: 1000px) {
+      .masthead { border-radius: 0 0 28px 28px; }
+      .ownership-map { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .flow-layout { grid-template-columns: minmax(0, 1fr) 280px; align-items: start; }
+      .flow-inspector { position: sticky; top: 76px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="masthead">
+      <p class="eyebrow">Living design artifact · discussion draft 04</p>
+      <h1>Corpus + RouteDeck Design Notebook</h1>
+      <p class="lede">
+        A mobile-first place to refine Corpus feature boundaries, RouteDeck terminology,
+        the eventual Navgraph, source integration, and deployed-agent interaction design.
+      </p>
+      <div class="meta-row">
+        <span class="chip">Layout locked</span>
+        <span class="chip">15 features proposed</span>
+        <span class="chip">Interactive Navgraph proposed</span>
+        <span class="chip">Evaluation + Channels added</span>
+      </div>
+    </header>
+
+    <nav class="tabs-wrap" aria-label="Design notebook sections">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" aria-selected="true" aria-controls="overview" id="tab-overview">Corrections</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="terms" id="tab-terms">Terms</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="features" id="tab-features">Features</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="capabilities" id="tab-capabilities">Capability</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="navgraph" id="tab-navgraph">Navgraph</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="agents" id="tab-agents">Deployed agents</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="decisions" id="tab-decisions">Decisions</button>
+      </div>
+    </nav>
+
+    <main>
+      <section class="panel active" id="overview" role="tabpanel" aria-labelledby="tab-overview">
+        <h2>Corrections accepted</h2>
+        <p class="section-intro">
+          These corrections now govern the discussion. Earlier diagrams and labels that conflict
+          with them should be considered discarded.
+        </p>
+
+        <div class="grid two">
+          <article class="card green">
+            <div class="chip-row"><span class="chip corrected">Corrected</span></div>
+            <h3>Navgraph is not a lifecycle flow</h3>
+            <p>
+              A Navgraph is the legal topology of RouteDeck nodes and transitions. A product
+              lifecycle such as connect → design → build → deploy may inform the product, but it
+              is not automatically the Navgraph.
+            </p>
+          </article>
+
+          <article class="card green">
+            <div class="chip-row"><span class="chip corrected">Corrected</span></div>
+            <h3>Corpus deploys agents</h3>
+            <p>
+              Deployed agents remain agents. “Agentic app” is a separate concept and must not be
+              used as a synonym for an agent deployed by Corpus.
+            </p>
+          </article>
+
+          <article class="card green">
+            <div class="chip-row"><span class="chip corrected">Corrected</span></div>
+            <h3>Agents use RouteDeck for interaction state</h3>
+            <p>
+              In deployed agents, RouteDeck primarily governs state, legal interaction, review,
+              recovery, and projected surfaces around agent execution.
+            </p>
+          </article>
+
+          <article class="card green">
+            <div class="chip-row"><span class="chip corrected">Corrected</span></div>
+            <h3>No Capability Catalog feature</h3>
+            <p>
+              Source discovery data and RouteDeck capabilities were mixed together. For now,
+              there is no standalone capability feature in the proposed Corpus feature set.
+            </p>
+          </article>
+
+          <article class="card green">
+            <div class="chip-row"><span class="chip corrected">Added</span></div>
+            <h3>Sandbox is first-class</h3>
+            <p>
+              Draft agents run with their real RouteDeck behavior and controlled source bindings
+              before a revision can be promoted toward deployment.
+            </p>
+          </article>
+
+          <article class="card green">
+            <div class="chip-row"><span class="chip corrected">Added</span></div>
+            <h3>Learning is first-class</h3>
+            <p>
+              Sandbox and deployed-agent evidence create governed learning candidates. Accepted
+              learning returns to design as a new revision; it never mutates a live agent.
+            </p>
+          </article>
+
+          <article class="card green">
+            <div class="chip-row"><span class="chip corrected">Corrected</span></div>
+            <h3>Corpus is the primary chat interface</h3>
+            <p>
+              The Corpus agent is part of the agentic app itself, not a separate assistant feature.
+              RouteDeck scopes its prompt, context, tools, legal operations, and surfaces by node.
+            </p>
+          </article>
+
+          <article class="card green">
+            <div class="chip-row"><span class="chip corrected">Added</span></div>
+            <h3>Evaluation is first-class</h3>
+            <p>
+              Versioned evalsets make draft-agent quality repeatable, inspectable, comparable, and
+              eligible for explicit deployment-readiness gates.
+            </p>
+          </article>
+
+          <article class="card green">
+            <div class="chip-row"><span class="chip corrected">Added</span></div>
+            <h3>Channels are first-class</h3>
+            <p>
+              Channel connection, identity, interaction constraints, surface compatibility,
+              rollout, and health form a distinct owner journey around an agent revision.
+            </p>
+          </article>
+
+          <article class="card green">
+            <div class="chip-row"><span class="chip corrected">Corrected</span></div>
+            <h3>Memory and required contracts belong to agents</h3>
+            <p>
+              Corpus and each deployed agent own their configured memory. Policy, model roles,
+              surfaces, channels, access, and lineage live in the versioned Agent Configuration.
+            </p>
+          </article>
+        </div>
+
+        <div class="note-box">
+          <label for="note-overview">Discussion notes</label>
+          <small>Saved only in this browser on this device.</small>
+          <textarea id="note-overview" data-note="overview" placeholder="Add corrections or terminology that must stay locked..."></textarea>
+          <div class="button-row">
+            <button class="button" type="button" data-copy-notes>Copy discussion snapshot</button>
+            <button class="button secondary" type="button" data-clear-note="overview">Clear this note</button>
+          </div>
+          <div class="toast" role="status" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section class="panel" id="terms" role="tabpanel" aria-labelledby="tab-terms" hidden>
+        <h2>Terminology</h2>
+        <p class="section-intro">These terms should remain stable in downstream design and code.</p>
+
+        <article class="card">
+          <dl>
+            <div class="term">
+              <dt>Corpus</dt>
+              <dd>The chat-first agentic app used to configure, design, build, evaluate, deploy, operate, and improve agents. Its primary agent is scoped by the active RouteDeck node.</dd>
+            </div>
+            <div class="term">
+              <dt>Agent</dt>
+              <dd>A runtime agent deployed by Corpus. It uses models, connected sources, tools, and RouteDeck interaction state.</dd>
+            </div>
+            <div class="term">
+              <dt>Agentic app</dt>
+              <dd>A separate application category with an agentic interaction model. It is not the default name for a deployed agent.</dd>
+            </div>
+            <div class="term">
+              <dt>Feature</dt>
+              <dd>A bounded product capability that owns RouteDeck nodes, agent policies, operations, surfaces, providers, guards, and outgoing transitions.</dd>
+            </div>
+            <div class="term">
+              <dt>Navgraph</dt>
+              <dd>The compiled legal navigation topology: nodes connected by operation outcomes and transitions.</dd>
+            </div>
+            <div class="term">
+              <dt>Surface</dt>
+              <dd>A RouteDeck-declared UI projection with typed props and affordances, rendered by a product or standard component library.</dd>
+            </div>
+            <div class="term">
+              <dt>Source manifest</dt>
+              <dd>Normalized discovery output from an API, database, knowledge base, or MCP server before it is designed into an agent.</dd>
+            </div>
+            <div class="term">
+              <dt>Capability</dt>
+              <dd>A RouteDeck grouping of operations, surfaces, and policies declared within a node. It is not automatically a Corpus feature.</dd>
+            </div>
+            <div class="term">
+              <dt>Agent Configuration</dt>
+              <dd>The versioned contract for an agent's identity, instructions, Navgraph, node scopes, sources, operations, policies, surfaces, model roles, memory, access, channels, and lineage.</dd>
+            </div>
+            <div class="term">
+              <dt>Evalset</dt>
+              <dd>A versioned collection of evaluation cases, inputs, binding profiles, expected outcomes, assertions, and readiness rules.</dd>
+            </div>
+            <div class="term">
+              <dt>Channel</dt>
+              <dd>A configured delivery and interaction boundary through which an agent communicates, including identity, credentials, supported surfaces, and delivery semantics.</dd>
+            </div>
+            <div class="term">
+              <dt>Memory</dt>
+              <dd>Agent-owned retained context governed by explicit scope and retention. It is distinct from sourced knowledge and reviewed learning.</dd>
+            </div>
+          </dl>
+        </article>
+
+        <div class="note-box">
+          <label for="note-terms">Terminology notes</label>
+          <small>Use this to flag names that are overloaded or still wrong.</small>
+          <textarea id="note-terms" data-note="terms" placeholder="Example: prefer ‘agent revision’ over ‘application revision’..."></textarea>
+          <div class="button-row">
+            <button class="button" type="button" data-copy-notes>Copy discussion snapshot</button>
+            <button class="button secondary" type="button" data-clear-note="terms">Clear this note</button>
+          </div>
+          <div class="toast" role="status" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section class="panel" id="features" role="tabpanel" aria-labelledby="tab-features" hidden>
+        <h2>Proposed Corpus feature boundaries</h2>
+        <p class="section-intro">
+          This is an ownership map, not the Navgraph. Features become real only after their nodes,
+          operations, surfaces, and transitions are agreed.
+        </p>
+
+        <div class="not-navgraph">
+          <div class="ownership-map">
+            <div class="ownership-group">
+              <h3>Workspace</h3>
+              <p>Owner, organization, tenancy, and current working context.</p>
+              <span class="chip proposed">Proposed feature</span>
+            </div>
+            <div class="ownership-group">
+              <h3>Agents</h3>
+              <p>Create, select, inspect, and configure the agents owned by a workspace.</p>
+              <span class="chip proposed">Proposed feature</span>
+            </div>
+            <div class="ownership-group">
+              <h3>Sources</h3>
+              <p>Inventory and entry points for API, database, knowledge, and MCP sources.</p>
+              <span class="chip proposed">Proposed feature family</span>
+            </div>
+            <div class="ownership-group">
+              <h3>Agent Designer</h3>
+              <p>Agent-backed feature that proposes the agent’s RouteDeck and source-use design.</p>
+              <span class="chip proposed">Proposed feature</span>
+            </div>
+            <div class="ownership-group">
+              <h3>Agent Builder</h3>
+              <p>Agent-backed feature that materializes and validates an accepted design.</p>
+              <span class="chip proposed">Proposed feature</span>
+            </div>
+            <div class="ownership-group">
+              <h3>Sandbox</h3>
+              <p>Runs a draft agent revision with isolated state and controlled source bindings.</p>
+              <span class="chip proposed">Proposed feature</span>
+            </div>
+            <div class="ownership-group">
+              <h3>Evaluation</h3>
+              <p>Owns evalsets, repeatable runs, revision comparison, evidence, and readiness gates.</p>
+              <span class="chip proposed">Proposed feature</span>
+            </div>
+            <div class="ownership-group">
+              <h3>Channels</h3>
+              <p>Connects agent revisions to delivery and interaction targets with explicit compatibility.</p>
+              <span class="chip proposed">Proposed feature</span>
+            </div>
+            <div class="ownership-group">
+              <h3>Deployment</h3>
+              <p>Immutable agent revisions, runtime configuration, activation, and rollback.</p>
+              <span class="chip proposed">Proposed feature</span>
+            </div>
+            <div class="ownership-group">
+              <h3>Operations</h3>
+              <p>Running-agent health, sessions, traces, reviews, and interventions.</p>
+              <span class="chip proposed">Proposed feature</span>
+            </div>
+            <div class="ownership-group">
+              <h3>Learning</h3>
+              <p>Turns sandbox and runtime evidence into governed learning candidates.</p>
+              <span class="chip proposed">Proposed feature</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid two" style="margin-top: 16px">
+          <article class="card feature-card">
+            <h3>Workspace</h3>
+            <p>Provides the principal and tenancy context in which all Corpus work occurs.</p>
+            <details>
+              <summary>Purpose, connections, surfaces</summary>
+              <div class="feature-detail">
+                <div><p class="label">Connects</p><p class="value">Host authentication → Workspace → Agents</p></div>
+                <div><p class="label">Providers</p><p class="value">Principal, membership, active workspace</p></div>
+                <div><p class="label">Surfaces</p><p class="value">Workspace frame, selector, membership status, access error</p></div>
+                <div><p class="label">Boundary</p><p class="value">Authentication remains outside the feature.</p></div>
+              </div>
+            </details>
+          </article>
+
+          <article class="card feature-card">
+            <h3>Agents</h3>
+            <p>Owns the Corpus records representing agents and their current revisions.</p>
+            <details>
+              <summary>Purpose, connections, surfaces</summary>
+              <div class="feature-detail">
+                <div><p class="label">Connects</p><p class="value">Workspace → Sources, Designer, Sandbox, Evaluation, Channels, Deployment, Operations, Learning</p></div>
+                <div><p class="label">Providers</p><p class="value">Selected agent, Agent Configuration revision, readiness</p></div>
+                <div><p class="label">Surfaces</p><p class="value">Agent list, create form, overview, configuration, revision history</p></div>
+                <div><p class="label">Boundary</p><p class="value">The agent record is not the model process itself.</p></div>
+              </div>
+            </details>
+          </article>
+
+          <article class="card feature-card">
+            <h3>Source family</h3>
+            <p>Owns the lifecycle of external inputs available to an agent.</p>
+            <details>
+              <summary>Source-specific feature candidates</summary>
+              <div class="feature-detail">
+                <div><p class="label">API source</p><p class="value">Connect, validate, inspect, select operations.</p></div>
+                <div><p class="label">Database source</p><p class="value">Connect, introspect, select resources, govern mutations.</p></div>
+                <div><p class="label">Knowledge source</p><p class="value">Ingest, index, verify readiness, preview evidence.</p></div>
+                <div><p class="label">MCP source</p><p class="value">Discover, authorize, inspect tools/resources/prompts.</p></div>
+              </div>
+            </details>
+          </article>
+
+          <article class="card feature-card">
+            <h3>Agent Designer</h3>
+            <p>An agent-backed Corpus feature that proposes how sources and RouteDeck should shape the deployed agent.</p>
+            <details>
+              <summary>Purpose, connections, surfaces</summary>
+              <div class="feature-detail">
+                <div><p class="label">Consumes</p><p class="value">Owner intent, agent record, source manifests</p></div>
+                <div><p class="label">Produces</p><p class="value">Reviewable agent design proposal</p></div>
+                <div><p class="label">Surfaces</p><p class="value">Brief, design conversation, proposal, topology review, policy review</p></div>
+                <div><p class="label">Boundary</p><p class="value">Cannot build, approve, or deploy its own proposal.</p></div>
+              </div>
+            </details>
+          </article>
+
+          <article class="card feature-card">
+            <h3>Agent Builder</h3>
+            <p>An agent-backed Corpus feature that materializes an accepted design and validates it.</p>
+            <details>
+              <summary>Purpose, connections, surfaces</summary>
+              <div class="feature-detail">
+                <div><p class="label">Consumes</p><p class="value">Accepted design and source revisions</p></div>
+                <div><p class="label">Produces</p><p class="value">Validated draft agent revision for Sandbox</p></div>
+                <div><p class="label">Surfaces</p><p class="value">Build status, generated inventory, compiler diagnostics, validation evidence</p></div>
+                <div><p class="label">Boundary</p><p class="value">Cannot silently reinterpret the accepted design.</p></div>
+              </div>
+            </details>
+          </article>
+
+          <article class="card feature-card">
+            <h3>Sandbox</h3>
+            <p>Runs the actual draft agent with isolated RouteDeck state and explicitly controlled bindings.</p>
+            <details>
+              <summary>Purpose, connections, surfaces</summary>
+              <div class="feature-detail">
+                <div><p class="label">Consumes</p><p class="value">Validated draft revision and sandbox binding configuration</p></div>
+                <div><p class="label">Produces</p><p class="value">Runs, traces, failures, review decisions, captured evaluation cases, and evidence</p></div>
+                <div><p class="label">Surfaces</p><p class="value">Sandbox conversation, agent-state inspector, surface preview, trace, result, comparison</p></div>
+                <div><p class="label">Boundary</p><p class="value">No production sessions and no silent mock or synthetic fallback.</p></div>
+              </div>
+            </details>
+          </article>
+
+          <article class="card feature-card">
+            <h3>Evaluation</h3>
+            <p>Runs versioned evalsets against an exact draft agent revision and makes readiness evidence inspectable.</p>
+            <details>
+              <summary>Purpose, connections, surfaces</summary>
+              <div class="feature-detail">
+                <div><p class="label">Consumes</p><p class="value">Agent Configuration revision, evalset, source/channel test profile</p></div>
+                <div><p class="label">Produces</p><p class="value">Immutable case results, traces, revision comparison, and readiness decision</p></div>
+                <div><p class="label">Surfaces</p><p class="value">Evalset library/editor, run matrix, case detail, trace/evidence, revision diff, gate summary</p></div>
+                <div><p class="label">Boundary</p><p class="value">Evaluation does not fix or silently alter the revision it tests.</p></div>
+              </div>
+            </details>
+          </article>
+
+          <article class="card feature-card">
+            <h3>Channels</h3>
+            <p>Owns the configured delivery and interaction boundaries through which a deployed agent communicates.</p>
+            <details>
+              <summary>Purpose, connections, surfaces</summary>
+              <div class="feature-detail">
+                <div><p class="label">Consumes</p><p class="value">Agent revision, channel provider, credentials, identity and supported-surface contract</p></div>
+                <div><p class="label">Produces</p><p class="value">Validated channel binding and channel-target readiness</p></div>
+                <div><p class="label">Surfaces</p><p class="value">Channel catalog, connection/configuration, compatibility review, test, status and health</p></div>
+                <div><p class="label">Boundary</p><p class="value">Channels do not activate an agent revision; Deployment owns activation.</p></div>
+              </div>
+            </details>
+          </article>
+
+          <article class="card feature-card">
+            <h3>Deployment</h3>
+            <p>Activates an evaluation-ready agent revision in a configured runtime environment and channel target.</p>
+            <details>
+              <summary>Purpose, connections, surfaces</summary>
+              <div class="feature-detail">
+                <div><p class="label">Connects</p><p class="value">Evaluation-ready revision + validated channels → active agent → Operations</p></div>
+                <div><p class="label">Owns</p><p class="value">Revision/target selection, dependency readiness, activation, rollout, rollback</p></div>
+                <div><p class="label">Surfaces</p><p class="value">Revision list, deployment review, progress, active status, failure</p></div>
+                <div><p class="label">Boundary</p><p class="value">Does not design or modify revisions.</p></div>
+              </div>
+            </details>
+          </article>
+
+          <article class="card feature-card">
+            <h3>Operations</h3>
+            <p>Provides control and evidence for agents that are actually running.</p>
+            <details>
+              <summary>Purpose, connections, surfaces</summary>
+              <div class="feature-detail">
+                <div><p class="label">Connects</p><p class="value">Active deployment and channels → sessions, traces, review queue</p></div>
+                <div><p class="label">Owns</p><p class="value">Agent/channel health, runtime reviews, pause/resume, incident evidence</p></div>
+                <div><p class="label">Surfaces</p><p class="value">Health, sessions, trace timeline, pending review, channel status, diagnostics</p></div>
+                <div><p class="label">Boundary</p><p class="value">Cannot mutate an active agent design.</p></div>
+              </div>
+            </details>
+          </article>
+
+          <article class="card feature-card">
+            <h3>Learning</h3>
+            <p>Creates governed learning candidates from sandbox, evaluation, runtime, and owner evidence.</p>
+            <details>
+              <summary>Purpose, connections, surfaces</summary>
+              <div class="feature-detail">
+                <div><p class="label">Consumes</p><p class="value">Sandbox runs, evaluation results, deployed traces, failures, reviews, and owner feedback</p></div>
+                <div><p class="label">Produces</p><p class="value">Accepted, rejected, or revised learning candidates</p></div>
+                <div><p class="label">Surfaces</p><p class="value">Learning inbox, evidence detail, instruction/policy diff, review, revision status</p></div>
+                <div><p class="label">Boundary</p><p class="value">Never mutates a live agent; accepted learning returns to Designer.</p></div>
+              </div>
+            </details>
+          </article>
+        </div>
+
+        <div class="note-box">
+          <label for="note-features">Feature-boundary notes</label>
+          <small>Record merges, splits, missing owner tasks, or features that have no real journey.</small>
+          <textarea id="note-features" data-note="features" placeholder="Example: Which channel concerns belong to Agent Configuration versus the Channels feature journey?"></textarea>
+          <div class="button-row">
+            <button class="button" type="button" data-copy-notes>Copy discussion snapshot</button>
+            <button class="button secondary" type="button" data-clear-note="features">Clear this note</button>
+          </div>
+          <div class="toast" role="status" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section class="panel" id="capabilities" role="tabpanel" aria-labelledby="tab-capabilities" hidden>
+        <h2>What “capability” should mean</h2>
+        <p class="section-intro">
+          The confusion came from using one word for three different layers. They must stay separate.
+        </p>
+
+        <div class="grid three">
+          <article class="card accent">
+            <div class="chip-row"><span class="chip">Before design</span></div>
+            <h3>Source manifest</h3>
+            <p>What Corpus discovered from a connected source.</p>
+            <ul>
+              <li>OpenAPI endpoints and schemas</li>
+              <li>Database tables, relations, and bounded operations</li>
+              <li>GRAG sources and query/evidence contracts</li>
+              <li>MCP tools, resources, and prompts</li>
+            </ul>
+          </article>
+
+          <article class="card green">
+            <div class="chip-row"><span class="chip">During design</span></div>
+            <h3>Agent design selection</h3>
+            <p>The approved subset of source-manifest entries and the rules for how an agent may use them.</p>
+            <ul>
+              <li>Included and excluded entries</li>
+              <li>Agent instructions</li>
+              <li>Safety and review requirements</li>
+              <li>RouteDeck node placement</li>
+            </ul>
+          </article>
+
+          <article class="card amber">
+            <div class="chip-row"><span class="chip">Inside RouteDeck</span></div>
+            <h3>RouteDeck capability</h3>
+            <p>A named grouping declared on a RouteDeck node.</p>
+            <ul>
+              <li>Operation references</li>
+              <li>Surface references</li>
+              <li>Agent-policy references</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="callout" style="margin-top: 16px">
+          <strong>Recommendation:</strong> remove the proposed Capability Catalog feature. Source
+          features expose and curate source manifests. The Agent Designer turns approved manifest
+          entries into RouteDeck nodes, operations, surfaces, policies, and capabilities.
+        </div>
+
+        <div class="compare" style="margin-top: 16px">
+          <div class="yes">
+            <h3>A RouteDeck capability is useful when</h3>
+            <p>
+              A node needs a coherent named ability such as “inspect order” that brings together
+              legal operations, relevant surfaces, and agent guidance.
+            </p>
+          </div>
+          <div class="no">
+            <h3>It is not</h3>
+            <p>
+              A marketplace, source catalog, discovery database, entire feature, or generic bucket
+              containing every external action known to Corpus.
+            </p>
+          </div>
+        </div>
+
+        <div class="note-box">
+          <label for="note-capability">Capability notes</label>
+          <small>Use this to decide whether “source manifest” is the right pre-design term.</small>
+          <textarea id="note-capability" data-note="capability" placeholder="Should the designer see raw manifests, curated source selections, or both?"></textarea>
+          <div class="button-row">
+            <button class="button" type="button" data-copy-notes>Copy discussion snapshot</button>
+            <button class="button secondary" type="button" data-clear-note="capability">Clear this note</button>
+          </div>
+          <div class="toast" role="status" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section class="panel" id="navgraph" role="tabpanel" aria-labelledby="tab-navgraph" hidden>
+        <h2>Proposed Corpus Navgraph</h2>
+        <p class="section-intro">
+          This is the first node-level RouteDeck topology proposal. Each edge names a legal
+          operation, its outcome, and the target node. It is not a lifecycle flowchart.
+        </p>
+
+        <div class="navgraph-summary">
+          <div>
+            <h3>Corpus Navgraph proposal 0.2</h3>
+            <p style="margin-bottom: 0; color: var(--muted)">
+              Entry: <code>workspace.home</code>. Feature groups show ownership; cross-feature edges
+              are normal Navgraph transitions.
+            </p>
+          </div>
+          <div class="chip-row">
+            <span class="chip proposed">15 features</span>
+            <span class="chip proposed">53 nodes</span>
+            <span class="chip proposed">146 edges</span>
+            <span class="chip open">Not locked</span>
+          </div>
+        </div>
+
+        <div class="flow-toolbar" aria-label="Navgraph controls">
+          <button class="flow-button" type="button" data-flow-action="fit">Fit graph</button>
+          <button class="flow-button" type="button" data-flow-action="zoom-in" aria-label="Zoom in">Zoom +</button>
+          <button class="flow-button" type="button" data-flow-action="zoom-out" aria-label="Zoom out">Zoom -</button>
+          <button class="flow-button" type="button" data-flow-action="clear">Clear selection</button>
+          <label class="flow-toggle"><input type="checkbox" id="flow-label-toggle"> Edge labels</label>
+        </div>
+
+        <div class="flow-layout">
+          <div>
+            <div class="flow-viewport" id="flow-viewport" aria-label="Interactive proposed Corpus Navgraph">
+              <div class="flow-world" id="flow-world">
+                <svg class="flow-edges" id="flow-edges" viewBox="0 0 2500 1760" aria-hidden="true">
+                  <defs>
+                    <marker id="flow-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
+                      <path d="M 0 0 L 8 4 L 0 8 z" fill="#6078c7"></path>
+                    </marker>
+                  </defs>
+                  <g id="flow-edge-paths"></g>
+                  <g id="flow-edge-labels"></g>
+                </svg>
+                <div class="flow-groups" id="flow-groups"></div>
+                <div class="flow-nodes" id="flow-nodes"></div>
+              </div>
+            </div>
+            <p class="flow-hint">Drag the background to pan, use the mouse wheel or controls to zoom, drag nodes to rearrange, and select a node to inspect its edges.</p>
+          </div>
+
+          <aside class="flow-inspector" id="flow-inspector" aria-live="polite">
+            <p class="eyebrow" style="color: var(--accent); opacity: 1">Node inspector</p>
+            <h3>Select a node</h3>
+            <p>Connected nodes and edges will be highlighted here.</p>
+          </aside>
+        </div>
+
+        <details class="adjacency-reference">
+          <summary>Exact adjacency reference: operation / outcome -&gt; target</summary>
+          <div class="navgraph-stack">
+          <details class="nav-feature" open>
+            <summary><span class="nav-feature-title"><strong>Workspace</strong><small>1 node · application entry</small></span></summary>
+            <pre class="graph-code"><span class="entry-mark">[workspace.home] ENTRY</span>
+  agent.create.start / opened  -> agents.create
+  agent.open         / selected -> agents.overview</pre>
+          </details>
+
+          <details class="nav-feature" open>
+            <summary><span class="nav-feature-title"><strong>Agents</strong><small>2 nodes · selected-agent hub</small></span></summary>
+            <pre class="graph-code">[agents.create]
+  agent.create / created   -> agents.overview
+  route.cancel / cancelled -> workspace.home
+
+[agents.overview] HUB
+  sources.manage    / opened -> sources.home
+  design.start      / opened -> designer.brief
+  sandbox.open      / opened -> sandbox.home
+  evaluation.open   / opened -> evaluation.home
+  channels.manage   / opened -> channels.home
+  deployment.manage / opened -> deployment.revisions
+  operations.open  / opened -> operations.overview
+  learning.open    / opened -> learning.inbox
+  agent.switch     / opened -> workspace.home</pre>
+          </details>
+
+          <details class="nav-feature">
+            <summary><span class="nav-feature-title"><strong>Source Hub</strong><small>1 node · source-family crossroad</small></span></summary>
+            <pre class="graph-code">[sources.home] HUB
+  api_source.add       / opened -> api.connect
+  database_source.add  / opened -> database.connect
+  knowledge_source.add / opened -> knowledge.sources
+  mcp_source.add       / opened -> mcp.discover
+  agent.open           / opened -> agents.overview</pre>
+          </details>
+
+          <details class="nav-feature">
+            <summary><span class="nav-feature-title"><strong>API Source</strong><small>3 nodes · OpenAPI connection and curation</small></span></summary>
+            <pre class="graph-code">[api.connect]
+  api.validate / valid   -> api.inspect
+  api.validate / invalid -> api.connect [error surface]
+
+[api.inspect]
+  api.activate    / ready  -> api.ready
+  api.reconfigure / opened -> api.connect
+
+[api.ready]
+  api.inspect  / opened -> api.inspect
+  sources.open / opened -> sources.home</pre>
+          </details>
+
+          <details class="nav-feature">
+            <summary><span class="nav-feature-title"><strong>Database Source</strong><small>4 nodes · introspection and mutation policy</small></span></summary>
+            <pre class="graph-code">[database.connect]
+  database.validate / valid   -> database.inspect
+  database.validate / invalid -> database.connect [error surface]
+
+[database.inspect]
+  database.select_resources / selected -> database.policy
+  database.reconfigure      / opened   -> database.connect
+
+[database.policy]
+  database.activate / ready  -> database.ready
+  database.reselect / opened -> database.inspect
+
+[database.ready]
+  database.inspect / opened -> database.inspect
+  sources.open     / opened -> sources.home</pre>
+          </details>
+
+          <details class="nav-feature">
+            <summary><span class="nav-feature-title"><strong>Knowledge Source</strong><small>4 nodes · Agentic-GRAG lifecycle</small></span></summary>
+            <pre class="graph-code">[knowledge.sources]
+  knowledge.ingest.start / opened -> knowledge.ingest
+  knowledge.open_ready   / opened -> knowledge.ready
+  sources.open           / opened -> sources.home
+
+[knowledge.ingest]
+  knowledge.ingest / accepted  -> knowledge.indexing
+  route.cancel     / cancelled -> knowledge.sources
+
+[knowledge.indexing]
+  knowledge.refresh_status / ready  -> knowledge.ready
+  knowledge.refresh_status / failed -> knowledge.indexing [error surface]
+  knowledge.list           / opened -> knowledge.sources
+
+[knowledge.ready]
+  knowledge.reindex / accepted -> knowledge.indexing
+  knowledge.list    / opened   -> knowledge.sources</pre>
+          </details>
+
+          <details class="nav-feature">
+            <summary><span class="nav-feature-title"><strong>MCP Source</strong><small>4 nodes · registry, authorization, primitives</small></span></summary>
+            <pre class="graph-code">[mcp.discover]
+  mcp.select_server / selected -> mcp.authorize
+  sources.open      / opened   -> sources.home
+
+[mcp.authorize]
+  mcp.connect / connected      -> mcp.inspect
+  mcp.connect / input_required -> mcp.authorize [form surface]
+  mcp.connect / auth_required  -> mcp.authorize [auth surface]
+  mcp.connect / error          -> mcp.authorize [error surface]
+
+[mcp.inspect]
+  mcp.activate    / ready  -> mcp.ready
+  mcp.reauthorize / opened -> mcp.authorize
+
+[mcp.ready]
+  mcp.inspect  / opened -> mcp.inspect
+  sources.open / opened -> sources.home</pre>
+          </details>
+
+          <details class="nav-feature">
+            <summary><span class="nav-feature-title"><strong>Agent Designer</strong><small>3 nodes · role-based agent feature</small></span></summary>
+            <pre class="graph-code">[designer.brief]
+  design.propose / proposed -> designer.proposal
+  agent.open     / opened   -> agents.overview
+
+[designer.proposal]
+  design.request_review / ready  -> designer.review
+  design.revise_brief   / opened -> designer.brief
+
+[designer.review]
+  design.accept          / accepted          -> builder.ready
+  design.request_changes / changes_requested -> designer.proposal</pre>
+          </details>
+
+          <details class="nav-feature">
+            <summary><span class="nav-feature-title"><strong>Agent Builder</strong><small>4 nodes · materialization and validation</small></span></summary>
+            <pre class="graph-code">[builder.ready]
+  build.start / started -> builder.building
+  design.open / opened  -> designer.review
+
+[builder.building]
+  build.refresh / complete -> builder.review
+  build.refresh / failed   -> builder.failed
+
+[builder.review]
+  build.accept           / accepted          -> sandbox.home
+  build.return_to_design / changes_requested -> designer.review
+
+[builder.failed]
+  build.retry            / ready             -> builder.ready
+  build.return_to_design / changes_requested -> designer.review</pre>
+          </details>
+
+          <details class="nav-feature" open>
+            <summary><span class="nav-feature-title"><strong>Sandbox</strong><small>3 nodes · isolated draft-agent runtime</small></span></summary>
+            <pre class="graph-code">[sandbox.home]
+  sandbox.start_session / started -> sandbox.session
+  build.open            / opened  -> builder.review
+
+[sandbox.session]
+  sandbox.agent_turn / completed -> sandbox.session
+  sandbox.finish_run / recorded  -> sandbox.run_detail
+
+[sandbox.run_detail] EVIDENCE HUB
+  sandbox.rerun                 / started           -> sandbox.session
+  evaluation.open              / opened            -> evaluation.home
+  evaluation.capture_case      / created           -> evaluation.evalset
+  learning.create_from_sandbox / created           -> learning.candidate
+  sandbox.return_to_build      / changes_requested -> builder.review</pre>
+          </details>
+
+          <details class="nav-feature" open>
+            <summary><span class="nav-feature-title"><strong>Evaluation</strong><small>5 nodes · evalsets, runs, evidence, readiness</small></span></summary>
+            <pre class="graph-code">[evaluation.home] HUB
+  evaluation.list_evalsets / opened  -> evaluation.evalsets
+  evaluation.start_run     / started -> evaluation.run
+  sandbox.open             / opened  -> sandbox.home
+  agent.open               / opened  -> agents.overview
+
+[evaluation.evalsets]
+  evaluation.create_evalset / created  -> evaluation.evalset
+  evaluation.open_evalset   / selected -> evaluation.evalset
+  evaluation.open_home      / opened   -> evaluation.home
+
+[evaluation.evalset]
+  evaluation.save          / saved   -> evaluation.evalset
+  evaluation.run           / started -> evaluation.run
+  evaluation.list_evalsets / opened  -> evaluation.evalsets
+
+[evaluation.run]
+  evaluation.refresh / complete -> evaluation.result
+  evaluation.refresh / failed   -> evaluation.run [error surface]
+
+[evaluation.result] EVIDENCE + GATE
+  evaluation.rerun                 / started -> evaluation.run
+  evaluation.open_evalset          / opened  -> evaluation.evalset
+  evaluation.open_sandbox_evidence / opened  -> sandbox.run_detail
+  deployment.open                  / passed  -> deployment.revisions
+  learning.create_from_evaluation  / created -> learning.candidate</pre>
+          </details>
+
+          <details class="nav-feature">
+            <summary><span class="nav-feature-title"><strong>Channels</strong><small>5 nodes · connection, compatibility, health</small></span></summary>
+            <pre class="graph-code">[channels.home] HUB
+  channel.add     / opened   -> channels.catalog
+  channel.open    / selected -> channels.configure
+  deployment.open / opened   -> deployment.revisions
+  agent.open      / opened   -> agents.overview
+
+[channels.catalog]
+  channel.select / selected -> channels.configure
+  channels.open  / opened   -> channels.home
+
+[channels.configure]
+  channel.validate / valid   -> channels.review
+  channel.validate / invalid -> channels.configure [error surface]
+  channels.open    / opened  -> channels.home
+
+[channels.review]
+  channel.activate        / active            -> channels.status
+  channel.request_changes / changes_requested -> channels.configure
+
+[channels.status]
+  channel.configure / opened -> channels.configure
+  deployment.open   / opened -> deployment.revisions
+  operations.open   / opened -> operations.overview
+  channels.open     / opened -> channels.home</pre>
+          </details>
+
+          <details class="nav-feature">
+            <summary><span class="nav-feature-title"><strong>Deployment</strong><small>5 nodes · activation and rollback</small></span></summary>
+            <pre class="graph-code">[deployment.revisions]
+  deployment.configure   / opened -> deployment.configure
+  evaluation.open_result / opened -> evaluation.result
+  channels.manage        / opened -> channels.home
+
+[deployment.configure]
+  deployment.request_review / ready     -> deployment.review
+  channels.manage           / opened    -> channels.home
+  deployment.cancel         / cancelled -> deployment.revisions
+
+[deployment.review]
+  deployment.deploy               / started           -> deployment.status
+  deployment.return_to_evaluation / changes_requested -> evaluation.result
+
+[deployment.status]
+  deployment.refresh / active -> deployment.active
+  deployment.refresh / failed -> deployment.status [error surface]
+
+[deployment.active]
+  operations.open     / opened  -> operations.overview
+  channels.open       / opened  -> channels.home
+  deployment.rollback / started -> deployment.status
+  agent.open          / opened  -> agents.overview</pre>
+          </details>
+
+          <details class="nav-feature">
+            <summary><span class="nav-feature-title"><strong>Operations</strong><small>6 nodes · deployed-agent oversight</small></span></summary>
+            <pre class="graph-code">[operations.overview] HUB
+  operations.list_sessions / opened -> operations.sessions
+  operations.open_reviews  / opened -> operations.reviews
+  channels.open            / opened -> channels.home
+  learning.open            / opened -> learning.inbox
+  deployment.open          / opened -> deployment.active
+
+[operations.sessions]
+  operations.open_session  / selected -> operations.session
+  operations.open_overview / opened   -> operations.overview
+
+[operations.session]
+  operations.inspect_trace / selected -> operations.trace
+  operations.list_sessions / opened   -> operations.sessions
+
+[operations.trace] EVIDENCE
+  learning.create_from_trace / created -> learning.candidate
+  operations.open_session    / opened  -> operations.session
+
+[operations.reviews]
+  operations.open_review    / selected -> operations.review
+  operations.open_overview  / opened   -> operations.overview
+
+[operations.review]
+  operations.approve           / approved -> operations.reviews
+  operations.reject            / rejected -> operations.reviews
+  learning.create_from_review  / created  -> learning.candidate</pre>
+          </details>
+
+          <details class="nav-feature" open>
+            <summary><span class="nav-feature-title"><strong>Learning</strong><small>3 nodes · governed improvement loop</small></span></summary>
+            <pre class="graph-code">[learning.inbox]
+  learning.open_candidate / selected -> learning.candidate
+  agent.open              / opened   -> agents.overview
+
+[learning.candidate] EVIDENCE
+  learning.request_review / ready         -> learning.review
+  learning.open_evidence  / runtime_trace -> operations.trace
+  learning.open_evidence  / sandbox_run       -> sandbox.run_detail
+  learning.open_evidence  / evaluation_result -> evaluation.result
+
+[learning.review]
+  learning.accept          / accepted          -> designer.brief
+  learning.reject          / rejected          -> learning.inbox
+  learning.request_changes / changes_requested -> learning.candidate</pre>
+          </details>
+        </div>
+        </details>
+
+        <div class="callout warning" style="margin-top: 16px">
+          <strong>Proposal boundary:</strong> the node IDs, operation IDs, outcomes, guards, and
+          cross-feature transitions are discussion material. This is a Navgraph proposal, not yet
+          a compiled RouteDeck contract.
+        </div>
+
+        <div class="note-box">
+          <label for="note-navgraph">Navgraph notes</label>
+          <small>Flag nodes that should be surfaces, missing edges, incorrect outcomes, or ownership problems.</small>
+          <textarea id="note-navgraph" data-note="navgraph" placeholder="Example: Is deployment.status a durable node or only a status surface on deployment.review?"></textarea>
+          <div class="button-row">
+            <button class="button" type="button" data-copy-notes>Copy discussion snapshot</button>
+            <button class="button secondary" type="button" data-clear-note="navgraph">Clear this note</button>
+          </div>
+          <div class="toast" role="status" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section class="panel" id="agents" role="tabpanel" aria-labelledby="tab-agents" hidden>
+        <h2>Deployed agents + RouteDeck</h2>
+        <p class="section-intro">
+          A deployed agent is an agent. RouteDeck governs its interaction state around the model and
+          connected-source execution; it does not rename the agent into an agentic app.
+        </p>
+
+        <div class="card accent">
+          <h3>Runtime responsibility</h3>
+          <div class="compare">
+            <div class="yes">
+              <h3>RouteDeck primarily owns</h3>
+              <ul>
+                <li>Current node and interaction state</li>
+                <li>Legal operations and guarded identifiers</li>
+                <li>Needs-input and review state</li>
+                <li>Surface projection and affordances</li>
+                <li>Navigation, recovery, and diagnostics</li>
+              </ul>
+            </div>
+            <div class="no">
+              <h3>The deployed agent still owns</h3>
+              <ul>
+                <li>Model reasoning and response composition</li>
+                <li>Product instructions and language</li>
+                <li>Source/tool selection within legal context</li>
+                <li>Domain interpretation</li>
+                <li>Calling host-owned source bindings</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <h3 style="margin-top: 22px">Standard surface library</h3>
+        <p class="section-intro">
+          Deployed agents can begin with a shared mobile-ready surface library. RouteDeck projects
+          the correct typed surface for the current interaction state.
+        </p>
+
+        <ul class="surface-list">
+          <li><strong>Conversation</strong><span>Agent and user messages, streaming state, suggested actions.</span></li>
+          <li><strong>Entity list</strong><span>Selectable records exposed by a trusted provider.</span></li>
+          <li><strong>Entity detail</strong><span>Structured view of one selected record.</span></li>
+          <li><strong>Form</strong><span>Typed missing inputs, with private fields kept server-authorized.</span></li>
+          <li><strong>Review</strong><span>Human confirmation for consequential operations.</span></li>
+          <li><strong>Result</strong><span>Structured operation result with safe public presentation.</span></li>
+          <li><strong>Status</strong><span>Long-running work, readiness, and progress.</span></li>
+          <li><strong>Evidence</strong><span>Knowledge citations, provenance, and evidence graph views.</span></li>
+          <li><strong>Recovery</strong><span>Explicit failure, blocked action, retry, or alternate next step.</span></li>
+        </ul>
+
+        <div class="callout warning" style="margin-top: 16px">
+          <strong>Later extension:</strong> an agent may register product-specific custom surfaces.
+          The standard library remains the baseline, not a restriction that every domain must look identical.
+        </div>
+
+        <div class="grid two" style="margin-top: 16px">
+          <article class="card">
+            <h3>Agent-owned memory</h3>
+            <p>Corpus has memory for its owner. Each deployed agent has separately configured memory scopes and retention. Knowledge, memory, and learning remain distinct.</p>
+          </article>
+          <article class="card">
+            <h3>Channel-compatible interaction</h3>
+            <p>Each deployed revision binds to validated channels whose identity, delivery, and supported-surface contracts are explicit in Agent Configuration.</p>
+          </article>
+        </div>
+
+        <div class="note-box">
+          <label for="note-agents">Deployed-agent notes</label>
+          <small>Record which surface types are truly standard and which belong to particular agents.</small>
+          <textarea id="note-agents" data-note="agents" placeholder="Example: Should evidence be a peer surface or a detail surface by default?"></textarea>
+          <div class="button-row">
+            <button class="button" type="button" data-copy-notes>Copy discussion snapshot</button>
+            <button class="button secondary" type="button" data-clear-note="agents">Clear this note</button>
+          </div>
+          <div class="toast" role="status" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section class="panel" id="decisions" role="tabpanel" aria-labelledby="tab-decisions" hidden>
+        <h2>Decision ledger</h2>
+        <p class="section-intro">
+          Accepted corrections stay separate from proposals and open questions so future revisions
+          do not accidentally present a discussion point as a locked contract.
+        </p>
+
+        <div class="decision-list">
+          <article class="decision">
+            <div class="chip-row"><span class="chip corrected">Accepted</span></div>
+            <h3>Use Navgraph only for RouteDeck navigation topology</h3>
+            <p>Lifecycle, runtime sequence, and feature ownership diagrams receive different labels.</p>
+          </article>
+          <article class="decision">
+            <div class="chip-row"><span class="chip corrected">Accepted</span></div>
+            <h3>Corpus deploys agents</h3>
+            <p>Agentic apps remain a separate product concept.</p>
+          </article>
+          <article class="decision">
+            <div class="chip-row"><span class="chip corrected">Accepted</span></div>
+            <h3>Use role-based names and feature ownership</h3>
+            <p>Designer and Builder roles live in their features; model nicknames do not become feature, class, or folder names.</p>
+          </article>
+          <article class="decision">
+            <div class="chip-row"><span class="chip corrected">Accepted</span></div>
+            <h3>No standalone Capability Catalog feature for now</h3>
+            <p>Use source manifests before design and RouteDeck capabilities inside designed nodes.</p>
+          </article>
+          <article class="decision">
+            <div class="chip-row"><span class="chip corrected">Accepted</span></div>
+            <h3>Sandbox is a first-class Corpus feature</h3>
+            <p>Run the actual draft agent with isolated state and explicit bindings before deployment.</p>
+          </article>
+          <article class="decision">
+            <div class="chip-row"><span class="chip corrected">Accepted</span></div>
+            <h3>Learning is a first-class Corpus feature</h3>
+            <p>Learning candidates require evidence and owner review, and accepted learning starts a new design revision.</p>
+          </article>
+          <article class="decision">
+            <div class="chip-row"><span class="chip corrected">Accepted</span></div>
+            <h3>Corpus is the primary chat interface</h3>
+            <p>The Corpus agent spans feature nodes while RouteDeck restricts its scope at each active node.</p>
+          </article>
+          <article class="decision">
+            <div class="chip-row"><span class="chip corrected">Accepted</span></div>
+            <h3>Evaluation and evalsets are first-class</h3>
+            <p>Repeatable, revision-pinned evidence and explicit readiness gates sit between exploratory Sandbox work and Deployment.</p>
+          </article>
+          <article class="decision">
+            <div class="chip-row"><span class="chip corrected">Accepted</span></div>
+            <h3>Channels are a first-class Corpus feature</h3>
+            <p>Channel connection, compatibility, identity, rollout, and health are an owner journey, not one deployment field.</p>
+          </article>
+          <article class="decision">
+            <div class="chip-row"><span class="chip corrected">Accepted</span></div>
+            <h3>Required contracts live in Agent Configuration</h3>
+            <p>Policy, model roles, memory, surfaces, access, channels, and revision lineage are versioned with the agent.</p>
+          </article>
+          <article class="decision">
+            <div class="chip-row"><span class="chip open">Deferred detail</span></div>
+            <h3>Memory is agent-owned</h3>
+            <p>Corpus and deployed agents each have memory; scopes, retention, inspection, and deletion will be designed after the remaining contracts are locked.</p>
+          </article>
+          <article class="decision">
+            <div class="chip-row"><span class="chip proposed">Proposed</span></div>
+            <h3>Use a standard surface library for deployed agents</h3>
+            <p>Allow custom registered surfaces when an agent’s domain genuinely needs them.</p>
+          </article>
+          <article class="decision">
+            <div class="chip-row"><span class="chip proposed">Proposed</span></div>
+            <h3>Corpus Navgraph proposal 0.2</h3>
+            <p>Fifteen feature namespaces, 53 candidate nodes, and 146 validated edge targets are now available for node-by-node refinement.</p>
+          </article>
+          <article class="decision">
+            <div class="chip-row"><span class="chip open">Open</span></div>
+            <h3>Which proposed states deserve durable nodes?</h3>
+            <p>Build, indexing, deployment status, and some error states may become surfaces instead of nodes.</p>
+          </article>
+        </div>
+
+        <div class="note-box">
+          <label for="note-decisions">Next discussion</label>
+          <small>Copy the full snapshot and paste it back into the conversation when useful.</small>
+          <textarea id="note-decisions" data-note="decisions" placeholder="Choose the next decision or feature to refine..."></textarea>
+          <div class="button-row">
+            <button class="button" type="button" data-copy-notes>Copy discussion snapshot</button>
+            <button class="button secondary" type="button" data-clear-note="decisions">Clear this note</button>
+          </div>
+          <div class="toast" role="status" aria-live="polite"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      Corpus + RouteDeck Design Notebook · Local discussion artifact · Notes remain device-local.
+    </footer>
+  </div>
+
+  <script>
+    (() => {
+      const tabs = [...document.querySelectorAll('[role="tab"]')];
+      const panels = [...document.querySelectorAll('[role="tabpanel"]')];
+      const notes = [...document.querySelectorAll('[data-note]')];
+      const storagePrefix = 'corpus-design-notebook:';
+
+      function selectTab(tab, updateHash = true) {
+        const targetId = tab.getAttribute('aria-controls');
+        tabs.forEach((item) => item.setAttribute('aria-selected', String(item === tab)));
+        panels.forEach((panel) => {
+          const active = panel.id === targetId;
+          panel.classList.toggle('active', active);
+          panel.hidden = !active;
+        });
+        if (updateHash) history.replaceState(null, '', `#${targetId}`);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => selectTab(tab));
+        tab.addEventListener('keydown', (event) => {
+          if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+          event.preventDefault();
+          const current = tabs.indexOf(tab);
+          const direction = event.key === 'ArrowRight' ? 1 : -1;
+          const next = tabs[(current + direction + tabs.length) % tabs.length];
+          next.focus();
+          selectTab(next);
+        });
+      });
+
+      notes.forEach((note) => {
+        const key = storagePrefix + note.dataset.note;
+        note.value = localStorage.getItem(key) || '';
+        note.addEventListener('input', () => localStorage.setItem(key, note.value));
+      });
+
+      function snapshot() {
+        const content = notes
+          .filter((note) => note.value.trim())
+          .map((note) => `## ${note.dataset.note}\n${note.value.trim()}`)
+          .join('\n\n');
+        return [
+          'Corpus + RouteDeck discussion snapshot',
+          new Date().toLocaleString(),
+          '',
+          content || '(No notes entered)',
+        ].join('\n');
+      }
+
+      document.querySelectorAll('[data-copy-notes]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          const toast = button.closest('.note-box').querySelector('.toast');
+          try {
+            await navigator.clipboard.writeText(snapshot());
+            toast.textContent = 'Discussion snapshot copied.';
+          } catch {
+            toast.textContent = 'Clipboard access was blocked. Select and copy the notes manually.';
+          }
+        });
+      });
+
+      document.querySelectorAll('[data-clear-note]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const id = button.dataset.clearNote;
+          const note = document.querySelector(`[data-note="${id}"]`);
+          const toast = button.closest('.note-box').querySelector('.toast');
+          note.value = '';
+          localStorage.removeItem(storagePrefix + id);
+          toast.textContent = 'This note was cleared.';
+          note.focus();
+        });
+      });
+
+      const initial = window.location.hash.slice(1);
+      const initialTab = tabs.find((tab) => tab.getAttribute('aria-controls') === initial);
+      if (initialTab) selectTab(initialTab, false);
+    })();
+  </script>
+  <script>
+    (() => {
+      const viewport = document.getElementById('flow-viewport');
+      const world = document.getElementById('flow-world');
+      const groupsLayer = document.getElementById('flow-groups');
+      const nodesLayer = document.getElementById('flow-nodes');
+      const edgeLayer = document.getElementById('flow-edge-paths');
+      const labelLayer = document.getElementById('flow-edge-labels');
+      const inspector = document.getElementById('flow-inspector');
+      if (!viewport || !world || !groupsLayer || !nodesLayer || !edgeLayer || !labelLayer || !inspector) return;
+
+      const nodeWidth = 210;
+      const nodeHeight = 108;
+      const worldWidth = 3000;
+      const worldHeight = 1940;
+      const svgNamespace = 'http://www.w3.org/2000/svg';
+      const featureColors = {
+        'Workspace': '#087a55',
+        'Agents': '#3157d5',
+        'Source Hub': '#6c4fc7',
+        'API Source': '#087f8c',
+        'Database Source': '#9a5b00',
+        'Knowledge Source': '#247347',
+        'MCP Source': '#8b4eb3',
+        'Agent Designer': '#3157d5',
+        'Agent Builder': '#405aa8',
+        'Sandbox': '#bb5b18',
+        'Evaluation': '#0969a8',
+        'Channels': '#70621d',
+        'Deployment': '#8347a8',
+        'Operations': '#b42318',
+        'Learning': '#087a55',
+      };
+      const featureLayout = {
+        'Workspace': { x: 40, y: 40, columns: 1 },
+        'Agents': { x: 350, y: 40, columns: 2 },
+        'Source Hub': { x: 900, y: 40, columns: 1 },
+        'API Source': { x: 40, y: 340, columns: 3 },
+        'Database Source': { x: 820, y: 340, columns: 2 },
+        'Knowledge Source': { x: 1365, y: 340, columns: 2 },
+        'MCP Source': { x: 1910, y: 340, columns: 2 },
+        'Agent Designer': { x: 40, y: 800, columns: 3 },
+        'Agent Builder': { x: 820, y: 800, columns: 2 },
+        'Sandbox': { x: 1365, y: 800, columns: 3 },
+        'Evaluation': { x: 2145, y: 800, columns: 2 },
+        'Channels': { x: 40, y: 1360, columns: 2 },
+        'Deployment': { x: 590, y: 1360, columns: 3 },
+        'Operations': { x: 1370, y: 1360, columns: 3 },
+        'Learning': { x: 2150, y: 1360, columns: 3 },
+      };
+
+      const nodes = [];
+      const edges = [];
+      const featureDetails = [...document.querySelectorAll('#navgraph .nav-feature')];
+
+      featureDetails.forEach((detail) => {
+        const feature = detail.querySelector('summary strong')?.textContent.trim();
+        const source = detail.querySelector('.graph-code')?.textContent || '';
+        if (!feature || !source) return;
+        let currentNode = null;
+        source.split('\n').forEach((rawLine) => {
+          const line = rawLine.trim();
+          const nodeMatch = line.match(/^\[([a-z][a-z0-9_.]+)\]/);
+          if (nodeMatch) {
+            currentNode = nodeMatch[1];
+            nodes.push({ id: currentNode, feature, edges: [], incoming: [] });
+            return;
+          }
+          const edgeMatch = line.match(/^([a-z][a-z0-9_.]+)\s*\/\s*([a-z][a-z0-9_]*)\s*->\s*([a-z][a-z0-9_.]+)/);
+          if (currentNode && edgeMatch) {
+            edges.push({
+              id: `edge-${edges.length}`,
+              source: currentNode,
+              operation: edgeMatch[1],
+              outcome: edgeMatch[2],
+              target: edgeMatch[3],
+              feature,
+            });
+          }
+        });
+      });
+
+      const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+      edges.forEach((edge) => {
+        nodeMap.get(edge.source)?.edges.push(edge);
+        nodeMap.get(edge.target)?.incoming.push(edge);
+      });
+
+      const groupedNodes = new Map();
+      nodes.forEach((node) => {
+        const list = groupedNodes.get(node.feature) || [];
+        list.push(node);
+        groupedNodes.set(node.feature, list);
+      });
+
+      groupedNodes.forEach((featureNodes, feature) => {
+        const layout = featureLayout[feature];
+        if (!layout) return;
+        const columns = Math.min(layout.columns, featureNodes.length);
+        const rows = Math.ceil(featureNodes.length / columns);
+        const groupWidth = 72 + columns * nodeWidth + (columns - 1) * 24;
+        const groupHeight = 82 + rows * nodeHeight + (rows - 1) * 22;
+        const color = featureColors[feature] || '#3157d5';
+
+        const group = document.createElement('div');
+        group.className = 'flow-group';
+        group.style.left = `${layout.x}px`;
+        group.style.top = `${layout.y}px`;
+        group.style.width = `${groupWidth}px`;
+        group.style.height = `${groupHeight}px`;
+        group.style.setProperty('--group-color', color);
+        const groupLabel = document.createElement('div');
+        groupLabel.className = 'flow-group-label';
+        groupLabel.textContent = feature;
+        group.appendChild(groupLabel);
+        groupsLayer.appendChild(group);
+
+        featureNodes.forEach((node, index) => {
+          const column = index % columns;
+          const row = Math.floor(index / columns);
+          node.x = layout.x + 36 + column * (nodeWidth + 24);
+          node.y = layout.y + 50 + row * (nodeHeight + 22);
+          node.color = color;
+
+          const element = document.createElement('button');
+          element.type = 'button';
+          element.className = 'flow-node';
+          element.dataset.nodeId = node.id;
+          element.style.left = `${node.x}px`;
+          element.style.top = `${node.y}px`;
+          element.style.setProperty('--node-color', color);
+          element.setAttribute('aria-label', `${node.id}, ${feature}, ${node.edges.length} outgoing edges`);
+
+          const featureLabel = document.createElement('div');
+          featureLabel.className = 'flow-node-feature';
+          featureLabel.textContent = feature;
+          const idLabel = document.createElement('span');
+          idLabel.className = 'flow-node-id';
+          idLabel.textContent = node.id;
+          const countLabel = document.createElement('span');
+          countLabel.className = 'flow-node-count';
+          countLabel.textContent = `${node.edges.length} outgoing · ${node.incoming.length} incoming`;
+          element.append(featureLabel, idLabel, countLabel);
+          nodesLayer.appendChild(element);
+          node.element = element;
+        });
+      });
+
+      edges.forEach((edge) => {
+        const path = document.createElementNS(svgNamespace, 'path');
+        path.setAttribute('class', `flow-edge${nodeMap.get(edge.target)?.feature !== edge.feature ? ' cross-feature' : ''}`);
+        path.dataset.edgeId = edge.id;
+        const title = document.createElementNS(svgNamespace, 'title');
+        title.textContent = `${edge.source}: ${edge.operation} / ${edge.outcome} -> ${edge.target}`;
+        path.appendChild(title);
+        edgeLayer.appendChild(path);
+
+        const label = document.createElementNS(svgNamespace, 'text');
+        label.setAttribute('class', 'flow-edge-label');
+        label.textContent = `${edge.operation} / ${edge.outcome}`;
+        labelLayer.appendChild(label);
+        edge.path = path;
+        edge.label = label;
+      });
+
+      function edgeGeometry(source, target) {
+        const sourceCenter = { x: source.x + nodeWidth / 2, y: source.y + nodeHeight / 2 };
+        const targetCenter = { x: target.x + nodeWidth / 2, y: target.y + nodeHeight / 2 };
+        const dx = targetCenter.x - sourceCenter.x;
+        const dy = targetCenter.y - sourceCenter.y;
+
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          const direction = dx >= 0 ? 1 : -1;
+          const start = { x: sourceCenter.x + direction * nodeWidth / 2, y: sourceCenter.y };
+          const end = { x: targetCenter.x - direction * nodeWidth / 2, y: targetCenter.y };
+          const bend = Math.max(70, Math.abs(end.x - start.x) * 0.44);
+          return {
+            path: `M ${start.x} ${start.y} C ${start.x + direction * bend} ${start.y}, ${end.x - direction * bend} ${end.y}, ${end.x} ${end.y}`,
+            label: { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 - 7 },
+          };
+        }
+
+        const direction = dy >= 0 ? 1 : -1;
+        const start = { x: sourceCenter.x, y: sourceCenter.y + direction * nodeHeight / 2 };
+        const end = { x: targetCenter.x, y: targetCenter.y - direction * nodeHeight / 2 };
+        const bend = Math.max(70, Math.abs(end.y - start.y) * 0.44);
+        return {
+          path: `M ${start.x} ${start.y} C ${start.x} ${start.y + direction * bend}, ${end.x} ${end.y - direction * bend}, ${end.x} ${end.y}`,
+          label: { x: (start.x + end.x) / 2 + 7, y: (start.y + end.y) / 2 },
+        };
+      }
+
+      function drawEdges() {
+        edges.forEach((edge) => {
+          const source = nodeMap.get(edge.source);
+          const target = nodeMap.get(edge.target);
+          if (!source || !target) return;
+          const geometry = edgeGeometry(source, target);
+          edge.path.setAttribute('d', geometry.path);
+          edge.label.setAttribute('x', geometry.label.x);
+          edge.label.setAttribute('y', geometry.label.y);
+        });
+      }
+
+      function inspectorList(title, items) {
+        const heading = document.createElement('p');
+        heading.className = 'label';
+        heading.textContent = title;
+        inspector.appendChild(heading);
+        const list = document.createElement('ul');
+        list.className = 'flow-inspector-list';
+        if (!items.length) {
+          const item = document.createElement('li');
+          item.textContent = 'None';
+          list.appendChild(item);
+        } else {
+          items.forEach((edge) => {
+            const item = document.createElement('li');
+            item.textContent = title === 'Outgoing'
+              ? `${edge.operation} / ${edge.outcome} -> ${edge.target}`
+              : `${edge.source} -> ${edge.operation} / ${edge.outcome}`;
+            list.appendChild(item);
+          });
+        }
+        inspector.appendChild(list);
+      }
+
+      function selectNode(nodeId) {
+        const selected = nodeId ? nodeMap.get(nodeId) : null;
+        const connectedIds = new Set(selected ? [selected.id] : []);
+        if (selected) {
+          selected.edges.forEach((edge) => connectedIds.add(edge.target));
+          selected.incoming.forEach((edge) => connectedIds.add(edge.source));
+        }
+
+        nodes.forEach((node) => {
+          node.element.classList.toggle('selected', Boolean(selected && node.id === selected.id));
+          node.element.classList.toggle('dimmed', Boolean(selected && !connectedIds.has(node.id)));
+        });
+        edges.forEach((edge) => {
+          const highlighted = Boolean(selected && (edge.source === selected.id || edge.target === selected.id));
+          edge.path.classList.toggle('highlighted', highlighted);
+          edge.path.classList.toggle('dimmed', Boolean(selected && !highlighted));
+          edge.label.classList.toggle('dimmed', Boolean(selected && !highlighted));
+        });
+
+        inspector.replaceChildren();
+        const eyebrow = document.createElement('p');
+        eyebrow.className = 'eyebrow';
+        eyebrow.style.color = 'var(--accent)';
+        eyebrow.style.opacity = '1';
+        eyebrow.textContent = 'Node inspector';
+        inspector.appendChild(eyebrow);
+
+        if (!selected) {
+          const heading = document.createElement('h3');
+          heading.textContent = 'Select a node';
+          const description = document.createElement('p');
+          description.textContent = 'Connected nodes and edges will be highlighted here.';
+          inspector.append(heading, description);
+          return;
+        }
+
+        const heading = document.createElement('h3');
+        heading.textContent = selected.id;
+        const description = document.createElement('p');
+        description.textContent = `${selected.feature} · ${selected.edges.length} outgoing · ${selected.incoming.length} incoming`;
+        inspector.append(heading, description);
+        inspectorList('Outgoing', selected.edges);
+        inspectorList('Incoming', selected.incoming);
+      }
+
+      let transform = { x: 16, y: 16, scale: 0.55 };
+      function applyTransform() {
+        world.style.transform = `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`;
+      }
+
+      function fitGraph() {
+        const width = viewport.clientWidth;
+        const height = viewport.clientHeight;
+        if (!width || !height) return;
+        const scale = Math.min((width - 28) / worldWidth, (height - 28) / worldHeight, 1);
+        transform = {
+          scale,
+          x: (width - worldWidth * scale) / 2,
+          y: (height - worldHeight * scale) / 2,
+        };
+        applyTransform();
+      }
+
+      function zoomAt(factor, clientX, clientY) {
+        const rect = viewport.getBoundingClientRect();
+        const pointX = clientX - rect.left;
+        const pointY = clientY - rect.top;
+        const worldX = (pointX - transform.x) / transform.scale;
+        const worldY = (pointY - transform.y) / transform.scale;
+        const nextScale = Math.min(1.6, Math.max(0.12, transform.scale * factor));
+        transform.x = pointX - worldX * nextScale;
+        transform.y = pointY - worldY * nextScale;
+        transform.scale = nextScale;
+        applyTransform();
+      }
+
+      viewport.addEventListener('wheel', (event) => {
+        event.preventDefault();
+        zoomAt(event.deltaY < 0 ? 1.12 : 0.89, event.clientX, event.clientY);
+      }, { passive: false });
+
+      let panState = null;
+      viewport.addEventListener('pointerdown', (event) => {
+        if (event.target.closest('.flow-node')) return;
+        panState = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, startX: transform.x, startY: transform.y };
+        viewport.setPointerCapture(event.pointerId);
+        viewport.classList.add('panning');
+      });
+      viewport.addEventListener('pointermove', (event) => {
+        if (!panState || panState.pointerId !== event.pointerId) return;
+        transform.x = panState.startX + event.clientX - panState.x;
+        transform.y = panState.startY + event.clientY - panState.y;
+        applyTransform();
+      });
+      viewport.addEventListener('pointerup', (event) => {
+        if (!panState || panState.pointerId !== event.pointerId) return;
+        panState = null;
+        viewport.classList.remove('panning');
+      });
+      viewport.addEventListener('pointercancel', () => {
+        panState = null;
+        viewport.classList.remove('panning');
+      });
+
+      nodes.forEach((node) => {
+        let dragState = null;
+        node.element.addEventListener('pointerdown', (event) => {
+          event.stopPropagation();
+          dragState = {
+            pointerId: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+            startX: node.x,
+            startY: node.y,
+            moved: false,
+          };
+          node.element.setPointerCapture(event.pointerId);
+        });
+        node.element.addEventListener('pointermove', (event) => {
+          if (!dragState || dragState.pointerId !== event.pointerId) return;
+          const dx = (event.clientX - dragState.x) / transform.scale;
+          const dy = (event.clientY - dragState.y) / transform.scale;
+          if (Math.abs(dx) + Math.abs(dy) > 4) dragState.moved = true;
+          node.x = Math.min(worldWidth - nodeWidth, Math.max(0, dragState.startX + dx));
+          node.y = Math.min(worldHeight - nodeHeight, Math.max(0, dragState.startY + dy));
+          node.element.style.left = `${node.x}px`;
+          node.element.style.top = `${node.y}px`;
+          drawEdges();
+        });
+        node.element.addEventListener('pointerup', (event) => {
+          if (!dragState || dragState.pointerId !== event.pointerId) return;
+          const moved = dragState.moved;
+          dragState = null;
+          if (!moved) selectNode(node.id);
+        });
+        node.element.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            selectNode(node.id);
+          }
+        });
+      });
+
+      document.querySelectorAll('[data-flow-action]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const rect = viewport.getBoundingClientRect();
+          const centerX = rect.left + rect.width / 2;
+          const centerY = rect.top + rect.height / 2;
+          if (button.dataset.flowAction === 'fit') fitGraph();
+          if (button.dataset.flowAction === 'zoom-in') zoomAt(1.2, centerX, centerY);
+          if (button.dataset.flowAction === 'zoom-out') zoomAt(0.82, centerX, centerY);
+          if (button.dataset.flowAction === 'clear') selectNode(null);
+        });
+      });
+
+      document.getElementById('flow-label-toggle')?.addEventListener('change', (event) => {
+        world.classList.toggle('show-labels', event.target.checked);
+      });
+
+      document.getElementById('tab-navgraph')?.addEventListener('click', () => {
+        window.setTimeout(fitGraph, 40);
+      });
+      window.addEventListener('resize', () => {
+        if (!document.getElementById('navgraph')?.hidden) fitGraph();
+      });
+
+      drawEdges();
+      applyTransform();
+      selectNode(null);
+      if (!document.getElementById('navgraph')?.hidden) window.setTimeout(fitGraph, 40);
+    })();
+  </script>
+</body>
+</html>
