@@ -43,6 +43,7 @@ test-results/
 *.log
 .cache/
 reference_projects
+benchmark/
 .netlify
 .codex/
 _tmp/
