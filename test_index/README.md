@@ -1,32 +1,15 @@
-# Test Index
+# Validation Index
 
-Test documentation and coverage tracking for SaaStoAgent v0.1.
+The new scaffold has no executable runtime or dependency manifests yet.
 
-## Structure
+Current validation is structural:
 
-- `README.md` for the suite overview
-- one file per module or feature area as tests are added
+- the preserved benchmark contains its backend, frontend, documentation and
+  runtime manifests;
+- the new root contains no feature implementation;
+- the product definition and notebook agree on fifteen features;
+- every proposed Navgraph edge resolves to a declared node;
+- the notebook loads without script errors and remains usable at mobile sizes.
 
-## Each Module Doc Should Include
-
-- test approach
-- fixtures used
-- what each test validates
-- how to run
-
-## Current Suite Index
-
-- `persistent-quick-actions.md` - validation for backend-owned persistent actions, sidebar dispatch, and direct workspace auth actions
-- `slice1-runtime-validation.md` - manual runtime validation for the Slice 1 Docker Compose shell
-- `conversational-entry-canvas.md` - validation for public entry assistant, chips, UI artifacts, and setup draft carry-over
-- `unified-operator-shell.md` - validation for unified main-layout routing, runtime bridging, and handoff context
-- `operator-workbench-baseline.md` - validation for ADR-006 status strip, capability rail, action dock, context lens, evidence drawer, and autonomy ladder
-- `route-deck-contract.md` - validation for the active `backend/corpus` package boundary, direct RouteDeck contracts, manifest/runtime behavior, sibling framework packaging, action validation, and graph debugger rendering
-- `langgraph-entry-runtime.md` - validation for LangGraph-owned entry execution, RouteDeck parity, live streaming, and embedded UI-driven QA coverage
-- `flow-qa-and-workspace-contract.md` - validation for stream-aware collapsible assistant sections, embedded QA flow execution, REST catalog/operator smoke, and the corrected workspace-name creation contract
-
-## Architecture Coverage Link
-
-`architecture/code-map.md` is the source-to-test ownership map. When adding,
-renaming, or deleting tests, update the matching row there and refresh any
-component doc under `architecture/components/` that names the suite.
+Runtime, integration, persistence, browser, source, evaluation, channel and
+deployed-agent commands will be added only when those real paths exist.
