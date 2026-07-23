@@ -8,5 +8,23 @@ artifacts. It does not own current source boundaries or session state.
 - `corpus-routedeck-design-notebook.html` — mobile design discussion artifact
   and proposed RouteDeck Navgraph.
 
+- `corpus-feature-behavior-notebook.html` combines the focused authoring
+  interface for the approved 11-feature basic-agent slice with an interactive
+  launch-structure explorer. The explorer documents the responsibility,
+  separation rationale, and exclusions for every proposed folder and file.
+- `feature-behavior-notes.md` contains owner-authored working notes saved from
+  that interface; they remain discussion input until formally reconciled.
+
+Run the behavior notebook locally with:
+
+```powershell
+python scripts/feature_behavior_notebook.py
+```
+
+Open `http://127.0.0.1:8771/`. Its global save action atomically replaces
+`docs/feature-behavior-notes.md`; browser-local drafts protect unsaved typing.
+Use the `Structure explorer` tab to review the connector-based Sources and
+Channels layout without changing the notes file.
+
 Run `python scripts/validate_design_notebook.py` after changing the notebook's
 Navgraph adjacency or inline JavaScript.
