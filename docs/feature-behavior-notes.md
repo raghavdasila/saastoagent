@@ -10,6 +10,21 @@ For launch, Corpus should prove one minimal viable path through the product:
 
 Create an agent -> upload an API YAML file -> attach the source -> generate a RouteDeck-powered agent -> run a real sandbox interaction -> evaluate it -> deploy it to a hosted Web URL -> interact with it publicly -> inspect the interaction in Operations.
 
+## Corpus-wide AutomationBench validation goal
+
+AutomationBench is not a separate Corpus feature and is not part of the minimal launch pathway. It is an overall validation target for both:
+
+- Corpus itself as an agentic system; and
+- agents designed and produced through Corpus.
+
+In either case, the system being evaluated is treated as Agent X. Agent X may internally use RouteDeck, multiple agents, RAG, memory, or other supporting components.
+
+AutomationBench gives Agent X a business task and access to its own `api_search` and `api_fetch` tools. Agent X discovers and calls the relevant simulated APIs, while the benchmark validates whether the final application state is correct.
+
+The benchmark does not provide its complete API catalog as one uploaded source. Corpus should therefore connect through a narrow benchmark adapter that exposes the benchmark-supplied discovery and execution tools without replacing or pre-importing its API catalog.
+
+This evaluates whether Corpus and Corpus-produced agents can discover operations, coordinate workflows, follow policies, and complete correct multi-application outcomes. It does not validate Corpus's normal API YAML upload pathway.
+
 ## 1. Workspace
 
 A Workspace contains the user's agents, sources, and related activity.
