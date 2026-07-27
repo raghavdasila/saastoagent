@@ -8,15 +8,17 @@ Updated: 2026-07-27
 - RouteDeck source dependency: sibling `D:\Dev\AI Projects\routedeck`, linked
   at version 0.1.0 through pnpm `link:` package junctions. Corpus consumes the
   sibling packages' built `dist` exports, not Git or npm-installed copies.
+- RouteDeck implementation changes are never implicit Corpus work. Diagnose
+  RouteDeck read-only as needed, but obtain explicit user approval before
+  editing, staging, committing, or pushing any file in the sibling checkout.
 - The ignored `benchmark/saastoagent-v0.1/` is read-only behavior/visual
   evidence and is not a runtime dependency.
 - ToolRouter source evidence came from sibling
   `D:\Dev\AI Projects\openapi-toolrouter-benchmark` at main `2611801e` plus
   dirty working-tree bytes. Corpus runs only the repository-contained namespaced snapshot
   recorded by `source_manifest.json`; it does not import the sibling checkout.
-- Earlier notebook work is committed alone as `2e2a3d9 docs: add Corpus feature
-  behavior notebook`. The ToolRouter implementation remains an uncommitted
-  working-tree change so it is not mixed with concurrent auth/UI work.
+- The runnable Corpus, Sources/ToolRouter integration, owner workspace, and
+  Docker development stack are committed on `main` as `9a1753f`.
 
 ## Current State
 
@@ -30,6 +32,10 @@ Updated: 2026-07-27
   `start_new_session` action. The React host continues to own permanent chat,
   navigation/history, the surface registry, Navgraph slot, and responsive
   desktop/mobile layout.
+- Approved RouteDeck fix `d24788f` distinguishes an expired exact resume
+  capability from a missing/invalid one and returns typed HTTP 410
+  `resume_capability_expired`, allowing the existing terminal
+  `start_new_session` recovery policy to run.
 - Verification/reset fragments are captured before RouteDeck bootstrap can
   replace browser history, retained only in frontend memory, and immediately
   removed from the visible URL.
