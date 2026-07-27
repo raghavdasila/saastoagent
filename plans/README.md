@@ -1,4 +1,10 @@
 # Plans
 
-There is no active implementation plan yet. The next design task is node-by-node
-refinement of the proposed Corpus Navgraph and its agent-configuration contracts.
+`2026-07-23-toolrouter-integration.md` is the completed implementation plan for
+the launch-scope Sources/API connector, ToolRouter graph/retrieval/evalset
+adapter, and owner debug surface.
+
+The next product-design task is Agent Designer behavior and its
+agent-configuration contract. Planner/executor choices remain deliberately
+unmade; Sandbox, public Web, and Operations follow in the launch milestone
+after that design discussion.

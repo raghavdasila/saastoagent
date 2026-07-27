@@ -1,0 +1,153 @@
+name: corpus-development
+
+x-backend-build: &backend-build
+  context: ..
+  dockerfile: saastoagent-v0.1/Dockerfile
+  target: backend-dev
+
+x-runtime-environment: &runtime-environment
+  ROUTEDECK_DATABASE_URL: sqlite+pysqlite:////data/routedeck.sqlite
+  ROUTEDECK_INSTANCE_ID: corpus-docker-development
+  ROUTEDECK_REVIEW_TTL_SECONDS: "900"
+  ROUTEDECK_RESUME_CAPABILITY_TTL_SECONDS: "86400"
+  ROUTEDECK_WORKER_COUNT: "1"
+  ROUTEDECK_GUEST_COOKIE_NAME: corpus_guest
+  ROUTEDECK_GUEST_COOKIE_SECURE: "false"
+  ROUTEDECK_GUEST_COOKIE_PATH: /
+  ROUTEDECK_BROWSER_ORIGINS: http://127.0.0.1:5199,http://localhost:5199
+  OLLAMA_BASE_URL: ${CORPUS_DOCKER_OLLAMA_URL:-http://host.docker.internal:11434}
+  OLLAMA_MODEL: ${CORPUS_DOCKER_PRIMARY_MODEL:-gemma4:latest}
+  CORPUS_SOURCE_DATA_ROOT: /data/sources
+  CORPUS_API_SOURCE_MAX_UPLOAD_BYTES: "20971520"
+  CORPUS_TOOLROUTER_EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
+  CORPUS_TOOLROUTER_EMBEDDING_REVISION: 1110a243fdf4706b3f48f1d95db1a4f5529b4d41
+  CORPUS_TOOLROUTER_EMBEDDING_DEVICE: cpu
+  CORPUS_TOOLROUTER_EMBEDDING_BATCH_SIZE: "64"
+  CORPUS_TOOLROUTER_EMBEDDING_LOCAL_FILES_ONLY: "true"
+  CORPUS_TOOLROUTER_OLLAMA_URL: ${CORPUS_DOCKER_OLLAMA_URL:-http://host.docker.internal:11434}
+  CORPUS_TOOLROUTER_GENERATOR_MODEL: ${CORPUS_DOCKER_GENERATOR_MODEL:-gemma4:latest}
+  CORPUS_TOOLROUTER_REVIEWER_MODEL: ${CORPUS_DOCKER_REVIEWER_MODEL:-qwen2.5-coder:7b}
+  CORPUS_TOOLROUTER_EVALSET_TIMEOUT_SECONDS: "240"
+  CORPUS_AUTH_DATABASE_URL: sqlite+aiosqlite:////data/corpus-auth.sqlite3
+  CORPUS_AUTH_MIGRATION_REVISION: 0001_owner_auth
+  CORPUS_AUTH_COOKIE_NAME: corpus_auth
+  CORPUS_OWNER_ROUTE_COOKIE_NAME: corpus_owner_route
+  CORPUS_AUTH_COOKIE_SECURE: "false"
+  CORPUS_AUTH_COOKIE_PATH: /
+  CORPUS_AUTH_IDLE_SESSION_DAYS: "7"
+  CORPUS_AUTH_ABSOLUTE_SESSION_DAYS: "30"
+  CORPUS_VERIFICATION_TOKEN_HOURS: "24"
+  CORPUS_RESET_TOKEN_HOURS: "1"
+  CORPUS_PUBLIC_FRONTEND_URL: http://127.0.0.1:5199
+  CORPUS_TRUSTED_PROXIES: ""
+  CORPUS_SMTP_HOST: smtp.gmail.com
+  CORPUS_SMTP_PORT: "587"
+  CORPUS_SMTP_STARTTLS: "true"
+  CORPUS_SMTP_USERNAME: no-reply@saastoagent.com
+  CORPUS_SMTP_FROM_ADDRESS: no-reply@saastoagent.com
+  CORPUS_SMTP_TIMEOUT_SECONDS: "5"
+
+services:
+  backend:
+    build: *backend-build
+    init: true
+    env_file:
+      - path: .env.local
+        required: false
+    environment: *runtime-environment
+    entrypoint:
+      - python
+      - scripts/docker-backend-entrypoint.py
+    command:
+      - python
+      - -m
+      - uvicorn
+      - corpus.main:create_live_app
+      - --factory
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8099"
+      - --reload
+      - --reload-dir
+      - /workspace/corpus/backend/src
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ./.runtime:/data
+      - ./backend/src:/workspace/corpus/backend/src:ro
+    ports:
+      - 127.0.0.1:8099:8099
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8099/readyz', timeout=4).read()"
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 180s
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: saastoagent-v0.1/Dockerfile
+      target: frontend-dev
+    init: true
+    environment:
+      CORPUS_BACKEND_PROXY_URL: http://backend:8099
+      CHOKIDAR_USEPOLLING: "true"
+    command:
+      - pnpm
+      - exec
+      - vite
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5199"
+    volumes:
+      - ./frontend/src:/workspace/corpus/frontend/src:ro
+      - ./frontend/index.html:/workspace/corpus/frontend/index.html:ro
+    ports:
+      - 127.0.0.1:5199:5199
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:5199/').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  notebook:
+    build: *backend-build
+    init: true
+    command:
+      - python
+      - scripts/feature_behavior_notebook.py
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8771"
+      - --allow-container-bind
+    volumes:
+      - ./docs:/workspace/corpus/docs
+      - ./scripts:/workspace/corpus/scripts:ro
+    ports:
+      - 127.0.0.1:8771:8771
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8771/', timeout=4).read()"
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s

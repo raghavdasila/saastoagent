@@ -74,21 +74,79 @@ class FeatureBehaviorNotebookTests(unittest.TestCase):
 
         self.assertIn('data-testid="structure-tree"', html)
         self.assertIn('data-testid="structure-inspector"', html)
+        self.assertIn("Launch structure: proposal + implementation", html)
         self.assertIn("folder('connectors'", html)
         self.assertIn("folder('api'", html)
         self.assertIn("folder('web'", html)
         self.assertNotIn("folder('types'", html)
-        self.assertIn('Agent Designer internals remain deliberately deferred', html)
+        self.assertIn('Agent Designer, Sandbox, public Web, Deployment, and Operations remain deferred', html)
+        self.assertIn("status: 'planned'", html)
+        self.assertIn("status: 'implemented'", html)
+        self.assertIn("status: 'mixed'", html)
+        self.assertIn('data-structure-legend', html)
+
+    def test_structure_explorer_matches_the_implemented_sources_files(self) -> None:
+        html = self.NOTEBOOK_PATH.read_text(encoding="utf-8")
+
+        for filename in (
+            "config.py",
+            "contracts.py",
+            "errors.py",
+            "models.py",
+            "repository.py",
+            "service.py",
+            "declarations.py",
+            "feature.py",
+            "bindings.py",
+            "http.py",
+            "base.py",
+            "intake.py",
+            "connector.py",
+        ):
+            self.assertIn(f"file('{filename}'", html)
+
+        self.assertIn("file('handlers.py', 'Coordinates generic source", html)
+        self.assertIn("file('registry.py', 'Maps a connector key", html)
+        self.assertIn("file('processing.py'", html)
+        self.assertIn("file('projections.py'", html)
+
+    def test_structure_explorer_exposes_the_adapter_and_private_engine_boundary(self) -> None:
+        html = self.NOTEBOOK_PATH.read_text(encoding="utf-8")
+
+        for filename in (
+            "settings.py",
+            "contracts.py",
+            "errors.py",
+            "serialization.py",
+            "adapter.py",
+            "SOURCE.md",
+            "source_manifest.json",
+            "v1.json",
+            "openapi_loader.py",
+            "semantic_grag_router.py",
+            "evalset_factory_experiment.py",
+            "evalset_factory_export.py",
+        ):
+            self.assertIn(f"file('{filename}'", html)
+
+        self.assertIn("private vendored engine snapshot", html)
+
+    def test_structure_explorer_matches_the_debug_frontend_files(self) -> None:
+        html = self.NOTEBOOK_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("file('sourceClient.ts'", html)
+        self.assertIn("file('SourceDebugSurface.tsx'", html)
+        self.assertIn("file('sources.css'", html)
+        self.assertIn("file('SourceList.tsx'", html)
+        self.assertIn("file('ApiCollectionForm.tsx'", html)
 
     def test_toolrouter_evalset_generator_has_an_explicit_product_consumer(self) -> None:
         html = self.NOTEBOOK_PATH.read_text(encoding="utf-8")
 
-        self.assertIn("file('processing.py'", html)
-        self.assertIn('construct the graph/index, generate the evalset', html)
-        self.assertIn("file('evalsets.py'", html)
-        self.assertIn("file('eval_runner.py'", html)
-        self.assertIn("file('EvalsetRunPanel.tsx'", html)
-        self.assertIn('different source revisions', html)
+        self.assertIn("ToolRouterAdapter.ingest", html)
+        self.assertIn("ToolRouterAdapter.generate_evalset", html)
+        self.assertIn("source-grounded evalset", html)
+        self.assertIn("evalset inspector", html)
 
     def test_structure_explorer_inline_javascript_is_valid(self) -> None:
         html = self.NOTEBOOK_PATH.read_text(encoding="utf-8")

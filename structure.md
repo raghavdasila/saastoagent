@@ -1,48 +1,75 @@
 # Corpus Repository Structure
 
-Status: feature-free scaffold with active context architecture
+Status: runnable Workspace plus Sources/API ToolRouter debug slice
 
 ```text
 saastoagent-v0.1/
-|-- AGENTIC_CODING_GUIDE.md          # Corpus-specific operating sequence
+|-- Dockerfile                       # backend-dev and frontend-dev images
+|-- Dockerfile.dockerignore          # exact filtered Corpus/RouteDeck context
+|-- .dockerignore                    # direct-context local/generated exclusions
+|-- compose.yaml                     # backend/frontend/notebook development stack
+|-- .env.example                    # explicit local configuration contract
 |-- backend/
+|   |-- pyproject.toml              # Python manifest
 |   |-- src/corpus/
-|   |   |-- app/                     # future host and transport boundary
-|   |   |-- routedeck/               # future RouteDeck integration boundary
-|   |   |-- runtime/                 # future node-scoped Corpus agent runtime
-|   |   `-- shared/                  # future backend shared primitives
-|   `-- tests/
+|   |   |-- app/                    # host plus concrete composition roots
+|   |   |-- auth/                   # owner identity, sessions, claims, mail
+|   |   |-- runtime/                # SQLAlchemy and Ollama-backed agent runtime
+|   |   |-- features/workspace/     # seven owner/guest Workspace nodes
+|   |   |-- features/sources/       # generic lifecycle + neutral HTTP
+|   |   |   `-- connectors/api/     # API config/HTTP/port + ToolRouter bridge
+|   |   |-- integrations/toolrouter/# facade + private exact engine snapshot
+|   |   |-- shared/environment.py   # allowlisted env parsing primitive
+|   |   |-- composition.py          # Workspace/Sources/entry selection
+|   |   |-- bindings.py
+|   |   |-- session.py
+|   |   `-- main.py                 # ASGI factory
+|   `-- tests/                      # framework/auth/features/integrations
 |-- frontend/
+|   |-- package.json
+|   |-- pnpm-lock.yaml
 |   |-- src/
-|   |   |-- app/                     # future permanent Corpus chat shell
-|   |   |-- routedeck/               # future state and projection bridge
-|   |   |-- surfaces/                # future surface render boundary
-|   |   `-- shared/                  # future frontend shared primitives
-|   `-- tests/
-|-- contracts/                       # future language-neutral contracts
-|-- docs/                            # product, behavior, design notebook
-|-- architecture/
-|   |-- code-map.md                  # subsystem source/doc/test ownership
-|   |-- components/                  # subsystem contracts
-|   |-- diagrams/                    # maintained architecture visuals
-|   `-- dev_validated_docs/          # generated/tool-validated references
-|-- decisions/                       # durable ADRs
-|-- plans/                           # active plans only
-|-- test_index/                      # executable validation commands/meaning
-|-- scripts/                         # repository-local validation tools
-|-- tests/                           # tests for repository-local tooling
-|-- logs/                            # dated session evidence
-|-- context_checkpoints/             # restart handoffs
-|-- context_history/                 # archived prior live contexts
-|-- knowledgebase/                   # verified reusable findings
-|-- audits/                          # read-only audit reports
-|-- errors/                          # reusable debugging evidence
-|-- skills/                          # stable repeatable repo-local workflows
-`-- benchmark/
-    `-- saastoagent-v0.1/            # ignored local legacy baseline
+|   |   |-- app/                    # generic chat shell/bootstrap/Navgraph
+|   |   |-- components/ui/          # generic shadcn/ui primitives
+|   |   |-- lib/                    # shared UI helper
+|   |   |-- routedeck/              # client and surface registry
+|   |   |-- features/workspace/     # Lounge, auth-entry UI, feature styles
+|   |   |-- features/sources/       # Sources workbench/client/styles
+|   |   |-- main.tsx                # product composition
+|   |   `-- styles.css
+|   `-- src/tests/                  # framework, Workspace, Sources contracts
+|-- scripts/
+|   |-- docker-backend-entrypoint.py # persistent secrets, migration, process exec
+|   |-- feature_behavior_notebook.py # notebook server + guarded container bind
+|   |-- init-local.ps1              # reproducible environment setup
+|   |-- run-backend.ps1
+|   |-- run-frontend.ps1
+|   `-- smoke_live.py               # real running guest/model smoke
+|-- contracts/                      # future language-neutral contracts
+|-- docs/                           # product, behavior, design notebook
+|-- architecture/                   # subsystem ownership/contracts
+|-- decisions/                      # durable ADRs
+|-- plans/                          # active plans only
+|-- test_index/                     # executable validation meaning
+|-- tests/                          # repository-tooling tests
+|-- logs/                           # dated session evidence
+|-- context_checkpoints/            # restart handoffs
+|-- context_history/                # archived prior live contexts
+|-- knowledgebase/                  # verified reusable findings
+|-- audits/                         # read-only audit reports
+|-- errors/                         # reusable debugging evidence
+|-- skills/                         # stable repeatable repo-local workflows
+`-- benchmark/saastoagent-v0.1/     # ignored read-only legacy baseline
 ```
 
-Feature directories and framework manifests are deliberately absent. They will
-be introduced only after their contracts are refined and dependencies are
-researched and approved. The ignored benchmark remains local comparison
-evidence and cannot be imported by new code.
+Generated local state lives only in ignored `.venv/`, `.env.local`,
+`.runtime/`, `.codex-run/`, `frontend/node_modules/`, and `frontend/dist/`.
+The primary development runtime is `docker compose up --build`; it uses the
+filtered parent context to consume the local sibling RouteDeck source, keeps
+ToolRouter embedded in the backend, and connects to host Ollama through an
+explicit configured URL.
+The new application does not import the ignored Corpus benchmark or the live
+sibling ToolRouter checkout. The repository-contained ToolRouter snapshot is
+private to its integration facade and is identified by exact hashes. See
+`architecture/components/toolrouter-source-integration.md` for the
+responsibility and separation rationale of every Sources/ToolRouter file.

@@ -14,6 +14,9 @@ artifacts. It does not own current source boundaries or session state.
   separation rationale, and exclusions for every proposed folder and file.
 - `feature-behavior-notes.md` contains owner-authored working notes saved from
   that interface; they remain discussion input until formally reconciled.
+- `toolrouter-integration-requirements.md` owns the implemented launch-scope
+  requirements, connector/adapter boundaries, persistence/failure contracts,
+  and exact local completion evidence for the Sources API connector.
 
 Run the behavior notebook locally with:
 

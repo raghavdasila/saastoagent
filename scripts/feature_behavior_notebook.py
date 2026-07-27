@@ -227,9 +227,18 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8771)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_PATH)
+    parser.add_argument(
+        "--allow-container-bind",
+        action="store_true",
+        help="Allow an explicit 0.0.0.0 bind for a loopback-published container.",
+    )
     arguments = parser.parse_args()
 
-    if arguments.host not in {"127.0.0.1", "localhost", "::1"}:
+    is_loopback = arguments.host in {"127.0.0.1", "localhost", "::1"}
+    is_explicit_container_bind = (
+        arguments.allow_container_bind and arguments.host == "0.0.0.0"
+    )
+    if not is_loopback and not is_explicit_container_bind:
         raise SystemExit("This authoring server may only bind to a loopback address.")
 
     server = ThreadingHTTPServer(

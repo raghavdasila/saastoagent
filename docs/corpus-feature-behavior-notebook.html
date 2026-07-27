@@ -16,6 +16,12 @@
       --accent-dark: #243e9d;
       --accent-soft: #edf1ff;
       --success: #087a55;
+      --planned: #9a6700;
+      --planned-soft: #fff4d6;
+      --implemented: #087a55;
+      --implemented-soft: #e8f7f1;
+      --mixed: #3456d1;
+      --mixed-soft: #edf1ff;
       --danger: #b42318;
       --radius: 16px;
       --shadow: 0 16px 40px rgba(24, 35, 58, 0.09);
@@ -247,6 +253,30 @@
 
     .structure-intro h2 { margin: 0 0 6px; font-size: 1.25rem; }
     .structure-intro p { max-width: 760px; margin: 0; color: var(--muted); }
+    .structure-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .legend-item,
+    .inspector-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .legend-item::before,
+    .tree-status-dot::before {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      content: '';
+    }
+    .status-planned { background: var(--planned-soft); color: var(--planned); }
+    .status-implemented { background: var(--implemented-soft); color: var(--implemented); }
+    .status-mixed { background: var(--mixed-soft); color: var(--mixed); }
     .scope-pill {
       flex: 0 0 auto;
       padding: 7px 10px;
@@ -302,7 +332,7 @@
 
     .tree-row {
       display: grid;
-      grid-template-columns: 18px 19px minmax(0, 1fr);
+      grid-template-columns: 18px 19px minmax(0, 1fr) 12px;
       width: 100%;
       min-height: 36px;
       align-items: center;
@@ -332,6 +362,10 @@
     .tree-icon { display: grid; color: #66728a; place-items: center; }
     .tree-row[aria-current="true"] .tree-icon { color: var(--accent); }
     .tree-name { overflow: hidden; font-size: 0.88rem; text-overflow: ellipsis; white-space: nowrap; }
+    .tree-status-dot { display: grid; width: 12px; place-items: center; }
+    .tree-status-dot.status-planned,
+    .tree-status-dot.status-implemented,
+    .tree-status-dot.status-mixed { background: transparent; }
 
     .inspector-panel { padding: clamp(24px, 4vw, 42px); }
     .inspector-path {
@@ -342,9 +376,9 @@
       overflow-wrap: anywhere;
     }
     .inspector-title { margin: 0; font-size: clamp(1.55rem, 3vw, 2.25rem); line-height: 1.1; }
+    .inspector-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
     .inspector-kind {
       display: inline-block;
-      margin-top: 12px;
       padding: 5px 8px;
       border: 1px solid var(--line);
       border-radius: 7px;
@@ -393,7 +427,7 @@
   <div class="shell">
     <header class="masthead">
       <h1>Basic Agent Behavior Notebook</h1>
-      <p>Capture launch behavior, then inspect the proposed product structure as an explorable design. Both views are working material for repeated review and formalization.</p>
+      <p>Capture launch behavior, then inspect the complete proposed structure with the implemented Sources and ToolRouter work layered into it. Both views are working material for repeated review and formalization.</p>
       <a class="notebook-link" href="/design-notebook" target="_blank" rel="noopener">Open the full Corpus + RouteDeck design notebook</a>
     </header>
 
@@ -488,21 +522,29 @@
       <section id="structure-view" role="tabpanel" aria-labelledby="tab-structure" data-notebook-view="structure" hidden>
         <div class="structure-intro">
           <div>
-            <h2>Launch structure proposal</h2>
-            <p>Choose any folder or file to see what it owns, why that boundary exists, and what stays outside it. The API connector wires ToolRouter parsing, graph/index construction, retrieval, and evalset generation into one source-revision pipeline; Sandbox consumes the generated evalset. API and Web are launch connectors, while Agent Designer internals remain deliberately deferred.</p>
+            <h2>Launch structure: proposal + implementation</h2>
+            <p>The proposal remains intact. Implemented files are added beside planned files so the explorer shows both the intended architecture and the code that exists today. Sources has API as its first connector and ToolRouter behind one private adapter. Agent Designer, Sandbox, public Web, Deployment, and Operations remain deferred.</p>
+            <div class="structure-legend" data-structure-legend aria-label="Structure status legend">
+              <span class="legend-item status-implemented">Implemented</span>
+              <span class="legend-item status-planned">Planned</span>
+              <span class="legend-item status-mixed">Mixed</span>
+            </div>
           </div>
-          <span class="scope-pill">Launch milestone</span>
+          <span class="scope-pill">Living structure</span>
         </div>
 
         <div class="structure-workspace">
-          <aside class="tree-panel" aria-label="Proposed folder structure">
+          <aside class="tree-panel" aria-label="Implemented and deferred folder structure">
             <p class="panel-kicker">Explorer</p>
             <div id="structure-tree" data-testid="structure-tree"></div>
           </aside>
           <article class="inspector-panel" id="structure-inspector" data-testid="structure-inspector" aria-live="polite">
             <p class="inspector-path" id="inspector-path"></p>
             <h2 class="inspector-title" id="inspector-title"></h2>
-            <span class="inspector-kind" id="inspector-kind"></span>
+            <div class="inspector-meta">
+              <span class="inspector-kind" id="inspector-kind"></span>
+              <span class="inspector-status" id="inspector-status"></span>
+            </div>
             <div class="inspector-grid">
               <section class="inspector-block"><h3>What it owns</h3><p id="inspector-description"></p></section>
               <section class="inspector-block"><h3>Why this boundary exists</h3><p id="inspector-why"></p></section>
@@ -518,8 +560,13 @@
 
   <script>
     (() => {
-      const folder = (name, description, why, exclusions, children = []) => ({ name, kind: 'folder', description, why, exclusions, children });
-      const file = (name, description, why, exclusions) => ({ name, kind: 'file', description, why, exclusions, children: [] });
+      const structureStatuses = Object.freeze({
+        planned: { status: 'planned' },
+        implemented: { status: 'implemented' },
+        mixed: { status: 'mixed' },
+      });
+      const folder = (name, description, why, exclusions, children = [], status = 'planned') => ({ name, kind: 'folder', status, description, why, exclusions, children });
+      const file = (name, description, why, exclusions, status = 'planned') => ({ name, kind: 'file', status, description, why, exclusions, children: [] });
 
       const structure = folder(
         'saastoagent-v0.1',
@@ -530,6 +577,9 @@
           folder('backend', 'Server-side product behavior, persistence, integration adapters, and public HTTP entry points.', 'Backend policy must remain authoritative even when multiple frontends or channels are added.', 'It does not own browser rendering or connector-specific user interfaces.', [
             folder('src', 'Importable production source code for the Corpus backend.', 'Separating source from tests and packaging makes runtime ownership explicit.', 'It does not contain migrations, tests, or deployment scripts.', [
               folder('corpus', 'The Python package that composes the launch product.', 'This is the product composition boundary above reusable RouteDeck and ToolRouter packages.', 'It does not reimplement dependency internals.', [
+                folder('app', 'Host-level application assembly for concrete product dependencies.', 'Concrete connector and integration registration belongs above generic feature packages so those packages stay reusable.', 'It does not own source behavior, API parsing, or ToolRouter algorithms.', [
+                  file('source_composition.py', 'Builds SourceService with the configured API connector and ToolRouter bridge, then returns the generic and API-owned routers.', 'The one composition root may know concrete implementations while Sources and the API connector depend only on their declared ports.', 'It does not contain model values, upload validation, source lifecycle logic, or HTTP handlers.', 'implemented')
+                ]),
                 folder('features', 'User-visible product nodes and their application behavior.', 'Feature folders align code with the concepts users operate instead of with transport or database technology.', 'It does not contain shared runtime engines or third-party adapters.', [
                   folder('agents', 'Agent lifecycle: create, edit, select, archive, and bind an agent to configuration and sources.', 'Agent identity remains stable while configuration revisions, connectors, and deployments change around it.', 'It does not decide the internal planner/executor design or parse source payloads.', [
                     file('feature.py', 'Declares the Agents RouteDeck feature, its surfaces, and its legal user operations.', 'Keeping declarations at the feature edge makes RouteDeck composition discoverable.', 'It does not execute persistence or HTTP transport.'),
@@ -537,20 +587,36 @@
                     file('models.py', 'Defines product-owned agent records and command/result contracts.', 'Stable domain contracts prevent UI, storage, and RouteDeck payloads from becoming the same object.', 'It does not define connector payloads or runtime engine state.'),
                     file('repository.py', 'Loads and stores agents through an explicit persistence interface.', 'Persistence can evolve without rewriting lifecycle rules.', 'It does not enforce product workflow or call RouteDeck.')
                   ]),
-                  folder('sources', 'The generic Sources node: inventory, readiness, agent bindings, and lifecycle shared by every source connector.', 'Source lifecycle should not branch on API, database, knowledge, or MCP names. Connector registration supplies format-specific behavior.', 'It does not parse API collections or perform ToolRouter retrieval itself.', [
-                    file('feature.py', 'Declares Source surfaces and legal add, reprocess, bind, and remove operations for RouteDeck.', 'The user-facing Source node stays independent of any one connector.', 'It does not know API-specific fields or ingestion algorithms.'),
-                    file('handlers.py', 'Coordinates generic source commands and delegates format-specific work to a registered connector.', 'One orchestration path prevents each connector from inventing lifecycle semantics.', 'It does not inspect API files or call ToolRouter directly.'),
-                    file('models.py', 'Defines source identity, connector key, revision, agent bindings, and explicit processing stages including parsed, graphed, indexed, and evalset-ready.', 'A shared source record lets API now and database later appear in one inventory while proving every required artifact belongs to the same revision.', 'It does not embed connector-specific configuration schemas or ToolRouter-native models.'),
-                    file('repository.py', 'Persists generic source records, revisions, readiness, and agent bindings.', 'Generic persistence prevents an API-shaped database model from becoming the product contract.', 'It does not store raw connector artifacts when the connector owns them.'),
-                    file('connector.py', 'Defines the required SourceConnector operations for validation, processing, retrieval, evalset generation, and cleanup.', 'Every source connector must produce both retrieval material and a revision-matched evalset, so later connectors cannot silently omit launch evidence.', 'It does not select a connector, expose UI routes, or make any operation optional through fallback behavior.'),
-                    file('registry.py', 'Maps a connector key to one configured SourceConnector implementation.', 'Registration removes hard-coded if/else branching from the generic Sources node.', 'It does not contain connector business logic.'),
-                    folder('connectors', 'Concrete source implementations that satisfy the generic SourceConnector contract.', 'Format-specific code lives beside peer implementations without leaking into the Sources core.', 'It does not own generic inventory, binding, or readiness policy.', [
-                      folder('api', 'The launch API Collection source connector.', 'API collections have unique intake, operation selection, and projection needs that future database or knowledge connectors should not inherit.', 'It does not own the generic Sources node or ToolRouter algorithms.', [
-                        file('connector.py', 'Implements SourceConnector by coordinating API intake, revision processing, retrieval, evalset generation, and cleanup through the ToolRouter adapter.', 'The product-facing API contract stays stable even if ToolRouter is replaced or GRAG matures.', 'It does not implement parsing, graph construction, retrieval, or evalset-generation algorithms.'),
-                        file('models.py', 'Defines API collection metadata, credentials references, operation selections, and connector-specific status.', 'API-only configuration must not pollute the generic Source model.', 'It does not store secrets directly or define ToolRouter-native models.'),
-                        file('intake.py', 'Validates upload shape, media type, size, and import prerequisites before ingestion.', 'Unsafe or unsupported uploads fail at the connector boundary before reaching ToolRouter.', 'It does not construct graphs or silently repair invalid collections.'),
-                        file('processing.py', 'Runs the required source-revision pipeline: parse the API collection, construct the graph/index, generate the evalset, persist all artifact references, and only then mark the revision ready.', 'The parser and evalset generator must be one observable workflow so retrieval and test cases can never come from different source revisions.', 'It does not implement ToolRouter algorithms, run the agent against the evalset, or substitute partial readiness when a stage fails.'),
-                        file('projections.py', 'Maps ToolRouter artifacts into product-safe API operation summaries, graph/index status, evalset version and case count, and overall readiness.', 'ToolRouter-native output should not leak into RouteDeck surfaces or public APIs, but owners still need evidence that every processing stage completed.', 'It does not perform retrieval, generate evalsets, or mutate source state.')
+                  folder('sources', 'The complete proposed Sources node with the current owner-scoped implementation layered into it.', 'Planned lifecycle boundaries remain visible while implemented files prove the connector-neutral core and API-to-ToolRouter seam that exist today.', 'It does not assume every future source is an API or move Agent Designer behavior into Sources.', [
+                    file('__init__.py', 'Publishes the curated feature-facing Sources exports.', 'Callers get one stable import surface instead of reaching into HTTP, storage, or connector internals.', 'It does not re-export ToolRouter or private connector implementation details.', 'implemented'),
+                    file('config.py', 'Requires and loads only the connector-neutral Source persistence root.', 'Generic Sources configuration cannot accumulate API limits, embedding models, or evalset providers as connectors are added.', 'It does not define a default data directory or contain connector and ToolRouter settings.', 'implemented'),
+                    file('contracts.py', 'Defines connector-neutral ranked items, retrieval steps and results, traces, and evalset results.', 'Sources consumers should not learn API endpoint vocabulary or artifact paths.', 'It does not expose ToolRouter-native contracts.', 'implemented'),
+                    file('errors.py', 'Defines connector-neutral input, dependency, artifact, and integration failures.', 'HTTP can preserve failure semantics without importing one connector implementation.', 'It does not convert failures into empty or synthetic success responses.', 'implemented'),
+                    file('models.py', 'Defines source identity, revision, lifecycle, prepared-source, timestamp, and view contracts.', 'A shared Source record lets API now and database later appear in one inventory.', 'It does not embed connector-specific schemas or ToolRouter-native models.', 'implemented'),
+                    file('repository.py', 'Persists owner-scoped sources and immutable revisions with compact paths, atomic writes, and explicit processing, ready, and failed transitions.', 'Tenancy and artifact lifecycle are persistence concerns, not parser behavior.', 'It does not parse inputs or dispatch connectors.', 'implemented'),
+                    file('service.py', 'Owns the connector registry and the create, list, get, retrieve, and generate-evalset use cases.', 'Product orchestration dispatches through a registered connector key without a source-family switch statement.', 'It does not contain API-specific branching or ToolRouter calls.', 'implemented'),
+                    file('declarations.py', 'Declares the sources.home RouteDeck node, route, operations, and debug surface.', 'RouteDeck topology stays declarative and separate from use-case execution.', 'It does not perform source processing.', 'implemented'),
+                    file('feature.py', 'Compiles the Sources RouteDeck feature definition and legal operations.', 'Corpus composition installs Sources through one explicit feature boundary.', 'It does not implement handlers or persistence.', 'implemented'),
+                    file('bindings.py', 'Handles owner navigation from Home to Sources and back through RouteDeck effects.', 'Navigation belongs to the feature while RouteDeck validates transitions and owns canonical state.', 'It does not invoke source processing or render the UI.', 'implemented'),
+                    file('http.py', 'Exposes only connector-neutral list, get, retrieve, and evalset endpoints.', 'Generic Source transport remains stable when connector families add their own creation endpoints.', 'It does not accept API uploads, name connector keys, or map API-specific failures.', 'implemented'),
+                    file('http_common.py', 'Provides shared owner resolution, same-origin authorization, thread offload, generic Source failure mapping, and response serialization.', 'Generic and connector-owned routers need one consistent transport policy without importing each other.', 'It does not declare routes or contain connector-specific error codes.', 'implemented'),
+                    file('handlers.py', 'Coordinates generic source commands and delegates format-specific work to a registered connector.', 'The proposal keeps use-case coordination distinct from RouteDeck declarations and storage.', 'It does not inspect API files or call ToolRouter directly.'),
+                    file('connector.py', 'Defines the proposed SourceConnector operations for validation, processing, retrieval, evalset generation, and cleanup.', 'The proposal names the source-family extension seam independently of implementations.', 'It does not select a connector, expose UI routes, or add optional fallback behavior.'),
+                    file('registry.py', 'Maps a connector key to one configured SourceConnector implementation.', 'The planned explicit registry keeps connector resolution out of generic workflows.', 'It does not contain connector business logic.'),
+                    folder('connectors', 'The proposed connector family boundary plus its implemented generic protocol and API connector.', 'Format-specific code lives beside peer implementations without leaking into the Sources core.', 'It does not own generic inventory, binding, or readiness policy.', [
+                      file('__init__.py', 'Publishes only curated generic connector exports.', 'Callers cannot accidentally couple themselves to one concrete connector.', 'It does not export API or ToolRouter internals.', 'implemented'),
+                      file('base.py', 'Defines the implemented SourceConnector protocol and raw and validated upload values.', 'Every connector implements explicit ingestion, retrieval, and evalset behavior behind the same use-case boundary.', 'It does not choose connectors or provide default implementations.', 'implemented'),
+                      folder('api', 'The API Collection proposal with the implemented intake and ToolRouter translation seam.', 'OpenAPI intake and endpoint semantics are specific to APIs and should not constrain a future database connector.', 'It does not own generic Source identity, persistence, or ToolRouter algorithms.', [
+                        file('__init__.py', 'Publishes the API connector narrow exports.', 'API-specific classes stay under one connector surface.', 'It does not expose ToolRouter engine modules.', 'implemented'),
+                        file('config.py', 'Owns and loads the API collection upload-size limit.', 'An API-specific transport limit must not become part of generic Sources configuration.', 'It does not contain persistence paths, embedding models, or evalset provider settings.', 'implemented'),
+                        file('engine.py', 'Defines the replaceable API parser, retrieval, and evalset engine protocol consumed by ApiSourceConnector.', 'The connector can use ToolRouter now and a more mature engine later without changing generic Sources or its own lifecycle contract.', 'It does not import ToolRouter or implement algorithms.', 'implemented'),
+                        file('http.py', 'Owns the authenticated multipart POST /api/sources/api upload route and API-specific upload failures.', 'API upload fields, byte limits, and error vocabulary remain beside the API connector instead of leaking into generic Source transport.', 'It does not define list, get, retrieval, or evalset routes.', 'implemented'),
+                        file('intake.py', 'Validates filename, extension, size, empty content, media type, JSON or YAML syntax, and the top-level object.', 'Malformed or hostile bytes fail before repository creation or ToolRouter execution.', 'It does not repair specifications or create graph artifacts.', 'implemented'),
+                        file('connector.py', 'Implements SourceConnector by validating intake and delegating ingestion, retrieval, and evalset work to ApiSourceEngine.', 'API lifecycle stays stable and engine-neutral while the concrete graph and retrieval implementation can be replaced.', 'It does not import ToolRouter, translate ToolRouter contracts, or implement algorithms.', 'implemented'),
+                        file('toolrouter.py', 'Implements ApiSourceEngine by translating ToolRouter requests, results, and failures into neutral Source contracts.', 'Exactly one explicit bridge knows both the API engine port and the ToolRouter facade.', 'It does not own HTTP, upload limits, Source persistence, or private ToolRouter algorithms.', 'implemented'),
+                        file('models.py', 'Defines the proposed API collection metadata, credential references, operation selections, and connector-specific status.', 'API-only configuration must not pollute the generic Source model.', 'It does not store secrets directly or define ToolRouter-native models.'),
+                        file('processing.py', 'Plans the observable source-revision pipeline that parses, graphs, indexes, generates an evalset, and persists artifact references before readiness.', 'The proposal makes revision alignment between retrieval and evalsets explicit.', 'It does not implement ToolRouter algorithms, run the agent, or substitute partial readiness.'),
+                        file('projections.py', 'Plans product-safe API operation summaries, graph/index evidence, evalset version and case count, and overall readiness.', 'ToolRouter-native output should not leak into RouteDeck surfaces or public APIs.', 'It does not perform retrieval, generate evalsets, or mutate source state.')
                       ])
                     ])
                   ]),
@@ -595,15 +661,55 @@
                   file('repository.py', 'Persists drafts and immutable revisions with ownership checks.', 'Configuration history needs its own storage lifecycle.', 'It does not store agent sessions or connector artifacts.')
                 ]),
                 folder('integrations', 'Narrow adapters around external or separately owned engines.', 'Product features depend on stable local contracts rather than foreign data models.', 'It does not contain user-facing feature workflows.', [
-                  folder('toolrouter', 'The replaceable adapter around the existing openapi-toolrouter-benchmark capabilities.', 'ToolRouter can be used as-is today and replaced as GRAG matures without changing Sources or agent execution contracts.', 'It does not own API upload UX, generic source lifecycle, or RouteDeck state.', [
-                    file('adapter.py', 'Exposes one fail-loud product-facing ToolRouter surface for ingest_collection, retrieve_context, generate_evalset, and remove_artifacts.', 'The API connector needs all ToolRouter capabilities through one replaceable boundary with explicit version and artifact metadata.', 'It does not contain alternate heuristic or mock execution paths, and no other feature imports the copied engine directly.'),
-                    file('ingestion.py', 'Maps validated API collections into ToolRouter parsing and graph-construction calls.', 'ToolRouter invocation details stay out of the API connector.', 'It does not validate browser uploads or redefine ToolRouter algorithms.'),
-                    file('retrieval.py', 'Maps agent queries and source revision identifiers into ToolRouter retrieval calls.', 'Retrieval can evolve behind a stable product response contract.', 'It does not decide prompts or execute selected tools.'),
-                    file('evalsets.py', 'Calls the copied ToolRouter evalset generator and maps its cases into an immutable product artifact tied to source revision, selected operations, and generator version.', 'The generated cases must remain reproducible and revision-matched while the underlying generator remains replaceable.', 'It does not run the agent, score case outcomes, or approve deployment.'),
-                    file('errors.py', 'Translates known ToolRouter failures into explicit product integration failures.', 'Foreign errors need stable categories without being hidden or converted to success.', 'It does not retry silently or provide synthetic results.')
+                  folder('toolrouter', 'The ToolRouter proposal with the implemented replaceable adapter and private vendored engine snapshot layered into it.', 'Sources reaches parsing, resource-first graph construction, persisted embeddings, experimental GRAG retrieval, and independently reviewed source-grounded evalsets through one facade.', 'It does not own API upload UX, generic source lifecycle, RouteDeck state, or claim that experimental GRAG is mature.', [
+                    file('__init__.py', 'Publishes the only supported ToolRouter integration exports.', 'Features have a narrow public import surface and cannot reach the private engine by convention.', 'It does not re-export vendored algorithms.', 'implemented'),
+                    file('settings.py', 'Owns immutable defaults, environment loading, and validation for every ToolRouter embedding, Ollama, generator, reviewer, and timeout value.', 'ToolRouter runtime choices have one owner and arrive at the adapter as one explicit object.', 'It does not read generic Sources configuration or silently select alternate models or services.', 'implemented'),
+                    file('contracts.py', 'Defines ToolRouter-specific ingest, ranked-endpoint, retrieval, trace, and evalset request and result contracts.', 'Engine dataclasses and filesystem details stop at the facade.', 'It does not define generic Sources contracts.', 'implemented'),
+                    file('errors.py', 'Defines input, dependency, artifact, and base integration exceptions.', 'Upstream failure categories survive translation and can be mapped once by the API connector.', 'It does not retry or convert failures into success.', 'implemented'),
+                    file('serialization.py', 'Atomically persists graph JSON and NumPy embeddings and reconstructs the semantic index.', 'Artifact format and reload rules stay beside their producer.', 'It does not own Source records or HTTP serialization.', 'implemented'),
+                    file('adapter.py', 'Implements ToolRouterAdapter.ingest, ToolRouterAdapter.retrieve, and ToolRouterAdapter.generate_evalset, including model digests, artifact layout, and result translation.', 'One facade coordinates upstream algorithms and can be replaced without changing Sources.', 'It does not validate browser uploads, expose engine paths, or provide alternate execution paths.', 'implemented'),
+                    file('ingestion.py', 'Plans a dedicated mapping layer from validated API collections into ToolRouter parsing and graph construction.', 'The proposal leaves room to split ingestion orchestration out of the facade as it grows.', 'It does not validate browser uploads or redefine ToolRouter algorithms.'),
+                    file('retrieval.py', 'Plans a dedicated mapping layer from source revisions and agent queries into ToolRouter retrieval.', 'The proposal leaves retrieval evolution behind a stable product response contract.', 'It does not decide prompts or execute selected tools.'),
+                    file('evalsets.py', 'Plans a dedicated mapping layer from the ToolRouter evalset generator into immutable revision-matched product artifacts.', 'The proposal keeps generation separate from Sandbox consumption and scoring.', 'It does not run the agent, score cases, or approve deployment.'),
+                    file('SOURCE.md', 'Records source checkout, commit, dirty-snapshot warning, reference run, included scope, and license boundary.', 'Vendored algorithm bytes must remain traceable without implying redistribution rights.', 'It does not serve as product configuration or executable code.', 'implemented'),
+                    file('source_manifest.json', 'Records exact source and vendored SHA-256 hashes for the 24 modules and recipe pack.', 'The upstream worktree was dirty, so a commit ID alone cannot identify the copied bytes.', 'It does not configure runtime behavior.', 'implemented'),
+                    folder('recipes', 'Versioned evalset generator recipe data.', 'Prompt and acceptance recipes need immutable identities separate from Python orchestration.', 'It does not contain source specifications or generated candidates.', [
+                      file('v1.json', 'Defines the generator recipe used by the evalset factory.', 'A hashed recipe makes resume identity and audit provenance explicit.', 'It does not contain accepted evalset output.', 'implemented')
+                    ]),
+                    folder('engine', 'The private 24-module ToolRouter snapshot. Nothing outside corpus.integrations.toolrouter may import it.', 'The copied algorithms remain isolated behind adapter contracts while GRAG matures or is replaced.', 'It does not expose a feature API, product models, HTTP handlers, or fallback behavior.', [
+                      file('__init__.py', 'Marks the namespaced snapshot package without re-exporting algorithms.', 'An empty package surface discourages feature imports.', 'It does not define a public SDK.', 'implemented'),
+                      file('openapi_loader.py', 'Loads JSON or YAML OpenAPI and Swagger inputs, validates and normalizes endpoints, schemas, and security, and writes the normalized bundle.', 'Parser structures remain an upstream implementation detail.', 'It does not accept browser requests or create Source records.', 'implemented'),
+                      file('spec_repair.py', 'Applies the declared default-value repair policy and records each repair.', 'Repair policy stays coupled to upstream validation behavior and audit evidence.', 'It does not silently repair undeclared classes of defects.', 'implemented'),
+                      file('semantic_schema_graph.py', 'Resolves canonical schemas, fields, relations, shapes, and warnings.', 'Schema analysis is an internal graph-construction stage.', 'It does not expose product Source metadata.', 'implemented'),
+                      file('semantic_graph.py', 'Builds resource-first nodes, edges, evidence, cards, and graph traces.', 'The graph representation may change while adapter and Sources contracts remain stable.', 'It does not select user-facing operations or execute tools.', 'implemented'),
+                      file('semantic_graph_conformance.py', 'Builds and asserts staged graph invariant reports.', 'Conformance is engine-validity evidence, not a UI contract.', 'It does not hide invariant failures.', 'implemented'),
+                      file('semantic_graph_retrieval.py', 'Provides embeddings, persisted semantic indexes, graph heat propagation, endpoint scoring, expansion, reranking, and semantic routing.', 'Retrieval mechanics and providers stay replaceable behind ToolRouterAdapter.retrieve.', 'It does not decide prompts or invoke API operations.', 'implemented'),
+                      file('semantic_grag_router.py', 'Turns semantic retrieval into decomposed plans and explicit route, ask, no-tool, or abstain decisions with traces.', 'Decision mechanics are the experimental GRAG implementation.', 'It does not claim production maturity or execute the selected endpoint.', 'implemented'),
+                      file('semantic_outcomes.py', 'Defines outcomes, thresholds, ambiguity, missing-parameter, and decision-evidence policy.', 'Routing policy remains coupled to its experimental engine.', 'It does not define generic Sources status.', 'implemented'),
+                      file('semantic_natural.py', 'Produces natural-language graph and card representations for semantic matching.', 'Text construction is coupled to the upstream scoring behavior.', 'It does not create product prompts.', 'implemented'),
+                      file('semantic_validation.py', 'Defines semantic validation contracts and orchestration.', 'Validation implementation remains upstream algorithm code.', 'It does not authorize source readiness.', 'implemented'),
+                      file('semantic_validation_io.py', 'Atomically serializes semantic validation reports.', 'Evidence format stays with its producer.', 'It does not persist Source lifecycle records.', 'implemented'),
+                      file('tasks.py', 'Provides source-grounded task and query helpers plus endpoint truth and provenance utilities.', 'The adapter selects only task categories it can prove from source data.', 'It does not manufacture human-gold labels.', 'implemented'),
+                      file('leakage_audit.py', 'Measures lexical and path overlap and attaches leakage evidence to tasks.', 'Leakage diagnostics are evalset research evidence.', 'It does not alter source content to improve scores.', 'implemented'),
+                      file('ladder_llm.py', 'Provides stable hashes, JSONL audit helpers, query canonicalization, and reranking support.', 'These are upstream audit dependencies, not a second product model adapter.', 'It does not choose runtime providers.', 'implemented'),
+                      file('ladder_runtime.py', 'Defines ladder runtime configuration and hardware and package probes.', 'It is retained only for upstream dependency closure.', 'It does not replace Corpus runtime configuration.', 'implemented'),
+                      file('evalset_factory_contracts.py', 'Defines recipe, candidate, verdict, token-usage, and context-strategy contracts.', 'Factory identity must remain stable for resume and audit.', 'It does not run generators or reviewers.', 'implemented'),
+                      file('evalset_factory_seed.py', 'Derives source-grounded OpenAPI seed tasks and dependency fields.', 'Truth construction stays tied to normalized endpoints and schemas.', 'It does not invent tasks unrelated to the uploaded source.', 'implemented'),
+                      file('evalset_factory_generation.py', 'Builds generator context and calls the configured local Ollama generator with cache and audit evidence.', 'Generation preserves exact upstream prompts and token accounting.', 'It does not review or accept its own candidates.', 'implemented'),
+                      file('evalset_factory_validation.py', 'Runs deterministic checks, constructs review packets, and calls an independent local Ollama semantic reviewer.', 'Review remains independent from generation and produces explicit evidence.', 'It does not silently accept failed or unreviewed candidates.', 'implemented'),
+                      file('evalset_factory_experiment.py', 'Runs or resumes completion keys and writes progress, candidates, reviews, audits, ledger, and summaries.', 'The experiment is the atomic audited orchestration unit.', 'It does not expose mutable product Source state.', 'implemented'),
+                      file('evalset_factory_export.py', 'Writes accepted tasks and their provenance manifest.', 'Only accepted reviewed candidates enter the export; quarantine remains separate.', 'It does not label generated output as human gold.', 'implemented'),
+                      file('evalset_factory_freeze.py', 'Freezes and verifies immutable experiment configuration identity.', 'Resume cannot silently change model, recipe, source, or run parameters.', 'It does not permit incompatible resume.', 'implemented'),
+                      file('evalset_factory_isolation.py', 'Builds allowlisted isolated experiment inputs and verifies frozen source identities.', 'Evaluation cannot read undeclared files or silently change its inputs.', 'It does not broaden filesystem access.', 'implemented'),
+                      file('evalset_factory_folds.py', 'Aggregates completed artifacts into collection folds and Pareto summaries.', 'Reporting remains part of the upstream factory closure.', 'It is not exposed through the current Sources product contract.', 'implemented')
+                    ])
                   ])
                 ]),
+                folder('shared', 'Small implementation primitives with no feature or integration meaning.', 'Truly generic mechanics can be reused without making one feature own another feature’s configuration parsing.', 'It does not contain product settings, connector registries, or business behavior.', [
+                  file('environment.py', 'Reads an allowlisted set of values from an env file and process environment with explicit precedence.', 'Settings owners share parsing mechanics while each owner declares only its own environment names.', 'It does not define defaults, aliases, or fallback providers.', 'implemented')
+                ]),
                 folder('runtime', 'Launch execution glue shared by Sandbox and public channels.', 'Execution mode, configuration loading, and trace emission must be consistent without becoming a second agent framework.', 'It does not own Agent Designer strategy or RouteDeck core semantics.', [
+                  file('config.py', 'Composes host, auth, generic Sources, API connector, ToolRouter, and primary chat-model settings as typed owner-defined objects.', 'The application boundary assembles settings without copying ToolRouter values into generic Sources.', 'It does not define ToolRouter defaults or connector-specific validation.', 'implemented'),
                   file('configuration_loader.py', 'Loads one immutable agent configuration and its ready source bindings for execution.', 'Every execution starts from the same versioned product artifact.', 'It does not choose a fallback revision when loading fails.'),
                   file('execution_mode.py', 'Defines explicit sandbox and deployed execution modes and their action policy.', 'Pretend actions and public behavior must never be inferred from route names.', 'It does not execute actions or choose channels.'),
                   file('trace_events.py', 'Normalizes runtime milestones for the Operations recorder.', 'Operational evidence should not depend on one model or orchestration implementation.', 'It does not persist events or expose private payloads.')
@@ -618,12 +724,15 @@
                   file('AgentList.tsx', 'Lists the owner’s agents and their draft or deployed status.', 'Collection navigation is separate from editing a single agent.', 'It does not fetch raw database records or render public sessions.'),
                   file('AgentEditor.tsx', 'Edits agent identity, instructions, guidelines, and selected source bindings.', 'One composition screen supports direct agent creation without exposing storage boundaries.', 'It does not implement Agent Designer internals or parse API collections.')
                 ]),
-                folder('sources', 'Generic source inventory and lifecycle UI.', 'The source list should remain unchanged as connector choices expand.', 'It does not hard-code API fields in shared screens.', [
-                  file('SourceList.tsx', 'Shows all sources, connector identity, readiness, revision, and agent bindings.', 'A unified inventory is more useful than connector-specific silos.', 'It does not render connector configuration fields.'),
-                  folder('connectors', 'Connector-specific owner interfaces mounted by the Sources UI.', 'Specialized forms can evolve without branching the generic SourceList.', 'It does not own source records or backend ingestion.', [
-                    folder('api', 'Launch API Collection source screens.', 'API upload and operation inspection are unique to this connector.', 'It does not define future source connector UX.', [
-                      file('ApiCollectionForm.tsx', 'Uploads an API collection and captures API-specific connection metadata.', 'File intake and validation feedback belong together at the connector edge.', 'It does not parse collections in the browser or store credentials locally.'),
-                      file('ApiOperationBrowser.tsx', 'Shows discovered operations, graph/index status, generated evalset version and case count, and lets the owner curate which operations are available to the agent.', 'API operation selection and source-processing evidence belong in the connector detail view while the generic source inventory remains connector-neutral.', 'It does not call ToolRouter directly, execute operations, or treat generated cases as passing results.')
+                folder('sources', 'The proposed Sources UX with the implemented owner-only debug surface layered into it.', 'The debug UI proves the complete real workflow while the final connector-oriented experience remains visible as planned work.', 'It does not parse collections in the browser, call ToolRouter directly, or treat generated candidates as human gold.', [
+                  file('sourceClient.ts', 'Provides typed same-origin list, multipart upload, retrieval, and evalset requests with structured failures.', 'Network and serialization details stay testable outside the React surface.', 'It does not cache fake results or import backend contracts at runtime.', 'implemented'),
+                  file('SourceDebugSurface.tsx', 'Renders upload, list and selection, persisted graph metrics, retrieval inspector, and evalset inspector with busy, error, accepted, and quarantine states.', 'One deliberately temporary surface proves the actual integration path before Agent Designer is designed.', 'It does not implement parser, graph, retrieval, or evalset algorithms.', 'implemented'),
+                  file('sources.css', 'Defines Sources-only desktop and mobile layout and evidence styling.', 'Feature-specific visual rules do not leak into the Corpus shell.', 'It does not define shared design-system tokens or behavior.', 'implemented'),
+                  file('SourceList.tsx', 'Plans the unified owner inventory with connector identity, readiness, revision, and agent bindings.', 'The final source list should remain stable as connector choices expand.', 'It does not render connector-specific configuration fields.'),
+                  folder('connectors', 'Plans connector-specific owner interfaces mounted by the generic Sources UI.', 'Specialized forms can evolve without branching SourceList.', 'It does not own source records or backend ingestion.', [
+                    folder('api', 'Plans the final API Collection source screens.', 'API upload and operation inspection are unique to this connector.', 'It does not define future source connector UX.', [
+                      file('ApiCollectionForm.tsx', 'Plans API collection upload and API-specific connection metadata capture.', 'File intake and validation feedback belong together at the connector edge.', 'It does not parse collections in the browser or store credentials locally.'),
+                      file('ApiOperationBrowser.tsx', 'Plans discovered-operation browsing, graph/index evidence, evalset evidence, and operation curation.', 'API-specific inspection stays out of the generic source inventory.', 'It does not call ToolRouter directly, execute operations, or treat generated cases as passing results.')
                     ])
                   ])
                 ]),
@@ -651,11 +760,27 @@
                 file('surfaces.tsx', 'Registers Corpus-owned React surfaces for RouteDeck surface identifiers.', 'One registry keeps framework-to-product presentation mapping explicit.', 'It does not define product workflows or connector implementations.')
               ])
             ])
-          ])
+          ]),
+          folder('scripts', 'Repository-owned startup, validation, and design-notebook utilities.', 'Process orchestration helpers stay outside product packages so importing Corpus never starts services or mutates runtime configuration.', 'It does not own product behavior, ToolRouter algorithms, or container service definitions.', [
+            file('docker-backend-entrypoint.py', 'Creates or reloads persistent development secrets, runs the owner-auth migration, and replaces itself with the configured backend process.', 'Container setup must be explicit and repeatable while authentication secrets remain stable across recreation.', 'It does not choose model fallbacks, hide migration failures, or supervise unrelated services.', 'implemented'),
+            file('feature_behavior_notebook.py', 'Serves the design notebook and accepts an explicit guarded container bind for Compose.', 'The notebook remains independently runnable on loopback while container exposure requires a deliberate flag.', 'It does not expose non-loopback host binding by default or run the product backend.', 'implemented')
+          ], 'implemented'),
+          file('Dockerfile', 'Builds separate backend and frontend development targets, including the linked RouteDeck packages, pinned CPU ToolRouter dependencies, and cached MiniLM revision.', 'One reproducible image definition keeps dependency assembly independent from service orchestration.', 'It does not define runtime ports, persistence mounts, production deployment, or an Ollama service.', 'implemented'),
+          file('Dockerfile.dockerignore', 'Filters the parent build context to the exact Corpus and sibling RouteDeck files required by the two image targets.', 'RouteDeck must be available as local source without transferring unrelated sibling repositories or generated artifacts to Docker.', 'It does not change either source checkout or make ToolRouter depend on its sibling benchmark repository.', 'implemented'),
+          file('.dockerignore', 'Excludes local environments, runtime state, caches, evidence, and generated outputs when Corpus is used as a direct build context.', 'Local and generated files must not leak into image layers.', 'It does not replace the stricter parent-context filter used by Compose.', 'implemented'),
+          file('compose.yaml', 'Runs backend, frontend, and design notebook with loopback-only ports, health checks, source reload mounts, persistent data, and an explicit host Ollama URL.', 'Service lifecycle, networking, and persistence belong in one local-development orchestration boundary.', 'It does not run ToolRouter as a separate service, bundle Ollama, or claim a production topology.', 'implemented')
         ]
       );
 
       const nodeIndex = new Map();
+      function deriveStatus(node) {
+        if (node.kind === 'file' || node.children.length === 0) return node.status;
+        const childStatuses = new Set(node.children.map((child) => deriveStatus(child)));
+        node.status = childStatuses.size === 1
+          ? [...childStatuses][0]
+          : structureStatuses.mixed.status;
+        return node.status;
+      }
       function indexNode(node, parentPath = '') {
         const path = parentPath ? `${parentPath}/${node.name}` : node.name;
         node.path = path;
@@ -663,6 +788,7 @@
         nodeIndex.set(node.id, node);
         node.children.forEach((child) => indexNode(child, path));
       }
+      deriveStatus(structure);
       indexNode(structure);
 
       const openFolders = new Set([
@@ -681,6 +807,7 @@
       const inspectorPath = document.getElementById('inspector-path');
       const inspectorTitle = document.getElementById('inspector-title');
       const inspectorKind = document.getElementById('inspector-kind');
+      const inspectorStatus = document.getElementById('inspector-status');
       const inspectorDescription = document.getElementById('inspector-description');
       const inspectorWhy = document.getElementById('inspector-why');
       const inspectorExclusions = document.getElementById('inspector-exclusions');
@@ -695,6 +822,8 @@
         inspectorPath.textContent = node.path;
         inspectorTitle.textContent = node.name;
         inspectorKind.textContent = node.kind;
+        inspectorStatus.textContent = node.status;
+        inspectorStatus.className = `inspector-status status-${node.status}`;
         inspectorDescription.textContent = node.description;
         inspectorWhy.textContent = node.why;
         inspectorExclusions.textContent = node.exclusions;
@@ -706,11 +835,11 @@
         const isOpen = isFolder && openFolders.has(node.id);
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'tree-row';
+        button.className = `tree-row tree-row-${node.status}`;
         button.dataset.treeId = node.id;
         button.setAttribute('aria-current', String(selectedNode.id === node.id));
         if (isFolder) button.setAttribute('aria-expanded', String(isOpen));
-        button.innerHTML = `<span class="tree-chevron ${isFolder ? (isOpen ? 'is-open' : '') : 'is-empty'}">▶</span><span class="tree-icon">${iconMarkup(node.kind)}</span><span class="tree-name"></span>`;
+        button.innerHTML = `<span class="tree-chevron ${isFolder ? (isOpen ? 'is-open' : '') : 'is-empty'}">▶</span><span class="tree-icon">${iconMarkup(node.kind)}</span><span class="tree-name"></span><span class="tree-status-dot status-${node.status}" aria-label="${node.status}"></span>`;
         button.querySelector('.tree-name').textContent = node.name;
         button.addEventListener('click', () => {
           selectedNode = node;

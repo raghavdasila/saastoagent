@@ -1,20 +1,40 @@
-# Frontend Scaffold
+# Corpus Frontend
 
-The frontend is the chat-first Corpus agentic-app surface. It is intentionally
-feature-free at this stage.
+The frontend is the generic permanent chat shell plus Workspace owner surfaces
+and the authenticated Sources debug surface.
 
 ```text
 frontend/
-├── src/
-│   ├── app/        # Corpus shell, primary chat and application composition
-│   ├── routedeck/  # RouteDeck state/projection bridge and navigation binding
-│   ├── surfaces/   # standard surface registry and render boundary
-│   └── shared/     # frontend-only primitives with no feature ownership
-└── tests/          # browser, interaction and frontend contract tests
+|-- package.json
+|-- pnpm-lock.yaml
+|-- src/
+|   |-- app/                  # generic shell, chat, bootstrap, Navgraph slot
+|   |-- features/workspace/   # product surfaces and navigation content
+|   |-- features/sources/     # API upload, graph, retrieval, evalset debug UI
+|   |-- routedeck/            # client and surface registry
+|   |-- main.tsx              # product composition
+|   `-- styles.css
+`-- src/tests/                # framework and Workspace component contracts
 ```
 
 The primary chat is not an optional assistant feature. RouteDeck changes the
-scope available to the same Corpus agent as the active Navgraph node changes.
+scope available to the same Corpus agent as the active node changes.
 
-No frontend framework, dependency set, or executable entrypoint has been
-created yet.
+`sources.debug` is intentionally an owner-only experimental workbench. It uses
+the neutral `/api/sources/**` response contract to upload a collection, inspect
+persisted graph counts, run bounded/full retrieval, and inspect real
+generator/reviewer evidence. It does not implement Agent Designer, Sandbox, or
+a public deployed channel, and it labels reviewed evalset candidates as not
+human gold.
+
+Run from the repository root:
+
+```powershell
+.\scripts\run-frontend.ps1
+pnpm --dir frontend typecheck
+pnpm --dir frontend test
+pnpm --dir frontend build
+```
+
+Vite proxies `/api`, `/healthz`, and `/readyz` to the local backend at port
+8099. The application is served at `http://127.0.0.1:5199/`.

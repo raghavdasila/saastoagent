@@ -46,6 +46,8 @@ reference_projects
 benchmark/
 .netlify
 .codex/
+.codex-run/
+.runtime/
 _tmp/
 
 # Preserved local artifacts and private Codex context

@@ -2,7 +2,7 @@
 
 Status: locked layout, proposed feature contracts
 
-Updated: 2026-07-21
+Updated: 2026-07-25
 
 ## Vision
 
@@ -53,6 +53,29 @@ Navgraph.
 | 13 | Deployment | Release a validated agent revision to environments and channel targets | Revision selection, dependency review, rollout, active status and rollback |
 | 14 | Operations | Observe and intervene in live deployed-agent behavior | Health, sessions, traces, reviews, source calls, failures and recovery |
 | 15 | Learning | Turn evidence into governed improvement candidates | Inbox, evidence review, change proposal and owner decision |
+
+## First Launch Feature Subset
+
+The v0.1 first launch uses **11 of the 15 features**. It proves a basic
+RouteDeck-powered agent path with one real source family: API collections.
+
+| Launch # | Feature | Relationship to the 15-feature map |
+| ---: | --- | --- |
+| 1 | Workspace | Included |
+| 2 | Agents | Included |
+| 3 | Source Hub | Included |
+| 4 | API Source / API Collection | Included as the first source connector |
+| 5 | Agent Designer | Included; planner/executor behavior remains to be formalized |
+| 6 | Agent Builder | Included |
+| 7 | Sandbox | Included |
+| 8 | Evaluation | Included |
+| 9 | Channels | Included with Web as the first channel |
+| 10 | Deployment | Included |
+| 11 | Operations | Included as the minimum behavior/logging surface |
+
+Deferred from first launch: Database Source, Knowledge Source, MCP Source, and
+Learning. Authentication is required host infrastructure, not a separate product
+feature in this feature map.
 
 ## Evaluation And Evalsets
 
