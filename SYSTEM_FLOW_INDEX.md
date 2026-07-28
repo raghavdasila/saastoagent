@@ -33,6 +33,21 @@ owner message or surface action
   -> Corpus renders chat plus projected surfaces
 ```
 
+## Responsive Corpus Shell
+
+```text
+RouteDeck projects active/review surfaces and conversation state
+  -> conversation history scrolls independently
+  -> active/review surface stays in a bounded dock above the composer
+  -> composer remains at the bottom of the available application viewport
+  -> desktop renders the Workspace rail and docked Navgraph
+  -> mobile hides the rail and exposes Workspace + Navgraph through header drawers
+```
+
+The responsive shell changes only presentation. RouteDeck continues to own the
+current node, legal operations, surface projection, history, and Navgraph
+state; Corpus does not duplicate those contracts in either drawer.
+
 ## Implemented Guest Lounge
 
 ```text
@@ -59,17 +74,20 @@ RouteDeck store is idle
   -> RouteDeckBootstrapBoundary starts bootstrap
   -> loading state renders the generic Corpus loading shell
   -> ready state mounts Corpus conversation and surfaces
-  -> recovery state exposes only RouteDeck-legal actions
-  -> Corpus renders product wording and invokes the selected action
-  -> start-new choice first revokes Corpus browser auth and owner handle
-  -> RouteDeck creates a genuinely new anonymous guest session
-  -> ready state remounts the Lounge and restores its conversation
+  -> an expired/missing selected session on a shareable route creates one replacement
+  -> a session-bound recovery automatically invokes RouteDeck's legal start-new action
+  -> the create response passes the originating request to the host selector
+  -> valid Corpus auth atomically rebinds the same opaque owner handle to the replacement
+  -> absent or invalid auth clears stale owner cookies and binds the replacement as guest
+  -> ready state mounts the Lounge without exposing an expired-session screen
+  -> later projection resync/reconnect keeps the ready Corpus tree mounted
 ```
 
 Corpus does not inspect `pendingBootstrap`, retained request IDs, uncertain
 navigation state, or retry legality. RouteDeck owns those mechanics and the
-transition back to ready; Corpus owns the visible wording and auth cleanup
-policy around explicit replacement.
+transition back to ready. Corpus owns principal validation, opaque-handle
+rebinding, guest fallback, and the generic reconnect error shown only when
+replacement itself fails.
 
 ## Implemented Corpus Owner Authentication
 
@@ -85,9 +103,11 @@ guest Lounge -> sign-in or registration surface
 ```
 
 Reload and additional browser sessions resolve the owner's durable claim.
-Anonymous replay of the adopted guest cookie fails. Logout or recovery revokes
-the browser auth session and handle, clears cookies, and creates a new guest
-Lounge without releasing the owned RouteDeck session.
+Anonymous replay of the adopted guest cookie fails. Logout revokes the browser
+auth session and handle, clears cookies, and creates a new guest Lounge without
+releasing the owned RouteDeck session. Expiry recovery preserves valid owner
+authentication by rebinding its opaque handle to the newly created RouteDeck
+session; invalid owner credentials fall back to a fresh guest Lounge.
 
 Verification and reset tokens travel in URL fragments. Corpus captures the
 fragment before RouteDeck contract/session bootstrap can rewrite browser

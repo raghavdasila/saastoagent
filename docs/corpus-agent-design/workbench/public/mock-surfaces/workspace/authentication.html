@@ -44,25 +44,19 @@
       }
     }
     * { box-sizing: border-box; }
-    html, body { min-width: 300px; min-height: 100%; margin: 0; }
+    html, body { min-width: 280px; margin: 0; }
     body {
-      display: grid;
-      min-height: 100vh;
-      place-items: center;
-      padding: 28px;
+      padding: 2px 2px 18px;
       color: var(--text);
-      background: var(--stage);
+      background: transparent;
     }
     .surface {
       display: none;
-      width: min(100%, 500px);
+      width: 100%;
       flex-direction: column;
-      gap: 22px;
-      padding: 28px;
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      background: var(--surface);
-      box-shadow: 0 18px 50px var(--shadow);
+      gap: 18px;
+      padding: 0;
+      background: transparent;
     }
     body:not(:has(.surface:target)) #register,
     .surface:target { display: flex; }
@@ -136,8 +130,7 @@
     .account span { margin-top: 3px; color: var(--muted); font-size: 12px; }
     .danger { color: var(--danger) !important; }
     @media (max-width: 520px) {
-      body { align-items: start; padding: 14px; }
-      .surface { padding: 20px; border-radius: 14px; }
+      body { padding: 2px 2px 14px; }
       h1 { font-size: 21px; }
       .actions { flex-direction: column; }
       button { width: 100%; }
@@ -228,5 +221,6 @@
     <div class="status success">The link token is held in memory and is not present in the visible URL.</div>
     <div class="actions"><button type="button">Verify email</button><button type="button" class="secondary">Back to Lounge</button></div>
   </article>
+  <script src="/mock-surfaces/surface-height.js"></script>
 </body>
 </html>

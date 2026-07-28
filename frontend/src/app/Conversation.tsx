@@ -9,14 +9,12 @@ import { AssistantMarkdown } from "./AssistantMarkdown";
 export interface ConversationProps {
   messages: readonly AgentConversationMessage[];
   status: AgentStreamStatus;
-  activeSurface: ReactNode;
   suggestedActions: ReactNode;
 }
 
 export function Conversation({
   messages,
   status,
-  activeSurface,
   suggestedActions,
 }: ConversationProps) {
   const activityAnchor = useRef<HTMLLIElement>(null);
@@ -72,9 +70,6 @@ export function Conversation({
           </li>
         ) : null}
         <li ref={activityAnchor} aria-hidden="true" data-agent-activity-anchor="" />
-        <li data-agent-experience="">
-          <div data-agent-surface="">{activeSurface}</div>
-        </li>
       </ol>
     </div>
   );

@@ -2,8 +2,8 @@ import { useEffect, useState } from "react"
 import { FlaskConical, Moon, Save, Sun } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
 import { FeatureRail } from "@/workbench/FeatureRail"
+import { MockActionEditor } from "@/workbench/MockActionEditor"
 import { MockChatEditor } from "@/workbench/MockChatEditor"
 import { ReviewControls } from "@/workbench/ReviewControls"
 import { StoryEditor } from "@/workbench/StoryEditor"
@@ -98,8 +98,11 @@ export default function App() {
     const story: DesignStory = {
       id: `story-${Date.now()}`,
       title: "New user story",
+      userIntent: "",
+      agentIntent: "",
       story: "",
       messages: [],
+      actions: [],
       mockSurfacePath: null,
       status: "draft",
       rejectionReason: "",
@@ -112,6 +115,21 @@ export default function App() {
     }
     commit(nextState)
     setSelectedStoryId(story.id)
+  }
+
+  function deleteSelectedStory() {
+    if (selectedStory.status !== "draft" || selectedFeature.stories.length <= 1) return
+    const selectedIndex = selectedFeature.stories.findIndex((story) => story.id === selectedStory.id)
+    const remainingStories = selectedFeature.stories.filter((story) => story.id !== selectedStory.id)
+    const nextStory = remainingStories[Math.min(selectedIndex, remainingStories.length - 1)]
+    const nextState: WorkbenchState = {
+      ...state,
+      features: state.features.map((feature) => feature.id === selectedFeature.id
+        ? { ...feature, stories: remainingStories }
+        : feature),
+    }
+    commit(nextState)
+    setSelectedStoryId(nextStory.id)
   }
 
   function toggleTheme() {
@@ -127,9 +145,9 @@ export default function App() {
 
   return (
     <div className="grid h-dvh overflow-hidden grid-rows-[auto_minmax(0,1fr)] bg-background">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground"><FlaskConical /></div>
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2 sm:px-4">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <FlaskConical className="size-5 shrink-0 text-primary" />
           <div className="min-w-0">
             <h1 className="truncate text-base font-semibold tracking-tight">Corpus agent design</h1>
             <p className="text-xs text-muted-foreground">Slice 1 · Workspace and Agents · prototype seed</p>
@@ -158,16 +176,26 @@ export default function App() {
         <main className="min-h-0 min-w-0 overflow-y-auto lg:overflow-hidden">
           <div className="mx-auto grid min-h-0 max-w-[1480px] lg:h-full lg:grid-cols-[minmax(360px,0.85fr)_minmax(440px,1.15fr)]">
             <div data-editor-pane className="min-w-0 lg:grid lg:min-h-0 lg:grid-rows-[minmax(0,1fr)_auto]">
-              <div data-editor-scroll className="flex min-w-0 flex-col gap-6 p-4 lg:min-h-0 lg:overflow-y-auto lg:p-6">
+              <div data-editor-scroll className="flex min-w-0 flex-col gap-4 p-3 lg:min-h-0 lg:overflow-y-auto lg:p-4">
                 <StoryEditor story={selectedStory} disabled={selectedStory.status !== "draft"} onChange={updateStory} />
-                <Separator />
-                <MockChatEditor messages={selectedStory.messages} disabled={selectedStory.status !== "draft"} onChange={(messages) => updateStory({ messages })} />
+                <div className="border-t border-border pt-4">
+                  <MockChatEditor messages={selectedStory.messages} disabled={selectedStory.status !== "draft"} onChange={(messages) => updateStory({ messages })} />
+                </div>
+                <div className="border-t border-border pt-4">
+                  <MockActionEditor actions={selectedStory.actions} disabled={selectedStory.status !== "draft"} onChange={(actions) => updateStory({ actions })} />
+                </div>
               </div>
-              <div className="p-4 pt-0 lg:border-t lg:border-border lg:p-3">
-                <ReviewControls story={selectedStory} onChange={updateStory} />
+              <div className="border-t border-border p-3">
+                <ReviewControls
+                  key={selectedStory.id}
+                  story={selectedStory}
+                  canDelete={selectedFeature.stories.length > 1}
+                  onChange={updateStory}
+                  onDelete={deleteSelectedStory}
+                />
               </div>
             </div>
-            <div data-surface-pane className="min-h-0 border-t border-border p-4 lg:border-t-0 lg:border-l lg:p-6">
+            <div data-surface-pane className="min-h-0 border-t border-border p-3 lg:border-t-0 lg:border-l lg:p-4">
               <SurfacePreview story={selectedStory} theme={theme} />
             </div>
           </div>

@@ -7,11 +7,19 @@ export interface MockChatMessage {
   content: string
 }
 
+export interface MockAction {
+  id: string
+  label: string
+}
+
 export interface DesignStory {
   id: string
   title: string
+  userIntent: string
+  agentIntent: string
   story: string
   messages: MockChatMessage[]
+  actions: MockAction[]
   mockSurfacePath: string | null
   status: ReviewStatus
   rejectionReason: string
@@ -24,6 +32,6 @@ export interface DesignFeature {
 }
 
 export interface WorkbenchState {
-  version: 3
+  version: 6
   features: DesignFeature[]
 }

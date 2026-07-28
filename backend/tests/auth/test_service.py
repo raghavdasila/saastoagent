@@ -130,3 +130,36 @@ async def test_sign_in_resumes_owner_claim_and_rejects_invalid_password(
             password="wrong password value",
             guest_route_session_id="unclaimed-guest-2",
         )
+
+
+@pytest.mark.asyncio
+async def test_replaced_owner_route_is_current_for_reload_and_future_sign_in(
+    auth_service,
+) -> None:
+    _, service = auth_service
+    issued = await service.register(
+        email="owner@example.com",
+        password="a sufficiently private password",
+        display_name=None,
+        guest_route_session_id="route-expired",
+    )
+
+    await service.replace_browser_route(
+        auth_token=issued.auth_token,
+        owner_route_handle=issued.owner_route_handle,
+        replacement_route_session_id="route-fresh",
+    )
+
+    current = await service.resolve_browser_session(
+        auth_token=issued.auth_token,
+        owner_route_handle=issued.owner_route_handle,
+        require_route=True,
+    )
+    assert current.route_session_id == "route-fresh"
+
+    signed_in = await service.sign_in(
+        email="owner@example.com",
+        password="a sufficiently private password",
+        guest_route_session_id=None,
+    )
+    assert signed_in.route_session_id == "route-fresh"

@@ -75,6 +75,52 @@ it("renders the permanent chat, projected surface, and Navgraph slot", async () 
   harness.dispose();
 });
 
+it("docks the projected surface immediately above the composer outside chat history", async () => {
+  const harness = await renderRouteDeckComponent(
+    <AgentShell registry={testRegistry} client={idleChatClient} />,
+    {
+      contract: frameworkContractFixture(),
+      projection: frameworkProjectionFixture(),
+    },
+  );
+
+  const shell = document.querySelector("[data-agent-shell]");
+  const conversation = document.querySelector("[data-agent-conversation]");
+  const surfaceDock = document.querySelector("[data-agent-surface-dock]");
+  const inputDock = document.querySelector("[data-agent-input-dock]");
+
+  expect(shell).not.toBeNull();
+  expect(surfaceDock).not.toBeNull();
+  expect(inputDock).not.toBeNull();
+  expect(surfaceDock?.parentElement).toBe(shell);
+  expect(inputDock?.parentElement).toBe(shell);
+  expect(surfaceDock?.nextElementSibling).toBe(inputDock);
+  expect(conversation?.querySelector("[data-routedeck-surface-host]")).toBeNull();
+  expect(surfaceDock).toHaveTextContent("Framework active surface");
+
+  harness.dispose();
+});
+
+it("applies the compiled node conversation-input policy without product node IDs", async () => {
+  const contract = frameworkContractFixture();
+  contract.nodes["test.home"]!.conversation_input = {
+    enabled: false,
+    disabled_message: "Input is unavailable for this test node.",
+  };
+  const harness = await renderRouteDeckComponent(
+    <AgentShell registry={testRegistry} client={idleChatClient} />,
+    {
+      contract,
+      projection: frameworkProjectionFixture(),
+    },
+  );
+
+  expect(screen.getByLabelText("Message the assistant")).toBeDisabled();
+  expect(screen.getByText("Input is unavailable for this test node.")).toBeVisible();
+
+  harness.dispose();
+});
+
 it("renders the active surface while the entry greeting continues in background", async () => {
   const harness = await renderRouteDeckComponent(
     <AgentShell

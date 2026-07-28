@@ -10,6 +10,7 @@ import {
 import type { ReactNode } from "react";
 
 import { AgentShell } from "./AgentShell";
+import { ApplicationNavigationDrawer } from "./ApplicationNavigationDrawer";
 import type { AppRouteDeck } from "./createRouteDeck";
 import { NavgraphSidebar } from "./NavgraphSidebar";
 import { OwnerSessionProvider } from "../features/workspace/OwnerSessionContext";
@@ -50,25 +51,30 @@ export function ApplicationShell({
     >
       <OwnerSessionProvider>
         <div data-routedeck-application="">
-          <header data-application-header="">{header}</header>
-          <div data-application-layout="">
-          {navigation === undefined ? null : (
-            <nav data-application-navigation="">{navigation}</nav>
-          )}
-          <section data-application-main="">
-            {mainHeader === undefined ? null : (
-              <header data-application-main-header="">{mainHeader}</header>
+          <header data-application-header="">
+            {header}
+            {navigation === undefined ? null : (
+              <ApplicationNavigationDrawer navigation={navigation} />
             )}
-            <AgentShell
-              key={conversationKey}
-              registry={registry}
-              initialConversation={initialConversation}
-              conversationBootstrapPending={conversationBootstrapPending}
-              conversationBootstrapProgress={conversationBootstrapProgress}
-              {...(chatClient === undefined ? {} : { client: chatClient })}
-            />
-          </section>
-          <NavgraphSidebar />
+          </header>
+          <div data-application-layout="">
+            {navigation === undefined ? null : (
+              <nav data-application-navigation="">{navigation}</nav>
+            )}
+            <section data-application-main="">
+              {mainHeader === undefined ? null : (
+                <header data-application-main-header="">{mainHeader}</header>
+              )}
+              <AgentShell
+                key={conversationKey}
+                registry={registry}
+                initialConversation={initialConversation}
+                conversationBootstrapPending={conversationBootstrapPending}
+                conversationBootstrapProgress={conversationBootstrapProgress}
+                {...(chatClient === undefined ? {} : { client: chatClient })}
+              />
+            </section>
+            <NavgraphSidebar />
           </div>
         </div>
       </OwnerSessionProvider>

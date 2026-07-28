@@ -1,6 +1,6 @@
 # Corpus Current Context
 
-Updated: 2026-07-27
+Updated: 2026-07-28
 
 ## Repository Boundary
 
@@ -26,12 +26,27 @@ Updated: 2026-07-27
   the launch-scope Sources/API connector are implemented and runnable.
 - The generic backend host owns configuration, lifespan, transport, session
   selection, readiness, and explicit failure behavior without product literals.
-- `RouteDeckBootstrapBoundary` now owns bootstrap startup, recovery phase/action
-  selection, and ready gating. Corpus owns the recovery copy and revokes its
-  browser auth/owner handle before invoking RouteDeck's exposed
-  `start_new_session` action. The React host continues to own permanent chat,
-  navigation/history, the surface registry, Navgraph slot, and responsive
-  desktop/mobile layout.
+- `RouteDeckBootstrapBoundary` owns bootstrap startup, recovery phase/action
+  selection, and ready gating. Normal missing/expired-session recovery remains
+  behind the Corpus loading shell and invokes RouteDeck's exposed
+  `start_new_session` action once. The request-aware Corpus selector atomically
+  rebinds a valid opaque owner handle to the replacement or clears invalid
+  owner credentials and creates a guest Lounge. The React host continues to own
+  permanent chat, navigation/history, the surface registry, Navgraph slot, and
+  responsive desktop/mobile layout.
+- Post-ready RouteDeck projection resync/reconnect no longer remounts Corpus.
+  This prevents owner-session and initial-conversation effects from restarting
+  on every event while preserving initial/replacement/error recovery gates.
+- Surface integration now fails closed against one source of truth: the
+  compiled Corpus frontend contract is checked into the frontend
+  deterministically, backend parity is tested, and RouteDeck requires the
+  runtime registry to match its unique component set exactly.
+- Credential-node composer availability now comes from RouteDeck's typed static
+  node contract. Corpus declares the affected nodes and user-facing copy.
+- Owner authentication continuation is refresh-safe: an existing Corpus owner
+  session hides credential fields and exposes one explicit retry of the already
+  declared `authentication_completed` affordance; there is no automatic retry
+  loop or credential replay.
 - Approved RouteDeck fix `d24788f` distinguishes an expired exact resume
   capability from a missing/invalid one and returns typed HTTP 410
   `resume_capability_expired`, allowing the existing terminal
@@ -46,6 +61,11 @@ Updated: 2026-07-27
 - The frontend now uses pinned shadcn/Radix-Nova primitives. Suggested actions
   render under the latest assistant response, long content wraps, and
   Workspace styling is feature-owned rather than mixed into the generic shell.
+- Active/review surfaces now occupy a bounded bottom dock immediately above
+  the composer, outside the independently scrolling conversation. At mobile
+  width the Workspace rail opens from a header hamburger Sheet, the Navgraph
+  retains its own header drawer, and the surface/composer stay at the bottom of
+  the viewport instead of rising above a bottom navigation row.
 - A standalone Slice 1 design workbench now lives under
   `docs/corpus-agent-design/workbench`. It is a local prototype for reviewing
   Workspace/Agents stories, mock chats, and no-permissions iframe surfaces;
@@ -130,6 +150,33 @@ docker compose up --build
 
 ## Validation Baseline
 
+- Responsive shell correction: 25 frontend tests passed plus strict typecheck
+  and production build. At 390x844 the live browser measured zero horizontal
+  overflow, a 161.5px surface dock directly above the composer, composer bottom
+  y=834, no bottom navigation row, and one working full-height hamburger
+  drawer. At 1440x900 the 240px desktop rail remained and the surface stayed
+  directly above the composer. Browser warning/error logs were empty.
+- Expired-session recovery change: 63 Corpus backend tests and 23 frontend
+  tests passed; frontend strict typecheck and production build passed. The
+  sibling RouteDeck FastAPI suite passed 25 tests, focused Ruff checks passed,
+  and both repositories' context/documentation checks passed. Rebuilt local
+  Docker then reproduced the preserved expired owner route as HTTP
+  `410 -> 201 -> event stream 200`; the browser reached a stable Lounge with
+  no expired-session copy and no warning/error console entries.
+- Post-ready continuity correction: the pre-fix browser switched between the
+  application and bootstrap shell 33 times in six seconds while the backend
+  recorded 58 session reloads, 58 SSE reconnects, and 116 auth reads in 30
+  seconds. After rebuilding, 150/150 samples over 15 seconds stayed on the
+  Lounge with zero transitions and zero browser warning/error entries. The
+  full RouteDeck React package passed 18 tests plus typecheck/build; Corpus
+  passed 23 frontend tests plus typecheck/build.
+- Current boundary-fix regression: 60 Corpus backend tests and 22 frontend
+  tests passed; frontend strict typecheck and production build passed. The
+  sibling RouteDeck checkout passed 520 non-real Python tests, all package
+  tests, root typecheck, and root build. Local Ollama was started through the
+  installed official executable and the real Corpus readiness tests passed
+  against `gemma4:latest`.
+
 - Docker stack: backend, frontend, and notebook healthy; all three smoke URLs
   returned HTTP 200 on the final local run.
 - Backend: 59 tests passed on the host lane; clean dependency check. The image
@@ -213,6 +260,6 @@ docker compose up --build
 
 ## Next Concrete Step
 
-Reconcile Agent Designer behavior and the agent-configuration contract before
-choosing planner/executor internals. Then connect the now-proven Sources facade
-to Agent Designer without bypassing its connector-neutral contracts.
+Resume Slice 1 in the agent-design workbench with the draft Workspace behavior
+`Enter the workspace`. Review one atomic behavior at a time and move to
+Agents only after the remaining Workspace behavior is accepted.

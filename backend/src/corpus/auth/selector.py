@@ -44,7 +44,40 @@ class CorpusSessionSelector:
             raise _unavailable()
         return guest_session
 
-    def attach_created_session(self, response: Response, session_id: str) -> None:
+    async def attach_created_session(
+        self,
+        request: Request,
+        response: Response,
+        session_id: str,
+    ) -> None:
+        auth_token = request.cookies.get(self.settings.auth_name)
+        owner_handle = request.cookies.get(self.settings.owner_route_name)
+        if auth_token and owner_handle:
+            try:
+                await self.service.replace_browser_route(
+                    auth_token=auth_token,
+                    owner_route_handle=owner_handle,
+                    replacement_route_session_id=session_id,
+                )
+            except SessionUnavailable:
+                pass
+            else:
+                response.delete_cookie(
+                    self.settings.guest_name,
+                    path=self.settings.path,
+                    secure=self.settings.secure,
+                    httponly=True,
+                    samesite="lax",
+                )
+                return
+        for name in (self.settings.auth_name, self.settings.owner_route_name):
+            response.delete_cookie(
+                name,
+                path=self.settings.path,
+                secure=self.settings.secure,
+                httponly=True,
+                samesite="lax",
+            )
         response.set_cookie(
             key=self.settings.guest_name,
             value=session_id,

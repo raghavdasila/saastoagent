@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from http.cookies import SimpleCookie
 
 import pytest
 from routedeck_fastapi.contracts import RouteDeckHttpProblem
+from starlette.responses import JSONResponse
 from starlette.requests import Request
 
 from corpus.auth.database import AuthDatabase
@@ -79,6 +81,84 @@ async def test_two_owners_cannot_cross_select_route_sessions(tmp_path: Path) -> 
                 _request({"corpus_guest": "route-first"})
             )
         assert cross_user.value.code == old_guest.value.code == "session_not_found"
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_created_session_replaces_the_current_owner_route(tmp_path: Path) -> None:
+    database = AuthDatabase(
+        f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}"
+    )
+    await database.create_schema_for_tests()
+    service = AuthService(database)
+    selector = CorpusSessionSelector(
+        service,
+        CorpusSessionCookieSettings(
+            auth_name="corpus_auth",
+            owner_route_name="corpus_owner_route",
+            guest_name="corpus_guest",
+            secure=False,
+        ),
+    )
+    try:
+        issued = await service.register(
+            email="owner@example.com",
+            password="a sufficiently private password",
+            display_name="Owner",
+            guest_route_session_id="route-expired",
+        )
+        request = _request(
+            {
+                "corpus_auth": issued.auth_token,
+                "corpus_owner_route": issued.owner_route_handle,
+            }
+        )
+        response = JSONResponse({"ok": True})
+
+        await selector.attach_created_session(request, response, "route-fresh")
+
+        assert await selector.selected_session_id(request) == "route-fresh"
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_created_session_falls_back_to_guest_when_owner_tokens_are_invalid(
+    tmp_path: Path,
+) -> None:
+    database = AuthDatabase(
+        f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}"
+    )
+    await database.create_schema_for_tests()
+    selector = CorpusSessionSelector(
+        AuthService(database),
+        CorpusSessionCookieSettings(
+            auth_name="corpus_auth",
+            owner_route_name="corpus_owner_route",
+            guest_name="corpus_guest",
+            secure=False,
+        ),
+    )
+    try:
+        response = JSONResponse({"ok": True})
+        await selector.attach_created_session(
+            _request(
+                {
+                    "corpus_auth": "invalid-auth",
+                    "corpus_owner_route": "invalid-route",
+                }
+            ),
+            response,
+            "route-lounge",
+        )
+
+        cookies = SimpleCookie()
+        for value in response.headers.getlist("set-cookie"):
+            cookies.load(value)
+        assert cookies["corpus_auth"]["max-age"] == "0"
+        assert cookies["corpus_owner_route"]["max-age"] == "0"
+        assert cookies["corpus_guest"].value == "route-lounge"
     finally:
         await database.close()
 

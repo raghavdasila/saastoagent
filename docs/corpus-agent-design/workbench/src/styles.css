@@ -26,8 +26,8 @@
   --border: oklch(0.91 0.012 255);
   --input: oklch(0.89 0.016 255);
   --ring: oklch(0.62 0.16 255);
-  --radius: 0.7rem;
-  --sidebar: oklch(0.985 0.004 255);
+  --radius: 0.3rem;
+  --sidebar: var(--background);
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
@@ -57,7 +57,7 @@
   --border: oklch(1 0 0 / 0.13);
   --input: oklch(1 0 0 / 0.18);
   --ring: oklch(0.67 0.14 255);
-  --sidebar: oklch(0.18 0.022 260);
+  --sidebar: var(--background);
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);

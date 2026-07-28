@@ -10,7 +10,7 @@ import {
   RouteDeckSuggestedActions,
   RouteDeckSurfaceHost,
   useRouteDeckConversation,
-  useRouteDeckCurrentNode,
+  useRouteDeckConversationInputPolicy,
   useRouteDeckRuntime,
   useRouteDeckSelector,
   type RouteDeckSurfaceRegistry,
@@ -28,14 +28,6 @@ const EMPTY_LEGAL_OPERATIONS = Object.freeze([]);
 const selectSessionVersion = (state: RouteDeckClientState) => state.sessionVersion;
 const selectLegalOperations = (state: RouteDeckClientState) =>
   state.projection?.legal_operations ?? EMPTY_LEGAL_OPERATIONS;
-const CREDENTIAL_NODES = new Set([
-  "workspace.sign_in",
-  "workspace.register",
-  "workspace.forgot_password",
-  "workspace.reset_password",
-  "workspace.verify_email",
-]);
-
 export interface AgentShellProps {
   registry: RouteDeckSurfaceRegistry;
   client?: AgentChatClient;
@@ -54,7 +46,7 @@ export function AgentShell({
   const runtime = useRouteDeckRuntime();
   const sessionVersion = useRouteDeckSelector(selectSessionVersion);
   const legalOperations = useRouteDeckSelector(selectLegalOperations);
-  const currentNode = useRouteDeckCurrentNode();
+  const conversationInput = useRouteDeckConversationInputPolicy();
   const chatClient = useMemo(
     () => client ?? createRouteDeckAgentClient(),
     [client],
@@ -74,11 +66,13 @@ export function AgentShell({
         operation.operation_id === agent.review?.operation_id &&
         operation.review_required,
     );
-  const credentialSurface = currentNode !== null && CREDENTIAL_NODES.has(currentNode);
+  const conversationInputDisabled = conversationInput?.enabled === false;
   const composerDisabled =
-    conversationBootstrapPending || agent.status === "streaming" || credentialSurface;
-  const disabledReason = credentialSurface
-    ? "Chat is disabled while entering account credentials."
+    conversationBootstrapPending ||
+    agent.status === "streaming" ||
+    conversationInputDisabled;
+  const disabledReason = conversationInputDisabled
+    ? conversationInput.disabled_message ?? undefined
     : conversationBootstrapPending
       ? "Corpus is preparing the conversation."
       : undefined;
@@ -108,13 +102,15 @@ export function AgentShell({
         suggestedActions={
           <RouteDeckSuggestedActions disabled={agent.status === "streaming"} />
         }
-        activeSurface={
+      />
+      <div data-agent-surface-dock="">
+        <div data-agent-surface="">
           <RouteDeckSurfaceHost
             registry={registry}
             slots={CONVERSATION_SURFACE_SLOTS}
           />
-        }
-      />
+        </div>
+      </div>
       {!reviewIsCurrent || agent.review === null ? null : (
         <section role="status" data-agent-review-required="">
           <h2>Approval required</h2>

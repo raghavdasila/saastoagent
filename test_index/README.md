@@ -4,8 +4,8 @@
 
 | Suite | Command | Protects | Claim boundary |
 | --- | --- | --- | --- |
-| Backend framework/product suite | `.\.venv\Scripts\python.exe -m pytest backend\tests -q` | 59 tests: host/runtime/container entrypoint, owner identity, Workspace, ToolRouter provenance/adapter/settings, generic Sources lifecycle/HTTP/RouteDeck contract, API connector configuration/HTTP/engine boundary, cross-owner isolation, artifact reload, retrieval, and evalset semantics | Uses isolated persistence. Focused ToolRouter tests inject deterministic embedding/model transports to protect orchestration; the real models and real collection are proven separately below. |
-| Frontend component suite | `pnpm --dir frontend test` | 19 tests: generic shell/bootstrap, owner session context, credential/recovery surfaces, incremental Lounge greeting, composer lockout, eight live RouteDeck surfaces, and Sources upload/retrieval/evalset UI contracts | jsdom component/contract coverage, not rendered browser proof |
+| Backend framework/product suite | `.\.venv\Scripts\python.exe -m pytest backend\tests -q` | 63 tests: host/runtime/container entrypoint, owner identity and atomic replacement-route rebinding, Workspace, deterministic frontend-contract parity, ToolRouter provenance/adapter/settings, generic Sources lifecycle/HTTP/RouteDeck contract, API connector configuration/HTTP/engine boundary, cross-owner isolation, artifact reload, retrieval, and evalset semantics | Uses isolated persistence. Focused ToolRouter tests inject deterministic embedding/model transports to protect orchestration; the real models and real collection are proven separately below. |
+| Frontend component suite | `pnpm --dir frontend test` | 25 tests: generic shell/bootstrap including non-visible expired-session replacement, bottom surface/composer sibling placement, mobile application-navigation drawer, exact compiled-contract surface registry, node-declared conversation-input policy, owner session context, refresh-safe authentication continuation, credential/recovery surfaces, incremental Lounge greeting, eight live RouteDeck surfaces, and Sources upload/retrieval/evalset UI contracts | jsdom component/contract coverage, not rendered browser proof |
 | ToolRouter snapshot and adapter | `.\.venv\Scripts\python.exe -m pytest backend\tests\integrations\toolrouter -q` | Exact source hashes/no sibling import; normalization, graph/conformance/index artifacts, fresh-adapter reload, GRAG decisions/traces, model identity, resume, token ledger, quarantine, and accepted export | Algorithm fixture is isolated; injected test transports never enter product composition. Real MiniLM/Ollama behavior is a separate acceptance gate. |
 | Sources feature and API connector | `.\.venv\Scripts\python.exe -m pytest backend\tests\sources -q` | Explicit generic storage, API-owned upload settings/HTTP, compact safe paths, atomic state, connector-neutral contracts, engine delegation, upload rejection, ToolRouter bridge translation, auth/origin/cross-owner HTTP, one Sources node, and import/transport ownership boundaries | Exercises feature integration against isolated temporary roots; real browser/product proof is separate. |
 | Linked RouteDeck React recovery suite | From `D:\Dev\AI Projects\routedeck`: `pnpm --filter @routedeck/react test` | Normalized loading/ready/recovery phases, retained session-create retry, legal resync, and boundary gating | Framework proof for the linked package; Corpus remains responsible for product copy and owner-auth cleanup policy |
@@ -64,6 +64,21 @@ the host and the actual container-to-host model boundary is proven by the UI
 evalset run.
 
 ## Rendered Product Validation
+
+On 2026-07-28, the preserved browser state that previously rendered
+`Application session expired` was reloaded against rebuilt local Docker. The
+backend recorded selected-session `410`, replacement-session `201`, and the
+replacement event stream `200`. The same tab rendered the Lounge, contained
+neither the Corpus nor RouteDeck expiry message, remained stable across a
+follow-up observation, and reported no browser warning/error entries.
+
+That short follow-up missed a post-ready resynchronization loop. A sustained
+reproduction then measured 33 visible loading/Lounge transitions in six
+seconds, alongside 58 selected-session reloads, 58 SSE reconnects, and 116
+owner-auth reads in 30 seconds. After RouteDeck preserved the mounted
+application across background `resync_required`, `resyncing`, and `connecting`
+states, the rebuilt browser remained on the Lounge for 150/150 samples over 15
+seconds with zero transitions and zero warning/error console entries.
 
 On 2026-07-22, the running app was exercised at desktop size and 390x844 through:
 
@@ -132,9 +147,20 @@ The real `api-debug-v1` run completed one of one candidate, accepted one,
 quarantined zero, and recorded 2,936 offline tokens plus the exact installed
 Gemma/Qwen digests. The accepted candidate selected
 `api:listIdentitySessions`; it is a reviewed candidate, not human gold.
-Desktop and 390x844 render checks passed after the navigation row became
-horizontally scrollable. Browser warning/error logs were empty. Backend
-`/readyz` returned 200.
+The earlier 390x844 check accepted a horizontally scrollable bottom navigation
+row. That presentation is superseded: application navigation now opens from a
+header hamburger Sheet, and the Navgraph keeps its own header drawer trigger.
+Backend `/readyz` returned 200 for the historical Sources run.
+
+On 2026-07-28, the responsive shell regression passed 25 frontend tests plus
+strict typecheck and production build. Live in-app-browser checks at 390x844
+measured the independently scrolling conversation ending at y=604.5, the
+161.5px surface dock directly above the composer, and the composer ending at
+y=834 with no horizontal document overflow. The previous 74px bottom
+navigation row was absent; the unique hamburger opened a full-height 292.5px
+Workspace navigation Sheet. At 1440x900 the 240px desktop rail remained, while
+the surface dock still sat immediately above the composer. Browser warning and
+error logs were empty at both sizes.
 
 Fresh automated closeout on the same implementation produced 52 backend
 passes, 19 frontend passes, a strict TypeScript pass, a production build pass,

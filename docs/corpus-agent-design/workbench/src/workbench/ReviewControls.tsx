@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Check, RotateCcw, X } from "lucide-react"
+import { Check, RotateCcw, Trash2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
@@ -8,21 +8,24 @@ import type { DesignStory } from "@/workbench/types"
 
 interface ReviewControlsProps {
   story: DesignStory
+  canDelete: boolean
   onChange: (patch: Partial<DesignStory>, reopen?: boolean) => void
+  onDelete: () => void
 }
 
-export function ReviewControls({ story, onChange }: ReviewControlsProps) {
+export function ReviewControls({ story, canDelete, onChange, onDelete }: ReviewControlsProps) {
   const [validationError, setValidationError] = useState("")
   const [isRejecting, setIsRejecting] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   if (story.status !== "draft") {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-3 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-semibold">{story.status === "approved" ? "Approved" : "Rejected"}</p>
           {story.status === "rejected" && <p className="mt-1 text-sm text-muted-foreground">{story.rejectionReason}</p>}
         </div>
-        <Button variant="outline" onClick={() => onChange({ status: "draft", rejectionReason: "" }, true)}>
+        <Button variant="ghost" onClick={() => onChange({ status: "draft", rejectionReason: "" }, true)}>
           <RotateCcw data-icon="inline-start" /> Reopen draft
         </Button>
       </div>
@@ -38,8 +41,25 @@ export function ReviewControls({ story, onChange }: ReviewControlsProps) {
     onChange({ status: "rejected", rejectionReason: story.rejectionReason.trim() }, true)
   }
 
+  if (isDeleting) {
+    return (
+      <div role="alertdialog" aria-label="Confirm story deletion" className="flex flex-wrap items-center justify-between gap-3 border border-destructive/30 bg-destructive/5 p-3">
+        <div>
+          <p className="text-sm font-semibold">Delete &quot;{story.title}&quot;?</p>
+          <p className="mt-1 text-xs text-muted-foreground">This removes the local draft and cannot be undone.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={() => setIsDeleting(false)}>Cancel</Button>
+          <Button variant="destructive" onClick={onDelete}>
+            <Trash2 data-icon="inline-start" /> Confirm delete story
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3 shadow-sm">
+    <div className="flex flex-col gap-3">
       {isRejecting && (
         <Field data-invalid={Boolean(validationError)}>
           <FieldLabel htmlFor="rejection-reason">Why reject this story?</FieldLabel>
@@ -57,7 +77,11 @@ export function ReviewControls({ story, onChange }: ReviewControlsProps) {
           <FieldError>{validationError}</FieldError>
         </Field>
       )}
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Button variant="ghost" disabled={!canDelete} onClick={() => setIsDeleting(true)}>
+          <Trash2 data-icon="inline-start" /> Delete story
+        </Button>
+        <div className="flex gap-2">
         {isRejecting ? (
           <>
             <Button variant="ghost" onClick={() => { setIsRejecting(false); setValidationError("") }}>Cancel</Button>
@@ -75,6 +99,7 @@ export function ReviewControls({ story, onChange }: ReviewControlsProps) {
             </Button>
           </>
         )}
+        </div>
       </div>
     </div>
   )

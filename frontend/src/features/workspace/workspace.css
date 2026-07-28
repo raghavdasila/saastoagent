@@ -56,10 +56,13 @@
 .workspace-verification svg { width: 18px; height: 18px; }
 [data-composer-disabled-reason] { margin: 6px 0 0; color: var(--muted-foreground); font-size: 12px; }
 
-@media (max-width: 940px) {
+@media (min-width: 761px) and (max-width: 940px) {
   .workspace-navigation { padding-inline: 8px; }
   .workspace-navigation h2, .workspace-navigation li > div { display: none; }
   .workspace-navigation li { justify-content: center; padding-inline: 8px; }
+}
+
+@media (max-width: 940px) {
   .corpus-auth-state { display: none; }
 }
 
@@ -69,13 +72,6 @@
   .corpus-brand strong { font-size: 17px; }
   .corpus-brand small { max-width: 160px; font-size: 11px; }
   .corpus-header-controls { display: none; }
-  .workspace-navigation { display: block; overflow-x: auto; padding: 0; }
-  .workspace-navigation ul { display: flex; width: max-content; min-width: 100%; height: 100%; gap: 0; }
-  .workspace-navigation li { min-width: 0; flex: 0 0 92px; flex-direction: column; justify-content: center; gap: 2px; padding: 5px 2px; border-radius: 0; text-align: center; }
-  .workspace-navigation li > div { display: block; width: 100%; }
-  .workspace-navigation li strong { display: block; font-size: 11px; line-height: 1.15; white-space: normal; }
-  .workspace-navigation li small { display: none; }
-  .workspace-navigation li > span { width: 25px; height: 25px; }
   .workspace-lounge { display: grid; gap: 14px; padding: 15px; }
   .workspace-lounge-actions { width: 100%; }
   .workspace-lounge-actions > button { min-height: 42px; flex: 1 1 130px; }

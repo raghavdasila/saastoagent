@@ -17,26 +17,23 @@ export function MockChatEditor({ messages, disabled, onChange }: MockChatEditorP
   }
 
   return (
-    <section aria-labelledby="mock-chat-heading" className="flex flex-col gap-3">
+    <section aria-labelledby="mock-chat-heading" className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Mock chat</p>
-          <h2 id="mock-chat-heading" className="mt-1 text-base font-semibold">Conversation</h2>
-        </div>
+        <h2 id="mock-chat-heading" className="text-sm font-semibold">Mock conversation</h2>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" disabled={disabled} onClick={() => addMessage("Corpus")}>
+          <Button size="sm" variant="ghost" disabled={disabled} onClick={() => addMessage("Corpus")}>
             <Plus data-icon="inline-start" /> Corpus
           </Button>
-          <Button size="sm" variant="outline" disabled={disabled} onClick={() => addMessage("Owner")}>
+          <Button size="sm" variant="ghost" disabled={disabled} onClick={() => addMessage("Owner")}>
             <Plus data-icon="inline-start" /> Owner
           </Button>
         </div>
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col divide-y divide-border border-y border-border">
         {messages.map((message, index) => (
-          <div key={message.id} className="rounded-xl border border-border bg-card p-3">
-            <div className="mb-2 flex items-center justify-between gap-2">
+          <div key={message.id} className="py-2">
+            <div className="mb-1 flex items-center justify-between gap-2">
               <span className="text-xs font-semibold text-muted-foreground">{message.actor}</span>
               <Button
                 size="icon-xs"
@@ -52,7 +49,7 @@ export function MockChatEditor({ messages, disabled, onChange }: MockChatEditorP
               <FieldLabel className="sr-only" htmlFor={`message-${message.id}`}>{message.actor} message {index + 1}</FieldLabel>
               <Textarea
                 id={`message-${message.id}`}
-                className="min-h-20 border-0 bg-muted/50 shadow-none"
+                className="min-h-14 bg-transparent"
                 value={message.content}
                 disabled={disabled}
                 onChange={(event) => onChange(messages.map((item) => item.id === message.id ? { ...item, content: event.target.value } : item))}

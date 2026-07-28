@@ -1,10 +1,14 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { AgentChatClient } from "@routedeck/core";
-import { defineRouteDeckSurfaceRegistry } from "@routedeck/react";
-import { expect, it } from "vitest";
+import {
+  defineRouteDeckSurfaceRegistry,
+  type RouteDeckBootstrapActionRequiredState,
+} from "@routedeck/react";
+import { expect, it, vi } from "vitest";
 
 import { ApplicationShell } from "../app/ApplicationShell";
 import { BootstrapLoadingShell } from "../app/BootstrapLoadingShell";
+import { BootstrapRecoveryShell } from "../app/BootstrapRecoveryShell";
 import { loadRouteDeck } from "../app/loadRouteDeck";
 import {
   frameworkContractFixture,
@@ -17,6 +21,7 @@ const idleChatClient: AgentChatClient = Object.freeze({
 });
 const registry = defineRouteDeckSurfaceRegistry({
   "test.active": () => <section>Loaded feature surface</section>,
+  "test.detail": () => <section>Loaded detail surface</section>,
 });
 
 it("loads the server contract into the product-neutral RouteDeck host", async () => {
@@ -39,9 +44,64 @@ it("loads the server contract into the product-neutral RouteDeck host", async ()
   routeDeck.store.dispose();
 });
 
+it("opens application navigation from a mobile menu without moving the desktop navigation", async () => {
+  const contract = frameworkContractFixture();
+  const client = new TestRouteDeckClient(frameworkProjectionFixture(), contract);
+  const routeDeck = await loadRouteDeck(window, client);
+  await routeDeck.store.bootstrap();
+
+  render(
+    <ApplicationShell
+      routeDeck={routeDeck}
+      registry={registry}
+      chatClient={idleChatClient}
+      header={<strong>Injected product header</strong>}
+      navigation={<div>Workspace destinations</div>}
+    />,
+  );
+
+  expect(screen.getByRole("navigation")).toHaveTextContent("Workspace destinations");
+  const menuButton = screen.getByRole("button", { name: "Open navigation menu" });
+  fireEvent.click(menuButton);
+  const drawer = screen.getByRole("dialog", { name: "Workspace navigation" });
+  expect(within(drawer).getByText("Workspace destinations")).toBeVisible();
+
+  routeDeck.store.dispose();
+});
+
 it("keeps the loading shell generic for reuse by a fresh project", () => {
   render(<BootstrapLoadingShell />);
 
   expect(screen.getByRole("status")).toHaveTextContent("Preparing application");
   expect(screen.queryByText("Corpus")).not.toBeInTheDocument();
+});
+
+it("returns an expired session to the Lounge without rendering expiry UI", async () => {
+  const startNewSession = vi.fn(async () => undefined);
+  const fetch = vi.fn(async () => ({
+    ok: true,
+    status: 204,
+    json: async () => ({}),
+  }));
+  vi.stubGlobal("fetch", fetch);
+  const state: RouteDeckBootstrapActionRequiredState = {
+    phase: "recovery",
+    syncStatus: "error",
+    reason: "resume_expired",
+    busy: false,
+    activeAction: null,
+    error: {
+      code: "stream_session_expired",
+      message: "The RouteDeck event session has expired.",
+    },
+    actions: [{ kind: "start_new_session", run: startNewSession }],
+  };
+
+  render(<BootstrapRecoveryShell state={state} />);
+
+  expect(screen.getByRole("status")).toHaveTextContent("Preparing application");
+  expect(screen.queryByText("Application session expired")).not.toBeInTheDocument();
+  expect(screen.queryByText("The RouteDeck event session has expired.")).not.toBeInTheDocument();
+  await waitFor(() => expect(startNewSession).toHaveBeenCalledOnce());
+  expect(fetch).not.toHaveBeenCalled();
 });

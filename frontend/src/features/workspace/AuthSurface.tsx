@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ownerAuthClient } from "./authClient";
-import { useOwnerSession } from "./OwnerSessionContext";
+import { useAuthenticationContinuation } from "./useAuthenticationContinuation";
 import { useInitialFieldFocus } from "./useInitialFieldFocus";
 
 export interface AuthSurfaceProps
@@ -21,15 +21,14 @@ export function AuthSurface({ mode, dispatchAffordance }: AuthSurfaceProps) {
   const [message, setMessage] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [continuationPending, setContinuationPending] = useState(false);
-  const { setSession } = useOwnerSession();
+  const continuation = useAuthenticationContinuation(dispatchAffordance);
   const firstFieldRef = useInitialFieldFocus();
   const isRegistration = mode === "register";
 
   const submit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      if (submitting) return;
+      if (submitting || continuation.continuing) return;
       const data = new FormData(event.currentTarget);
       const email = String(data.get("email") ?? "").trim().toLowerCase();
       const password = String(data.get("password") ?? "");
@@ -47,7 +46,6 @@ export function AuthSurface({ mode, dispatchAffordance }: AuthSurfaceProps) {
       if (Object.keys(nextErrors).length > 0) return;
       setSubmitting(true);
       setMessage(null);
-      setContinuationPending(false);
       try {
         const owner = isRegistration
           ? await ownerAuthClient.register({
@@ -56,11 +54,8 @@ export function AuthSurface({ mode, dispatchAffordance }: AuthSurfaceProps) {
               ...(displayName ? { display_name: displayName } : {}),
             })
           : await ownerAuthClient.signIn({ email, password });
-        setSession(owner);
-        try {
-          await dispatchAffordance("authentication_completed", {});
-        } catch {
-          setContinuationPending(true);
+        const continued = await continuation.authenticateAndContinue(owner);
+        if (!continued) {
           setMessage(
             "Signed in. Workspace continuation failed; retry when ready.",
           );
@@ -75,20 +70,15 @@ export function AuthSurface({ mode, dispatchAffordance }: AuthSurfaceProps) {
         setSubmitting(false);
       }
     },
-    [dispatchAffordance, isRegistration, setSession, submitting],
+    [continuation, isRegistration, submitting],
   );
   const continueToWorkspace = useCallback(async () => {
-    setSubmitting(true);
     setMessage(null);
-    try {
-      await dispatchAffordance("authentication_completed", {});
-      setContinuationPending(false);
-    } catch {
+    const continued = await continuation.continueToWorkspace();
+    if (!continued) {
       setMessage("Signed in. Workspace continuation failed; retry when ready.");
-    } finally {
-      setSubmitting(false);
     }
-  }, [dispatchAffordance]);
+  }, [continuation]);
   const returnToLounge = useCallback(async () => {
     setMessage(null);
     try {
@@ -109,6 +99,50 @@ export function AuthSurface({ mode, dispatchAffordance }: AuthSurfaceProps) {
       setMessage(caught instanceof Error ? caught.message : "Password reset could not be opened.");
     }
   }, [dispatchAffordance]);
+
+  if (continuation.sessionLoading) {
+    return (
+      <section className="workspace-auth" aria-labelledby="workspace-auth-title">
+        <header>
+          <p>Corpus account</p>
+          <h1 id="workspace-auth-title">Checking session</h1>
+          <span>Corpus is checking whether this browser is already signed in.</span>
+        </header>
+        <p role="status">Checking authentication…</p>
+      </section>
+    );
+  }
+
+  if (continuation.continuationRequired || continuation.continuationCompleted) {
+    return (
+      <section className="workspace-auth" aria-labelledby="workspace-auth-title">
+        <header>
+          <p>Corpus account</p>
+          <h1 id="workspace-auth-title">
+            {continuation.continuationCompleted
+              ? "Opening workspace"
+              : "Continue to workspace"}
+          </h1>
+          <span>Your Corpus session is authenticated. No credentials are needed.</span>
+        </header>
+        {continuation.continuationRequired ? (
+          <div className="workspace-auth-actions">
+            <Button
+              type="button"
+              size="lg"
+              disabled={continuation.continuing}
+              onClick={() => void continueToWorkspace()}
+            >
+              {continuation.continuing ? "Continuing…" : "Continue to Workspace"}
+            </Button>
+          </div>
+        ) : (
+          <p role="status">Workspace continuation completed.</p>
+        )}
+        {message === null ? null : <p role="alert">{message}</p>}
+      </section>
+    );
+  }
 
   return (
     <section className="workspace-auth" aria-labelledby="workspace-auth-title">
@@ -155,11 +189,6 @@ export function AuthSurface({ mode, dispatchAffordance }: AuthSurfaceProps) {
           <Button type="submit" size="lg" disabled={submitting}>
             {submitting ? "Working…" : isRegistration ? "Create account" : "Sign in"}
           </Button>
-          {continuationPending ? (
-            <Button type="button" size="lg" disabled={submitting} onClick={() => void continueToWorkspace()}>
-              Retry Workspace continuation
-            </Button>
-          ) : null}
           {!isRegistration ? (
             <Button type="button" size="lg" variant="ghost" disabled={submitting} onClick={() => void openForgotPassword()}>
               Forgot password

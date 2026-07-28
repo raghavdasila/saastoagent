@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event"
 
 import App from "@/App"
 import { createSeedState } from "@/workbench/seed"
-import { LEGACY_STORAGE_KEY, STORAGE_KEY, V2_STORAGE_KEY } from "@/workbench/storage"
+import { resolveInlineSurfaceHeight } from "@/workbench/SurfacePreview"
+import { LEGACY_STORAGE_KEY, STORAGE_KEY, V2_STORAGE_KEY, V3_STORAGE_KEY, V4_STORAGE_KEY } from "@/workbench/storage"
 import { THEME_STORAGE_KEY } from "@/workbench/theme"
 
 describe("Slice 1 design workbench", () => {
@@ -18,10 +19,16 @@ describe("Slice 1 design workbench", () => {
     expect(screen.getByRole("heading", { name: "Create a draft agent" })).toBeInTheDocument()
   })
 
-  it("uses a compact title and user-story editor", () => {
+  it("keeps user and agent intent distinct from the user story", () => {
     render(<App />)
 
     expect(screen.getByLabelText("Title")).toBeInTheDocument()
+    expect(screen.getByLabelText("User intent")).toHaveValue(
+      "Return to my private Workspace and understand its current state.",
+    )
+    expect(screen.getByLabelText("Agent intent")).toHaveValue(
+      "Establish the authenticated owner's Workspace as the active context and provide a truthful orientation with valid next choices.",
+    )
     expect(screen.getByLabelText("User story")).toBeInTheDocument()
     expect(screen.queryByLabelText("Situation")).not.toBeInTheDocument()
     expect(screen.queryByLabelText("Expected behavior")).not.toBeInTheDocument()
@@ -34,9 +41,26 @@ describe("Slice 1 design workbench", () => {
     await user.click(screen.getByRole("button", { name: "Add story" }))
 
     expect(screen.getByRole("heading", { name: "New user story" })).toBeInTheDocument()
+    expect(screen.getByLabelText("User intent")).toHaveValue("")
+    expect(screen.getByLabelText("Agent intent")).toHaveValue("")
     expect(screen.getByLabelText("User story")).toHaveValue("")
     expect(screen.getByRole("button", { name: "Workspace 9" })).toBeInTheDocument()
     expect(localStorage.getItem(STORAGE_KEY)).toContain("New user story")
+  })
+
+  it("deletes a draft story only after explicit confirmation", async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole("button", { name: "Add story" }))
+    await user.click(screen.getByRole("button", { name: "Delete story" }))
+
+    expect(screen.getByText('Delete "New user story"?')).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Confirm delete story" }))
+
+    expect(screen.queryByRole("heading", { name: "New user story" })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Workspace 8" })).toBeInTheDocument()
+    expect(localStorage.getItem(STORAGE_KEY)).not.toContain("New user story")
   })
 
   it("returns a reviewed story to draft when it is reopened and edited", async () => {
@@ -70,12 +94,29 @@ describe("Slice 1 design workbench", () => {
     expect(screen.getByText("The entry point is unclear.")).toBeInTheDocument()
   })
 
-  it("renders the mock surface in a no-permissions sandbox", () => {
+  it("keeps actions separate from optional inline surfaces", () => {
     render(<App />)
 
-    const frame = screen.getByTitle("Mock surface: Enter the workspace")
-    expect(frame).toHaveAttribute("src", "/mock-surfaces/workspace/enter-workspace.html")
-    expect(frame).toHaveAttribute("sandbox", "")
+    expect(screen.getByText("No inline surface")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Create an agent" })).toBeInTheDocument()
+    expect(screen.queryByTitle("Mock surface: Enter the workspace")).not.toBeInTheDocument()
+    expect(screen.getByText("Message Corpus...")).toBeInTheDocument()
+  })
+
+  it("renders a structured mock surface inline with only height-reporting scripts allowed", async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole("button", { name: "Create an owner account" }))
+    const frame = screen.getByTitle("Mock surface: Create an owner account")
+    expect(frame).toHaveAttribute("src", "/mock-surfaces/workspace/authentication.html#register")
+    expect(frame).toHaveAttribute("sandbox", "allow-scripts")
+    expect(frame.getAttribute("sandbox")).not.toContain("allow-same-origin")
+  })
+
+  it("grows a surface to its content and caps it at half the chat height", () => {
+    expect(resolveInlineSurfaceHeight(180, 640)).toBe(180)
+    expect(resolveInlineSurfaceHeight(900, 640)).toBe(320)
   })
 
   it("seeds the proven owner authentication behaviors as approved Workspace stories", async () => {
@@ -85,6 +126,7 @@ describe("Slice 1 design workbench", () => {
 
     expect(authenticationStories).toHaveLength(7)
     expect(authenticationStories.every((story) => story.status === "approved")).toBe(true)
+    expect(authenticationStories.every((story) => story.userIntent.trim() && story.agentIntent.trim())).toBe(true)
     expect(authenticationStories.every((story) => story.mockSurfacePath?.startsWith("/mock-surfaces/workspace/authentication.html#"))).toBe(true)
 
     render(<App />)
@@ -107,7 +149,8 @@ describe("Slice 1 design workbench", () => {
 
     expect(document.documentElement).toHaveClass("dark")
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark")
-    expect(screen.getByTitle("Mock surface: Enter the workspace")).toHaveStyle({ colorScheme: "dark" })
+    await user.click(screen.getByRole("button", { name: "Create an owner account" }))
+    expect(screen.getByTitle("Mock surface: Create an owner account")).toHaveStyle({ colorScheme: "dark" })
     expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeInTheDocument()
   })
 
@@ -116,10 +159,14 @@ describe("Slice 1 design workbench", () => {
     render(<App />)
 
     const story = screen.getByLabelText("User story")
+    const userIntent = screen.getByLabelText("User intent")
+    await user.clear(userIntent)
+    await user.type(userIntent, "Understand where I am before choosing a next step.")
     await user.clear(story)
     await user.type(story, "As an owner, I want one clear next step.")
 
     const stored = localStorage.getItem(STORAGE_KEY)
+    expect(stored).toContain("Understand where I am before choosing a next step.")
     expect(stored).toContain("As an owner, I want one clear next step.")
   })
 
@@ -169,7 +216,49 @@ describe("Slice 1 design workbench", () => {
     expect(localStorage.getItem(STORAGE_KEY)).toContain("owner-auth-register")
   })
 
-  it.each(["not-json", JSON.stringify({ version: 3, features: [] })])("shows a blocking recovery state for invalid saved data", (saved) => {
+  it("migrates version 3 review text while separating actions from surfaces", () => {
+    const current = createSeedState()
+    localStorage.setItem(V3_STORAGE_KEY, JSON.stringify({
+      version: 3,
+      features: current.features.map((feature) => ({
+        ...feature,
+        stories: feature.stories.map(({ actions: _actions, ...story }) => story.id === "enter-workspace"
+          ? { ...story, story: "My reviewed Workspace entry.", mockSurfacePath: "/mock-surfaces/workspace/enter-workspace.html" }
+          : story),
+      })),
+    }))
+
+    render(<App />)
+
+    expect(screen.getByLabelText("User story")).toHaveValue("My reviewed Workspace entry.")
+    expect(screen.getByText("No inline surface")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Create an agent" })).toBeInTheDocument()
+    expect(localStorage.getItem(STORAGE_KEY)).toContain('"version":6')
+  })
+
+  it("migrates version 4 edits and adds intent guidance without discarding text", () => {
+    const current = createSeedState()
+    localStorage.setItem(V4_STORAGE_KEY, JSON.stringify({
+      version: 4,
+      features: current.features.map((feature) => ({
+        ...feature,
+        stories: feature.stories.map(({ userIntent: _userIntent, agentIntent: _agentIntent, ...story }) => story.id === "enter-workspace"
+          ? { ...story, story: "My version 4 Workspace entry." }
+          : story),
+      })),
+    }))
+
+    render(<App />)
+
+    expect(screen.getByLabelText("User story")).toHaveValue("My version 4 Workspace entry.")
+    expect(screen.getByLabelText("User intent")).toHaveValue(
+      "Return to my private Workspace and understand its current state.",
+    )
+    expect(screen.getByLabelText("Agent intent")).not.toHaveValue("")
+    expect(localStorage.getItem(STORAGE_KEY)).toContain('"version":6')
+  })
+
+  it.each(["not-json", JSON.stringify({ version: 6, features: [] })])("shows a blocking recovery state for invalid saved data", (saved) => {
     localStorage.setItem(STORAGE_KEY, saved)
     render(<App />)
 

@@ -144,7 +144,40 @@ it("keeps authentication valid when Workspace continuation fails and offers retr
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Signed in. Workspace continuation failed",
   );
-  expect(screen.getByRole("button", { name: "Retry Workspace continuation" })).toBeEnabled();
+  expect(screen.queryByLabelText("Email")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Continue to Workspace" })).toBeEnabled();
+});
+
+
+it("recovers an authenticated session with one explicit continuation and no credential replay", async () => {
+  const dispatchAffordance = vi.fn(async () => dispatchResult());
+  const fetch = vi.fn();
+  vi.stubGlobal("fetch", fetch);
+  render(
+    <OwnerSessionProvider initialSession={ownerSession()} loadSession={false}>
+      <SignInSurface
+        {...surfaceProps(
+          "workspace.sign_in",
+          [
+            { id: "return_to_lounge", operationId: "workspace.return_to_lounge" },
+            { id: "open_forgot_password", operationId: "workspace.open_forgot_password" },
+            { id: "authentication_completed", operationId: "workspace.authentication_completed" },
+          ],
+          dispatchAffordance,
+        )}
+      />
+    </OwnerSessionProvider>,
+  );
+
+  expect(screen.queryByLabelText("Email")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
+  expect(dispatchAffordance).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Continue to Workspace" }));
+
+  await waitFor(() =>
+    expect(dispatchAffordance).toHaveBeenCalledWith("authentication_completed", {}),
+  );
+  expect(fetch).not.toHaveBeenCalled();
 });
 
 

@@ -11,3 +11,12 @@
 - 2026-07-28 - Recorded authentication-continuation recovery as GitHub issue `raghavdasila/saastoagent#1`; projected conversation-input policy and compiled-contract registry enforcement remain proposals only.
 - 2026-07-28 - Committed the current Corpus design skill and workbench as `5ce8929`; no new behavior implementation or RouteDeck extraction was authorized.
 - 2026-07-28 - Next design step is to resume the draft Workspace behavior `Enter the workspace`, review one atomic behavior at a time, and move to Agents only after Workspace behavior is accepted.
+- 2026-07-28 - Enforced exact agreement between the compiled Corpus surface contract and the product React registry at build time and RouteDeck render startup.
+- 2026-07-28 - Moved credential-node chat availability into RouteDeck's typed node contract while keeping the disabled message and node choices Corpus-owned.
+- 2026-07-28 - Added refresh-safe Corpus authentication continuation that reuses the declared RouteDeck affordance without storing credentials or automatically retrying.
+- 2026-07-28 - Removed the user-visible expired-session dead end: RouteDeck now transfers created-session binding to the host, and Corpus preserves valid owner auth or falls back to a guest Lounge.
+- 2026-07-28 - Added lightweight user-intent and agent-intent guidance to every current workbench story while keeping both product-owned and outside RouteDeck runtime contracts.
+- 2026-07-28 - Flattened and compacted the design workbench with structural dividers, restrained corners, reduced padding, and fewer nested visual layers; mock product surfaces retain their own visual language.
+- 2026-07-28 - Reworked the feature and story rail with compact typography, smaller status marks, a one-line Stories/Add header, subtle feature selection, and left-edge-only story selection.
+- 2026-07-28 - Flattened the workbench control system: square 13px buttons and fields, compact command-style utility actions, fixed initial textarea heights, and internal scrolling instead of content-driven expansion.
+- 2026-07-28 - Corrected RouteDeck's post-ready bootstrap boundary so background projection synchronization no longer remounts Corpus or restarts owner/conversation effects.

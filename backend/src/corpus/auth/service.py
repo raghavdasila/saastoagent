@@ -228,7 +228,7 @@ class AuthService:
                 claim = await session.scalar(
                     select(OwnerRouteClaim)
                     .where(OwnerRouteClaim.user_id == user.id)
-                    .order_by(OwnerRouteClaim.claimed_at)
+                    .order_by(OwnerRouteClaim.claimed_at.desc())
                 )
                 state = "resumed"
                 if claim is None:
@@ -307,6 +307,74 @@ class AuthService:
                     user_id=user.id,
                     route_session_id=route_session_id,
                 )
+
+    async def replace_browser_route(
+        self,
+        *,
+        auth_token: str,
+        owner_route_handle: str,
+        replacement_route_session_id: str,
+    ) -> None:
+        if (
+            not replacement_route_session_id
+            or len(replacement_route_session_id) > 512
+        ):
+            raise ValueError("The replacement route session ID is invalid.")
+        now = datetime.now(UTC)
+        async with self.database.session() as session:
+            async with session.begin():
+                auth_session = await session.scalar(
+                    select(AuthSession).where(
+                        AuthSession.token_hash == _hash(auth_token)
+                    )
+                )
+                if auth_session is None or not _session_is_active(
+                    auth_session,
+                    now=now,
+                    idle_timeout=self.idle_lifetime,
+                ):
+                    if auth_session is not None and auth_session.revoked_at is None:
+                        await self._revoke_auth_session(session, auth_session.id, now)
+                    raise SessionUnavailable("The owner session is unavailable.")
+                handle = await session.scalar(
+                    select(OwnerRouteHandle).where(
+                        OwnerRouteHandle.token_hash == _hash(owner_route_handle),
+                        OwnerRouteHandle.auth_session_id == auth_session.id,
+                        OwnerRouteHandle.revoked_at.is_(None),
+                    )
+                )
+                if handle is None:
+                    raise SessionUnavailable("The owner session is unavailable.")
+                current_claim = await session.get(
+                    OwnerRouteClaim,
+                    handle.route_session_id,
+                )
+                if (
+                    current_claim is None
+                    or current_claim.user_id != auth_session.user_id
+                ):
+                    raise SessionUnavailable("The owner session is unavailable.")
+                replacement_claim = await session.get(
+                    OwnerRouteClaim,
+                    replacement_route_session_id,
+                )
+                if replacement_claim is None:
+                    session.add(
+                        OwnerRouteClaim(
+                            route_session_id=replacement_route_session_id,
+                            user_id=current_claim.user_id,
+                            organization_id=current_claim.organization_id,
+                            claimed_at=now,
+                        )
+                    )
+                elif (
+                    replacement_claim.user_id != current_claim.user_id
+                    or replacement_claim.organization_id
+                    != current_claim.organization_id
+                ):
+                    raise SessionUnavailable("The owner session is unavailable.")
+                handle.route_session_id = replacement_route_session_id
+                auth_session.last_seen_at = now
 
     async def is_route_claimed(self, route_session_id: str) -> bool:
         async with self.database.session() as session:

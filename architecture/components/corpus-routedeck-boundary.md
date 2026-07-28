@@ -55,12 +55,35 @@ revocation, and ownership claims stay in `corpus.auth`.
   adapter, and HTTP never exposes engine paths.
 - The frontend consumes the RouteDeck frontend contract and dispatches only
   declared surface affordances.
+- The compiled frontend contract is exported deterministically to
+  `frontend/src/routedeck/corpus-frontend-contract.generated.json`. Backend
+  tests prove that artifact matches `compile_corpus_app()`, and frontend tests
+  plus `RouteDeckSurfaceHost` require the product registry to contain exactly
+  the compiled component set, including no stale extra components.
+- Workspace credential nodes declare RouteDeck's typed
+  `conversation_input` policy. RouteDeck projects and resolves that static
+  node contract; Corpus chooses which nodes disable chat and owns the
+  owner-visible disabled message.
+- After Corpus establishes an owner session, the authentication surface
+  immediately dispatches its declared `authentication_completed` affordance.
+  If that transfer fails or a reload restores the owner session while the
+  RouteDeck node is still sign-in/registration, Corpus hides credential fields
+  and offers one explicit continuation action. It never automatically retries
+  the transition or resubmits credentials.
 - `RouteDeckBootstrapBoundary` and its normalized recovery state own bootstrap
   startup, retained-request legality, recovery phase selection, and transition
   back to the live application. Corpus renders product copy and invokes only
-  the actions RouteDeck exposes. Before `start_new_session`, Corpus revokes the
-  current browser auth session and owner-route handle so replacement state is
-  a genuinely anonymous guest Lounge.
+  the actions RouteDeck exposes. Normal missing/expired-session recovery stays
+  behind the Corpus loading shell and automatically invokes the legal
+  `start_new_session` action. When RouteDeck creates the replacement it passes
+  the originating request to the host selector: valid Corpus auth atomically
+  rebinds the existing opaque owner handle, while missing or invalid auth clears
+  stale owner cookies and binds the replacement as a guest. Corpus never
+  exposes a raw RouteDeck ID or an expired-session screen.
+- After the boundary first reaches ready, RouteDeck keeps Corpus mounted during
+  background projection resync/reconnect. Corpus providers and initial
+  conversation effects therefore retain their lifecycle instead of restarting
+  on every canonical event.
 - Corpus captures verification/reset URL fragments before RouteDeck bootstrap;
   RouteDeck remains responsible for route/history synchronization afterward.
 - Lounge greeting execution remains a real RouteDeck conversation turn, but
@@ -68,9 +91,17 @@ revocation, and ownership claims stay in `corpus.auth`.
   typed accumulated progress after every validated assistant delta. Corpus
   does not inspect raw stream events or reproduce durable coordination.
   Credential/token nodes do not initiate that Lounge-only greeting.
+- Projected active/review surfaces render in a bounded dock immediately above
+  the composer and outside the independently scrolling conversation history.
+  The surface remains present near the input without being reordered to the
+  top of the chat.
+- The generic application navigation remains a left rail on desktop and moves
+  into a left-side shadcn Sheet opened by the header hamburger on mobile. The
+  mobile main grid retains the full viewport remainder so the surface and
+  composer stay docked at the bottom rather than rising above an empty track.
 - The generic shell renders RouteDeck's Navgraph in an expandable docked rail
-  on desktop and a shadcn Sheet on mobile; neither presentation owns or copies
-  navigation state.
+  on desktop and a separate header-triggered shadcn Sheet on mobile; neither
+  presentation owns or copies navigation state.
 - The model adapter uses the native `langchain-ollama` integration; readiness
   verifies the exact configured model through the official Ollama Python SDK.
 
@@ -135,8 +166,11 @@ service.
 - `pnpm --dir frontend test`, `typecheck`, and `build` protect the generic shell,
   owner session context, credential UX, pre-bootstrap fragment capture/removal,
   non-blocking incremental greeting bootstrap, composer lockout, surface
-  registration, continuation behavior, and the Sources debug interaction
+  registration, continuation behavior, surface/composer sibling placement,
+  mobile application-navigation drawer, and the Sources debug interaction
   contract.
+- `.\.venv\Scripts\python.exe scripts\export_frontend_contract.py --check`
+  verifies the checked-in Corpus frontend contract without rewriting it.
 - `backend/tests/integrations/toolrouter/**` and `backend/tests/sources/**`
   protect exact snapshot provenance, adapter ingestion/reload/retrieval/evalset
   behavior, connector neutrality, source lifecycle, tenancy, HTTP, and the
@@ -148,7 +182,8 @@ service.
   session, assistant-initiated turn, real Ollama user turn, SSE completion, and
   durable conversation history.
 - Desktop and mobile browser checks cover the rendered shell, real chat,
-  registration navigation/failure, return transition, and live Navgraph.
+  bottom surface/composer dock, hamburger navigation drawer, registration
+  navigation/failure, return transition, and live Navgraph.
 
 ## Invariants
 

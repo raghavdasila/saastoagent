@@ -116,6 +116,7 @@ button, input, textarea { font: inherit; }
   border-bottom: 1px solid var(--border);
   background: var(--background);
 }
+[data-application-navigation-mobile] { display: none; }
 
 [data-application-layout] { display: grid; grid-template-columns: 240px minmax(0, 1fr) auto; min-height: 0; overflow: hidden; }
 [data-application-navigation] { min-width: 0; overflow: hidden; border-right: 1px solid var(--border); background: var(--sidebar); }
@@ -123,7 +124,7 @@ button, input, textarea { font: inherit; }
 [data-application-main-header] { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 18px 30px 12px; }
 [data-application-main-header] h1 { margin: 0; font-size: 18px; line-height: 1.25; letter-spacing: -0.02em; }
 [data-application-main-header] p { margin: 3px 0 0; color: var(--muted-foreground); font-size: 13px; }
-[data-agent-shell] { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0; padding: 0 30px 20px; }
+[data-agent-shell] { display: grid; grid-template-rows: minmax(0, 1fr) auto auto; min-width: 0; min-height: 0; padding: 0 30px 20px; }
 [data-agent-conversation] { min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; border-top: 1px solid var(--border); scrollbar-gutter: stable; }
 [data-agent-conversation] > ol { display: flex; width: min(820px, 100%); min-width: 0; flex-direction: column; gap: 24px; padding: 24px 4px 40px; margin: 0 auto; list-style: none; }
 [data-agent-turn] { display: grid; width: 100%; min-width: 0; gap: 10px; }
@@ -170,7 +171,8 @@ button, input, textarea { font: inherit; }
 }
 [data-routedeck-suggested-actions] button:hover:not(:disabled) { border-color: color-mix(in oklch, var(--primary) 35%, var(--border)); color: var(--primary); background: var(--accent); }
 
-[data-agent-experience] { order: -1; min-width: 0; }
+[data-agent-surface-dock] { width: min(860px, 100%); max-height: min(46dvh, 520px); min-width: 0; overflow-x: hidden; overflow-y: auto; margin: 0 auto; padding-top: 10px; background: linear-gradient(to bottom, transparent, var(--background) 18%); overscroll-behavior: contain; scrollbar-gutter: stable; }
+[data-agent-surface-dock]:not(:has([data-routedeck-surface])) { display: none; }
 [data-agent-surface], [data-routedeck-surface-host], [data-routedeck-surface] { min-width: 0; }
 [data-routedeck-surface-host] { display: grid; gap: 16px; }
 [data-routedeck-surface] { border: 0; }
@@ -219,13 +221,16 @@ button, input, textarea { font: inherit; }
 @media (max-width: 760px) {
   [data-routedeck-application] { grid-template-rows: 70px minmax(0, 1fr); }
   [data-application-header] { padding: 0 14px; }
-  [data-application-layout] { grid-template-columns: minmax(0, 1fr) 82px; grid-template-rows: minmax(0, 1fr) 74px; }
-  [data-application-main] { grid-column: 1 / -1; grid-row: 1; }
+  [data-application-layout] { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+  [data-application-main] { grid-column: 1; grid-row: 1; grid-template-rows: minmax(0, 1fr); }
   [data-application-main-header] { display: none; }
-  [data-application-navigation] { grid-column: 1; grid-row: 2; border-top: 1px solid var(--border); border-right: 0; }
-  [data-navgraph-sidebar], [data-navgraph-sidebar][data-expanded="true"] { width: auto; grid-column: 2; grid-row: 2; border-top: 1px solid var(--border); border-left: 1px solid var(--border); transition: none; }
+  [data-application-navigation] { display: none; }
+  [data-application-navigation-mobile] { display: flex; flex: 0 0 auto; }
+  [data-application-navigation-drawer] { min-height: 0; overflow-y: auto; }
+  [data-navgraph-sidebar], [data-navgraph-sidebar][data-expanded="true"] { position: fixed; z-index: 20; top: 13px; right: 62px; width: 44px; height: 44px; overflow: visible; border: 0; border-radius: var(--radius); background: var(--background); transition: none; }
   [data-navgraph-docked] { display: none; }
   [data-navgraph-mobile] { display: block; }
+  [data-navgraph-mobile] > button > span { display: none; }
   [data-agent-shell] { padding: 0 12px 10px; }
   [data-agent-conversation] { border-top: 0; scrollbar-gutter: auto; }
   [data-agent-conversation] > ol { gap: 22px; padding: 18px 1px 30px; }
@@ -235,6 +240,7 @@ button, input, textarea { font: inherit; }
   [data-agent-quick-actions] { overflow-x: auto; padding-bottom: 3px; margin-left: 2px; }
   [data-routedeck-suggested-actions] > [role="group"] { width: max-content; max-width: none; flex-wrap: nowrap; }
   [data-routedeck-suggested-actions] button { width: min(210px, 66vw); min-height: 44px; }
+  [data-agent-surface-dock] { max-height: 42dvh; padding-top: 8px; scrollbar-gutter: auto; }
   [data-agent-input-dock] { padding-top: 8px; }
   [data-agent-composer] { gap: 7px; padding: 7px; border-radius: 13px; }
   [data-agent-composer] > textarea { min-height: 44px; }

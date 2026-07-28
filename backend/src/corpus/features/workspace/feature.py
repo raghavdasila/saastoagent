@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from routedeck_core.app import Feature
 from routedeck_core.contracts.application import Capability, Node
+from routedeck_core.contracts.conversation import ConversationInputPolicy
 from routedeck_core.contracts.navigation import (
     DeepLinkPolicy,
     NodeKind,
@@ -37,6 +38,11 @@ from .declarations import (
     VERIFY_EMAIL_REF,
 )
 
+
+CREDENTIAL_CONVERSATION_INPUT = ConversationInputPolicy(
+    enabled=False,
+    disabled_message="Chat is disabled while entering account credentials.",
+)
 
 LOUNGE_SURFACE = Surface(
     id="workspace.lounge",
@@ -216,6 +222,7 @@ SIGN_IN_NODE = Node(
     parent=LOUNGE_REF,
     route=Route(template="/sign-in", deep_link_policy=DeepLinkPolicy.SHAREABLE),
     context_providers=(OWNER_CONTEXT_PROVIDER,),
+    conversation_input=CREDENTIAL_CONVERSATION_INPUT,
     operations=(RETURN_TO_LOUNGE, OPEN_FORGOT_PASSWORD, AUTHENTICATION_COMPLETED),
     outgoing=(
         Transition(
@@ -244,6 +251,7 @@ REGISTER_NODE = Node(
     parent=LOUNGE_REF,
     route=Route(template="/register", deep_link_policy=DeepLinkPolicy.SHAREABLE),
     context_providers=(OWNER_CONTEXT_PROVIDER,),
+    conversation_input=CREDENTIAL_CONVERSATION_INPUT,
     operations=(RETURN_TO_LOUNGE, AUTHENTICATION_COMPLETED),
     outgoing=(
         Transition(
@@ -266,6 +274,7 @@ FORGOT_PASSWORD_NODE = Node(
     kind=NodeKind.SECTION,
     parent=LOUNGE_REF,
     route=Route(template="/forgot-password", deep_link_policy=DeepLinkPolicy.SHAREABLE),
+    conversation_input=CREDENTIAL_CONVERSATION_INPUT,
     operations=(RETURN_TO_LOUNGE,),
     outgoing=(
         Transition(operation=RETURN_TO_LOUNGE.ref, outcome="opened", target=LOUNGE_REF),
@@ -279,6 +288,7 @@ RESET_PASSWORD_NODE = Node(
     kind=NodeKind.SECTION,
     parent=LOUNGE_REF,
     route=Route(template="/reset-password", deep_link_policy=DeepLinkPolicy.SHAREABLE),
+    conversation_input=CREDENTIAL_CONVERSATION_INPUT,
     operations=(RETURN_TO_LOUNGE,),
     outgoing=(
         Transition(operation=RETURN_TO_LOUNGE.ref, outcome="opened", target=LOUNGE_REF),
@@ -292,6 +302,7 @@ VERIFY_EMAIL_NODE = Node(
     kind=NodeKind.SECTION,
     parent=LOUNGE_REF,
     route=Route(template="/verify", deep_link_policy=DeepLinkPolicy.SHAREABLE),
+    conversation_input=CREDENTIAL_CONVERSATION_INPUT,
     operations=(RETURN_TO_LOUNGE,),
     outgoing=(
         Transition(operation=RETURN_TO_LOUNGE.ref, outcome="opened", target=LOUNGE_REF),

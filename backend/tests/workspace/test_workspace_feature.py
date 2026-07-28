@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 from routedeck_core.contracts.operations import DeliveryPhase
 from routedeck_core.contracts.session import SessionSnapshot
@@ -48,6 +51,21 @@ def test_composition_selects_workspace_and_sources_and_enters_the_lounge() -> No
     }
 
 
+def test_checked_in_frontend_contract_matches_compiled_product_contract() -> None:
+    repository_root = Path(__file__).resolve().parents[3]
+    checked_in = json.loads(
+        (
+            repository_root
+            / "frontend"
+            / "src"
+            / "routedeck"
+            / "corpus-frontend-contract.generated.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert checked_in == compile_corpus_app().frontend_contract.model_dump(mode="json")
+
+
 def test_workspace_owns_navigation_operations_transitions_and_surfaces() -> None:
     contract = compile_corpus_app().frontend_contract
 
@@ -60,6 +78,19 @@ def test_workspace_owns_navigation_operations_transitions_and_surfaces() -> None
     assert contract.nodes["workspace.lounge"].surfaces.active == "workspace.lounge"
     assert contract.nodes["workspace.sign_in"].surfaces.active == "workspace.sign_in"
     assert contract.nodes["workspace.register"].surfaces.active == "workspace.register"
+    for node_id in (
+        "workspace.sign_in",
+        "workspace.register",
+        "workspace.forgot_password",
+        "workspace.reset_password",
+        "workspace.verify_email",
+    ):
+        policy = contract.nodes[node_id].conversation_input
+        assert policy.enabled is False
+        assert policy.disabled_message == (
+            "Chat is disabled while entering account credentials."
+        )
+    assert contract.nodes["workspace.home"].conversation_input.enabled is True
     assert contract.nodes["sources.home"].surfaces.active == "sources.debug"
     assert set(contract.nodes["workspace.home"].operation_ids) == {
         "workspace.open_sources"

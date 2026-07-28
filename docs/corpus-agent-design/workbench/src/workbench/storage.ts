@@ -1,9 +1,17 @@
 import { createSeedState } from "@/workbench/seed"
-import type { WorkbenchState } from "@/workbench/types"
+import type { DesignStory, WorkbenchState } from "@/workbench/types"
 
-export const STORAGE_KEY = "corpus.feature-design-workbench.v3"
+export const STORAGE_KEY = "corpus.feature-design-workbench.v6"
+const UNUSED_V5_STORAGE_KEY = "corpus.feature-design-workbench.v5"
+export const V4_STORAGE_KEY = "corpus.feature-design-workbench.v4"
+export const V3_STORAGE_KEY = "corpus.feature-design-workbench.v3"
 export const V2_STORAGE_KEY = "corpus.feature-design-workbench.v2"
 export const LEGACY_STORAGE_KEY = "corpus.feature-design-workbench.v1"
+
+type PreIntentStory = Omit<DesignStory, "userIntent" | "agentIntent">
+type PreIntentFeature = { id: string; name: string; stories: PreIntentStory[] }
+type PreActionStory = Omit<PreIntentStory, "actions">
+type PreActionFeature = { id: string; name: string; stories: PreActionStory[] }
 
 export type LoadResult =
   | { ok: true; state: WorkbenchState; source: "saved" | "seed" | "migrated" }
@@ -16,9 +24,9 @@ interface LegacyStory {
   userNeed: string
   expectedBehavior: string
   outcome: string
-  messages: WorkbenchState["features"][number]["stories"][number]["messages"]
+  messages: PreActionStory["messages"]
   mockSurfacePath: string | null
-  status: WorkbenchState["features"][number]["stories"][number]["status"]
+  status: PreActionStory["status"]
   rejectionReason: string
 }
 
@@ -29,10 +37,20 @@ interface LegacyState {
 
 interface V2State {
   version: 2
-  features: WorkbenchState["features"]
+  features: PreActionFeature[]
 }
 
-function hasValidFeatures(candidate: { features?: unknown }): candidate is { features: WorkbenchState["features"] } {
+interface V3State {
+  version: 3
+  features: PreActionFeature[]
+}
+
+interface V4State {
+  version: 4
+  features: PreIntentFeature[]
+}
+
+function hasValidBaseFeatures(candidate: { features?: unknown }): boolean {
   if (!Array.isArray(candidate.features) || candidate.features.length === 0) return false
 
   return candidate.features.every((feature: unknown) => {
@@ -70,16 +88,54 @@ function hasValidFeatures(candidate: { features?: unknown }): candidate is { fea
   })
 }
 
+function hasValidActionFeatures(candidate: { features?: unknown }): boolean {
+  if (!hasValidBaseFeatures(candidate) || !Array.isArray(candidate.features)) return false
+  return candidate.features.every((feature) => {
+    const stories = (feature as Record<string, unknown>).stories
+    return Array.isArray(stories) && stories.every((story) => {
+      const actions = (story as Record<string, unknown>).actions
+      return Array.isArray(actions) && actions.every((action) => {
+        if (!action || typeof action !== "object") return false
+        const actionCandidate = action as Record<string, unknown>
+        return typeof actionCandidate.id === "string" && typeof actionCandidate.label === "string"
+      })
+    })
+  })
+}
+
+function hasValidFeatures(candidate: { features?: unknown }): candidate is { features: WorkbenchState["features"] } {
+  if (!hasValidActionFeatures(candidate) || !Array.isArray(candidate.features)) return false
+  return candidate.features.every((feature) => {
+    const stories = (feature as Record<string, unknown>).stories
+    return Array.isArray(stories) && stories.every((story) => {
+      const storyCandidate = story as Record<string, unknown>
+      return typeof storyCandidate.userIntent === "string" && typeof storyCandidate.agentIntent === "string"
+    })
+  })
+}
+
 function isWorkbenchState(value: unknown): value is WorkbenchState {
   if (!value || typeof value !== "object") return false
   const candidate = value as Partial<WorkbenchState>
-  return candidate.version === 3 && hasValidFeatures(candidate)
+  return candidate.version === 6 && hasValidFeatures(candidate)
+}
+
+function isV4State(value: unknown): value is V4State {
+  if (!value || typeof value !== "object") return false
+  const candidate = value as Partial<V4State>
+  return candidate.version === 4 && hasValidActionFeatures(candidate)
+}
+
+function isV3State(value: unknown): value is V3State {
+  if (!value || typeof value !== "object") return false
+  const candidate = value as Partial<V3State>
+  return candidate.version === 3 && hasValidBaseFeatures(candidate)
 }
 
 function isV2State(value: unknown): value is V2State {
   if (!value || typeof value !== "object") return false
   const candidate = value as Partial<V2State>
-  return candidate.version === 2 && hasValidFeatures(candidate)
+  return candidate.version === 2 && hasValidBaseFeatures(candidate)
 }
 
 function isLegacyState(value: unknown): value is LegacyState {
@@ -131,7 +187,12 @@ function migrateLegacyState(legacy: LegacyState): V2State {
   }
 }
 
-function migrateV2State(previous: V2State): WorkbenchState {
+function withoutActions(story: DesignStory): PreActionStory {
+  const { actions: _actions, userIntent: _userIntent, agentIntent: _agentIntent, ...preActionStory } = story
+  return preActionStory
+}
+
+function migrateV2State(previous: V2State): V3State {
   const seed = createSeedState()
   const mergedFeatures = previous.features.map((feature) => {
     const seededFeature = seed.features.find((candidate) => candidate.id === feature.id)
@@ -139,13 +200,63 @@ function migrateV2State(previous: V2State): WorkbenchState {
     const existingIds = new Set(feature.stories.map((story) => story.id))
     return {
       ...feature,
-      stories: [...feature.stories, ...seededFeature.stories.filter((story) => !existingIds.has(story.id))],
+      stories: [
+        ...feature.stories,
+        ...seededFeature.stories.filter((story) => !existingIds.has(story.id)).map(withoutActions),
+      ],
     }
   })
   const existingFeatureIds = new Set(mergedFeatures.map((feature) => feature.id))
   return {
     version: 3,
-    features: [...mergedFeatures, ...seed.features.filter((feature) => !existingFeatureIds.has(feature.id))],
+    features: [
+      ...mergedFeatures,
+      ...seed.features
+        .filter((feature) => !existingFeatureIds.has(feature.id))
+        .map((feature) => ({ ...feature, stories: feature.stories.map(withoutActions) })),
+    ],
+  }
+}
+
+function migrateV3State(previous: V3State): V4State {
+  const seed = createSeedState()
+  return {
+    version: 4,
+    features: previous.features.map((feature) => {
+      const seededFeature = seed.features.find((candidate) => candidate.id === feature.id)
+      return {
+        ...feature,
+        stories: feature.stories.map((story) => {
+          const seededStory = seededFeature?.stories.find((candidate) => candidate.id === story.id)
+          return {
+            ...story,
+            actions: seededStory?.actions ?? [],
+            mockSurfacePath: seededStory ? seededStory.mockSurfacePath : story.mockSurfacePath,
+          }
+        }),
+      }
+    }),
+  }
+}
+
+function migrateV4State(previous: V4State): WorkbenchState {
+  const seed = createSeedState()
+  return {
+    version: 6,
+    features: previous.features.map((feature) => {
+      const seededFeature = seed.features.find((candidate) => candidate.id === feature.id)
+      return {
+        ...feature,
+        stories: feature.stories.map((story) => {
+          const seededStory = seededFeature?.stories.find((candidate) => candidate.id === story.id)
+          return {
+            ...story,
+            userIntent: seededStory?.userIntent ?? "",
+            agentIntent: seededStory?.agentIntent ?? "",
+          }
+        }),
+      }
+    }),
   }
 }
 
@@ -162,12 +273,36 @@ export function loadWorkbenchState(): LoadResult {
   const saved = localStorage.getItem(STORAGE_KEY)
   if (saved !== null) return parseSavedState(saved)
 
+  const version4Saved = localStorage.getItem(V4_STORAGE_KEY)
+  if (version4Saved !== null) {
+    try {
+      const version4: unknown = JSON.parse(version4Saved)
+      return isV4State(version4)
+        ? { ok: true, state: migrateV4State(version4), source: "migrated" }
+        : { ok: false }
+    } catch {
+      return { ok: false }
+    }
+  }
+
+  const version3Saved = localStorage.getItem(V3_STORAGE_KEY)
+  if (version3Saved !== null) {
+    try {
+      const version3: unknown = JSON.parse(version3Saved)
+      return isV3State(version3)
+        ? { ok: true, state: migrateV4State(migrateV3State(version3)), source: "migrated" }
+        : { ok: false }
+    } catch {
+      return { ok: false }
+    }
+  }
+
   const version2Saved = localStorage.getItem(V2_STORAGE_KEY)
   if (version2Saved !== null) {
     try {
       const version2: unknown = JSON.parse(version2Saved)
       return isV2State(version2)
-        ? { ok: true, state: migrateV2State(version2), source: "migrated" }
+        ? { ok: true, state: migrateV4State(migrateV3State(migrateV2State(version2))), source: "migrated" }
         : { ok: false }
     } catch {
       return { ok: false }
@@ -179,7 +314,7 @@ export function loadWorkbenchState(): LoadResult {
   try {
     const legacy: unknown = JSON.parse(legacySaved)
     return isLegacyState(legacy)
-      ? { ok: true, state: migrateV2State(migrateLegacyState(legacy)), source: "migrated" }
+      ? { ok: true, state: migrateV4State(migrateV3State(migrateV2State(migrateLegacyState(legacy)))), source: "migrated" }
       : { ok: false }
   } catch {
     return { ok: false }
@@ -192,6 +327,9 @@ export function saveWorkbenchState(state: WorkbenchState): void {
 
 export function resetWorkbenchState(): WorkbenchState {
   localStorage.removeItem(STORAGE_KEY)
+  localStorage.removeItem(UNUSED_V5_STORAGE_KEY)
+  localStorage.removeItem(V4_STORAGE_KEY)
+  localStorage.removeItem(V3_STORAGE_KEY)
   localStorage.removeItem(V2_STORAGE_KEY)
   localStorage.removeItem(LEGACY_STORAGE_KEY)
   return createSeedState()

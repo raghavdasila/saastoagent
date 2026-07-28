@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   RouteDeckBootstrapActionRequiredState,
   RouteDeckBootstrapDisposedState,
@@ -7,7 +7,7 @@ import type {
 } from "@routedeck/react";
 
 import { Button } from "@/components/ui/button";
-import { ownerAuthClient } from "../features/workspace/authClient";
+import { BootstrapLoadingShell } from "./BootstrapLoadingShell";
 
 export interface BootstrapRecoveryShellProps {
   state:
@@ -20,6 +20,7 @@ export function BootstrapRecoveryShell({
 }: BootstrapRecoveryShellProps) {
   const [localBusy, setLocalBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const automaticRecoveryStarted = useRef(false);
   const reason = state.phase === "recovery" ? state.reason : "disposed";
   const busy = state.busy || localBusy;
   const action = (kind: RouteDeckBootstrapRecoveryActionKind) =>
@@ -30,9 +31,6 @@ export function BootstrapRecoveryShell({
       setLocalBusy(true);
       setLocalError(null);
       try {
-        if (recoveryAction.kind === "start_new_session") {
-          await ownerAuthClient.recover();
-        }
         await recoveryAction.run();
       } catch (caught) {
         setLocalError(
@@ -44,6 +42,44 @@ export function BootstrapRecoveryShell({
     },
     [],
   );
+  const startNewSession = action("start_new_session");
+  const automaticSessionReplacement =
+    reason === "resume_expired" ||
+    reason === "resume_missing" ||
+    reason === "resume_contract_mismatch";
+
+  useEffect(() => {
+    if (
+      !automaticSessionReplacement ||
+      startNewSession === null ||
+      busy ||
+      automaticRecoveryStarted.current
+    ) {
+      return;
+    }
+    automaticRecoveryStarted.current = true;
+    void run(startNewSession);
+  }, [automaticSessionReplacement, busy, run, startNewSession]);
+
+  if (automaticSessionReplacement && localError === null) {
+    return <BootstrapLoadingShell />;
+  }
+
+  if (automaticSessionReplacement) {
+    return (
+      <section className="bootstrap-error" role="alert">
+        <h1>Corpus could not reconnect</h1>
+        <p>{localError ?? "The application session could not be refreshed."}</p>
+        <RecoveryButton
+          action={startNewSession}
+          disabled={busy}
+          onRun={run}
+        >
+          Retry reconnecting
+        </RecoveryButton>
+      </section>
+    );
+  }
 
   return (
     <section className="bootstrap-error" role="alert">
