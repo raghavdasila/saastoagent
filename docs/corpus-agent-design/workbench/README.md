@@ -6,6 +6,10 @@ before implementation. Slice 1 currently contains the **Workspace** and
 data or an implementation claim; only stories explicitly described as an
 implementation-backed baseline carry that narrower meaning.
 
+Codex drives the behavior inventory, drafts one atomic story and its supporting
+artifacts at a time, and advances after review. The user reviews, text-edits,
+corrects, and explicitly approves or rejects each story.
+
 Workspace also contains seven approved owner-authentication stories copied
 from the currently implemented and tested Corpus behavior: registration and
 guest-session adoption, sign-in and resume, sign-out, reset request, password
@@ -30,8 +34,13 @@ reviewed stories must be reopened before they can be deleted. Desktop keeps the
 story editor and product preview in separate scroll regions inside one viewport;
 mobile keeps page chrome fixed and scrolls the working content region.
 The studio uses a flat, compact editing treatment: structural dividers replace
-nested cards, controls use restrained corners, and the mock product preview
+nested cards, controls use square geometry, and the mock product preview
 retains its own product-specific visual language.
+
+This workbench covers feature behavior design only. Navgraph and other
+RouteDeck-candidate mapping belongs to the later extraction phase after the
+relevant behavior has been accepted and extraction has been explicitly
+authorized.
 
 The workbench defaults to the operating-system color preference and provides a
 header toggle between light and slate dark themes. The explicit choice is saved

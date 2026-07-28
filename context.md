@@ -68,13 +68,17 @@ Updated: 2026-07-28
   the viewport instead of rising above a bottom navigation row.
 - A standalone Slice 1 design workbench now lives under
   `docs/corpus-agent-design/workbench`. It is a local prototype for reviewing
-  Workspace/Agents stories, mock chats, and no-permissions iframe surfaces;
-  its labeled seed and approvals do not assert implemented product behavior.
-  It has a persisted system-aware light/slate-dark theme, including the static
-  surface preview without widening the iframe sandbox. Seven owner-authentication
-  behaviors are now approved there as a current-implementation baseline under
-  Workspace; version 3 migration preserves existing edits while appending the
-  missing locked stories.
+  Workspace/Agents user and agent intents, stories, mock chats, explicit
+  actions, and tightly sandboxed inline surfaces; its labeled seed and
+  approvals do not assert implemented product behavior. Codex drives one atomic
+  behavior at a time for user review and explicit acceptance. Surfaces render
+  immediately above the action row and composer, grow to half the chat region,
+  then scroll internally; action-only behavior has no surface. The studio uses
+  a flat, compact editing system with square 13px controls and a persisted
+  system-aware light/slate-dark theme. Seven owner-authentication behaviors are
+  approved as a current-implementation baseline under Workspace. Version 6
+  preserves valid version 4 edits while adding seeded user and agent intent;
+  the reverted version 5 key is intentionally ignored.
 - The live Navgraph remains a docked, in-place expandable desktop rail. At
   mobile width it switches to a shadcn Sheet drawer without changing RouteDeck
   state ownership.
@@ -150,6 +154,10 @@ docker compose up --build
 
 ## Validation Baseline
 
+- Agent-design workbench: 18 tests passed; strict typecheck and production build
+  passed. Browser checks at 1440x900 and 390x844 verified compact square
+  controls, clear focus and disabled states, internal textarea scrolling, and
+  zero horizontal overflow or warning/error logs.
 - Responsive shell correction: 25 frontend tests passed plus strict typecheck
   and production build. At 390x844 the live browser measured zero horizontal
   overflow, a 161.5px surface dock directly above the composer, composer bottom

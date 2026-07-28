@@ -1,13 +1,13 @@
 ---
 name: design-corpus-features
-description: Design the locked Corpus product features bottom-up through atomic behavior inventories, behavior-based user stories, mock product chats, and mock surfaces. Use when Codex and the user are exploring, refining, or documenting how a Corpus feature should behave before cross-feature workflow design, RouteDeck contract extraction, specification, or implementation.
+description: Drive bottom-up design of locked Corpus product features through atomic behavior inventories, user and agent intent, behavior-based user stories, mock product chats, explicit actions, and inline mock surfaces. Use when Codex is drafting, refining, or documenting how a Corpus feature should behave for user review before cross-feature workflow design, RouteDeck candidate extraction, specification, or implementation.
 ---
 
 # Design Corpus Features
 
-Work as the user's design collaborator. Keep brainstorming turns short, present
-one behavior or decision at a time, and revise directly from the user's
-corrections.
+Drive the design studio while the user reviews, text-edits, corrects, and
+approves the work. Keep turns short, present one atomic behavior or decision at
+a time, and revise directly from the user's corrections.
 
 ## Required context
 
@@ -33,8 +33,10 @@ Keep these identities separate throughout the work:
   question, draft, simulate, and revise. Do not insert Codex into Corpus as a
   product feature, runtime actor, or product persona unless the user explicitly
   decides that separately.
-- **The user and Codex design together.** Their current conversation is not a
-  mock product chat and must not be copied into a product story.
+- **Codex drives the studio; the user reviews it.** Codex maintains the behavior
+  inventory, drafts the current story and supporting artifacts, and advances
+  one approved step at a time. Their current conversation is not a mock product
+  chat and must not be copied into a product story.
 - **A mock product chat** simulates a future interaction inside Corpus. Name its
   future product actors according to the behavior being explored; do not call
   it an Owner-Codex conversation by default.
@@ -49,9 +51,20 @@ Keep these identities separate throughout the work:
   experience through a feature.
 - **A user story** is a design lens for one behavior, not a complete feature
   specification.
+- **User intent** is the meaning or outcome the future user wants in the defined
+  situation. It is not the user's exact wording, a button label, or a runtime
+  intent classification.
+- **Agent intent** is the specific outcome the responsible Corpus agent is
+  expected to produce in the defined situation, together with an observable
+  success condition. Keep it independent of prompts, models, tools, thresholds,
+  workflow order, confidence values, and UI behavior. It is design guidance,
+  not RouteDeck state or a runtime contract.
+- **An action** is a direct choice or command available to the user. Record it
+  separately from a surface; an action does not warrant a surface by itself.
 - **A mock surface** is a disposable interaction sketch used to expose needed
-  information, controls, state, and feedback. It is not an approved UI design
-  or implementation contract.
+  information, structured controls, state, and feedback inline immediately
+  above the chat composer. It is not a dialog, modal, approved UI design, or
+  implementation contract.
 - **RouteDeck** is the later interaction-state and execution authority. Do not
   begin with nodes or force early behavior ideas into RouteDeck vocabulary.
   Extract candidate nodes, operations, outcomes, providers, guards, surfaces,
@@ -69,8 +82,9 @@ explicitly advances the work to that stage.
 
 ### 1. Select one locked feature
 
-Let the user choose the feature. Do not choose a convenient pilot or begin with
-the complete launch journey.
+Follow the user-approved feature order. If no order exists, propose the next
+locked feature for approval rather than choosing a convenient pilot or starting
+with the complete launch journey.
 
 Restate its current one-line boundary and identify only material ambiguities.
 Do not expand its scope.
@@ -89,23 +103,32 @@ them prematurely.
 For one behavior at a time, draft:
 
 - **Situation:** relevant starting state and trigger.
-- **User need:** what the future user is trying to achieve.
+- **User intent:** the meaning or outcome the future user is trying to achieve.
+- **Agent intent:** the outcome the responsible Corpus agent owns and the
+  observable condition that indicates success.
 - **Product behavior:** what Corpus visibly does.
 - **Observable outcome:** what must be true when the behavior completes.
 - **Ownership:** why this feature owns the behavior.
 
 Avoid generic "As a user" wording when a concrete actor and situation are more
-informative.
+informative. Intent guidance does not replace the observable story and outcome.
 
 ### 4. Create mock product interactions
 
 Use only the artifacts that clarify the behavior:
 
 - Write a short mock product chat when conversation is materially involved.
+- Record direct user choices or commands as actions, separate from surfaces.
 - Sketch a mock surface when the user must inspect state, compare information,
-  provide structured input, or invoke an action.
+  provide structured input, or receive structured feedback.
 - Combine chat and surface when one guides or updates the other.
-- Do not force a chat into behavior that is clearer as a direct surface action.
+- An action-only behavior has no surface. For example, `Create an agent` is an
+  action unless the behavior exposes structured state or input that needs a
+  surface.
+- Place a mock surface inline immediately above the action row and chat
+  composer. Let it grow to its content height until half the chat region, then
+  scroll internally. Do not present it as a modal or dialog.
+- Do not force a chat into behavior that is clearer as a direct action.
 - Do not force complex state into prose when a surface should carry it.
 
 For every mocked moment, make clear:
@@ -137,8 +160,8 @@ success paths.
 
 ### 6. Review with the user
 
-Present a small draft, decision, or question. Let the user correct the product
-intent. Revise before expanding.
+Present a small draft, decision, or question. Let the user review or text-edit
+it. Revise before expanding.
 
 Mark a behavior accepted only when the user explicitly approves it. Preserve
 unresolved questions without converting assumptions into decisions.
@@ -184,7 +207,8 @@ Only after behavior approval, translate observed requirements into candidate:
 
 Use `../routedeck-design-glossary.md` consistently. Label the result as a
 candidate mapping until separately approved. RouteDeck extraction does not
-authorize implementation.
+authorize implementation. Do not add Navgraph design to the atomic behavior
+workspace before this stage.
 
 ## Working format
 
@@ -195,12 +219,17 @@ Use this compact structure while exploring one behavior:
 
 **Situation:** <starting state and trigger>
 
-**User need:** <specific desired result>
+**User intent:** <meaning or outcome the user wants>
+
+**Agent intent:** <responsible outcome and observable success condition>
 
 **Expected behavior:** <observable Corpus response>
 
 **Mock product chat:**
 <only if useful>
+
+**Actions:**
+<direct choices or commands, only if useful>
 
 **Mock surface:**
 <only if useful>
@@ -212,8 +241,8 @@ Use this compact structure while exploring one behavior:
 **Open questions:** <unknowns requiring design judgment>
 ```
 
-Do not fill every heading ceremonially. Omit chat, surface, variations, or open
-questions when they add no design value.
+Do not fill every heading ceremonially. Omit chat, actions, surface, variations,
+or open questions when they add no design value.
 
 ## Session handoff
 

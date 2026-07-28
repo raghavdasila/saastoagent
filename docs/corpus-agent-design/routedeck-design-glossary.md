@@ -11,6 +11,20 @@ Medusa reference application's Cart feature because it demonstrates local and
 cross-feature operations, guarded external actions, projected surfaces, and
 frontend affordances.
 
+## Corpus design guidance outside RouteDeck
+
+These terms guide feature behavior design. They are product-owned and are not
+RouteDeck declarations or general runtime intent state.
+
+| Term | Definition |
+| --- | --- |
+| **User intent** | The meaning or outcome the user wants in a defined situation, independent of exact wording or UI action. |
+| **Agent intent** | The specific outcome the responsible product agent must produce in a defined situation, including its responsibility and observable success condition. It remains independent of prompts, models, tools, thresholds, workflow order, confidence values, and UI behavior. |
+
+The product agent may use this guidance to interpret a request. RouteDeck still
+governs which operations are legal in the current projection; it does not store
+these as general intent contracts.
+
 ## RouteDeck vocabulary
 
 | Term | Definition | Medusa Cart example |
@@ -47,7 +61,6 @@ frontend affordances.
 | **Handler** | The implementation of an operation. It receives validated arguments and execution context, performs the product action, and returns a declared outcome plus observations and state effects. | `AddCartItemHandler` calls the Medusa Store API and returns the `added` outcome. |
 | **Effect** | An explicit state change returned by a handler and committed through RouteDeck's supervised operation path. | A successful Cart mutation updates the canonical public Cart surface state. |
 | **Agent driver** | The product-supplied model/orchestration integration that receives the current RouteDeck context and can invoke only currently legal operations. | A Medusa shopping agent may interpret “add this” and select the projected `cart.add_item` operation. |
-| **Product intent** | The user's business meaning expressed in natural language. RouteDeck does not store a general intent contract; the product agent maps it to a currently legal operation. | “Take me to my basket” maps to `cart.open` when that operation is projected. |
 | **Navigation intent** | One of RouteDeck's narrow navigation commands: `open_path`, `back`, `forward`, `cancel`, or `restore_history_entry`. | Browser Back sends `back`; it does not replay `cart.open`. |
 | **Frontend surface registry** | Product-owned mapping from a declared surface component name to its React implementation. | The registry maps `cart.summary` to `CartSummarySurface`. |
 
