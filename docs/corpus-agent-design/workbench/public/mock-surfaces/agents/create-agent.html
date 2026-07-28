@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Create a draft agent surface</title>
+  <style>
+    :root { color-scheme: light dark; --stage: #f7f9fc; --surface: #ffffff; --text: #172033; --muted: #667085; --border: #dce2eb; --input: #cbd4e1; --shadow: rgba(37, 55, 87, .07); }
+    @media (prefers-color-scheme: dark) { :root { --stage: #0f172a; --surface: #172033; --text: #f1f5f9; --muted: #94a3b8; --border: #334155; --input: #475569; --shadow: rgba(0, 0, 0, .24); } }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 280px; min-height: 100vh; display: grid; place-items: center; padding: 28px; font-family: Arial, sans-serif; color: var(--text); background: var(--stage); }
+    .surface { width: min(560px, 100%); padding: 24px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: 0 10px 30px var(--shadow); }
+    h1 { margin: 0; font-size: 20px; letter-spacing: -.02em; }
+    .intro { margin: 8px 0 22px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+    label { display: block; margin: 0 0 7px; font-size: 13px; font-weight: 600; }
+    input, textarea { width: 100%; border: 1px solid var(--input); border-radius: 9px; padding: 10px 11px; color: var(--text); background: var(--surface); font: inherit; }
+    textarea { min-height: 100px; resize: none; }
+    .field + .field { margin-top: 17px; }
+    .hint { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
+    .actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 22px; }
+    button { border: 1px solid var(--input); border-radius: 9px; padding: 9px 13px; color: var(--text); background: var(--surface); font-weight: 600; }
+    .primary { border-color: #2563eb; color: white; background: #2563eb; }
+    @media (max-width: 460px) { body { padding: 16px; } .surface { padding: 18px; } }
+  </style>
+</head>
+<body>
+  <section class="surface" aria-label="Create agent surface">
+    <h1>Create a draft agent</h1>
+    <p class="intro">Describe the job this agent should own. Nothing is deployed from this step.</p>
+    <div class="field">
+      <label for="name">Agent name</label>
+      <input id="name" value="Support Knowledge Agent" readonly />
+    </div>
+    <div class="field">
+      <label for="purpose">Job to own</label>
+      <textarea id="purpose" readonly>Turn repeated customer questions into proposed help articles for a support lead to review.</textarea>
+      <p class="hint">Corpus will use this to propose the first behavior draft.</p>
+    </div>
+    <div class="actions"><button type="button">Cancel</button><button class="primary" type="button">Create draft</button></div>
+  </section>
+</body>
+</html>

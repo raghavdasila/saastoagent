@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Enter the workspace surface</title>
+  <style>
+    :root { color-scheme: light dark; --stage: #f7f9fc; --surface: #ffffff; --text: #172033; --muted: #667085; --border: #dce2eb; --soft-border: #e3e8ef; --skeleton: #e9edf3; --shadow: rgba(37, 55, 87, .07); }
+    @media (prefers-color-scheme: dark) { :root { --stage: #0f172a; --surface: #172033; --text: #f1f5f9; --muted: #94a3b8; --border: #334155; --soft-border: #2b3a50; --skeleton: #2b3a50; --shadow: rgba(0, 0, 0, .24); } }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 280px; min-height: 100vh; display: grid; place-items: center; padding: 28px; font-family: Arial, sans-serif; color: var(--text); background: var(--stage); }
+    .surface { width: min(520px, 100%); overflow: hidden; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: 0 10px 30px var(--shadow); }
+    .content { padding: 24px; }
+    h1 { margin: 0; font-size: 20px; letter-spacing: -.02em; }
+    p { margin: 8px 0 20px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+    .agents { display: grid; gap: 10px; margin-bottom: 20px; }
+    .agent { display: grid; grid-template-columns: 34px 1fr 54px; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--soft-border); border-radius: 10px; }
+    .skeleton { height: 10px; border-radius: 5px; background: var(--skeleton); }
+    .avatar { width: 34px; height: 34px; border-radius: 9px; }
+    .lines { display: grid; gap: 7px; }
+    .short { width: 58%; }
+    .status { width: 54px; height: 22px; border-radius: 999px; }
+    .action { display: flex; justify-content: flex-end; }
+    button { border: 0; border-radius: 9px; padding: 10px 14px; color: white; background: #2563eb; font-weight: 600; }
+    @media (max-width: 460px) { body { padding: 16px; } .content { padding: 18px; } }
+  </style>
+</head>
+<body>
+  <section class="surface" aria-label="Workspace entry surface">
+    <div class="content">
+      <h1>Your agents</h1>
+      <p>Create an agent or continue shaping an existing draft.</p>
+      <div class="agents" aria-hidden="true">
+        <div class="agent"><div class="skeleton avatar"></div><div class="lines"><div class="skeleton"></div><div class="skeleton short"></div></div><div class="skeleton status"></div></div>
+        <div class="agent"><div class="skeleton avatar"></div><div class="lines"><div class="skeleton"></div><div class="skeleton short"></div></div><div class="skeleton status"></div></div>
+      </div>
+      <div class="action"><button type="button">Create an agent</button></div>
+    </div>
+  </section>
+</body>
+</html>

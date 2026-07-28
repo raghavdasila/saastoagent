@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Corpus owner authentication surfaces</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --stage: #f7f9fc;
+      --surface: #ffffff;
+      --text: #172033;
+      --muted: #667085;
+      --border: #dce2eb;
+      --input: #cbd4e1;
+      --soft: #f1f4f8;
+      --accent: #2563eb;
+      --accent-text: #ffffff;
+      --warning-bg: #fff8e6;
+      --warning-text: #8a5a00;
+      --success-bg: #eaf8f0;
+      --success-text: #157347;
+      --danger: #b42318;
+      --shadow: rgba(37, 55, 87, .08);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --stage: #0f172a;
+        --surface: #172033;
+        --text: #f1f5f9;
+        --muted: #94a3b8;
+        --border: #334155;
+        --input: #475569;
+        --soft: #202c40;
+        --accent: #3b82f6;
+        --accent-text: #ffffff;
+        --warning-bg: #3a2d13;
+        --warning-text: #f5c96a;
+        --success-bg: #143427;
+        --success-text: #74d6a5;
+        --danger: #f38b83;
+        --shadow: rgba(0, 0, 0, .26);
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { min-width: 300px; min-height: 100%; margin: 0; }
+    body {
+      display: grid;
+      min-height: 100vh;
+      place-items: center;
+      padding: 28px;
+      color: var(--text);
+      background: var(--stage);
+    }
+    .surface {
+      display: none;
+      width: min(100%, 500px);
+      flex-direction: column;
+      gap: 22px;
+      padding: 28px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: var(--surface);
+      box-shadow: 0 18px 50px var(--shadow);
+    }
+    body:not(:has(.surface:target)) #register,
+    .surface:target { display: flex; }
+    header { display: grid; gap: 6px; }
+    .eyebrow {
+      margin: 0;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    h1 { margin: 0; font-size: 24px; line-height: 1.2; letter-spacing: -.02em; }
+    .description { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
+    .fields { display: grid; gap: 15px; }
+    label { display: grid; gap: 7px; font-size: 13px; font-weight: 650; }
+    label span { color: var(--muted); font-weight: 500; }
+    input {
+      width: 100%;
+      height: 42px;
+      padding: 0 12px;
+      border: 1px solid var(--input);
+      border-radius: 10px;
+      color: var(--text);
+      background: transparent;
+      font: inherit;
+      outline: none;
+    }
+    input::placeholder { color: var(--muted); opacity: .72; }
+    .helper { margin: -6px 0 0; color: var(--muted); font-size: 12px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    button {
+      min-height: 40px;
+      padding: 0 15px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      color: var(--accent-text);
+      background: var(--accent);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    button.secondary { border-color: var(--border); color: var(--text); background: transparent; }
+    button.ghost { color: var(--muted); background: transparent; }
+    .text-action { color: var(--accent); font-size: 13px; font-weight: 650; }
+    .status {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 11px;
+      color: var(--warning-text);
+      background: var(--warning-bg);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .status.success { color: var(--success-text); background: var(--success-bg); }
+    .status::before { content: ""; width: 8px; height: 8px; margin-top: 5px; flex: 0 0 auto; border-radius: 999px; background: currentColor; }
+    .account {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      background: var(--soft);
+    }
+    .avatar { display: grid; width: 44px; height: 44px; place-items: center; border-radius: 50%; color: var(--accent-text); background: var(--accent); font-weight: 800; }
+    .account strong, .account span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .account span { margin-top: 3px; color: var(--muted); font-size: 12px; }
+    .danger { color: var(--danger) !important; }
+    @media (max-width: 520px) {
+      body { align-items: start; padding: 14px; }
+      .surface { padding: 20px; border-radius: 14px; }
+      h1 { font-size: 21px; }
+      .actions { flex-direction: column; }
+      button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <article class="surface" id="register" aria-label="Create owner account surface">
+    <header>
+      <p class="eyebrow">Corpus account</p>
+      <h1>Create account</h1>
+      <p class="description">Create an owner account and keep the Workspace you started as a guest.</p>
+    </header>
+    <div class="fields">
+      <label>Display name <span>Optional</span><input type="text" placeholder="How Corpus should address you" /></label>
+      <label>Email<input type="email" placeholder="owner@example.com" /></label>
+      <label>Password<input type="password" value="private-password" aria-label="Password" /></label>
+      <p class="helper">Use 12-128 characters. Do not include your email address.</p>
+    </div>
+    <div class="actions"><button type="button">Create account</button><button type="button" class="secondary">Back to Lounge</button></div>
+  </article>
+
+  <article class="surface" id="sign-in" aria-label="Owner sign-in surface">
+    <header>
+      <p class="eyebrow">Corpus account</p>
+      <h1>Sign in</h1>
+      <p class="description">Continue to the private Workspace already claimed by this owner account.</p>
+    </header>
+    <div class="fields">
+      <label>Email<input type="email" placeholder="owner@example.com" /></label>
+      <label>Password<input type="password" value="private-password" aria-label="Password" /></label>
+      <span class="text-action">Forgot password?</span>
+    </div>
+    <div class="actions"><button type="button">Sign in</button><button type="button" class="secondary">Back to Lounge</button></div>
+  </article>
+
+  <article class="surface" id="sign-out" aria-label="Owner sign-out surface">
+    <header>
+      <p class="eyebrow">Personal Workspace</p>
+      <h1>Welcome, Raghav</h1>
+      <p class="description">Raghav's Workspace · owner</p>
+    </header>
+    <div class="account"><div class="avatar">R</div><div><strong>Raghav</strong><span>owner@example.com · verified</span></div></div>
+    <p class="description">Signing out ends access on this browser and opens a fresh guest Lounge. This Workspace stays private.</p>
+    <div class="actions"><button type="button" class="secondary danger">Sign out</button></div>
+  </article>
+
+  <article class="surface" id="request-reset" aria-label="Password reset request surface">
+    <header>
+      <p class="eyebrow">Corpus account</p>
+      <h1>Forgot password</h1>
+      <p class="description">Request a one-hour reset link. Corpus gives the same response whether or not the account exists.</p>
+    </header>
+    <div class="fields"><label>Email<input type="email" placeholder="owner@example.com" /></label></div>
+    <div class="status success">If that account exists, a password-reset email has been requested.</div>
+    <div class="actions"><button type="button">Request reset</button><button type="button" class="secondary">Back to Lounge</button></div>
+  </article>
+
+  <article class="surface" id="reset-password" aria-label="Set new password surface">
+    <header>
+      <p class="eyebrow">Corpus account</p>
+      <h1>Reset password</h1>
+      <p class="description">Choose a new 12-128 character password. Completing this signs out every existing browser session.</p>
+    </header>
+    <div class="fields">
+      <label>New password<input type="password" value="new-private-password" aria-label="New password" /></label>
+      <p class="helper">The one-time token has been captured and removed from the visible URL.</p>
+    </div>
+    <div class="actions"><button type="button">Change password</button><button type="button" class="secondary">Back to Lounge</button></div>
+  </article>
+
+  <article class="surface" id="verification-pending" aria-label="Pending email verification surface">
+    <header>
+      <p class="eyebrow">Personal Workspace</p>
+      <h1>Welcome, Raghav</h1>
+      <p class="description">Your Workspace is available while verification remains pending.</p>
+    </header>
+    <div class="status">Email verification is advisory and still pending.</div>
+    <div class="actions"><button type="button" class="secondary">Resend verification</button><button type="button" class="ghost">Sign out</button></div>
+  </article>
+
+  <article class="surface" id="verify-email" aria-label="Confirm owner email surface">
+    <header>
+      <p class="eyebrow">Corpus account</p>
+      <h1>Verify email</h1>
+      <p class="description">Confirm the address associated with your owner account using this one-time link.</p>
+    </header>
+    <div class="status success">The link token is held in memory and is not present in the visible URL.</div>
+    <div class="actions"><button type="button">Verify email</button><button type="button" class="secondary">Back to Lounge</button></div>
+  </article>
+</body>
+</html>

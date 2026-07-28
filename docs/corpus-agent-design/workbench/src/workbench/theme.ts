@@ -1,0 +1,18 @@
+export type Theme = "light" | "dark"
+
+export const THEME_STORAGE_KEY = "corpus.feature-design-workbench.theme"
+
+export function loadTheme(): Theme {
+  const saved = localStorage.getItem(THEME_STORAGE_KEY)
+  if (saved === "light" || saved === "dark") return saved
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+}
+
+export function applyTheme(theme: Theme): void {
+  document.documentElement.classList.toggle("dark", theme === "dark")
+  document.documentElement.style.colorScheme = theme
+}
+
+export function saveTheme(theme: Theme): void {
+  localStorage.setItem(THEME_STORAGE_KEY, theme)
+}

@@ -6,6 +6,7 @@ Status: Planning index for the locked launch features and intended work slices. 
 
 - [Corpus Product Definition](../corpus-product-definition.md) is the authority for the locked feature layout and first-launch subset.
 - [Corpus Basic Agent Feature Behavior Notes](../feature-behavior-notes.md) contains the current owner-authored behavior baseline and will be refined as each slice is explored.
+- [Corpus Agent Design Workbench](./workbench/README.md) is the local story, mock-chat, mock-surface, and approval workspace used to iterate on each slice.
 
 ## Locked launch features
 
@@ -26,6 +27,8 @@ Status: Planning index for the locked launch features and intended work slices. 
 ### Slice 1: Workspace and Agents
 
 Define the owner workspace, agent creation and management journey, and how an agent connects to its configuration, sources, versions, and deployed URL.
+
+The workbench now locks the seven currently implemented Corpus owner-authentication behaviors under Workspace as an implementation-backed baseline. This does not approve the remaining Workspace or Agents design, and it does not introduce deployed-agent user authentication into Slice 1.
 
 ### Slice 2: Source, API, and Evaluation
 

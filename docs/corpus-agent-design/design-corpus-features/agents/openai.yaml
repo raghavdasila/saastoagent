@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Corpus Features"
+  short_description: "Design Corpus features from observable behavior"
+  default_prompt: "Use $design-corpus-features to explore one locked Corpus feature through behavior stories, mock product chats, and mock surfaces."

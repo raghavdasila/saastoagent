@@ -46,6 +46,15 @@ Updated: 2026-07-27
 - The frontend now uses pinned shadcn/Radix-Nova primitives. Suggested actions
   render under the latest assistant response, long content wraps, and
   Workspace styling is feature-owned rather than mixed into the generic shell.
+- A standalone Slice 1 design workbench now lives under
+  `docs/corpus-agent-design/workbench`. It is a local prototype for reviewing
+  Workspace/Agents stories, mock chats, and no-permissions iframe surfaces;
+  its labeled seed and approvals do not assert implemented product behavior.
+  It has a persisted system-aware light/slate-dark theme, including the static
+  surface preview without widening the iframe sandbox. Seven owner-authentication
+  behaviors are now approved there as a current-implementation baseline under
+  Workspace; version 3 migration preserves existing edits while appending the
+  missing locked stories.
 - The live Navgraph remains a docked, in-place expandable desktop rail. At
   mobile width it switches to a shadcn Sheet drawer without changing RouteDeck
   state ownership.
