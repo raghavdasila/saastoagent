@@ -1,32 +1,43 @@
 # Corpus Agent Design Workbench
 
-This is a local prototype workspace for iterating on the Corpus feature design
-before implementation. Slice 1 currently contains the **Workspace** and
-**Agents** features. Its ordinary content is a labeled design seed, not product
-data or an implementation claim; only stories explicitly described as an
-implementation-backed baseline carry that narrower meaning.
+This is a local prototype workspace for iterating on Corpus feature design
+before implementation. The current seed covers behavior-note sections 0–4:
+**Lounge**, **Workspace**, **Agents**, **Source Hub**, and **API Source**. Its
+ordinary content is a labeled design seed, not product data or an implementation
+claim; only stories explicitly described as an implementation-backed baseline
+carry that narrower meaning.
 
 Codex drives the behavior inventory, drafts one atomic story and its supporting
 artifacts at a time, and advances after review. The user reviews, text-edits,
-corrects, and explicitly approves or rejects each story.
+corrects, and explicitly approves or rejects each story. The preview presents
+the same task as two separate interaction paths: structured surface and chat.
 
-Workspace also contains seven approved owner-authentication stories copied
-from the currently implemented and tested Corpus behavior: registration and
-guest-session adoption, sign-in and resume, sign-out, reset request, password
-change, verification resend, and verification confirmation. Authentication is
-Workspace-owned infrastructure rather than another launch feature, and users
-of deployed agents remain outside this owner identity boundary. These approved
-stories lock the current-product baseline only; **Reopen draft** remains the
-explicit way to reconsider one.
+**Lounge** is the unauthenticated product home for general product help and
+account entry or recovery. Its six implementation-backed authentication stories
+are approved. **Workspace** is the authenticated owner home; its sign-out story
+is also implementation-backed and approved. **Agents** owns agent identity,
+configuration overview, source handoffs, and lifecycle actions without a
+product-level draft-agent concept. **Source Hub** owns source inventory and the
+only launch entry into **API Source**, which owns OpenAPI intake, connection
+configuration, ToolRouter processing, graph inspection and replay, operation
+curation, and explicit recovery. These approved stories lock current-product
+behavior only; **Reopen draft** remains the explicit way to reconsider one.
 
 Each story keeps the review unit deliberately small:
 
 - editable user intent and agent intent guidance kept distinct from the user story;
 - an editable title and one user-story narrative;
-- editable mock conversation between Corpus and the owner;
+- a read-only chat-path example for the same task;
 - editable actions kept separate from surfaces;
-- an optional static surface rendered inline above the chat composer in a tightly sandboxed iframe; and
+- an optional static surface rendered separately from the chat path in a tightly sandboxed iframe; and
 - explicit approve or reasoned reject controls.
+
+`AgentPolicy` is written directly in plain language at its real feature, node,
+capability, active-surface, or operation scope. The studio does not ask the
+designer to manage declaration IDs or references; those belong to later
+RouteDeck extraction. The Surface path shows its surface guidance, while the
+Chat path combines the selected node's effective guidance with RouteDeck's
+read-only framework policies.
 
 Use **Add story** in the selected feature's story list to create and immediately
 select a blank story. Draft stories can be deleted through an inline confirmation;
@@ -49,19 +60,15 @@ same choice through their own `prefers-color-scheme` styles; this does not add
 permissions to the iframe sandbox.
 
 Approval and rejection apply to one story. Reviewed stories are locked until
-they are reopened. Edits and review state are saved to versioned browser local
-storage. Version 6 adds lightweight user and agent intent guidance to every
-seeded story while preserving version 4 edits. The skipped version 5 key was a
-temporary, reverted local experiment and is neither loaded nor treated as a
-valid migration source. User intent records the meaning
+they are reopened. The complete version 10 design state is automatically saved
+to `design-state.json` in this directory after each edit; the Vite development
+server owns the local read/write endpoint and uses an atomic file replacement.
+Browser local storage is used only for the theme preference. Invalid file data
+stops on a visible replacement screen instead of silently using another source.
+User intent records the meaning
 Corpus should recognize; agent intent records the outcome Corpus is responsible
 for producing. These are design guidance, not RouteDeck declarations or runtime
-intent state. Version 4 introduced explicit actions and corrected seeded surface
-placement without discarding version 3 review text. Version 3 added the locked
-authentication baseline; version 2 stories retain their edits and receive only
-missing seed stories; version 1 five-field stories are first migrated into the
-single narrative field. Invalid saved data stops on a visible reset screen
-instead of silently falling back to the seed.
+intent state.
 
 ## Run locally
 

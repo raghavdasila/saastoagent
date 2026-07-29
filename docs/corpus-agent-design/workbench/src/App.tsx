@@ -4,21 +4,21 @@ import { FlaskConical, Moon, Save, Sun } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { FeatureRail } from "@/workbench/FeatureRail"
 import { MockActionEditor } from "@/workbench/MockActionEditor"
-import { MockChatEditor } from "@/workbench/MockChatEditor"
+import { PolicyScopeEditor } from "@/workbench/PolicyScopeEditor"
 import { ReviewControls } from "@/workbench/ReviewControls"
 import { StoryEditor } from "@/workbench/StoryEditor"
 import { SurfacePreview } from "@/workbench/SurfacePreview"
-import { loadWorkbenchState, resetWorkbenchState, saveWorkbenchState } from "@/workbench/storage"
+import { loadWorkbenchState, resetWorkbenchState, saveWorkbenchState, type LoadResult } from "@/workbench/storage"
 import { applyTheme, loadTheme, saveTheme, type Theme } from "@/workbench/theme"
-import type { DesignStory, WorkbenchState } from "@/workbench/types"
+import type { DesignFeature, DesignStory, WorkbenchState } from "@/workbench/types"
 
-type SaveStatus = "saved" | "error"
+type SaveStatus = "saving" | "saved" | "error"
 
 export default function App() {
-  const [loaded, setLoaded] = useState(loadWorkbenchState)
-  const [selectedFeatureId, setSelectedFeatureId] = useState(() => loaded.ok ? loaded.state.features[0]?.id ?? "" : "")
-  const [selectedStoryId, setSelectedStoryId] = useState(() => loaded.ok ? loaded.state.features[0]?.stories[0]?.id ?? "" : "")
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved")
+  const [loaded, setLoaded] = useState<LoadResult | null>(null)
+  const [selectedFeatureId, setSelectedFeatureId] = useState("")
+  const [selectedStoryId, setSelectedStoryId] = useState("")
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("saving")
   const [theme, setTheme] = useState<Theme>(loadTheme)
 
   useEffect(() => {
@@ -26,32 +26,54 @@ export default function App() {
   }, [theme])
 
   useEffect(() => {
-    if (!loaded.ok || loaded.source !== "migrated") return
-    try {
-      saveWorkbenchState(loaded.state)
-      setLoaded({ ok: true, state: loaded.state, source: "saved" })
-    } catch {
-      setSaveStatus("error")
-    }
+    let active = true
+    void loadWorkbenchState().then((result) => {
+      if (!active) return
+      setLoaded(result)
+      if (result.ok) {
+        setSelectedFeatureId(result.state.features[0]?.id ?? "")
+        setSelectedStoryId(result.state.features[0]?.stories[0]?.id ?? "")
+        setSaveStatus("saved")
+      } else {
+        setSaveStatus("error")
+      }
+    })
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    if (!loaded?.ok) return
+    setSaveStatus("saving")
+    const timeout = window.setTimeout(() => {
+      void saveWorkbenchState(loaded.state)
+        .then(() => setSaveStatus("saved"))
+        .catch(() => setSaveStatus("error"))
+    }, 250)
+    return () => window.clearTimeout(timeout)
   }, [loaded])
+
+  if (loaded === null) {
+    return <main className="grid min-h-dvh place-items-center bg-muted/30 p-6 text-sm text-muted-foreground">Loading design-state.json...</main>
+  }
 
   if (!loaded.ok) {
     return (
       <main className="grid min-h-dvh place-items-center bg-muted/30 p-6">
         <div role="alert" className="w-full max-w-md rounded-xl border border-destructive/30 bg-card p-6 shadow-sm">
           <h1 className="text-lg font-semibold">The saved workbench data is invalid.</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Corpus did not replace it automatically. Reset the local workspace to return to the labeled prototype seed.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Corpus could not load a valid design-state.json. Replace the file with the current seed only if discarding its contents is intended.</p>
           <Button
             variant="destructive"
             className="mt-5"
             onClick={() => {
-              const state = resetWorkbenchState()
-              setLoaded({ ok: true, state, source: "seed" })
-              setSelectedFeatureId(state.features[0].id)
-              setSelectedStoryId(state.features[0].stories[0].id)
+              void resetWorkbenchState().then((state) => {
+                setLoaded({ ok: true, state, source: "seed" })
+                setSelectedFeatureId(state.features[0].id)
+                setSelectedStoryId(state.features[0].stories[0].id)
+              }).catch(() => setSaveStatus("error"))
             }}
           >
-            Reset local workspace
+            Replace file with seed
           </Button>
         </div>
       </main>
@@ -64,12 +86,6 @@ export default function App() {
 
   function commit(nextState: WorkbenchState) {
     setLoaded({ ok: true, state: nextState, source: "saved" })
-    try {
-      saveWorkbenchState(nextState)
-      setSaveStatus("saved")
-    } catch {
-      setSaveStatus("error")
-    }
   }
 
   function updateStory(patch: Partial<DesignStory>, preserveReview = false) {
@@ -85,6 +101,10 @@ export default function App() {
       }),
     }
     commit(nextState)
+  }
+
+  function updateFeature(patch: Partial<DesignFeature>) {
+    commit({ ...state, features: state.features.map((feature) => feature.id === selectedFeature.id ? { ...feature, ...patch } : feature) })
   }
 
   function selectFeature(featureId: string) {
@@ -137,10 +157,7 @@ export default function App() {
     setTheme(nextTheme)
     try {
       saveTheme(nextTheme)
-      setSaveStatus("saved")
-    } catch {
-      setSaveStatus("error")
-    }
+    } catch { /* Theme is a browser preference, not design state. */ }
   }
 
   return (
@@ -150,12 +167,12 @@ export default function App() {
           <FlaskConical className="size-5 shrink-0 text-primary" />
           <div className="min-w-0">
             <h1 className="truncate text-base font-semibold tracking-tight">Corpus agent design</h1>
-            <p className="text-xs text-muted-foreground">Slice 1 · Workspace and Agents · prototype seed</p>
+            <p className="text-xs text-muted-foreground">Behavior sections 0–4 · review workspace</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <div className={saveStatus === "error" ? "flex items-center gap-1.5 text-sm text-destructive" : "flex items-center gap-1.5 text-sm text-muted-foreground"} role={saveStatus === "error" ? "alert" : undefined}>
-            <Save /> {saveStatus === "error" ? "Not saved" : "Saved locally"}
+            <Save /> {saveStatus === "error" ? "File not saved" : saveStatus === "saving" ? "Saving file..." : "Saved to file"}
           </div>
           <Button size="icon" variant="ghost" aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`} onClick={toggleTheme}>
             {theme === "light" ? <Moon /> : <Sun />}
@@ -179,11 +196,9 @@ export default function App() {
               <div data-editor-scroll className="flex min-w-0 flex-col gap-4 p-3 lg:min-h-0 lg:overflow-y-auto lg:p-4">
                 <StoryEditor story={selectedStory} disabled={selectedStory.status !== "draft"} onChange={updateStory} />
                 <div className="border-t border-border pt-4">
-                  <MockChatEditor messages={selectedStory.messages} disabled={selectedStory.status !== "draft"} onChange={(messages) => updateStory({ messages })} />
-                </div>
-                <div className="border-t border-border pt-4">
                   <MockActionEditor actions={selectedStory.actions} disabled={selectedStory.status !== "draft"} onChange={(actions) => updateStory({ actions })} />
                 </div>
+                <PolicyScopeEditor policies={selectedFeature.policies} onChange={(policies) => updateFeature({ policies })} />
               </div>
               <div className="border-t border-border p-3">
                 <ReviewControls
@@ -196,7 +211,7 @@ export default function App() {
               </div>
             </div>
             <div data-surface-pane className="min-h-0 border-t border-border p-3 lg:border-t-0 lg:border-l lg:p-4">
-              <SurfacePreview story={selectedStory} theme={theme} />
+              <SurfacePreview story={selectedStory} feature={selectedFeature} theme={theme} />
             </div>
           </div>
         </main>

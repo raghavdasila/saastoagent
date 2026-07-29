@@ -77,11 +77,13 @@ Updated: 2026-07-28
   immediately above the action row and composer, grow to half the chat region,
   then scroll internally; action-only behavior has no surface. The studio uses
   a flat, compact editing system with square 13px controls and a persisted
-  system-aware light/slate-dark theme. The version 10 seed defines Lounge as a
-  separate unauthenticated feature with three draft behaviors for arrival,
-  general product help, and account-path selection. Workspace is separately
-  authenticated; seven owner-authentication behaviors remain approved as the
-  current-implementation baseline. Design edits autosave to
+  system-aware light/slate-dark theme. The version 10 seed now covers
+  behavior-note sections 0–4 with `Lounge 8`, `Workspace 6`, `Agents 9`,
+  `Source Hub 5`, and `API Source 9`. Lounge owns unauthenticated product help
+  and six approved implementation-backed account entry/recovery behaviors;
+  Workspace owns the authenticated home and approved sign-out behavior. Agents
+  has no product-level draft-agent concept. New or materially changed feature
+  behaviors remain draft for review. Design edits autosave to
   `docs/corpus-agent-design/workbench/design-state.json` through the local Vite
   server; only the theme preference remains in browser local storage. AgentPolicy
   guidance is plain text at feature, node, capability, active-surface, and

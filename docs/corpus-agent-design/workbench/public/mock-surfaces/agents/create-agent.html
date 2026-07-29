@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Create a draft agent surface</title>
+  <title>Create an agent surface</title>
   <style>
     :root { color-scheme: light dark; --stage: #f7f9fc; --surface: #ffffff; --text: #172033; --muted: #667085; --border: #dce2eb; --input: #cbd4e1; --shadow: rgba(37, 55, 87, .07); }
     @media (prefers-color-scheme: dark) { :root { --stage: #0f172a; --surface: #172033; --text: #f1f5f9; --muted: #94a3b8; --border: #334155; --input: #475569; --shadow: rgba(0, 0, 0, .24); } }
@@ -25,18 +25,22 @@
 </head>
 <body>
   <section class="surface" aria-label="Create agent surface">
-    <h1>Create a draft agent</h1>
-    <p class="intro">Describe the job this agent should own. Nothing is deployed from this step.</p>
+    <h1>Create an agent</h1>
+    <p class="intro">Define the agent's identity. Creating it does not create a runnable version or deployment.</p>
     <div class="field">
       <label for="name">Agent name</label>
       <input id="name" value="Support Knowledge Agent" readonly />
     </div>
     <div class="field">
-      <label for="purpose">Job to own</label>
-      <textarea id="purpose" readonly>Turn repeated customer questions into proposed help articles for a support lead to review.</textarea>
-      <p class="hint">Corpus will use this to propose the first behavior draft.</p>
+      <label for="description">Description</label>
+      <textarea id="description" readonly>Helps support leads answer recurring customer order questions.</textarea>
     </div>
-    <div class="actions"><button type="button">Cancel</button><button class="primary" type="button">Create draft</button></div>
+    <div class="field">
+      <label for="goal">Goal</label>
+      <textarea id="goal" readonly>Give support leads accurate order-status and shipment-tracking answers.</textarea>
+      <p class="hint">Name, description, and goal are required to create the agent.</p>
+    </div>
+    <div class="actions"><button type="button">Cancel</button><button class="primary" type="button">Create agent</button></div>
   </section>
   <script src="/mock-surfaces/surface-height.js"></script>
 </body>

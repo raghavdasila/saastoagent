@@ -25,13 +25,44 @@ export interface DesignStory {
   rejectionReason: string
 }
 
+export interface PolicyCapabilityDesign {
+  id: string
+  title: string
+  policies: string[]
+}
+
+export interface PolicyOperationDesign {
+  id: string
+  policies: string[]
+}
+
+export interface PolicySurfaceDesign {
+  id: string
+  policies: string[]
+}
+
+export interface PolicyNodeDesign {
+  id: string
+  title: string
+  policies: string[]
+  capabilities: PolicyCapabilityDesign[]
+  activeSurface: PolicySurfaceDesign | null
+  operations: PolicyOperationDesign[]
+}
+
+export interface FeaturePolicyDesign {
+  policies: string[]
+  nodes: PolicyNodeDesign[]
+}
+
 export interface DesignFeature {
   id: string
   name: string
   stories: DesignStory[]
+  policies: FeaturePolicyDesign
 }
 
 export interface WorkbenchState {
-  version: 6
+  version: 10
   features: DesignFeature[]
 }

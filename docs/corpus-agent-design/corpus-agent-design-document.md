@@ -10,6 +10,7 @@ Status: Planning index for the locked launch features and intended work slices. 
 
 ## Locked launch features
 
+0. **Lounge** — Provides the unauthenticated product home, general product help, and owner account entry or recovery.
 1. **Workspace** — Provides the owner context containing their agents, sources, and related activity.
 2. **Agents** — Creates and manages agents, their configurations, versions, attached sources, and deployed URLs.
 3. **Source Hub** — Provides the inventory and management surface for sources that can be attached to agents.
@@ -24,11 +25,20 @@ Status: Planning index for the locked launch features and intended work slices. 
 
 ## Planned work slices
 
-### Slice 1: Workspace and Agents
+### Slice 1: Lounge, Workspace, and Agents
+
+Lounge is the separate feature for unauthenticated visitors. It provides
+general product help and the entry points for sign-up, sign-in, and forgotten
+password recovery without exposing private Workspace state. Workspace begins
+only after authenticated owner context exists.
 
 Define the owner workspace, agent creation and management journey, and how an agent connects to its configuration, sources, versions, and deployed URL.
 
-The workbench now locks the seven currently implemented Corpus owner-authentication behaviors under Workspace as an implementation-backed baseline. This does not approve the remaining Workspace or Agents design, and it does not introduce deployed-agent user authentication into Slice 1.
+The workbench preserves the six currently implemented account-entry and
+recovery behaviors under Lounge and sign-out under Workspace as an approved,
+implementation-backed baseline. This does not approve the remaining Lounge,
+Workspace, or Agents design, and it does not introduce deployed-agent user
+authentication into Slice 1.
 
 ### Slice 2: Source, API, and Evaluation
 

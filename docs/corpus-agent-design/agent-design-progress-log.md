@@ -1,5 +1,14 @@
 # Corpus Agent Design Progress Log
 
+- 2026-07-29 - Expanded the authoritative main studio from the corrected Lounge/Workspace/Agents baseline to behavior-note sections 0–4: `Lounge 8`, `Workspace 6`, `Agents 9`, `Source Hub 5`, and `API Source 9`. Moved account entry/recovery stories to Lounge, kept sign-out in Workspace, removed the product-level draft-agent concept, updated the create-agent surface to require name/description/goal, and persisted the new seed through the studio autosave endpoint. New or materially changed behaviors remain draft; the implementation-backed authentication stories retain approval.
+- 2026-07-29 - Added the unauthenticated Lounge behaviors directly to the main version 7 Workspace seed: arrival, general product help, and account-path selection.
+- 2026-07-29 - Replaced browser-local design persistence in the main and mock studios with automatic, atomic `design-state.json` saves through their local Vite servers; theme preference remains browser-local.
+- 2026-07-29 - Removed the editable mock-conversation form and split each behavior preview into parallel Surface and Chat paths that demonstrate the same task independently.
+- 2026-07-29 - Added first-class RouteDeck `AgentPolicy` modeling to the full-scope studio: declarations at feature scope, inline references at feature/node/capability/surface/operation scope, and a deduplicated effective-policy inspector in the Chat path. Version 9 replaces the prior mock seed; no review migration was retained.
+- 2026-07-29 - Corrected the authoritative main studio after initially changing only the mock: main version 8 now exposes AgentPolicy declarations and references inline at feature, node, capability, active-surface, and operation scope, with the resolved context in Chat.
+- 2026-07-29 - Simplified the authoritative studio's AgentPolicy design model: designers now write plain-language policy text directly at each scope; declaration IDs and references were removed from the design experience and deferred to RouteDeck extraction. Main seed version is 9.
+- 2026-07-29 - Corrected Lounge from a Workspace-owned behavior group to its own top-level feature. Main version 10 now has `Lounge 3`, `Workspace 8`, and `Agents 1`; Lounge owns `lounge.home`. Marked `feature-behavior-notes.md` as user-owned and off limits to Codex edits.
+
 - 2026-07-27 - Locked Slice 1 to Workspace first and Agents second, with feature behavior designed before cross-feature handoffs or RouteDeck extraction.
 - 2026-07-27 - Created the raw `design-corpus-features` skill for atomic behavior inventories, one behavior story at a time, mock interactions only where useful, and explicit user acceptance.
 - 2026-07-27 - Rejected an overbuilt design workspace and reduced the review unit to feature, user story, mock chat, mock surface, and approve or reject.
