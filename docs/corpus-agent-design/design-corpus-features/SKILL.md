@@ -19,6 +19,10 @@ Before starting feature design, read:
 4. `../feature-behavior-notes.md`
 5. `../routedeck-design-glossary.md`
 
+Before extracting RouteDeck candidates in step 10, additionally read:
+
+6. `../routedeck-feature-and-node-design-guide.md`
+
 Treat the product definition and live implementation as supporting evidence
 when a question requires them. Do not treat historical benchmark material as
 current architecture or access an off-limits benchmark checkout.
@@ -205,10 +209,11 @@ Only after behavior approval, translate observed requirements into candidate:
 - public projection and private bindings; and
 - recovery behavior.
 
-Use `../routedeck-design-glossary.md` consistently. Label the result as a
-candidate mapping until separately approved. RouteDeck extraction does not
-authorize implementation. Do not add Navgraph design to the atomic behavior
-workspace before this stage.
+Use `../routedeck-design-glossary.md` for vocabulary and
+`../routedeck-feature-and-node-design-guide.md` for the extraction sequence and
+review questions. Label the result as a candidate mapping until separately
+approved. RouteDeck extraction does not authorize implementation. Do not add
+Navgraph design to the atomic behavior workspace before this stage.
 
 ## Working format
 

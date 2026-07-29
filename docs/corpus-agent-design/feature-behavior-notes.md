@@ -25,11 +25,28 @@ The benchmark does not provide its complete API catalog as one uploaded source. 
 
 This evaluates whether Corpus and Corpus-produced agents can discover operations, coordinate workflows, follow policies, and complete correct multi-application outcomes. It does not validate Corpus's normal API YAML upload pathway.
 
+## 0. Lounge
+
+Lounge is for unauthenticated users.
+Lounge has all the sign in, sign up, forgot password stuff along with general helpdesk which users can ask about the product. add this to design studio by adding the feature as well as the user stories.
+
+Actions
+- sign in
+- sign up
+- forgot password
+- ask about the product
+
 ## 1. Workspace
 
 A Workspace contains the user's agents, sources, and related activity.
-
+Workspace doesnt offer functionality to add modify those agents/sources etc. but acts as like a "home page" such that agent has a place to navigate to those places easilty.
+Quick actions are offered here to Manage Agents, Manage Operations etc.
 For launch, one user has one Workspace. Inviting other users and supporting multi-user Workspaces are deferred.
+
+Actions
+- ask general info about what's going on in the workspace, any query
+- ask general info about the platform itself
+- ask to do any task literally and the agent should navigate to the correct node and continue conversation
 
 ## 2. Agents
 
@@ -45,23 +62,43 @@ An agent brings together:
 
 Editing a source takes the user to that source. Adding a source lets the user select an existing source or upload a new one, then returns them to the agent with it attached.
 
+Actions
+- view my agents
+- create an agent 
+- edit agent
+- archive agent
+- delete agent
+
 ## 3. Source Hub
 
 Source Hub is where users add, view, and manage sources that can be attached to agents.
 
 Corpus may later support APIs, databases, knowledge sources, and MCP servers. For launch, the only source type is an API collection uploaded as a YAML file.
 
+Actions
+ - users can add API source
+ - users can delete API source
+ - users can upload a markdown file (with size limits) which provides helpful description about the API
+
 ## 4. API Source / API Collection
 
 An API collection is the launch source type and is powered by ToolRouter.
 
 The user uploads an API YAML file and can see whether it was processed successfully and is ready to use. ToolRouter inputs, outputs, and generated artifacts remain isolated by Workspace and user.
+navigated ONLY from source hub.
+
+actions:
+- upload API file.
+- configure api details such as auth, baseurl or whatever, check saastoagent earlier one
+- process api collection via ToolRouter to make semantic graph, this graph must be shown to the user, toolrouter has visualizers which have node by node playback somewhere in the code which might help. if we can show live parsing as the graph develops, that would be great.
 
 ## 5. Agent Designer
 
 Agent Designer is powered by RouteDeck. It uses the agent's goal and selected API operations to propose a runnable RouteDeck agent configuration for the user to review.
 
 For the launch baseline, it only needs to produce a viable agent for the end-to-end API-backed pathway. Deeper design controls and planner/executor choices will be explored separately.
+
+- uses routedeck guidelines to propose a navgraph for the api collection based on the semantic graph developed.
 
 ## 6. Agent Builder
 

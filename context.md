@@ -5,6 +5,8 @@ Updated: 2026-07-28
 ## Repository Boundary
 
 - Authoritative checkout: `D:\Dev\AI Projects\saastoagent-v0.1`.
+- `docs/corpus-agent-design/feature-behavior-notes.md` is user-owned and must
+  not be edited by Codex.
 - RouteDeck source dependency: sibling `D:\Dev\AI Projects\routedeck`, linked
   at version 0.1.0 through pnpm `link:` package junctions. Corpus consumes the
   sibling packages' built `dist` exports, not Git or npm-installed copies.
@@ -75,10 +77,16 @@ Updated: 2026-07-28
   immediately above the action row and composer, grow to half the chat region,
   then scroll internally; action-only behavior has no surface. The studio uses
   a flat, compact editing system with square 13px controls and a persisted
-  system-aware light/slate-dark theme. Seven owner-authentication behaviors are
-  approved as a current-implementation baseline under Workspace. Version 6
-  preserves valid version 4 edits while adding seeded user and agent intent;
-  the reverted version 5 key is intentionally ignored.
+  system-aware light/slate-dark theme. The version 10 seed defines Lounge as a
+  separate unauthenticated feature with three draft behaviors for arrival,
+  general product help, and account-path selection. Workspace is separately
+  authenticated; seven owner-authentication behaviors remain approved as the
+  current-implementation baseline. Design edits autosave to
+  `docs/corpus-agent-design/workbench/design-state.json` through the local Vite
+  server; only the theme preference remains in browser local storage. AgentPolicy
+  guidance is plain text at feature, node, capability, active-surface, and
+  operation scope; RouteDeck IDs/references are deferred to extraction, and the
+  Chat path shows the combined effective context.
 - The live Navgraph remains a docked, in-place expandable desktop rail. At
   mobile width it switches to a shadcn Sheet drawer without changing RouteDeck
   state ownership.
