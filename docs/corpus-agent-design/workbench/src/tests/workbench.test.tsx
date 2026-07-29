@@ -24,7 +24,7 @@ describe("Corpus behavior design workbench", () => {
     expect(screen.getByRole("heading", { name: "Upload an API YAML file" })).toBeInTheDocument()
   })
 
-  it("keeps user and agent intent distinct from the user story", async () => {
+  it("keeps user and agent intent distinct from expected behavior", async () => {
     await renderWorkbench()
 
     expect(screen.getByLabelText("User intent")).toHaveValue(
@@ -33,7 +33,36 @@ describe("Corpus behavior design workbench", () => {
     expect(screen.getByLabelText("Agent intent")).toHaveValue(
       "Establish the public Lounge and keep every valid public or account path available.",
     )
-    expect(screen.getByLabelText("User story")).toBeInTheDocument()
+    expect(screen.getByLabelText("Expected behavior")).toBeInTheDocument()
+  })
+
+  it("keeps feature policy in the sidebar and behavior policy with the selected behavior", async () => {
+    const user = userEvent.setup()
+    await renderWorkbench()
+
+    expect(screen.getByText("Behavior policies (0)")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Feature policy" }))
+    expect(screen.getByRole("heading", { name: "Feature AgentPolicy" })).toBeInTheDocument()
+    expect(screen.getAllByLabelText("Policy guidance")).toHaveLength(2)
+
+    await user.click(screen.getByRole("button", { name: "Arrive in the Lounge" }))
+
+    await user.click(screen.getByRole("button", { name: "Add policy" }))
+    const scopes = screen.getAllByLabelText("Scope")
+    const scopeNames = screen.getAllByLabelText("Applies to")
+    const guidance = screen.getAllByLabelText("Policy guidance")
+
+    await user.selectOptions(scopes.at(-1)!, "behavior")
+    expect(scopeNames.at(-1)).toHaveValue("Arrive in the Lounge")
+    await user.type(guidance.at(-1)!, "Keep this behavior available to unauthenticated visitors.")
+
+    expect(screen.getByText("Behavior policies (1)")).toBeInTheDocument()
+    await waitFor(() => expect(getDesignStateFile()).toContain("Keep this behavior available to unauthenticated visitors."))
+    expect(getDesignStateFile()).not.toContain("lounge.home")
+    expect(getDesignStateFile()).not.toContain("routedeck.execution_authority")
+
+    await user.click(screen.getByRole("button", { name: "Remove policy 1" }))
+    expect(screen.getByText("Behavior policies (0)")).toBeInTheDocument()
   })
 
   it("seeds Lounge as a separate unauthenticated feature with account paths and product help", async () => {
@@ -60,43 +89,43 @@ describe("Corpus behavior design workbench", () => {
     expect(screen.getByRole("button", { name: "Source Hub 5" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "API Source 9" })).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Ask Lounge for product help" }))
-    expect((screen.getByLabelText("User story") as HTMLTextAreaElement).value).toContain(
+    expect((screen.getByLabelText("Expected behavior") as HTMLTextAreaElement).value).toContain(
       "Corpus answers from current product knowledge",
     )
   })
 
-  it("adds, selects, and autosaves a blank story to design-state.json", async () => {
+  it("adds, selects, and autosaves a blank behavior to design-state.json", async () => {
     const user = userEvent.setup()
     await renderWorkbench()
 
-    await user.click(screen.getByRole("button", { name: "Add story" }))
+    await user.click(screen.getByRole("button", { name: "Add behavior" }))
 
-    expect(screen.getByRole("heading", { name: "New user story" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "New behavior" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Lounge 9" })).toBeInTheDocument()
-    await waitFor(() => expect(getDesignStateFile()).toContain("New user story"))
+    await waitFor(() => expect(getDesignStateFile()).toContain("New behavior"))
     expect(screen.getByText("Saved to file")).toBeInTheDocument()
   })
 
-  it("deletes a draft story only after confirmation and autosaves the deletion", async () => {
+  it("deletes a draft behavior only after confirmation and autosaves the deletion", async () => {
     const user = userEvent.setup()
     await renderWorkbench()
 
-    await user.click(screen.getByRole("button", { name: "Add story" }))
-    await user.click(screen.getByRole("button", { name: "Delete story" }))
-    await user.click(screen.getByRole("button", { name: "Confirm delete story" }))
+    await user.click(screen.getByRole("button", { name: "Add behavior" }))
+    await user.click(screen.getByRole("button", { name: "Delete behavior" }))
+    await user.click(screen.getByRole("button", { name: "Confirm delete behavior" }))
 
-    expect(screen.queryByRole("heading", { name: "New user story" })).not.toBeInTheDocument()
-    await waitFor(() => expect(getDesignStateFile()).not.toContain("New user story"))
+    expect(screen.queryByRole("heading", { name: "New behavior" })).not.toBeInTheDocument()
+    await waitFor(() => expect(getDesignStateFile()).not.toContain("New behavior"))
   })
 
-  it("returns a reviewed story to draft when it is reopened and edited", async () => {
+  it("returns a reviewed behavior to draft when it is reopened and edited", async () => {
     const user = userEvent.setup()
     await renderWorkbench()
 
-    await user.click(screen.getByRole("button", { name: "Approve story" }))
+    await user.click(screen.getByRole("button", { name: "Approve behavior" }))
     await user.click(screen.getByRole("button", { name: "Reopen draft" }))
-    await user.clear(screen.getByLabelText("User story"))
-    await user.type(screen.getByLabelText("User story"), "The Lounge remains the guest starting point.")
+    await user.clear(screen.getByLabelText("Expected behavior"))
+    await user.type(screen.getByLabelText("Expected behavior"), "The Lounge remains the guest starting point.")
 
     expect(screen.getByText("Draft")).toBeInTheDocument()
   })
@@ -105,11 +134,11 @@ describe("Corpus behavior design workbench", () => {
     const user = userEvent.setup()
     await renderWorkbench()
 
-    await user.click(screen.getByRole("button", { name: "Reject story" }))
+    await user.click(screen.getByRole("button", { name: "Reject behavior" }))
     await user.click(screen.getByRole("button", { name: "Confirm rejection" }))
     expect(screen.getByRole("alert")).toHaveTextContent("Add a reason before rejecting")
 
-    await user.type(screen.getByLabelText("Why reject this story?"), "The entry point is unclear.")
+    await user.type(screen.getByLabelText("Why reject this behavior?"), "The entry point is unclear.")
     await user.click(screen.getByRole("button", { name: "Confirm rejection" }))
     expect(screen.getByText("Rejected")).toBeInTheDocument()
   })
@@ -173,7 +202,7 @@ describe("Corpus behavior design workbench", () => {
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark")
   })
 
-  it("autosaves story edits to design-state.json", async () => {
+  it("autosaves behavior edits to design-state.json", async () => {
     const user = userEvent.setup()
     await renderWorkbench()
 
@@ -186,7 +215,7 @@ describe("Corpus behavior design workbench", () => {
 
   it("blocks on an invalid design-state.json and can explicitly replace it with the seed", async () => {
     const user = userEvent.setup()
-    setDesignStateFile(JSON.stringify({ version: 10, features: [] }))
+    setDesignStateFile(JSON.stringify({ version: 13, features: [] }))
     render(<App />)
 
     const alert = await screen.findByRole("alert")

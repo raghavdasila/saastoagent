@@ -1,4 +1,4 @@
-import type { DesignStory, FeaturePolicyDesign, MockAction, WorkbenchState } from "@/workbench/types"
+import type { AgentPolicyDesign, DesignStory, MockAction, WorkbenchState } from "@/workbench/types"
 
 type StoryOptions = {
   actions?: MockAction[]
@@ -21,50 +21,38 @@ function story(
     title,
     userIntent,
     agentIntent,
-    story: behavior,
+    expectedBehavior: behavior,
     messages: [
       { id: `${id}-owner`, actor: "Owner", content: ownerMessage },
       { id: `${id}-corpus`, actor: "Corpus", content: corpusMessage },
     ],
     actions: options.actions ?? [],
     mockSurfacePath: options.surface ?? null,
+    policies: [],
     status: options.status ?? "draft",
     rejectionReason: "",
   }
 }
 
-function policies(
-  nodeId: string,
-  nodeTitle: string,
-  featurePolicies: string[],
-  nodePolicies: string[] = [],
-): FeaturePolicyDesign {
-  return {
-    policies: featurePolicies,
-    nodes: [{
-      id: nodeId,
-      title: nodeTitle,
-      policies: nodePolicies,
-      capabilities: [],
-      activeSurface: null,
-      operations: [],
-    }],
-  }
+function policies(scopeName: string, guidance: string[]): AgentPolicyDesign[] {
+  return guidance.map((instruction) => ({
+    scope: "feature",
+    scopeName,
+    guidance: instruction,
+  }))
 }
 
 export function createSeedState(): WorkbenchState {
   return {
-    version: 10,
+    version: 13,
     features: [
       {
         id: "lounge",
         name: "Lounge",
-        policies: policies(
-          "lounge.home",
-          "Lounge",
-          ["Keep unauthenticated help general and never expose private Workspace state."],
-          ["Offer product help and account access without implying that the visitor is authenticated."],
-        ),
+        policies: policies("Lounge", [
+          "Keep unauthenticated help general and never expose private Workspace state.",
+          "Offer product help and account access without implying that the visitor is authenticated.",
+        ]),
         stories: [
           story(
             "lounge-arrival",
@@ -155,12 +143,10 @@ export function createSeedState(): WorkbenchState {
       {
         id: "workspace",
         name: "Workspace",
-        policies: policies(
-          "workspace.home",
-          "Workspace home",
-          ["Use only the authenticated owner's authorized Workspace context."],
-          ["Keep Workspace home oriented toward overview, navigation, and continuation; do not edit domain records here."],
-        ),
+        policies: policies("Workspace", [
+          "Use only the authenticated owner's authorized Workspace context.",
+          "Keep Workspace home oriented toward overview, navigation, and continuation; do not edit domain records here.",
+        ]),
         stories: [
           story(
             "enter-workspace",
@@ -227,12 +213,10 @@ export function createSeedState(): WorkbenchState {
       {
         id: "agents",
         name: "Agents",
-        policies: policies(
-          "agents.home",
-          "Agents",
-          ["Keep every agent isolated to the authenticated owner's Workspace."],
-          ["Never describe an agent as runnable or deployed unless a corresponding version and deployment exist."],
-        ),
+        policies: policies("Agents", [
+          "Keep every agent isolated to the authenticated owner's Workspace.",
+          "Never describe an agent as runnable or deployed unless a corresponding version and deployment exist.",
+        ]),
         stories: [
           story(
             "agents-view",
@@ -327,12 +311,10 @@ export function createSeedState(): WorkbenchState {
       {
         id: "source-hub",
         name: "Source Hub",
-        policies: policies(
-          "sources.home",
-          "Source Hub",
-          ["Expose only sources owned by the authenticated Workspace."],
-          ["At launch, offer API sources only; do not imply database, knowledge, or MCP support."],
-        ),
+        policies: policies("Source Hub", [
+          "Expose only sources owned by the authenticated Workspace.",
+          "At launch, offer API sources only; do not imply database, knowledge, or MCP support.",
+        ]),
         stories: [
           story(
             "sources-view",
@@ -389,12 +371,10 @@ export function createSeedState(): WorkbenchState {
       {
         id: "api-source",
         name: "API Source",
-        policies: policies(
-          "api-source.manage",
-          "API Source",
-          ["Keep API specifications, credentials, artifacts, and processing isolated to the authenticated Workspace."],
-          ["Enter API Source only from Source Hub and keep processing failures explicit."],
-        ),
+        policies: policies("API Source", [
+          "Keep API specifications, credentials, artifacts, and processing isolated to the authenticated Workspace.",
+          "Enter API Source only from Source Hub and keep processing failures explicit.",
+        ]),
         stories: [
           story(
             "api-upload-yaml",

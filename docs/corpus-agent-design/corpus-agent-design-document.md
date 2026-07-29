@@ -6,7 +6,7 @@ Status: Planning index for the locked launch features and intended work slices. 
 
 - [Corpus Product Definition](../corpus-product-definition.md) is the authority for the locked feature layout and first-launch subset.
 - [Corpus Basic Agent Feature Behavior Notes](./feature-behavior-notes.md) contains the current owner-authored behavior baseline and will be refined as each slice is explored.
-- [Corpus Agent Design Workbench](./workbench/README.md) is the local intent, story, mock-chat, action, inline-surface, and approval workspace used to iterate on each slice.
+- [Corpus Agent Design Workbench](./workbench/README.md) is the local intent, expected-behavior, mock-chat, action, inline-surface, and approval workspace used to iterate on each slice.
 
 ## Locked launch features
 

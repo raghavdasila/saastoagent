@@ -4,7 +4,7 @@ import { ArrowUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { Theme } from "@/workbench/theme"
-import type { DesignFeature, DesignStory } from "@/workbench/types"
+import type { DesignStory } from "@/workbench/types"
 
 const DEFAULT_CHAT_HEIGHT = 640
 const DEFAULT_SURFACE_HEIGHT = 240
@@ -22,31 +22,12 @@ export function resolveInlineSurfaceHeight(contentHeight: number, chatHeight: nu
   return Math.max(1, Math.min(safeContentHeight, Math.floor(safeChatHeight / 2)))
 }
 
-const FRAMEWORK_POLICIES = [
-  { id: "routedeck.execution_authority", instruction: "Call only operations legal in the current RouteDeck context." },
-  { id: "routedeck.intent_authority", instruction: "Treat legal operations as permitted, not automatically requested." },
-  { id: "routedeck.state_authority", instruction: "Treat completed results and refreshed RouteDeck context as application-state authority." },
-]
-
-export function SurfacePreview({ story, feature, theme }: { story: DesignStory; feature: DesignFeature; theme: Theme }) {
+export function SurfacePreview({ story, theme }: { story: DesignStory; theme: Theme }) {
   const chatSurfaceRef = useRef<HTMLDivElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [chatHeight, setChatHeight] = useState(DEFAULT_CHAT_HEIGHT)
   const [surfaceContentHeight, setSurfaceContentHeight] = useState(DEFAULT_SURFACE_HEIGHT)
-  const [policyNodeId, setPolicyNodeId] = useState(feature.policies.nodes[0]?.id ?? "")
   const surfaceHeight = resolveInlineSurfaceHeight(surfaceContentHeight, chatHeight)
-  const policyNode = feature.policies.nodes.find((node) => node.id === policyNodeId) ?? feature.policies.nodes[0]
-  const effectivePolicies = [...new Set([
-    ...feature.policies.policies,
-    ...(policyNode?.policies ?? []),
-    ...(policyNode?.capabilities.flatMap((capability) => capability.policies) ?? []),
-    ...(policyNode?.activeSurface?.policies ?? []),
-    ...(policyNode?.operations.flatMap((operation) => operation.policies) ?? []),
-  ].map((policy) => policy.trim()).filter(Boolean))]
-
-  useEffect(() => {
-    setPolicyNodeId(feature.policies.nodes[0]?.id ?? "")
-  }, [feature.id, feature.policies.nodes])
 
   useEffect(() => {
     const chatSurface = chatSurfaceRef.current
@@ -105,12 +86,25 @@ export function SurfacePreview({ story, feature, theme }: { story: DesignStory; 
         <span className="text-xs text-muted-foreground">Same task, two interaction modes</span>
       </div>
 
+      <details className="border border-border px-3 py-2 text-xs">
+        <summary className="cursor-pointer font-medium">Behavior policies ({story.policies.length})</summary>
+        <div className="mt-2 space-y-2 border-l border-border pl-2">
+          {story.policies.length === 0 && <p className="text-muted-foreground">No policies defined for this behavior.</p>}
+          {story.policies.map((policy, index) => (
+            <p key={index}>
+              <span className="font-medium capitalize">{policy.scope}</span>
+              <span className="text-muted-foreground"> · {policy.scopeName || "Unnamed scope"}</span>
+              <span> — {policy.guidance || "No guidance yet."}</span>
+            </p>
+          ))}
+        </div>
+      </details>
+
       <div ref={chatSurfaceRef} className="grid min-h-96 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] overflow-hidden border border-border bg-background lg:min-h-0">
         <section aria-labelledby="surface-path-heading" className="flex min-h-0 flex-col border-b border-border">
           <div className="border-b border-border px-3 py-2">
             <h3 id="surface-path-heading" className="text-xs font-semibold uppercase tracking-wide">Surface path</h3>
             <p className="text-xs text-muted-foreground">The task completed through structured product UI.</p>
-            {policyNode?.activeSurface && <p className="mt-1 text-[11px] text-muted-foreground">Surface policy: {policyNode.activeSurface.policies.length ? policyNode.activeSurface.policies.join(" · ") : "none"}</p>}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
             {story.mockSurfacePath ? (
@@ -133,17 +127,8 @@ export function SurfacePreview({ story, feature, theme }: { story: DesignStory; 
 
         <section aria-labelledby="chat-path-heading" className="flex min-h-0 flex-col">
           <div className="border-b border-border px-3 py-2">
-            <div className="flex items-start justify-between gap-3">
-              <div><h3 id="chat-path-heading" className="text-xs font-semibold uppercase tracking-wide">Chat path</h3><p className="text-xs text-muted-foreground">The same task completed conversationally.</p></div>
-              {feature.policies.nodes.length > 0 && <label className="text-[11px] text-muted-foreground">Policy context<select className="ml-2 h-7 border border-input bg-background px-2 text-xs text-foreground" value={policyNode?.id ?? ""} onChange={(event) => setPolicyNodeId(event.target.value)}>{feature.policies.nodes.map((node) => <option key={node.id} value={node.id}>{node.id}</option>)}</select></label>}
-            </div>
-            <details className="mt-2 text-xs">
-              <summary className="cursor-pointer font-medium">Effective AgentPolicy ({FRAMEWORK_POLICIES.length + effectivePolicies.length})</summary>
-              <div className="mt-2 space-y-1 border-l border-border pl-2">
-                {FRAMEWORK_POLICIES.map((policy) => <p key={policy.id}><span className="font-mono text-[11px]">{policy.id}</span> — {policy.instruction}</p>)}
-                {effectivePolicies.map((policy, index) => <p key={`${policy}-${index}`}>{policy}</p>)}
-              </div>
-            </details>
+            <h3 id="chat-path-heading" className="text-xs font-semibold uppercase tracking-wide">Chat path</h3>
+            <p className="text-xs text-muted-foreground">The same task completed conversationally.</p>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
             <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col justify-end gap-3">

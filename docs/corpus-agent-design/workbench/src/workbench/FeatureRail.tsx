@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Plus, XCircle } from "lucide-react"
+import { CheckCircle2, Circle, Plus, ShieldCheck, XCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -14,12 +14,14 @@ interface FeatureRailProps {
   features: DesignFeature[]
   selectedFeatureId: string
   selectedStoryId: string
+  selectedView: "behavior" | "feature-policy"
   onSelectFeature: (featureId: string) => void
   onSelectStory: (storyId: string) => void
+  onSelectFeaturePolicy: () => void
   onAddStory: () => void
 }
 
-export function FeatureRail({ features, selectedFeatureId, selectedStoryId, onSelectFeature, onSelectStory, onAddStory }: FeatureRailProps) {
+export function FeatureRail({ features, selectedFeatureId, selectedStoryId, selectedView, onSelectFeature, onSelectStory, onSelectFeaturePolicy, onAddStory }: FeatureRailProps) {
   const selectedFeature = features.find((feature) => feature.id === selectedFeatureId) ?? features[0]
 
   return (
@@ -42,10 +44,26 @@ export function FeatureRail({ features, selectedFeatureId, selectedStoryId, onSe
         ))}
       </div>
 
+      <div className="border-b border-border p-1">
+        <Button
+          aria-label="Feature policy"
+          variant="ghost"
+          className={cn(
+            "h-8 w-full justify-start rounded-none border-0 border-l-2 border-transparent px-2 !text-[13px] focus-visible:border-l-ring focus-visible:bg-muted/50 focus-visible:ring-0",
+            selectedView === "feature-policy" && "border-l-primary bg-muted/60 font-medium text-foreground",
+          )}
+          onClick={onSelectFeaturePolicy}
+        >
+          <ShieldCheck data-icon="inline-start" className="size-3.5" />
+          Feature policy
+          <span className="ml-auto text-[11px] font-normal text-muted-foreground tabular-nums">{selectedFeature.policies.length}</span>
+        </Button>
+      </div>
+
       <div className="flex min-h-0 flex-col py-1">
         <div className="flex h-8 items-center justify-between gap-2 px-2">
-          <p className="text-xs font-semibold text-muted-foreground">Stories</p>
-          <Button aria-label="Add story" size="xs" variant="ghost" className="px-1.5 focus-visible:ring-1" onClick={onAddStory}>
+          <p className="text-xs font-semibold text-muted-foreground">Behaviors</p>
+          <Button aria-label="Add behavior" size="xs" variant="ghost" className="px-1.5 focus-visible:ring-1" onClick={onAddStory}>
             <Plus data-icon="inline-start" /> Add
           </Button>
         </div>
@@ -58,7 +76,7 @@ export function FeatureRail({ features, selectedFeatureId, selectedStoryId, onSe
                 variant="ghost"
                 className={cn(
                   "h-auto min-h-8 w-full justify-start rounded-none border-0 border-l-2 border-transparent px-2 py-1 text-left !text-[13px] !leading-4 whitespace-normal focus-visible:border-l-ring focus-visible:bg-muted/50 focus-visible:ring-0",
-                  story.id === selectedStoryId && "border-l-primary bg-muted/60 font-medium text-foreground",
+                  selectedView === "behavior" && story.id === selectedStoryId && "border-l-primary bg-muted/60 font-medium text-foreground",
                 )}
                 onClick={() => onSelectStory(story.id)}
               >

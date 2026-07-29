@@ -1,5 +1,5 @@
 import { createSeedState } from "@/workbench/seed"
-import type { WorkbenchState } from "@/workbench/types"
+import type { AgentPolicyScope, WorkbenchState } from "@/workbench/types"
 
 const DESIGN_STATE_ENDPOINT = "/__design-studio/state"
 let saveQueue: Promise<void> = Promise.resolve()
@@ -12,28 +12,30 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
 }
 
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string")
-}
+const POLICY_SCOPES = new Set<AgentPolicyScope>([
+  "feature",
+  "behavior",
+  "node",
+  "capability",
+  "surface",
+  "action",
+  "operation",
+  "other",
+])
 
 function hasValidPolicies(value: unknown): boolean {
-  if (!isRecord(value) || !isStringArray(value.policies) || !Array.isArray(value.nodes)) return false
-  return value.nodes.every((node) => (
-      isRecord(node)
-      && typeof node.id === "string"
-      && typeof node.title === "string"
-      && isStringArray(node.policies)
-      && Array.isArray(node.capabilities)
-      && node.capabilities.every((capability) => isRecord(capability) && typeof capability.id === "string" && typeof capability.title === "string" && isStringArray(capability.policies))
-      && (node.activeSurface === null || (isRecord(node.activeSurface) && typeof node.activeSurface.id === "string" && isStringArray(node.activeSurface.policies)))
-      && Array.isArray(node.operations)
-      && node.operations.every((operation) => isRecord(operation) && typeof operation.id === "string" && isStringArray(operation.policies))
-    ))
+  return Array.isArray(value) && value.every((policy) => (
+    isRecord(policy)
+    && typeof policy.scope === "string"
+    && POLICY_SCOPES.has(policy.scope as AgentPolicyScope)
+    && typeof policy.scopeName === "string"
+    && typeof policy.guidance === "string"
+  ))
 }
 
-function isWorkbenchState(value: unknown): value is WorkbenchState {
-  if (!isRecord(value) || value.version !== 10 || !Array.isArray(value.features) || value.features.length === 0) return false
-  return value.features.every((feature) => (
+function hasValidFeatureData(value: unknown): boolean {
+  if (!Array.isArray(value) || value.length === 0) return false
+  return value.every((feature) => (
     isRecord(feature)
     && typeof feature.id === "string"
     && typeof feature.name === "string"
@@ -46,7 +48,7 @@ function isWorkbenchState(value: unknown): value is WorkbenchState {
       && typeof story.title === "string"
       && typeof story.userIntent === "string"
       && typeof story.agentIntent === "string"
-      && typeof story.story === "string"
+      && typeof story.expectedBehavior === "string"
       && Array.isArray(story.messages)
       && story.messages.every((message) => (
         isRecord(message)
@@ -57,10 +59,17 @@ function isWorkbenchState(value: unknown): value is WorkbenchState {
       && Array.isArray(story.actions)
       && story.actions.every((action) => isRecord(action) && typeof action.id === "string" && typeof action.label === "string")
       && (story.mockSurfacePath === null || typeof story.mockSurfacePath === "string")
+      && hasValidPolicies(story.policies)
       && (story.status === "draft" || story.status === "approved" || story.status === "rejected")
       && typeof story.rejectionReason === "string"
     ))
   ))
+}
+
+function isWorkbenchState(value: unknown): value is WorkbenchState {
+  return isRecord(value)
+    && value.version === 13
+    && hasValidFeatureData(value.features)
 }
 
 export async function loadWorkbenchState(): Promise<LoadResult> {
@@ -74,9 +83,8 @@ export async function loadWorkbenchState(): Promise<LoadResult> {
     if (!response.ok) return { ok: false, reason: "unavailable" }
 
     const parsed: unknown = await response.json()
-    return isWorkbenchState(parsed)
-      ? { ok: true, state: parsed, source: "saved" }
-      : { ok: false, reason: "invalid" }
+    if (!isWorkbenchState(parsed)) return { ok: false, reason: "invalid" }
+    return { ok: true, state: parsed, source: "saved" }
   } catch {
     return { ok: false, reason: "unavailable" }
   }

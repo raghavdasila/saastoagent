@@ -43,7 +43,7 @@ export function ReviewControls({ story, canDelete, onChange, onDelete }: ReviewC
 
   if (isDeleting) {
     return (
-      <div role="alertdialog" aria-label="Confirm story deletion" className="flex flex-wrap items-center justify-between gap-3 border border-destructive/30 bg-destructive/5 p-3">
+      <div role="alertdialog" aria-label="Confirm behavior deletion" className="flex flex-wrap items-center justify-between gap-3 border border-destructive/30 bg-destructive/5 p-3">
         <div>
           <p className="text-sm font-semibold">Delete &quot;{story.title}&quot;?</p>
           <p className="mt-1 text-xs text-muted-foreground">This removes the local draft and cannot be undone.</p>
@@ -51,7 +51,7 @@ export function ReviewControls({ story, canDelete, onChange, onDelete }: ReviewC
         <div className="flex gap-2">
           <Button variant="ghost" onClick={() => setIsDeleting(false)}>Cancel</Button>
           <Button variant="destructive" onClick={onDelete}>
-            <Trash2 data-icon="inline-start" /> Confirm delete story
+            <Trash2 data-icon="inline-start" /> Confirm delete behavior
           </Button>
         </div>
       </div>
@@ -62,7 +62,7 @@ export function ReviewControls({ story, canDelete, onChange, onDelete }: ReviewC
     <div className="flex flex-col gap-3">
       {isRejecting && (
         <Field data-invalid={Boolean(validationError)}>
-          <FieldLabel htmlFor="rejection-reason">Why reject this story?</FieldLabel>
+          <FieldLabel htmlFor="rejection-reason">Why reject this behavior?</FieldLabel>
           <Textarea
             id="rejection-reason"
             className="min-h-16"
@@ -79,7 +79,7 @@ export function ReviewControls({ story, canDelete, onChange, onDelete }: ReviewC
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Button variant="ghost" disabled={!canDelete} onClick={() => setIsDeleting(true)}>
-          <Trash2 data-icon="inline-start" /> Delete story
+          <Trash2 data-icon="inline-start" /> Delete behavior
         </Button>
         <div className="flex gap-2">
         {isRejecting ? (
@@ -92,10 +92,10 @@ export function ReviewControls({ story, canDelete, onChange, onDelete }: ReviewC
         ) : (
           <>
             <Button variant="destructive" onClick={() => setIsRejecting(true)}>
-              <X data-icon="inline-start" /> Reject story
+              <X data-icon="inline-start" /> Reject behavior
             </Button>
             <Button onClick={() => onChange({ status: "approved", rejectionReason: "" }, true)}>
-              <Check data-icon="inline-start" /> Approve story
+              <Check data-icon="inline-start" /> Approve behavior
             </Button>
           </>
         )}

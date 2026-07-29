@@ -1,5 +1,8 @@
 # Corpus Agent Design Progress Log
 
+- 2026-07-29 - Separated policy ownership in studio version 13: feature-scoped AgentPolicy is accessed once from the feature sidebar, while each behavior stores and shows only its own behavior, node, capability, surface, action, operation, or custom scoped policies.
+- 2026-07-29 - Corrected AgentPolicy authoring in the authoritative studio. Version 12 removes seeded and framework-shaped policy IDs, replaces the forced node graph with add/edit/remove policy entries carrying a scope type, human-readable target name, and plain-language guidance, and stops presenting design guidance as a compiled effective RouteDeck policy.
+- 2026-07-29 - Replaced the redundant narrative field throughout the authoritative studio with `Expected behavior`: the observable Corpus response, material constraints, and completion state. Version 11 migrates version 10 state without changing intents, reviews, actions, chat, surfaces, or policies; all visible review controls now use behavior terminology.
 - 2026-07-29 - Expanded the authoritative main studio from the corrected Lounge/Workspace/Agents baseline to behavior-note sections 0–4: `Lounge 8`, `Workspace 6`, `Agents 9`, `Source Hub 5`, and `API Source 9`. Moved account entry/recovery stories to Lounge, kept sign-out in Workspace, removed the product-level draft-agent concept, updated the create-agent surface to require name/description/goal, and persisted the new seed through the studio autosave endpoint. New or materially changed behaviors remain draft; the implementation-backed authentication stories retain approval.
 - 2026-07-29 - Added the unauthenticated Lounge behaviors directly to the main version 7 Workspace seed: arrival, general product help, and account-path selection.
 - 2026-07-29 - Replaced browser-local design persistence in the main and mock studios with automatic, atomic `design-state.json` saves through their local Vite servers; theme preference remains browser-local.
@@ -11,7 +14,7 @@
 
 - 2026-07-27 - Locked Slice 1 to Workspace first and Agents second, with feature behavior designed before cross-feature handoffs or RouteDeck extraction.
 - 2026-07-27 - Created the raw `design-corpus-features` skill for atomic behavior inventories, one behavior story at a time, mock interactions only where useful, and explicit user acceptance.
-- 2026-07-27 - Rejected an overbuilt design workspace and reduced the review unit to feature, user story, mock chat, mock surface, and approve or reject.
+- 2026-07-27 - Rejected an overbuilt design workspace and reduced the review unit to feature, behavior, mock chat, mock surface, and approve or reject.
 - 2026-07-27 - Built the local shadcn workbench under `docs/corpus-agent-design/workbench` with story creation and editing, local persistence, review locking, and bounded viewport scrolling.
 - 2026-07-27 - Kept surface previews surface-only as sandboxed static iframe reproductions rather than copies of the Corpus shell or live product code.
 - 2026-07-27 - Added a persisted system-aware light and slate-dark theme to the workbench and its static surface previews.

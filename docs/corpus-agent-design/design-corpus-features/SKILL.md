@@ -1,6 +1,6 @@
 ---
 name: design-corpus-features
-description: Drive bottom-up design of locked Corpus product features through atomic behavior inventories, user and agent intent, behavior-based user stories, mock product chats, explicit actions, and inline mock surfaces. Use when Codex is drafting, refining, or documenting how a Corpus feature should behave for user review before cross-feature workflow design, RouteDeck candidate extraction, specification, or implementation.
+description: Drive bottom-up design of locked Corpus product features through atomic behavior inventories, user and agent intent, expected behavior, mock product chats, explicit actions, and inline mock surfaces. Use when Codex is drafting, refining, or documenting how a Corpus feature should behave for user review before cross-feature workflow design, RouteDeck candidate extraction, specification, or implementation.
 ---
 
 # Design Corpus Features
@@ -38,9 +38,9 @@ Keep these identities separate throughout the work:
   product feature, runtime actor, or product persona unless the user explicitly
   decides that separately.
 - **Codex drives the studio; the user reviews it.** Codex maintains the behavior
-  inventory, drafts the current story and supporting artifacts, and advances
+  inventory, drafts the current behavior and supporting artifacts, and advances
   one approved step at a time. Their current conversation is not a mock product
-  chat and must not be copied into a product story.
+  chat and must not be copied into a mock product interaction.
 - **A mock product chat** simulates a future interaction inside Corpus. Name its
   future product actors according to the behavior being explored; do not call
   it an Owner-Codex conversation by default.
@@ -50,11 +50,12 @@ Keep these identities separate throughout the work:
 - **A deployed agent** is an output managed by Corpus. It is distinct from
   Codex, Corpus itself, and the Agent Designer feature.
 - **A feature** is a locked product ownership boundary. It is not automatically
-  a screen, a user story, a workflow step, or a RouteDeck node.
+  a screen, a workflow step, or a RouteDeck node.
 - **A behavior** is one observable thing a future user can accomplish or
   experience through a feature.
-- **A user story** is a design lens for one behavior, not a complete feature
-  specification.
+- **Expected behavior** is the concise observable Corpus response, including
+  material constraints and the completion state. It does not repeat either
+  intent as ceremonial template prose.
 - **User intent** is the meaning or outcome the future user wants in the defined
   situation. It is not the user's exact wording, a button label, or a runtime
   intent classification.
@@ -65,6 +66,12 @@ Keep these identities separate throughout the work:
   not RouteDeck state or a runtime contract.
 - **An action** is a direct choice or command available to the user. Record it
   separately from a surface; an action does not warrant a surface by itself.
+- **An AgentPolicy** is plain-language agent guidance authored at an explicitly
+  named design scope. The studio must let the designer add, edit, and remove
+  policies without inventing or requesting RouteDeck declaration IDs. Those
+  identifiers and effective-policy resolution belong to later extraction.
+  Feature-scoped policy has one feature-level owner; a behavior stores only
+  policies owned by that behavior or its contained scopes.
 - **A mock surface** is a disposable interaction sketch used to expose needed
   information, structured controls, state, and feedback inline immediately
   above the chat composer. It is not a dialog, modal, approved UI design, or
@@ -113,9 +120,11 @@ For one behavior at a time, draft:
 - **Product behavior:** what Corpus visibly does.
 - **Observable outcome:** what must be true when the behavior completes.
 - **Ownership:** why this feature owns the behavior.
+- **AgentPolicy:** any constraint exposed by this behavior, attached to its
+  human-readable feature, behavior, surface, action, or other design scope.
 
-Avoid generic "As a user" wording when a concrete actor and situation are more
-informative. Intent guidance does not replace the observable story and outcome.
+Avoid generic "As a user" wording. Intent guidance does not replace the
+observable expected behavior and outcome.
 
 ### 4. Create mock product interactions
 
@@ -174,7 +183,7 @@ unresolved questions without converting assumptions into decisions.
 
 After its individual behaviors are accepted, summarize:
 
-- accepted behavior stories;
+- accepted behaviors;
 - shared product state and vocabulary;
 - recurring surface patterns;
 - internal behavior relationships;
@@ -208,6 +217,10 @@ Only after behavior approval, translate observed requirements into candidate:
 - surfaces, slots, and affordances;
 - public projection and private bindings; and
 - recovery behavior.
+
+Preserve accepted plain-language AgentPolicy guidance during extraction, but
+assign declaration IDs, references, and effective scope composition only in
+the candidate RouteDeck mapping.
 
 Use `../routedeck-design-glossary.md` for vocabulary and
 `../routedeck-feature-and-node-design-guide.md` for the extraction sequence and

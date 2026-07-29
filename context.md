@@ -70,14 +70,14 @@ Updated: 2026-07-28
   the viewport instead of rising above a bottom navigation row.
 - A standalone Slice 1 design workbench now lives under
   `docs/corpus-agent-design/workbench`. It is a local prototype for reviewing
-  Workspace/Agents user and agent intents, stories, mock chats, explicit
+  Workspace/Agents user and agent intents, expected behaviors, mock chats, explicit
   actions, and tightly sandboxed inline surfaces; its labeled seed and
   approvals do not assert implemented product behavior. Codex drives one atomic
   behavior at a time for user review and explicit acceptance. Surfaces render
   immediately above the action row and composer, grow to half the chat region,
   then scroll internally; action-only behavior has no surface. The studio uses
   a flat, compact editing system with square 13px controls and a persisted
-  system-aware light/slate-dark theme. The version 10 seed now covers
+  system-aware light/slate-dark theme. The version 13 seed now covers
   behavior-note sections 0–4 with `Lounge 8`, `Workspace 6`, `Agents 9`,
   `Source Hub 5`, and `API Source 9`. Lounge owns unauthenticated product help
   and six approved implementation-backed account entry/recovery behaviors;
@@ -86,9 +86,12 @@ Updated: 2026-07-28
   behaviors remain draft for review. Design edits autosave to
   `docs/corpus-agent-design/workbench/design-state.json` through the local Vite
   server; only the theme preference remains in browser local storage. AgentPolicy
-  guidance is plain text at feature, node, capability, active-surface, and
-  operation scope; RouteDeck IDs/references are deferred to extraction, and the
-  Chat path shows the combined effective context.
+  entries are addable, editable, and removable plain-language guidance with a
+  scope type and human-readable target name. Feature-scoped policy has one
+  dedicated sidebar destination; each behavior stores and displays only its
+  own scoped policies. The studio exposes no policy or
+  RouteDeck declaration IDs and makes no compiled/effective-policy claim;
+  declaration references and resolution are deferred to extraction.
 - The live Navgraph remains a docked, in-place expandable desktop rail. At
   mobile width it switches to a shadcn Sheet drawer without changing RouteDeck
   state ownership.

@@ -17,52 +17,39 @@ export interface DesignStory {
   title: string
   userIntent: string
   agentIntent: string
-  story: string
+  expectedBehavior: string
   messages: MockChatMessage[]
   actions: MockAction[]
   mockSurfacePath: string | null
+  policies: AgentPolicyDesign[]
   status: ReviewStatus
   rejectionReason: string
 }
 
-export interface PolicyCapabilityDesign {
-  id: string
-  title: string
-  policies: string[]
-}
+export type AgentPolicyScope =
+  | "feature"
+  | "behavior"
+  | "node"
+  | "capability"
+  | "surface"
+  | "action"
+  | "operation"
+  | "other"
 
-export interface PolicyOperationDesign {
-  id: string
-  policies: string[]
-}
-
-export interface PolicySurfaceDesign {
-  id: string
-  policies: string[]
-}
-
-export interface PolicyNodeDesign {
-  id: string
-  title: string
-  policies: string[]
-  capabilities: PolicyCapabilityDesign[]
-  activeSurface: PolicySurfaceDesign | null
-  operations: PolicyOperationDesign[]
-}
-
-export interface FeaturePolicyDesign {
-  policies: string[]
-  nodes: PolicyNodeDesign[]
+export interface AgentPolicyDesign {
+  scope: AgentPolicyScope
+  scopeName: string
+  guidance: string
 }
 
 export interface DesignFeature {
   id: string
   name: string
   stories: DesignStory[]
-  policies: FeaturePolicyDesign
+  policies: AgentPolicyDesign[]
 }
 
 export interface WorkbenchState {
-  version: 10
+  version: 13
   features: DesignFeature[]
 }

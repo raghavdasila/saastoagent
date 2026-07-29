@@ -1,33 +1,28 @@
 {
-  "version": 10,
+  "version": 13,
   "features": [
     {
       "id": "lounge",
       "name": "Lounge",
-      "policies": {
-        "policies": [
-          "Keep unauthenticated help general and never expose private Workspace state."
-        ],
-        "nodes": [
-          {
-            "id": "lounge.home",
-            "title": "Lounge",
-            "policies": [
-              "Offer product help and account access without implying that the visitor is authenticated."
-            ],
-            "capabilities": [],
-            "activeSurface": null,
-            "operations": []
-          }
-        ]
-      },
+      "policies": [
+        {
+          "scope": "feature",
+          "scopeName": "Lounge",
+          "guidance": "Keep unauthenticated help general and never expose private Workspace state."
+        },
+        {
+          "scope": "feature",
+          "scopeName": "Lounge",
+          "guidance": "Offer product help and account access without implying that the visitor is authenticated."
+        }
+      ],
       "stories": [
         {
           "id": "lounge-arrival",
           "title": "Arrive in the Lounge",
           "userIntent": "Understand where I am and what I can do before signing in.",
           "agentIntent": "Establish the public Lounge and keep every valid public or account path available.",
-          "story": "An unauthenticated visitor opens Corpus. Corpus places them in the Lounge, explains that it is the public starting point, and offers product help, sign-up, sign-in, and password-recovery paths without exposing private Workspace state.",
+          "expectedBehavior": "An unauthenticated visitor opens Corpus. Corpus places them in the Lounge, explains that it is the public starting point, and offers product help, sign-up, sign-in, and password-recovery paths without exposing private Workspace state.",
           "messages": [
             {
               "id": "lounge-arrival-owner",
@@ -60,14 +55,15 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "lounge-product-help",
           "title": "Ask Lounge for product help",
           "userIntent": "Understand Corpus, its features, or how to get started.",
           "agentIntent": "Answer product questions truthfully and identify when the requested work requires a Workspace.",
-          "story": "A visitor asks a general question about Corpus. Corpus answers from current product knowledge, can explain features and next steps, and clearly says when private Workspace access is required. Unknown or unavailable information remains explicit.",
+          "expectedBehavior": "A visitor asks a general question about Corpus. Corpus answers from current product knowledge, can explain features and next steps, and clearly says when private Workspace access is required. Unknown or unavailable information remains explicit.",
           "messages": [
             {
               "id": "lounge-product-help-owner",
@@ -83,14 +79,15 @@
           "actions": [],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "owner-auth-register",
           "title": "Create an owner account",
           "userIntent": "Create an account and enter my private Workspace.",
           "agentIntent": "Create the owner identity and continue into the owner's Workspace without overstating partial success.",
-          "story": "A Lounge visitor signs up with the required account details. Corpus creates the owner account and personal Workspace, signs the owner in, and enters Workspace. If account creation succeeds but continuation fails, Corpus keeps the authenticated state valid and reports the continuation failure.",
+          "expectedBehavior": "A Lounge visitor signs up with the required account details. Corpus creates the owner account and personal Workspace, signs the owner in, and enters Workspace. If account creation succeeds but continuation fails, Corpus keeps the authenticated state valid and reports the continuation failure.",
           "messages": [
             {
               "id": "owner-auth-register-owner",
@@ -111,14 +108,15 @@
           ],
           "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#register",
           "status": "approved",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "owner-auth-sign-in",
           "title": "Sign in",
           "userIntent": "Return to the private Workspace associated with my account.",
           "agentIntent": "Authenticate the owner and resume only the Workspace authorized for that account.",
-          "story": "An existing owner signs in from Lounge with email and password. Corpus resumes only that owner's Workspace. Invalid credentials remain a visible failure and do not open private state.",
+          "expectedBehavior": "An existing owner signs in from Lounge with email and password. Corpus resumes only that owner's Workspace. Invalid credentials remain a visible failure and do not open private state.",
           "messages": [
             {
               "id": "owner-auth-sign-in-owner",
@@ -139,14 +137,15 @@
           ],
           "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#sign-in",
           "status": "approved",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "owner-auth-request-reset",
           "title": "Request password recovery",
           "userIntent": "Regain access because I cannot use my current password.",
           "agentIntent": "Accept a reset request without revealing whether the account exists and report delivery failures truthfully.",
-          "story": "A visitor submits an email for password recovery. Corpus shows the same generic confirmation whether or not the account exists. When an account exists, delivery is requested; unavailable delivery remains an explicit failure.",
+          "expectedBehavior": "A visitor submits an email for password recovery. Corpus shows the same generic confirmation whether or not the account exists. When an account exists, delivery is requested; unavailable delivery remains an explicit failure.",
           "messages": [
             {
               "id": "owner-auth-request-reset-owner",
@@ -167,14 +166,15 @@
           ],
           "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#request-reset",
           "status": "approved",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "owner-auth-confirm-reset",
           "title": "Set a new password",
           "userIntent": "Replace my password with a valid one-time recovery link.",
           "agentIntent": "Validate the link, change the password, revoke existing access, and return the owner to sign-in.",
-          "story": "An owner opens a one-time reset link and chooses a new password. Corpus removes the token from the visible URL, changes the password, revokes existing sessions, and returns to sign-in. Missing, invalid, or expired links remain explicit failures.",
+          "expectedBehavior": "An owner opens a one-time reset link and chooses a new password. Corpus removes the token from the visible URL, changes the password, revokes existing sessions, and returns to sign-in. Missing, invalid, or expired links remain explicit failures.",
           "messages": [
             {
               "id": "owner-auth-confirm-reset-owner",
@@ -195,14 +195,15 @@
           ],
           "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#reset-password",
           "status": "approved",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "owner-auth-request-verification",
           "title": "Resend email verification",
           "userIntent": "Receive a fresh verification email for my signed-in account.",
           "agentIntent": "Request a new verification message and report whether delivery succeeded or is unavailable.",
-          "story": "A signed-in owner whose email is pending verification asks for another verification message. Corpus requests delivery and reports the actual result without blocking permitted Workspace use.",
+          "expectedBehavior": "A signed-in owner whose email is pending verification asks for another verification message. Corpus requests delivery and reports the actual result without blocking permitted Workspace use.",
           "messages": [
             {
               "id": "owner-auth-request-verification-owner",
@@ -223,14 +224,15 @@
           ],
           "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#verification-pending",
           "status": "approved",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "owner-auth-confirm-verification",
           "title": "Confirm email verification",
           "userIntent": "Confirm that the email address belongs to my owner account.",
           "agentIntent": "Validate the one-time link, refresh owner state, and show confirmation or an explicit token failure.",
-          "story": "An owner opens a one-time verification link. Corpus removes its token from the visible URL, verifies the address, refreshes owner state, and shows the result. Missing, invalid, or expired links remain explicit failures.",
+          "expectedBehavior": "An owner opens a one-time verification link. Corpus removes its token from the visible URL, verifies the address, refreshes owner state, and shows the result. Missing, invalid, or expired links remain explicit failures.",
           "messages": [
             {
               "id": "owner-auth-confirm-verification-owner",
@@ -251,37 +253,33 @@
           ],
           "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#verify-email",
           "status": "approved",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         }
       ]
     },
     {
       "id": "workspace",
       "name": "Workspace",
-      "policies": {
-        "policies": [
-          "Use only the authenticated owner's authorized Workspace context."
-        ],
-        "nodes": [
-          {
-            "id": "workspace.home",
-            "title": "Workspace home",
-            "policies": [
-              "Keep Workspace home oriented toward overview, navigation, and continuation; do not edit domain records here."
-            ],
-            "capabilities": [],
-            "activeSurface": null,
-            "operations": []
-          }
-        ]
-      },
+      "policies": [
+        {
+          "scope": "feature",
+          "scopeName": "Workspace",
+          "guidance": "Use only the authenticated owner's authorized Workspace context."
+        },
+        {
+          "scope": "feature",
+          "scopeName": "Workspace",
+          "guidance": "Keep Workspace home oriented toward overview, navigation, and continuation; do not edit domain records here."
+        }
+      ],
       "stories": [
         {
           "id": "enter-workspace",
           "title": "Enter the Workspace",
           "userIntent": "See the current state of my private Workspace and choose what to do next.",
           "agentIntent": "Establish the authenticated Workspace and provide a truthful overview of agents, sources, and activity.",
-          "story": "An authenticated owner enters their one launch Workspace. Corpus shows its agents, sources, and recent activity, including honest empty states. Workspace home does not add or modify domain records.",
+          "expectedBehavior": "An authenticated owner enters their one launch Workspace. Corpus shows its agents, sources, and recent activity, including honest empty states. Workspace home does not add or modify domain records.",
           "messages": [
             {
               "id": "enter-workspace-owner",
@@ -297,14 +295,15 @@
           "actions": [],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "workspace-activity-help",
           "title": "Ask about Workspace activity",
           "userIntent": "Understand what exists or recently happened in my Workspace.",
           "agentIntent": "Answer from authorized Workspace state and distinguish current facts from unavailable information.",
-          "story": "The owner asks about agents, sources, activity, or another Workspace fact. Corpus answers from the owner's authorized Workspace state and links the answer to the relevant feature when deeper inspection is useful.",
+          "expectedBehavior": "The owner asks about agents, sources, activity, or another Workspace fact. Corpus answers from the owner's authorized Workspace state and links the answer to the relevant feature when deeper inspection is useful.",
           "messages": [
             {
               "id": "workspace-activity-help-owner",
@@ -320,14 +319,15 @@
           "actions": [],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "workspace-product-help",
           "title": "Ask about Corpus while signed in",
           "userIntent": "Get general product guidance without leaving my Workspace context.",
           "agentIntent": "Answer the product question while preserving the authenticated Workspace as active context.",
-          "story": "An authenticated owner asks how Corpus or one of its features works. Corpus answers without discarding the current Workspace context and makes any relevant next action available.",
+          "expectedBehavior": "An authenticated owner asks how Corpus or one of its features works. Corpus answers without discarding the current Workspace context and makes any relevant next action available.",
           "messages": [
             {
               "id": "workspace-product-help-owner",
@@ -343,14 +343,15 @@
           "actions": [],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "workspace-route-task",
           "title": "Continue a task in the correct feature",
           "userIntent": "Ask for any Corpus task and continue it where that work is owned.",
           "agentIntent": "Recognize the owning feature, navigate there, and continue the same conversation without treating navigation as completion.",
-          "story": "The owner asks Workspace to perform a task owned elsewhere. Corpus navigates to the correct feature and continues the same conversation with the context needed for that task. Arrival at the feature is not presented as task completion.",
+          "expectedBehavior": "The owner asks Workspace to perform a task owned elsewhere. Corpus navigates to the correct feature and continues the same conversation with the context needed for that task. Arrival at the feature is not presented as task completion.",
           "messages": [
             {
               "id": "workspace-route-task-owner",
@@ -366,14 +367,15 @@
           "actions": [],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "workspace-quick-actions",
           "title": "Use Workspace quick actions",
           "userIntent": "Move directly to a common area of my Workspace.",
           "agentIntent": "Expose valid high-frequency destinations and navigate without modifying domain state.",
-          "story": "Workspace home presents quick actions for common destinations such as Agents, Sources, and Operations. Choosing one opens that feature; the quick action itself does not create or change a resource.",
+          "expectedBehavior": "Workspace home presents quick actions for common destinations such as Agents, Sources, and Operations. Choosing one opens that feature; the quick action itself does not create or change a resource.",
           "messages": [
             {
               "id": "workspace-quick-actions-owner",
@@ -402,14 +404,15 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "owner-auth-sign-out",
           "title": "Sign out to Lounge",
           "userIntent": "End access to my Workspace on this browser while keeping it private.",
           "agentIntent": "Revoke current browser access and return to a fresh public Lounge without changing Workspace ownership.",
-          "story": "An authenticated owner signs out. Corpus revokes the browser session and owner route handle, clears browser credentials, and returns to a fresh Lounge. The Workspace and its resources remain private.",
+          "expectedBehavior": "An authenticated owner signs out. Corpus revokes the browser session and owner route handle, clears browser credentials, and returns to a fresh Lounge. The Workspace and its resources remain private.",
           "messages": [
             {
               "id": "owner-auth-sign-out-owner",
@@ -430,37 +433,33 @@
           ],
           "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#sign-out",
           "status": "approved",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         }
       ]
     },
     {
       "id": "agents",
       "name": "Agents",
-      "policies": {
-        "policies": [
-          "Keep every agent isolated to the authenticated owner's Workspace."
-        ],
-        "nodes": [
-          {
-            "id": "agents.home",
-            "title": "Agents",
-            "policies": [
-              "Never describe an agent as runnable or deployed unless a corresponding version and deployment exist."
-            ],
-            "capabilities": [],
-            "activeSurface": null,
-            "operations": []
-          }
-        ]
-      },
+      "policies": [
+        {
+          "scope": "feature",
+          "scopeName": "Agents",
+          "guidance": "Keep every agent isolated to the authenticated owner's Workspace."
+        },
+        {
+          "scope": "feature",
+          "scopeName": "Agents",
+          "guidance": "Never describe an agent as runnable or deployed unless a corresponding version and deployment exist."
+        }
+      ],
       "stories": [
         {
           "id": "agents-view",
           "title": "View agents",
           "userIntent": "See the agents in my Workspace and their current lifecycle state.",
           "agentIntent": "List only authorized agents with truthful status and useful next actions.",
-          "story": "The owner opens Agents. Corpus lists the Workspace's agents with enough identity and lifecycle information to distinguish them, including honest empty state and no implied deployment.",
+          "expectedBehavior": "The owner opens Agents. Corpus lists the Workspace's agents with enough identity and lifecycle information to distinguish them, including honest empty state and no implied deployment.",
           "messages": [
             {
               "id": "agents-view-owner",
@@ -481,14 +480,15 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "agents-create",
           "title": "Create an agent",
           "userIntent": "Create an agent with a name, description, and goal.",
           "agentIntent": "Collect the required identity fields, create the agent, and show the newly created agent without implying it is runnable or deployed.",
-          "story": "The owner provides an agent name, description, and goal. Corpus validates the required information, creates the agent in the Workspace, and opens it for inspection. Creating the agent does not create a runnable version or deployment.",
+          "expectedBehavior": "The owner provides an agent name, description, and goal. Corpus validates the required information, creates the agent in the Workspace, and opens it for inspection. Creating the agent does not create a runnable version or deployment.",
           "messages": [
             {
               "id": "agents-create-owner",
@@ -509,14 +509,15 @@
           ],
           "mockSurfacePath": "/mock-surfaces/agents/create-agent.html",
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "agents-inspect",
           "title": "Inspect an agent",
           "userIntent": "Understand an agent's identity, configuration, sources, versions, and deployment state.",
           "agentIntent": "Present the complete agent record and clearly distinguish configured, runnable, and deployed state.",
-          "story": "The owner opens an agent. Corpus brings together its identity, goals and non-goals, configuration inputs, attached sources, Agent Designer and RouteDeck configuration, runnable and deployed versions, and active deployment URL when one exists.",
+          "expectedBehavior": "The owner opens an agent. Corpus brings together its identity, goals and non-goals, configuration inputs, attached sources, Agent Designer and RouteDeck configuration, runnable and deployed versions, and active deployment URL when one exists.",
           "messages": [
             {
               "id": "agents-inspect-owner",
@@ -532,14 +533,15 @@
           "actions": [],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "agents-edit",
           "title": "Edit an agent",
           "userIntent": "Change the agent's editable identity or configuration inputs.",
           "agentIntent": "Validate and persist allowed edits while keeping versioned and deployed state truthful.",
-          "story": "The owner edits allowed agent fields such as name, description, goal, non-goals, or configuration inputs. Corpus shows what will change, saves valid edits, and does not silently rewrite existing runnable or deployed versions.",
+          "expectedBehavior": "The owner edits allowed agent fields such as name, description, goal, non-goals, or configuration inputs. Corpus shows what will change, saves valid edits, and does not silently rewrite existing runnable or deployed versions.",
           "messages": [
             {
               "id": "agents-edit-owner",
@@ -560,14 +562,15 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "agents-attach-source",
           "title": "Attach an existing source",
           "userIntent": "Give this agent access to a source already in my Workspace.",
           "agentIntent": "Present eligible sources, attach the selected source, and return to the agent with visible confirmation.",
-          "story": "The owner chooses to add a source to an agent and selects an existing Workspace source. Corpus attaches it once, returns to the agent, and shows the source in the agent's source list.",
+          "expectedBehavior": "The owner chooses to add a source to an agent and selects an existing Workspace source. Corpus attaches it once, returns to the agent, and shows the source in the agent's source list.",
           "messages": [
             {
               "id": "agents-attach-source-owner",
@@ -588,14 +591,15 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "agents-create-source",
           "title": "Create and attach a source",
           "userIntent": "Add a new source while working on an agent and return with it attached.",
           "agentIntent": "Hand off to Source Hub, preserve the agent context, and attach the completed source on return.",
-          "story": "The owner chooses to add a source that does not yet exist. Corpus opens Source Hub in the context of the current agent. When source creation completes, Corpus returns to the agent and shows the new source attached; cancellation returns without attachment.",
+          "expectedBehavior": "The owner chooses to add a source that does not yet exist. Corpus opens Source Hub in the context of the current agent. When source creation completes, Corpus returns to the agent and shows the new source attached; cancellation returns without attachment.",
           "messages": [
             {
               "id": "agents-create-source-owner",
@@ -616,14 +620,15 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "agents-open-source",
           "title": "Open an attached source",
           "userIntent": "Inspect or edit a source attached to this agent.",
           "agentIntent": "Navigate to the source owner while preserving enough context to return to the agent.",
-          "story": "The owner selects an attached source for inspection or editing. Corpus navigates to that source in its owning feature and preserves the agent context for return. The Agents feature does not edit source-owned records itself.",
+          "expectedBehavior": "The owner selects an attached source for inspection or editing. Corpus navigates to that source in its owning feature and preserves the agent context for return. The Agents feature does not edit source-owned records itself.",
           "messages": [
             {
               "id": "agents-open-source-owner",
@@ -639,14 +644,15 @@
           "actions": [],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "agents-archive",
           "title": "Archive an agent",
           "userIntent": "Remove an agent from my active working list without calling it deleted.",
           "agentIntent": "Confirm the archive action, apply it to the selected agent, and show the resulting active-list state.",
-          "story": "The owner archives an agent after confirming the selected target. Corpus removes it from the active agent list and preserves a truthful distinction between archived and deleted state.",
+          "expectedBehavior": "The owner archives an agent after confirming the selected target. Corpus removes it from the active agent list and preserves a truthful distinction between archived and deleted state.",
           "messages": [
             {
               "id": "agents-archive-owner",
@@ -667,14 +673,15 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "agents-delete",
           "title": "Delete an agent",
           "userIntent": "Permanently remove an agent when it is safe and intended.",
           "agentIntent": "Expose material dependencies, require confirmation, and either delete the exact agent or report blockers.",
-          "story": "The owner requests deletion. Corpus identifies the exact agent and any active deployment or other blockers before confirmation. It deletes only when permitted and visibly reports blocked or failed deletion without pretending success.",
+          "expectedBehavior": "The owner requests deletion. Corpus identifies the exact agent and any active deployment or other blockers before confirmation. It deletes only when permitted and visibly reports blocked or failed deletion without pretending success.",
           "messages": [
             {
               "id": "agents-delete-owner",
@@ -695,37 +702,33 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         }
       ]
     },
     {
       "id": "source-hub",
       "name": "Source Hub",
-      "policies": {
-        "policies": [
-          "Expose only sources owned by the authenticated Workspace."
-        ],
-        "nodes": [
-          {
-            "id": "sources.home",
-            "title": "Source Hub",
-            "policies": [
-              "At launch, offer API sources only; do not imply database, knowledge, or MCP support."
-            ],
-            "capabilities": [],
-            "activeSurface": null,
-            "operations": []
-          }
-        ]
-      },
+      "policies": [
+        {
+          "scope": "feature",
+          "scopeName": "Source Hub",
+          "guidance": "Expose only sources owned by the authenticated Workspace."
+        },
+        {
+          "scope": "feature",
+          "scopeName": "Source Hub",
+          "guidance": "At launch, offer API sources only; do not imply database, knowledge, or MCP support."
+        }
+      ],
       "stories": [
         {
           "id": "sources-view",
           "title": "View sources",
           "userIntent": "See the sources in my Workspace and which agents use them.",
           "agentIntent": "List authorized sources with truthful type, status, and attachment context.",
-          "story": "The owner opens Source Hub. Corpus lists Workspace sources, their type and readiness, and the agents to which they are attached. At launch, API is the only available source family.",
+          "expectedBehavior": "The owner opens Source Hub. Corpus lists Workspace sources, their type and readiness, and the agents to which they are attached. At launch, API is the only available source family.",
           "messages": [
             {
               "id": "sources-view-owner",
@@ -746,14 +749,15 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "sources-start-api",
           "title": "Start adding an API source",
           "userIntent": "Create a new API source from the one allowed launch entry point.",
           "agentIntent": "Open API Source from Source Hub and preserve any calling-agent context.",
-          "story": "The owner chooses Add API source in Source Hub. Corpus opens API Source, the only launch source type, and carries forward the current agent context when the flow began from an attachment task.",
+          "expectedBehavior": "The owner chooses Add API source in Source Hub. Corpus opens API Source, the only launch source type, and carries forward the current agent context when the flow began from an attachment task.",
           "messages": [
             {
               "id": "sources-start-api-owner",
@@ -774,14 +778,15 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "sources-select-for-agent",
           "title": "Select a source for an agent",
           "userIntent": "Choose an existing source and return to the agent with it attached.",
           "agentIntent": "Show eligible sources, attach the selected one, and complete the handoff back to Agents.",
-          "story": "Source Hub is opened from an agent attachment task. The owner selects an eligible source. Corpus attaches it, returns to the originating agent, and shows the completed attachment.",
+          "expectedBehavior": "Source Hub is opened from an agent attachment task. The owner selects an eligible source. Corpus attaches it, returns to the originating agent, and shows the completed attachment.",
           "messages": [
             {
               "id": "sources-select-for-agent-owner",
@@ -802,14 +807,15 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "sources-delete",
           "title": "Delete an API source",
           "userIntent": "Remove an API source when its dependencies allow deletion.",
           "agentIntent": "Show agent attachments and other blockers, require confirmation, and report the actual result.",
-          "story": "The owner requests deletion of an API source. Corpus shows attached agents or other material blockers before confirmation. It deletes only when permitted and keeps blocked or failed deletion visible.",
+          "expectedBehavior": "The owner requests deletion of an API source. Corpus shows attached agents or other material blockers before confirmation. It deletes only when permitted and keeps blocked or failed deletion visible.",
           "messages": [
             {
               "id": "sources-delete-owner",
@@ -830,14 +836,15 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "sources-start-description",
           "title": "Start adding an API description",
           "userIntent": "Provide helpful Markdown context for an API source.",
           "agentIntent": "Open the selected API Source at its description input and preserve Source Hub context.",
-          "story": "The owner chooses to add a helpful Markdown description to an API source. Source Hub opens that source's API-specific description path, where file limits, validation, and persistence are owned, and returns to the source list afterward.",
+          "expectedBehavior": "The owner chooses to add a helpful Markdown description to an API source. Source Hub opens that source's API-specific description path, where file limits, validation, and persistence are owned, and returns to the source list afterward.",
           "messages": [
             {
               "id": "sources-start-description-owner",
@@ -858,37 +865,33 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         }
       ]
     },
     {
       "id": "api-source",
       "name": "API Source",
-      "policies": {
-        "policies": [
-          "Keep API specifications, credentials, artifacts, and processing isolated to the authenticated Workspace."
-        ],
-        "nodes": [
-          {
-            "id": "api-source.manage",
-            "title": "API Source",
-            "policies": [
-              "Enter API Source only from Source Hub and keep processing failures explicit."
-            ],
-            "capabilities": [],
-            "activeSurface": null,
-            "operations": []
-          }
-        ]
-      },
+      "policies": [
+        {
+          "scope": "feature",
+          "scopeName": "API Source",
+          "guidance": "Keep API specifications, credentials, artifacts, and processing isolated to the authenticated Workspace."
+        },
+        {
+          "scope": "feature",
+          "scopeName": "API Source",
+          "guidance": "Enter API Source only from Source Hub and keep processing failures explicit."
+        }
+      ],
       "stories": [
         {
           "id": "api-upload-yaml",
           "title": "Upload an API YAML file",
           "userIntent": "Create or revise an API source from an OpenAPI YAML file.",
           "agentIntent": "Validate the file and size limits, persist an accepted revision, and report invalid input clearly.",
-          "story": "The owner uploads an OpenAPI YAML file from API Source. Corpus enforces the documented file limits and format, creates the source revision only when accepted, and shows validation failures without substituting sample data.",
+          "expectedBehavior": "The owner uploads an OpenAPI YAML file from API Source. Corpus enforces the documented file limits and format, creates the source revision only when accepted, and shows validation failures without substituting sample data.",
           "messages": [
             {
               "id": "api-upload-yaml-owner",
@@ -909,14 +912,15 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "api-description",
           "title": "Add or update the API description",
           "userIntent": "Give Corpus helpful Markdown context about how this API should be understood.",
           "agentIntent": "Validate the Markdown file and save it to the selected API source without treating it as an API specification.",
-          "story": "The owner uploads a Markdown file that explains the API's purpose and usage. Corpus enforces explicit file limits, saves valid description content with the API source, and keeps invalid or failed uploads visible.",
+          "expectedBehavior": "The owner uploads a Markdown file that explains the API's purpose and usage. Corpus enforces explicit file limits, saves valid description content with the API source, and keeps invalid or failed uploads visible.",
           "messages": [
             {
               "id": "api-description-owner",
@@ -937,14 +941,15 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "api-configure-connection",
           "title": "Configure the API connection",
           "userIntent": "Provide the base URL, authentication, and environment details needed to use this API.",
           "agentIntent": "Collect non-secret configuration and private credentials safely, validate required fields, and report connection failures explicitly.",
-          "story": "The owner configures an environment or profile, base URL, authentication method, and required credentials. Corpus keeps secrets private, shows what will be used, and can perform an explicitly requested safe connection check. A failed check remains a failure.",
+          "expectedBehavior": "The owner configures an environment or profile, base URL, authentication method, and required credentials. Corpus keeps secrets private, shows what will be used, and can perform an explicitly requested safe connection check. A failed check remains a failure.",
           "messages": [
             {
               "id": "api-configure-connection-owner",
@@ -969,14 +974,15 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "api-process-toolrouter",
           "title": "Process the API through ToolRouter",
           "userIntent": "Turn the accepted API revision into a semantic graph and operation inventory.",
           "agentIntent": "Run the real ToolRouter pipeline for the exact revision and make success or failure visible.",
-          "story": "The owner starts processing for an accepted API revision. Corpus invokes ToolRouter for that exact revision, records its actual artifacts, and marks the revision ready only after required processing completes. Missing dependencies or processing errors remain failures.",
+          "expectedBehavior": "The owner starts processing for an accepted API revision. Corpus invokes ToolRouter for that exact revision, records its actual artifacts, and marks the revision ready only after required processing completes. Missing dependencies or processing errors remain failures.",
           "messages": [
             {
               "id": "api-process-toolrouter-owner",
@@ -997,14 +1003,15 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "api-monitor-processing",
           "title": "Monitor API processing",
           "userIntent": "Understand what ToolRouter is doing and whether the source is ready.",
           "agentIntent": "Expose real processing phases, current status, and actionable failure details without inventing progress.",
-          "story": "While processing is active or after it ends, Corpus shows the known phase and status for the selected revision. Completed, failed, and ready states are distinct; no synthetic progress or success is shown.",
+          "expectedBehavior": "While processing is active or after it ends, Corpus shows the known phase and status for the selected revision. Completed, failed, and ready states are distinct; no synthetic progress or success is shown.",
           "messages": [
             {
               "id": "api-monitor-processing-owner",
@@ -1020,14 +1027,15 @@
           "actions": [],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "api-inspect-graph",
           "title": "Inspect the semantic graph",
           "userIntent": "Understand the structure ToolRouter produced for this API revision.",
           "agentIntent": "Present the persisted graph with enough context to inspect nodes, edges, and their source revision.",
-          "story": "After processing succeeds, the owner opens the semantic graph for the exact API revision. Corpus shows the persisted nodes and relationships and keeps the source revision identifiable.",
+          "expectedBehavior": "After processing succeeds, the owner opens the semantic graph for the exact API revision. Corpus shows the persisted nodes and relationships and keeps the source revision identifiable.",
           "messages": [
             {
               "id": "api-inspect-graph-owner",
@@ -1043,14 +1051,15 @@
           "actions": [],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "api-replay-graph",
           "title": "Replay graph construction",
           "userIntent": "See how ToolRouter built the graph node by node.",
           "agentIntent": "Replay the persisted construction trace in order without claiming live streaming that is not available.",
-          "story": "After graph processing completes, the owner replays the persisted graph-construction trace node by node. Corpus supports pause, resume, and step-through over recorded events. This baseline does not claim that construction streams live while ToolRouter is still running.",
+          "expectedBehavior": "After graph processing completes, the owner replays the persisted graph-construction trace node by node. Corpus supports pause, resume, and step-through over recorded events. This baseline does not claim that construction streams live while ToolRouter is still running.",
           "messages": [
             {
               "id": "api-replay-graph-owner",
@@ -1075,14 +1084,15 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "api-curate-operations",
           "title": "Curate API operations",
           "userIntent": "Choose which discovered API operations should be available for agent design.",
           "agentIntent": "Present exact discovered operations and persist the owner's inclusion decisions for the source revision.",
-          "story": "The owner reviews operations discovered from the processed API revision and includes or excludes exact operations for downstream Agent Designer use. Corpus does not invent operations or silently broaden the selection.",
+          "expectedBehavior": "The owner reviews operations discovered from the processed API revision and includes or excludes exact operations for downstream Agent Designer use. Corpus does not invent operations or silently broaden the selection.",
           "messages": [
             {
               "id": "api-curate-operations-owner",
@@ -1103,14 +1113,15 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         },
         {
           "id": "api-recover-processing",
           "title": "Recover from API processing failure",
           "userIntent": "Correct a failed API source and retry without losing the failure evidence.",
           "agentIntent": "Keep the failed result visible, identify valid corrective actions, and retry only when the owner requests it.",
-          "story": "When upload, configuration, or ToolRouter processing fails, Corpus shows the failure and retains its evidence. The owner can correct the relevant input and explicitly retry the affected step. Corpus never substitutes a mock graph, cached success, or alternate processor.",
+          "expectedBehavior": "When upload, configuration, or ToolRouter processing fails, Corpus shows the failure and retains its evidence. The owner can correct the relevant input and explicitly retry the affected step. Corpus never substitutes a mock graph, cached success, or alternate processor.",
           "messages": [
             {
               "id": "api-recover-processing-owner",
@@ -1131,7 +1142,8 @@
           ],
           "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": ""
+          "rejectionReason": "",
+          "policies": []
         }
       ]
     }

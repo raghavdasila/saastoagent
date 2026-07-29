@@ -1,47 +1,115 @@
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
-import { Textarea } from "@/components/ui/textarea"
-import type { FeaturePolicyDesign } from "@/workbench/types"
+import { Plus, Trash2 } from "lucide-react"
 
-export function PolicyScopeEditor({ policies, onChange }: { policies: FeaturePolicyDesign; onChange: (policies: FeaturePolicyDesign) => void }) {
+import { Button } from "@/components/ui/button"
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import type { AgentPolicyDesign, AgentPolicyScope } from "@/workbench/types"
+
+const POLICY_SCOPES: Array<{ value: AgentPolicyScope; label: string }> = [
+  { value: "feature", label: "Feature" },
+  { value: "behavior", label: "Behavior" },
+  { value: "node", label: "Node" },
+  { value: "capability", label: "Capability" },
+  { value: "surface", label: "Surface" },
+  { value: "action", label: "Action" },
+  { value: "operation", label: "Operation" },
+  { value: "other", label: "Other" },
+]
+
+export function PolicyScopeEditor({
+  policies,
+  title,
+  description,
+  availableScopes,
+  suggestedNames,
+  onChange,
+}: {
+  policies: AgentPolicyDesign[]
+  title: string
+  description: string
+  availableScopes: AgentPolicyScope[]
+  suggestedNames: Partial<Record<AgentPolicyScope, string>>
+  onChange: (policies: AgentPolicyDesign[]) => void
+}) {
+  const scopes = POLICY_SCOPES.filter((scope) => availableScopes.includes(scope.value))
+  const defaultScope = scopes[0]?.value ?? "other"
+
+  function updatePolicy(index: number, patch: Partial<AgentPolicyDesign>) {
+    onChange(policies.map((policy, policyIndex) => policyIndex === index ? { ...policy, ...patch } : policy))
+  }
+
+  function addPolicy() {
+    onChange([...policies, { scope: defaultScope, scopeName: suggestedNames[defaultScope] ?? "", guidance: "" }])
+  }
+
+  function removePolicy(index: number) {
+    onChange(policies.filter((_, policyIndex) => policyIndex !== index))
+  }
+
+  function suggestedScopeName(scope: AgentPolicyScope): string {
+    return suggestedNames[scope] ?? ""
+  }
+
   return (
-    <section aria-labelledby="agent-policy-heading" className="flex flex-col gap-4 border-t border-border pt-4">
-      <div>
-        <h2 id="agent-policy-heading" className="text-sm font-semibold">AgentPolicy</h2>
-        <p className="text-xs text-muted-foreground">Write trusted agent guidance directly where it applies. Use one policy per line.</p>
+    <section aria-labelledby="agent-policy-heading" className="flex flex-col gap-3 border-t border-border pt-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 id="agent-policy-heading" className="text-sm font-semibold">{title}</h2>
+          <p className="text-xs text-muted-foreground">{description}</p>
+        </div>
+        <Button type="button" size="sm" variant="outline" onClick={addPolicy}>
+          <Plus /> Add policy
+        </Button>
       </div>
 
-      <PolicyText id="feature-policy" label="Feature policy" policies={policies.policies} onChange={(next) => onChange({ ...policies, policies: next })} />
+      {policies.length === 0 && (
+        <p className="border border-dashed border-border p-3 text-xs text-muted-foreground">No policies defined here.</p>
+      )}
 
-      {policies.nodes.map((node, nodeIndex) => (
-        <div key={node.id} className="flex flex-col gap-3 border border-border p-3">
-          <div><p className="text-xs font-semibold text-primary">Node</p><h3 className="text-sm font-semibold">{node.title} · {node.id}</h3></div>
-          <PolicyText id={`node-${nodeIndex}-policy`} label="Node policy" policies={node.policies} onChange={(next) => updateNode(nodeIndex, { policies: next })} />
-
-          {node.capabilities.map((capability, capabilityIndex) => (
-            <PolicyText key={capability.id} id={`node-${nodeIndex}-capability-${capabilityIndex}-policy`} label={`Capability policy · ${capability.title}`} policies={capability.policies} onChange={(next) => updateNode(nodeIndex, { capabilities: node.capabilities.map((item, index) => index === capabilityIndex ? { ...item, policies: next } : item) })} />
-          ))}
-
-          {node.activeSurface && <PolicyText id={`node-${nodeIndex}-surface-policy`} label={`Surface policy · ${node.activeSurface.id}`} policies={node.activeSurface.policies} onChange={(next) => updateNode(nodeIndex, { activeSurface: { ...node.activeSurface!, policies: next } })} />}
-
-          {node.operations.map((operation, operationIndex) => (
-            <PolicyText key={operation.id} id={`node-${nodeIndex}-operation-${operationIndex}-policy`} label={`Operation policy · ${operation.id}`} policies={operation.policies} onChange={(next) => updateNode(nodeIndex, { operations: node.operations.map((item, index) => index === operationIndex ? { ...item, policies: next } : item) })} />
-          ))}
+      {policies.map((policy, index) => (
+        <div key={index} className="flex flex-col gap-3 border border-border p-3">
+          <div className="grid gap-3 sm:grid-cols-[9rem_minmax(0,1fr)_auto] sm:items-end">
+            <Field>
+              <FieldLabel htmlFor={`policy-scope-${index}`}>Scope</FieldLabel>
+              <select
+                id={`policy-scope-${index}`}
+                className="h-9 w-full border border-input bg-background px-2 text-sm text-foreground"
+                value={policy.scope}
+                onChange={(event) => {
+                  const scope = event.target.value as AgentPolicyScope
+                  updatePolicy(index, { scope, scopeName: suggestedScopeName(scope) })
+                }}
+              >
+                {scopes.map((scope) => <option key={scope.value} value={scope.value}>{scope.label}</option>)}
+              </select>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={`policy-scope-name-${index}`}>Applies to</FieldLabel>
+              <Input
+                id={`policy-scope-name-${index}`}
+                value={policy.scopeName}
+                placeholder={`Name this ${policy.scope} scope`}
+                onChange={(event) => updatePolicy(index, { scopeName: event.target.value })}
+              />
+            </Field>
+            <Button type="button" size="icon" variant="ghost" aria-label={`Remove policy ${index + 1}`} onClick={() => removePolicy(index)}>
+              <Trash2 />
+            </Button>
+          </div>
+          <Field>
+            <FieldLabel htmlFor={`policy-guidance-${index}`}>Policy guidance</FieldLabel>
+            <Textarea
+              id={`policy-guidance-${index}`}
+              className="min-h-16"
+              value={policy.guidance}
+              placeholder="Write the constraint or instruction in plain language..."
+              onChange={(event) => updatePolicy(index, { guidance: event.target.value })}
+            />
+            <FieldDescription className="text-xs">This is agent-design guidance for the named scope, not a generated identifier or compiled runtime policy.</FieldDescription>
+          </Field>
         </div>
       ))}
     </section>
-  )
-
-  function updateNode(index: number, patch: Partial<FeaturePolicyDesign["nodes"][number]>) {
-    onChange({ ...policies, nodes: policies.nodes.map((node, nodeIndex) => nodeIndex === index ? { ...node, ...patch } : node) })
-  }
-}
-
-function PolicyText({ id, label, policies, onChange }: { id: string; label: string; policies: string[]; onChange: (policies: string[]) => void }) {
-  return (
-    <Field>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Textarea id={id} className="min-h-16" value={policies.join("\n")} placeholder="Write policy guidance in plain language..." onChange={(event) => onChange(event.target.value.split("\n"))} />
-      <FieldDescription className="text-xs">Plain-language design guidance. RouteDeck IDs and references are extracted later.</FieldDescription>
-    </Field>
   )
 }

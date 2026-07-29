@@ -7,9 +7,9 @@ ordinary content is a labeled design seed, not product data or an implementation
 claim; only stories explicitly described as an implementation-backed baseline
 carry that narrower meaning.
 
-Codex drives the behavior inventory, drafts one atomic story and its supporting
+Codex drives the behavior inventory, drafts one atomic behavior and its supporting
 artifacts at a time, and advances after review. The user reviews, text-edits,
-corrects, and explicitly approves or rejects each story. The preview presents
+corrects, and explicitly approves or rejects each behavior. The preview presents
 the same task as two separate interaction paths: structured surface and chat.
 
 **Lounge** is the unauthenticated product home for general product help and
@@ -23,26 +23,30 @@ configuration, ToolRouter processing, graph inspection and replay, operation
 curation, and explicit recovery. These approved stories lock current-product
 behavior only; **Reopen draft** remains the explicit way to reconsider one.
 
-Each story keeps the review unit deliberately small:
+Each behavior keeps the review unit deliberately small:
 
-- editable user intent and agent intent guidance kept distinct from the user story;
-- an editable title and one user-story narrative;
+- editable user intent and agent intent guidance;
+- an editable expected-behavior statement containing the observable response,
+  material constraints, and completion state without repeating either intent;
 - a read-only chat-path example for the same task;
 - editable actions kept separate from surfaces;
 - an optional static surface rendered separately from the chat path in a tightly sandboxed iframe; and
 - explicit approve or reasoned reject controls.
 
-`AgentPolicy` is written directly in plain language at its real feature, node,
-capability, active-surface, or operation scope. The studio does not ask the
-designer to manage declaration IDs or references; those belong to later
-RouteDeck extraction. The Surface path shows its surface guidance, while the
-Chat path combines the selected node's effective guidance with RouteDeck's
-read-only framework policies.
+Each `AgentPolicy` entry contains an editable scope type, a human-readable
+"applies to" name, and plain-language guidance. Designers can add, edit, or
+remove policies at feature, behavior, node, capability, surface, action,
+operation, or another explicitly named design scope. The studio neither seeds
+nor displays RouteDeck declaration IDs, and it does not claim to compute an
+effective runtime policy. Declaration references and policy resolution belong
+to later RouteDeck extraction. Feature-scoped policy has one dedicated sidebar
+destination. A behavior contains and displays only policies owned by that
+behavior or its contained scopes.
 
-Use **Add story** in the selected feature's story list to create and immediately
-select a blank story. Draft stories can be deleted through an inline confirmation;
-reviewed stories must be reopened before they can be deleted. Desktop keeps the
-story editor and product preview in separate scroll regions inside one viewport;
+Use **Add behavior** in the selected feature's behavior list to create and immediately
+select a blank behavior. Draft behaviors can be deleted through an inline confirmation;
+reviewed behaviors must be reopened before they can be deleted. Desktop keeps the
+behavior editor and product preview in separate scroll regions inside one viewport;
 mobile keeps page chrome fixed and scrolls the working content region.
 The studio uses a flat, compact editing treatment: structural dividers replace
 nested cards, controls use square geometry, and the mock product preview
@@ -59,8 +63,8 @@ under `corpus.feature-design-workbench.theme`. Static mock surfaces follow the
 same choice through their own `prefers-color-scheme` styles; this does not add
 permissions to the iframe sandbox.
 
-Approval and rejection apply to one story. Reviewed stories are locked until
-they are reopened. The complete version 10 design state is automatically saved
+Approval and rejection apply to one behavior. Reviewed behaviors are locked until
+they are reopened. The complete version 13 design state is automatically saved
 to `design-state.json` in this directory after each edit; the Vite development
 server owns the local read/write endpoint and uses an atomic file replacement.
 Browser local storage is used only for the theme preference. Invalid file data
@@ -69,7 +73,6 @@ User intent records the meaning
 Corpus should recognize; agent intent records the outcome Corpus is responsible
 for producing. These are design guidance, not RouteDeck declarations or runtime
 intent state.
-
 ## Run locally
 
 From the repository root:

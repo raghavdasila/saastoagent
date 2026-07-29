@@ -52,15 +52,16 @@ export function StoryEditor({ story, disabled, onChange }: StoryEditorProps) {
           </Field>
         </div>
         <Field>
-          <FieldLabel htmlFor="story-body">User story</FieldLabel>
+          <FieldLabel htmlFor="expected-behavior">Expected behavior</FieldLabel>
           <Textarea
-            id="story-body"
+            id="expected-behavior"
             className="min-h-20"
-            placeholder="As an owner, I want… so that…"
-            value={story.story}
+            placeholder="Observable Corpus response and completion state"
+            value={story.expectedBehavior}
             disabled={disabled}
-            onChange={(event) => onChange({ story: event.target.value })}
+            onChange={(event) => onChange({ expectedBehavior: event.target.value })}
           />
+          <FieldDescription className="text-xs">What Corpus visibly does, including material constraints and the completion state.</FieldDescription>
         </Field>
       </FieldGroup>
     </section>

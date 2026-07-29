@@ -18,6 +18,7 @@ export default function App() {
   const [loaded, setLoaded] = useState<LoadResult | null>(null)
   const [selectedFeatureId, setSelectedFeatureId] = useState("")
   const [selectedStoryId, setSelectedStoryId] = useState("")
+  const [selectedView, setSelectedView] = useState<"behavior" | "feature-policy">("behavior")
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saving")
   const [theme, setTheme] = useState<Theme>(loadTheme)
 
@@ -112,18 +113,25 @@ export default function App() {
     if (!feature) return
     setSelectedFeatureId(feature.id)
     setSelectedStoryId(feature.stories[0]?.id ?? "")
+    setSelectedView("behavior")
+  }
+
+  function selectStory(storyId: string) {
+    setSelectedStoryId(storyId)
+    setSelectedView("behavior")
   }
 
   function addStory() {
     const story: DesignStory = {
       id: `story-${Date.now()}`,
-      title: "New user story",
+      title: "New behavior",
       userIntent: "",
       agentIntent: "",
-      story: "",
+      expectedBehavior: "",
       messages: [],
       actions: [],
       mockSurfacePath: null,
+      policies: [],
       status: "draft",
       rejectionReason: "",
     }
@@ -135,6 +143,7 @@ export default function App() {
     }
     commit(nextState)
     setSelectedStoryId(story.id)
+    setSelectedView("behavior")
   }
 
   function deleteSelectedStory() {
@@ -185,11 +194,32 @@ export default function App() {
           features={state.features}
           selectedFeatureId={selectedFeature.id}
           selectedStoryId={selectedStory.id}
+          selectedView={selectedView}
           onSelectFeature={selectFeature}
-          onSelectStory={setSelectedStoryId}
+          onSelectStory={selectStory}
+          onSelectFeaturePolicy={() => setSelectedView("feature-policy")}
           onAddStory={addStory}
         />
 
+        {selectedView === "feature-policy" ? (
+          <main className="min-h-0 min-w-0 overflow-y-auto">
+            <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4 sm:p-6">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground">{selectedFeature.name}</p>
+                <h2 className="text-lg font-semibold tracking-tight">Feature policy</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Guidance that applies across this feature belongs here, independently of any one behavior.</p>
+              </div>
+              <PolicyScopeEditor
+                policies={selectedFeature.policies}
+                title="Feature AgentPolicy"
+                description="Add or edit plain-language guidance for the feature as a whole."
+                availableScopes={["feature"]}
+                suggestedNames={{ feature: selectedFeature.name }}
+                onChange={(policies) => updateFeature({ policies })}
+              />
+            </div>
+          </main>
+        ) : (
         <main className="min-h-0 min-w-0 overflow-y-auto lg:overflow-hidden">
           <div className="mx-auto grid min-h-0 max-w-[1480px] lg:h-full lg:grid-cols-[minmax(360px,0.85fr)_minmax(440px,1.15fr)]">
             <div data-editor-pane className="min-w-0 lg:grid lg:min-h-0 lg:grid-rows-[minmax(0,1fr)_auto]">
@@ -198,7 +228,14 @@ export default function App() {
                 <div className="border-t border-border pt-4">
                   <MockActionEditor actions={selectedStory.actions} disabled={selectedStory.status !== "draft"} onChange={(actions) => updateStory({ actions })} />
                 </div>
-                <PolicyScopeEditor policies={selectedFeature.policies} onChange={(policies) => updateFeature({ policies })} />
+                <PolicyScopeEditor
+                  policies={selectedStory.policies}
+                  title="Behavior policies"
+                  description="Guidance that belongs only to this behavior or one of its contained scopes."
+                  availableScopes={["behavior", "node", "capability", "surface", "action", "operation", "other"]}
+                  suggestedNames={{ behavior: selectedStory.title, surface: selectedStory.mockSurfacePath ? selectedStory.title : "" }}
+                  onChange={(policies) => updateStory({ policies })}
+                />
               </div>
               <div className="border-t border-border p-3">
                 <ReviewControls
@@ -211,10 +248,11 @@ export default function App() {
               </div>
             </div>
             <div data-surface-pane className="min-h-0 border-t border-border p-3 lg:border-t-0 lg:border-l lg:p-4">
-              <SurfacePreview story={selectedStory} feature={selectedFeature} theme={theme} />
+              <SurfacePreview story={selectedStory} theme={theme} />
             </div>
           </div>
         </main>
+        )}
       </div>
     </div>
   )
