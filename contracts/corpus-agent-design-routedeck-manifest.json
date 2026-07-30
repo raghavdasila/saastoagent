@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "features": [
+    {
+      "designFeature": "Lounge",
+      "routeDeckFeature": "lounge",
+      "behaviors": [
+        {
+          "designBehavior": "Arrive in the Lounge",
+          "node": "lounge.home",
+          "capabilities": {
+            "Lounge entry": "lounge.entry"
+          },
+          "surfaces": {
+            "Lounge home": "lounge.home"
+          },
+          "operations": {}
+        },
+        {
+          "designBehavior": "Ask Lounge for product help",
+          "node": "lounge.home",
+          "capabilities": {
+            "Product help": "lounge.product_help"
+          },
+          "surfaces": {},
+          "operations": {}
+        },
+        {
+          "designBehavior": "Create an owner account",
+          "node": "lounge.register",
+          "capabilities": {
+            "Create owner account": "lounge.create_owner"
+          },
+          "surfaces": {
+            "Create owner account surface": "lounge.register"
+          },
+          "operations": {
+            "Create owner account": "lounge.create_owner_account"
+          }
+        },
+        {
+          "designBehavior": "Sign in",
+          "node": "lounge.sign_in",
+          "capabilities": {
+            "Authenticate owner": "lounge.authenticate_owner"
+          },
+          "surfaces": {
+            "Owner sign-in surface": "lounge.sign_in"
+          },
+          "operations": {
+            "Authenticate owner": "lounge.authenticate_owner_account"
+          }
+        },
+        {
+          "designBehavior": "Request password recovery",
+          "node": "lounge.forgot_password",
+          "capabilities": {
+            "Request recovery": "lounge.request_password_recovery"
+          },
+          "surfaces": {
+            "Password reset request surface": "lounge.forgot_password"
+          },
+          "operations": {
+            "Request password recovery": "lounge.request_password_reset"
+          }
+        },
+        {
+          "designBehavior": "Set a new password",
+          "node": "lounge.reset_password",
+          "capabilities": {
+            "Set new password": "lounge.set_new_password"
+          },
+          "surfaces": {
+            "Set new password surface": "lounge.reset_password"
+          },
+          "operations": {
+            "Change owner password": "lounge.change_owner_password"
+          }
+        },
+        {
+          "designBehavior": "Resend email verification",
+          "node": "lounge.verification_pending",
+          "capabilities": {
+            "Request verification delivery": "lounge.request_verification"
+          },
+          "surfaces": {},
+          "operations": {
+            "Request verification delivery": "lounge.request_verification_delivery"
+          }
+        },
+        {
+          "designBehavior": "Confirm email verification",
+          "node": "lounge.verify_email",
+          "capabilities": {
+            "Confirm owner email": "lounge.confirm_verification"
+          },
+          "surfaces": {
+            "Confirm owner email surface": "lounge.verify_email"
+          },
+          "operations": {
+            "Confirm owner email": "lounge.confirm_owner_email"
+          }
+        }
+      ]
+    }
+  ]
+}

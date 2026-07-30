@@ -67,6 +67,21 @@ describe("RouteDeck Agent Design Studio", () => {
     expect(getDesignStateFile()).not.toContain('"policyNodes"')
   })
 
+  it("authors and autosaves the active RouteDeck Feature prompt separately from policies", async () => {
+    const user = userEvent.setup()
+    await renderWorkbench()
+
+    await user.click(screen.getByRole("button", { name: "Feature prompt" }))
+    expect(screen.getByRole("heading", { name: "Feature prompt" })).toBeInTheDocument()
+    const prompt = screen.getByLabelText("Lounge Feature prompt")
+    expect((prompt as HTMLTextAreaElement).value).toContain("public Lounge")
+
+    await user.clear(prompt)
+    await user.type(prompt, "You are Corpus in the reviewed Lounge feature.")
+
+    await waitFor(() => expect(getDesignStateFile()).toContain("reviewed Lounge feature"))
+  })
+
   it("seeds Lounge as a separate unauthenticated feature with account paths and product help", async () => {
     const user = userEvent.setup()
     const lounge = createSeedState().features.find((feature) => feature.id === "lounge")!
@@ -255,7 +270,7 @@ describe("RouteDeck Agent Design Studio", () => {
 
   it("blocks on an invalid design-state.json and can explicitly replace it with the seed", async () => {
     const user = userEvent.setup()
-    setDesignStateFile(JSON.stringify({ version: 15, features: [] }))
+    setDesignStateFile(JSON.stringify({ version: 16, features: [] }))
     render(<App />)
 
     const alert = await screen.findByRole("alert")

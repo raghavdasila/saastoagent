@@ -1,5 +1,9 @@
 # RouteDeck Agent Design Studio
 
+The implementation destinations for feature prompts and every AgentPolicy
+scope are defined in
+[`../routedeck-design-mapping.md`](../routedeck-design-mapping.md).
+
 This is the local **RouteDeck Agent Design Studio**, with **Corpus** as the
 active project. It is a prototype workspace for iterating on Corpus feature
 design before implementation. The current seed covers behavior-note sections 0–4:
@@ -81,7 +85,7 @@ same choice through their own `prefers-color-scheme` styles; this does not add
 permissions to the iframe sandbox.
 
 Approval and rejection apply to one behavior. Reviewed behaviors are locked until
-they are reopened. The complete version 15 design state is automatically saved
+they are reopened. The complete version 16 design state is automatically saved
 to `design-state.json` in this directory after each edit; the Vite development
 server owns the local read/write endpoint and uses an atomic file replacement.
 **Export JSON** downloads a formatted snapshot of the current in-memory design

@@ -14,6 +14,12 @@ export interface InitialConversationRouteDeck {
   >;
 }
 
+export type InitialConversationPhase =
+  | "loading_history"
+  | "waiting_for_active_turn"
+  | "waiting_for_ollama"
+  | "streaming_ollama";
+
 export async function loadInitialConversation(
   routeDeck: InitialConversationRouteDeck,
   chatClient: RouteDeckAgentClient,
@@ -21,15 +27,27 @@ export async function loadInitialConversation(
   options: {
     startGreeting?: boolean;
     onProgress?(progress: AssistantInitiatedTurnProgress): void;
+    onPhase?(phase: InitialConversationPhase): void;
   } = {},
 ): Promise<readonly AgentHistoryTurn[]> {
+  options.onPhase?.("loading_history");
   const existing = await chatClient.loadConversation();
   if (existing.length > 0) return existing;
   if (options.startGreeting === false) return existing;
+  const interaction = routeDeck.store.getState().projection?.interaction;
+  options.onPhase?.(
+    interaction?.phase === "active" && interaction.owner === "chat"
+      ? "waiting_for_active_turn"
+      : "waiting_for_ollama",
+  );
   try {
     return await runAssistantInitiatedTurn(routeDeck.store, chatClient, {
       requestId,
-      onProgress: options.onProgress,
+      convergenceTimeoutMs: 30_000,
+      onProgress: (progress) => {
+        options.onPhase?.("streaming_ollama");
+        options.onProgress?.(progress);
+      },
     });
   } catch (error) {
     throw greetingError(error);
@@ -37,7 +55,7 @@ export async function loadInitialConversation(
 }
 
 export function shouldStartEntryGreeting(nodeId: string | null): boolean {
-  return nodeId === "workspace.lounge";
+  return nodeId === "lounge.home";
 }
 
 export function createGreetingRetryRequestId(requestIdPrefix: string): string {

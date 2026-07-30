@@ -1,7 +1,7 @@
 # Corpus Backend
 
 The backend contains the generic RouteDeck host, Corpus owner authentication,
-Workspace, generic Sources, and the replaceable ToolRouter integration used by
+Lounge, Workspace, generic Sources, and the replaceable ToolRouter integration used by
 the API connector.
 
 ```text
@@ -10,11 +10,12 @@ backend/
 |-- src/corpus/
 |   |-- app/                         # host + concrete composition roots
 |   |-- auth/                        # owner identity/session/claims
+|   |-- features/lounge/             # public Lounge + account journeys/policies
 |   |-- features/workspace/          # owner Workspace nodes and surfaces
 |   |-- features/sources/            # generic lifecycle + connectors/API
 |   |-- integrations/toolrouter/     # facade + private proven engine snapshot
 |   |-- runtime/                     # RouteDeck runtime and Corpus agent
-|   |-- composition.py               # selects Workspace + Sources
+|   |-- composition.py               # selects Lounge + Workspace + Sources
 |   |-- bindings.py
 |   |-- session.py
 |   `-- main.py               # ASGI factory

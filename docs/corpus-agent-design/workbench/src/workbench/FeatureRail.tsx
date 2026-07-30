@@ -1,6 +1,7 @@
 import {
   CheckCircle2,
   Circle,
+  MessageSquareText,
   Plus,
   ShieldCheck,
   X,
@@ -22,10 +23,11 @@ interface FeatureRailProps {
   features: DesignFeature[]
   selectedFeatureId: string
   selectedStoryId: string
-  selectedView: "behavior" | "feature-policy"
+  selectedView: "behavior" | "feature-prompt" | "feature-policy"
   mobileOpen: boolean
   onSelectFeature: (featureId: string) => void
   onSelectStory: (storyId: string) => void
+  onSelectFeaturePrompt: () => void
   onSelectFeaturePolicy: () => void
   onAddStory: () => void
   onCloseMobile: () => void
@@ -39,6 +41,7 @@ export function FeatureRail({
   mobileOpen,
   onSelectFeature,
   onSelectStory,
+  onSelectFeaturePrompt,
   onSelectFeaturePolicy,
   onAddStory,
   onCloseMobile,
@@ -58,6 +61,11 @@ export function FeatureRail({
 
   function selectPolicies() {
     onSelectFeaturePolicy()
+    onCloseMobile()
+  }
+
+  function selectPrompt() {
+    onSelectFeaturePrompt()
     onCloseMobile()
   }
 
@@ -103,6 +111,18 @@ export function FeatureRail({
         </nav>
 
         <div className="shrink-0 border-b border-border p-2">
+          <Button
+            aria-label={STUDIO_CONFIG.featurePromptLabel}
+            variant="ghost"
+            className={cn(
+              "h-9 w-full justify-start border border-transparent px-2.5 !text-[13px] font-normal focus-visible:ring-2",
+              selectedView === "feature-prompt" && "border-primary/15 bg-primary/10 font-medium text-foreground",
+            )}
+            onClick={selectPrompt}
+          >
+            <MessageSquareText data-icon="inline-start" className={cn("size-3.5", selectedView === "feature-prompt" ? "text-primary" : "text-muted-foreground")} strokeWidth={1.8} />
+            {STUDIO_CONFIG.featurePromptLabel}
+          </Button>
           <Button
             aria-label={STUDIO_CONFIG.featurePolicyLabel}
             variant="ghost"

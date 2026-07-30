@@ -53,14 +53,14 @@ state; Corpus does not duplicate those contracts in either drawer.
 ```text
 browser loads RouteDeck frontend contract
   -> host resumes or creates encrypted-cookie guest session
-  -> RouteDeck enters workspace.lounge and projects Lounge surface
+  -> RouteDeck enters lounge.home and projects the Lounge-owned surface
   -> Corpus renders the Lounge shell with conversation pending
   -> assistant-initiated LangGraph turn calls configured Ollama model in background
   -> each validated assistant delta updates the visible greeting immediately
   -> conversation is persisted through RouteDeck SQLAlchemy runtime
   -> completed durable greeting replaces transient progress with canonical history
   -> owner message streams through /api/routedeck/chat
-  -> sign-in/register affordance dispatches a typed Workspace operation
+  -> sign-in/register affordance dispatches a typed Lounge operation
   -> RouteDeck commits the legal node transition and new surface projection
 ```
 
@@ -89,6 +89,25 @@ transition back to ready. Corpus owns principal validation, opaque-handle
 rebinding, guest fallback, and the generic reconnect error shown only when
 replacement itself fails.
 
+## Implemented Initial Conversation Reset
+
+```text
+initial conversation restoration or greeting convergence fails
+  -> frontend records one recovery attempt for the current tab
+  -> POST /api/auth/recover
+  -> revoke the selected owner browser session when present
+  -> clear auth, opaque owner-route, and guest cookies
+  -> replace the browser location with /
+  -> RouteDeck creates a fresh guest session at lounge.home
+  -> Corpus runs and renders a fresh real assistant greeting
+  -> successful conversation load clears the recovery marker
+  -> a second failure stays visible instead of causing a reload loop
+```
+
+The greeting convergence limit is 30 seconds. This reset deliberately returns
+the browser to first-time anonymous Lounge state; it does not preserve a broken
+selected owner or guest session.
+
 ## Implemented Corpus Owner Authentication
 
 ```text
@@ -97,7 +116,7 @@ guest Lounge -> sign-in or registration surface
   -> owner + personal organization + membership + revocable auth session
   -> permanent claim over the current guest RouteDeck session
   -> HttpOnly auth cookie + opaque owner-route handle; guest cookie cleared
-  -> workspace.authentication_completed
+  -> lounge.authentication_completed
   -> claim-backed owner context provider
   -> session-bound workspace.home
 ```
@@ -115,6 +134,12 @@ history, retains the token only in frontend memory, and immediately removes the
 fragment from the visible URL. These token surfaces do not start a Lounge
 greeting. Verification is advisory. Reset changes the password and revokes
 every browser session and owner-route handle.
+
+Signed-in verification delivery is a Lounge-owned account behavior reached
+from `workspace.home` through `workspace.open_verification`. The
+`lounge.verification_pending` surface requests delivery only after the owner
+explicitly selects Resend verification, reports the real result, and returns
+through `lounge.return_to_workspace`.
 
 ## Implemented Sources And API Connector Debug Path
 
@@ -142,8 +167,8 @@ between the API engine port and the replaceable
 The private ToolRouter engine owns OpenAPI/graph/retrieval/evalset algorithms;
 it owns no product node or owner/session behavior.
 
-The live product now has eight nodes: seven `workspace.*` nodes and one
-`sources.home` node. The Sources surface is an authenticated experimental debug
+The live product now has nine nodes: seven `lounge.*` nodes, one
+`workspace.home` node, and one `sources.home` node. The Sources surface is an authenticated experimental debug
 surface, not Agent Designer, an execution Sandbox, or a public deployed Web
 channel. The four evidence stages are UI state derived from the Source,
 retrieval, and evalset results; they are not additional product or RouteDeck

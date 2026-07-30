@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react"
-import { ShieldCheck } from "lucide-react"
+import { MessageSquareText, ShieldCheck } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 import { AgentPolicyList } from "@/workbench/AgentPolicyList"
 import { BehaviorDesignEditor } from "@/workbench/BehaviorDesignEditor"
 import { FeatureRail } from "@/workbench/FeatureRail"
@@ -24,7 +25,7 @@ export default function App() {
   const [loaded, setLoaded] = useState<LoadResult | null>(null)
   const [selectedFeatureId, setSelectedFeatureId] = useState("")
   const [selectedStoryId, setSelectedStoryId] = useState("")
-  const [selectedView, setSelectedView] = useState<"behavior" | "feature-policy">("behavior")
+  const [selectedView, setSelectedView] = useState<"behavior" | "feature-prompt" | "feature-policy">("behavior")
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saving")
   const [theme, setTheme] = useState<Theme>(loadTheme)
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false)
@@ -216,12 +217,38 @@ export default function App() {
           mobileOpen={mobileNavigationOpen}
           onSelectFeature={selectFeature}
           onSelectStory={selectStory}
+          onSelectFeaturePrompt={() => setSelectedView("feature-prompt")}
           onSelectFeaturePolicy={() => setSelectedView("feature-policy")}
           onAddStory={addStory}
           onCloseMobile={() => setMobileNavigationOpen(false)}
         />
 
-        {selectedView === "feature-policy" ? (
+        {selectedView === "feature-prompt" ? (
+          <main className="studio-main overflow-y-auto">
+            <div className="mx-auto flex max-w-4xl flex-col gap-5 p-4 sm:p-6 lg:p-8">
+              <div className="flex items-start gap-3 border-b border-border pb-5">
+                <div className="grid size-9 shrink-0 place-items-center rounded-md border border-primary/20 bg-primary/10 text-primary">
+                  <MessageSquareText className="size-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">{STUDIO_CONFIG.projectName} / {selectedFeature.name}</p>
+                  <h2 className="mt-0.5 text-xl font-semibold tracking-[-0.025em]">{STUDIO_CONFIG.views.featurePrompt.label}</h2>
+                  <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">{STUDIO_CONFIG.views.featurePrompt.description}</p>
+                </div>
+              </div>
+              <div className="studio-object-card bg-card p-4 sm:p-5">
+                <label className="text-xs font-medium" htmlFor="feature-agent-prompt">{selectedFeature.name} Feature prompt</label>
+                <Textarea
+                  id="feature-agent-prompt"
+                  className="mt-2 min-h-56"
+                  value={selectedFeature.prompt}
+                  placeholder="Define the agent's role, purpose, vocabulary, and interaction posture throughout this feature..."
+                  onChange={(event) => updateFeature({ prompt: event.target.value })}
+                />
+              </div>
+            </div>
+          </main>
+        ) : selectedView === "feature-policy" ? (
           <main className="studio-main overflow-y-auto">
             <div className="mx-auto flex max-w-4xl flex-col gap-5 p-4 sm:p-6 lg:p-8">
               <div className="flex items-start gap-3 border-b border-border pb-5">

@@ -2,7 +2,13 @@
 
 This directory will hold language-neutral schemas exchanged across the Corpus
 backend, frontend, RouteDeck boundary, builders, deployed agents, and channels.
-It contains no implementation yet.
+
+`corpus-agent-design-routedeck-manifest.json` is an implementation-owned bridge
+from product-semantic Design Studio names to compiled RouteDeck identifiers.
+RouteDeck IDs stay here rather than becoming Studio fields. The manifest does
+not prescribe handlers, files, transports, storage, or other implementation
+choices; `scripts/check_agent_design_parity.py` uses it only to inspect product
+shape and boundary parity.
 
 The central aggregate is the versioned **Agent Configuration**:
 

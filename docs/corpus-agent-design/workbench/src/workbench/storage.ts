@@ -68,6 +68,7 @@ function hasValidFeatureData(value: unknown): boolean {
     isRecord(feature)
     && typeof feature.id === "string"
     && typeof feature.name === "string"
+    && typeof feature.prompt === "string"
     && hasValidPolicies(feature.policies)
     && Array.isArray(feature.stories)
     && feature.stories.length > 0
@@ -99,7 +100,7 @@ function hasValidFeatureData(value: unknown): boolean {
 
 function isWorkbenchState(value: unknown): value is WorkbenchState {
   return isRecord(value)
-    && value.version === 15
+    && value.version === 16
     && hasValidFeatureData(value.features)
 }
 

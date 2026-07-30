@@ -3,13 +3,13 @@ import type { RouteDeckSurfaceComponentProps } from "@routedeck/react";
 import { expect, it, vi } from "vitest";
 
 import { Composer } from "../app/Composer";
-import { OwnerSessionProvider } from "../features/workspace/OwnerSessionContext";
-import { ResetPasswordSurface } from "../features/workspace/ResetPasswordSurface";
-import { VerifyEmailSurface } from "../features/workspace/VerifyEmailSurface";
+import { OwnerSessionProvider } from "../features/lounge/OwnerSessionContext";
+import { ResetPasswordSurface } from "../features/lounge/ResetPasswordSurface";
+import { VerifyEmailSurface } from "../features/lounge/VerifyEmailSurface";
 import {
   captureAuthTokenFragment,
   clearCapturedTokenFragment,
-} from "../features/workspace/tokenFragment";
+} from "../features/lounge/tokenFragment";
 
 
 it("captures a reset token in memory and immediately removes the URL fragment", async () => {
@@ -90,15 +90,15 @@ it("locks the chat composer on credential-entry surfaces", () => {
 
 function surfaceProps(): RouteDeckSurfaceComponentProps {
   return {
-    surface: { surface_id: "workspace.reset_password", component: "workspace.reset_password", props: [] },
+    surface: { surface_id: "lounge.reset_password", component: "lounge.reset_password", props: [] },
     slot: "active",
     props: {},
     spec: {
-      id: "workspace.reset_password",
-      component: "workspace.reset_password",
+      id: "lounge.reset_password",
+      component: "lounge.reset_password",
       lifecycle: "stable",
       public_props_schema: {},
-      affordances: [{ id: "return_to_lounge", event: "open", operation: { id: "workspace.return_to_lounge" } }],
+      affordances: [{ id: "return_to_lounge", event: "open", operation: { id: "lounge.return_to_lounge" } }],
     },
     dispatchAffordance: vi.fn(async () => ({}) as never),
   };

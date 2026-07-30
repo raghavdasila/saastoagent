@@ -8,8 +8,8 @@ import { Bot, CircleUserRound, LogOut } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { ownerAuthClient } from "./authClient";
-import { useOwnerSession } from "./OwnerSessionContext";
+import { ownerAuthClient } from "../lounge/authClient";
+import { useOwnerSession } from "../lounge/OwnerSessionContext";
 
 export function CorpusHeader() {
   const contract = useRouteDeckContract();
@@ -20,6 +20,14 @@ export function CorpusHeader() {
     currentNode === null
       ? "Starting"
       : (contract.nodes[currentNode]?.title ?? currentNode);
+  const currentFeature =
+    currentNode === null
+      ? "Corpus"
+      : currentNode.startsWith("lounge.")
+        ? "Lounge"
+        : currentNode.startsWith("sources.")
+          ? "Sources"
+          : "Workspace";
 
   return (
     <>
@@ -27,7 +35,7 @@ export function CorpusHeader() {
         <span className="corpus-mark" aria-hidden="true"><Bot /></span>
         <span>
           <strong>Corpus</strong>
-          <small>Workspace / {currentTitle}</small>
+          <small>{currentFeature} / {currentTitle}</small>
         </span>
       </div>
       <div className="corpus-header-controls">

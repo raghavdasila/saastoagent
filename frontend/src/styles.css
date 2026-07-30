@@ -182,12 +182,13 @@ button, input, textarea { font: inherit; }
 [data-agent-review-required] h2 { margin: 0; font-size: 14px; }
 [data-agent-review-required] p { margin: 4px 0 0; color: var(--muted-foreground); font-size: 13px; }
 [data-agent-input-dock] { z-index: 5; width: min(860px, 100%); margin: 0 auto; padding-top: 10px; background: linear-gradient(to bottom, transparent, var(--background) 28%); }
-[data-agent-composer] { display: flex; min-width: 0; align-items: flex-end; gap: 10px; padding: 9px; border: 1px solid var(--input); border-radius: 14px; background: var(--background); box-shadow: 0 8px 30px color-mix(in oklch, var(--foreground) 8%, transparent); }
+[data-agent-composer] { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px 10px; padding: 9px; border: 1px solid var(--input); border-radius: 14px; background: var(--background); box-shadow: 0 8px 30px color-mix(in oklch, var(--foreground) 8%, transparent); }
 [data-agent-composer]:focus-within { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 18%, transparent); }
 [data-agent-composer] > textarea { min-height: 42px; max-height: 132px; flex: 1; resize: none; border: 0; background: transparent; box-shadow: none; }
 [data-agent-composer] > textarea:focus-visible { border: 0; box-shadow: none; }
 [data-agent-composer] > div { display: flex; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-[data-agent-composer] > [role="alert"] { width: 100%; margin: 0; color: var(--destructive); font-size: 12px; }
+[data-agent-composer] > [data-composer-disabled-reason] { grid-column: 1 / -1; margin: 0 4px 2px; color: var(--muted-foreground); font-size: 12px; line-height: 1.4; }
+[data-agent-composer] > [role="alert"] { grid-column: 1 / -1; width: 100%; margin: 0; color: var(--destructive); font-size: 12px; }
 
 [data-navgraph-sidebar] { width: 58px; min-width: 0; overflow: hidden; border-left: 1px solid var(--border); background: var(--sidebar); transition: width 180ms ease; }
 [data-navgraph-sidebar][data-expanded="true"] { width: min(420px, 34vw); }

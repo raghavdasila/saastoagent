@@ -118,7 +118,8 @@ def _create_graphs(
             runtime=services,
         ),
         assistant_initiated=create_corpus_entry_agent(
-            model=create_ollama_chat_model(settings)
+            model=create_ollama_chat_model(settings),
+            runtime=services,
         ),
         ignored_event_tags=frozenset(),
     )

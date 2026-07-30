@@ -19,6 +19,7 @@ import {
 
 import { Composer } from "./Composer";
 import { Conversation } from "./Conversation";
+import type { InitialConversationPhase } from "./initialConversation";
 
 const CONVERSATION_SURFACE_SLOTS: readonly RouteDeckSurfaceSlot[] = Object.freeze([
   "active",
@@ -34,6 +35,7 @@ export interface AgentShellProps {
   initialConversation?: readonly AgentHistoryTurn[];
   conversationBootstrapPending?: boolean;
   conversationBootstrapProgress?: AssistantInitiatedTurnProgress | null;
+  conversationBootstrapPhase?: InitialConversationPhase | null;
 }
 
 export function AgentShell({
@@ -42,6 +44,7 @@ export function AgentShell({
   initialConversation = [],
   conversationBootstrapPending = false,
   conversationBootstrapProgress = null,
+  conversationBootstrapPhase = null,
 }: AgentShellProps) {
   const runtime = useRouteDeckRuntime();
   const sessionVersion = useRouteDeckSelector(selectSessionVersion);
@@ -74,7 +77,7 @@ export function AgentShell({
   const disabledReason = conversationInputDisabled
     ? conversationInput.disabled_message ?? undefined
     : conversationBootstrapPending
-      ? "Corpus is preparing the conversation."
+      ? bootstrapMessage(conversationBootstrapPhase)
       : undefined;
   const visibleMessages = useMemo(
     () =>
@@ -139,4 +142,18 @@ export function AgentShell({
       </div>
     </main>
   );
+}
+
+function bootstrapMessage(phase: InitialConversationPhase | null): string {
+  switch (phase) {
+    case "loading_history":
+      return "Loading the saved RouteDeck conversation.";
+    case "waiting_for_active_turn":
+      return "Waiting for an active RouteDeck Lounge greeting turn to finish.";
+    case "streaming_ollama":
+      return "Receiving the Lounge greeting from Ollama.";
+    case "waiting_for_ollama":
+    default:
+      return "Waiting for Ollama to generate the Lounge greeting.";
+  }
 }

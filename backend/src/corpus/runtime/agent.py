@@ -11,7 +11,7 @@ from routedeck_langgraph import (
     RouteDeckToolWrapper,
 )
 
-from corpus.features.workspace.prompt import WORKSPACE_AGENT_PROMPT
+from .prompt import CORPUS_AGENT_PROMPT
 
 
 def create_corpus_agent(
@@ -25,17 +25,24 @@ def create_corpus_agent(
         model=model,
         tools=wrapper.tools,
         middleware=(middleware,),
-        system_prompt=WORKSPACE_AGENT_PROMPT,
+        system_prompt=CORPUS_AGENT_PROMPT,
         context_schema=RouteDeckInvocationContext,
         name="corpus_agent",
     )
 
 
-def create_corpus_entry_agent(*, model: BaseChatModel) -> Any:
+def create_corpus_entry_agent(
+    *,
+    model: BaseChatModel,
+    runtime: RouteDeckRunnerRuntime,
+) -> Any:
+    middleware = RouteDeckMiddleware(runtime)
     return create_agent(
         model=model,
         tools=(),
-        system_prompt=WORKSPACE_AGENT_PROMPT,
+        middleware=(middleware,),
+        system_prompt=CORPUS_AGENT_PROMPT,
+        context_schema=RouteDeckInvocationContext,
         name="corpus_entry_agent",
     )
 

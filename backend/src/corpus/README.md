@@ -4,7 +4,10 @@
   transport outside individual features.
 - `auth/` owns Corpus owner identity, browser sessions, RouteDeck claims,
   migrations, rate limits, and the mail boundary.
-- `features/workspace/` owns the seven Workspace nodes and their operations.
+- `features/lounge/` owns public help and owner account-access, recovery,
+  verification nodes, bindings, and AgentPolicies.
+- `features/workspace/` owns authenticated Home, owner context, and entry to
+  authenticated Workspace features.
 - `features/sources/` owns generic source identity/revisions, connector
   registration, owner APIs, and the `sources.home` debug node. API is a
   connector beneath Sources.
@@ -15,5 +18,5 @@
 - `runtime/` owns the primary Corpus chat loop and applies RouteDeck node scope
   to prompts, context, tools, operations, and surfaces.
 - `shared/` is limited to backend primitives used by more than one owner.
-- `composition.py` selects Workspace and Sources while retaining
-  `workspace.lounge` as the compiled entry node.
+- `composition.py` selects Lounge, Workspace, and Sources with `lounge.home`
+  as the compiled entry node.

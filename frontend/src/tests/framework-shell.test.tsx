@@ -137,7 +137,9 @@ it("renders the active surface while the entry greeting continues in background"
   expect(screen.getByText("Framework active surface")).toBeVisible();
   expect(screen.getByRole("status", { name: "Assistant is thinking" })).toBeVisible();
   expect(screen.getByLabelText("Message the assistant")).toBeDisabled();
-  expect(screen.getByText("Corpus is preparing the conversation.")).toBeVisible();
+  expect(
+    screen.getByText("Waiting for Ollama to generate the Lounge greeting."),
+  ).toBeVisible();
   expect(screen.queryByRole("button", { name: "Stop response" })).not.toBeInTheDocument();
 
   harness.dispose();

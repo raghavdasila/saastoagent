@@ -66,7 +66,7 @@ async def test_live_runtime_opens_workspace_and_proves_ollama_readiness(
     )
     try:
         assert live.runtime.services.app.app.frontend_contract.entry_node_id == (
-            "workspace.lounge"
+            "lounge.home"
         )
         assert await live.readiness.ready() is True
     finally:

@@ -105,11 +105,11 @@ export function SurfacePreview({ story, theme }: { story: DesignStory; theme: Th
             {story.mockSurfacePath ? (
               <iframe
                 ref={iframeRef}
-                className="block w-full rounded-md border-0 bg-background"
+                className="block w-full rounded-md border-0"
                 src={story.mockSurfacePath}
                 title={`Mock surface: ${story.title}`}
                 sandbox="allow-scripts"
-                style={{ colorScheme: theme, height: `${surfaceHeight}px` }}
+                style={{ backgroundColor: "var(--studio-field)", colorScheme: theme, height: `${surfaceHeight}px` }}
                 onLoad={() => iframeRef.current?.contentWindow?.postMessage({ type: SURFACE_HEIGHT_REQUEST }, "*")}
               />
             ) : (

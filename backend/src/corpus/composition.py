@@ -2,14 +2,15 @@
 
 from routedeck_core.app import Application, CompiledApplication, compile_app
 
-from .features.workspace.feature import LOUNGE_NODE, WORKSPACE_FEATURE
+from .features.lounge.feature import LOUNGE_FEATURE, LOUNGE_NODE
+from .features.workspace.feature import WORKSPACE_FEATURE
 from .features.sources.feature import SOURCES_FEATURE
 
 
 CORPUS_APP = Application(
     name="corpus",
     entry_node=LOUNGE_NODE.ref,
-    features=(WORKSPACE_FEATURE, SOURCES_FEATURE),
+    features=(LOUNGE_FEATURE, WORKSPACE_FEATURE, SOURCES_FEATURE),
 )
 
 

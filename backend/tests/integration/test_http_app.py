@@ -57,7 +57,7 @@ def test_live_http_app_serves_contract_and_creates_a_guest_lounge_session(
         contract = client.get("/api/routedeck/contract")
         assert contract.status_code == 200
         assert contract.json()["frontend_contract"]["entry_node_id"] == (
-            "workspace.lounge"
+            "lounge.home"
         )
         created = client.post(
             "/api/routedeck/sessions",
@@ -66,9 +66,9 @@ def test_live_http_app_serves_contract_and_creates_a_guest_lounge_session(
         )
         assert created.status_code == 201
         projection = created.json()["projection"]
-        assert projection["current"]["node_id"] == "workspace.lounge"
+        assert projection["current"]["node_id"] == "lounge.home"
         assert projection["surfaces"]["active"]["component"] == (
-            "workspace.lounge"
+            "lounge.home"
         )
         assert "corpus_guest=" in created.headers["set-cookie"]
         guest_session_cookie = client.cookies.get("corpus_guest")
@@ -80,7 +80,7 @@ def test_live_http_app_serves_contract_and_creates_a_guest_lounge_session(
             json={
                 "request_id": "open-registration",
                 "expected_session_version": projection["session_version"],
-                "operation_id": "workspace.open_registration",
+                "operation_id": "lounge.open_registration",
                 "arguments": {},
             },
         )
@@ -106,7 +106,7 @@ def test_live_http_app_serves_contract_and_creates_a_guest_lounge_session(
             json={
                 "request_id": "auth-continuation",
                 "expected_session_version": registration_version,
-                "operation_id": "workspace.authentication_completed",
+                "operation_id": "lounge.authentication_completed",
                 "arguments": {},
             },
         )

@@ -101,15 +101,29 @@ Updated: 2026-07-29
   exposes no policy or RouteDeck declaration IDs and makes no compiled or
   effective-policy claim; full identifiers, references, topology, providers,
   guards, transitions, and bindings are deferred to complete extraction.
+- The implementation-owned Agent Design parity checker now reports a concise
+  root-cause summary by default and retains every scope-level mismatch behind
+  `--verbose`. The current implementation remains intentionally red at 124
+  mismatches across seven groups; this is implementation drift evidence, not a
+  Studio schema failure.
 - The live Navgraph remains a docked, in-place expandable desktop rail. At
   mobile width it switches to a shadcn Sheet drawer without changing RouteDeck
   state ownership.
-- Workspace has seven live nodes covering Lounge, owner sign-in, registration,
-  forgot/reset, verification, and session-bound owner home. Sources adds one
-  session-bound `sources.home` node, for eight current live nodes.
+- Lounge is a top-level live feature with seven nodes covering public
+  arrival/product help, owner sign-in, registration, forgot/reset, verification
+  confirmation, and signed-in verification delivery. Workspace owns only its
+  session-bound Home node; Sources adds `sources.home`, for nine live nodes.
+- Lounge declares feature-, node-, capability-, and surface-scoped RouteDeck
+  AgentPolicies derived from the Design Studio behavior guidance.
 - Lounge uses durable anonymous guest sessions and real local Ollama
   `gemma4:latest` responses through native `langchain-ollama`. Readiness uses
   the official Ollama SDK. No canned/model fallback exists.
+- Initial conversation restoration and greeting convergence expose their real
+  phase in the composer. A failure or 30-second convergence timeout invokes
+  `/api/auth/recover` once per tab, clears auth/owner-route/guest selection,
+  reloads `/`, and creates a first-time anonymous Lounge session. The marker is
+  cleared after a healthy load; a repeated failure remains visible rather than
+  looping.
 - Corpus owner authentication is implemented with FastAPI Users behind Corpus
   interfaces, a separate Alembic-managed database, personal organizations,
   revocable hashed sessions, permanent RouteDeck claims, opaque owner-route
@@ -176,6 +190,15 @@ docker compose up --build
 
 ## Validation Baseline
 
+- Agent design parity reporting: 4 focused checker tests passed. The real
+  default run returned exit 1 with 124 mismatches summarized into seven groups;
+  `--verbose` returned the same exit and all 124 detailed evidence lines.
+- Automatic initial-session reset: 27 frontend tests and the production build
+  passed. A preserved session with an unterminated RouteDeck turn visibly
+  reached the active-turn phase, timed out, received `POST /api/auth/recover`
+  `204`, created a new RouteDeck session with `201`, completed a real Ollama
+  assistant turn with `200`, and rendered a healthy anonymous Lounge with an
+  enabled composer without manual cookie or site-data clearing.
 - RouteDeck Agent Design Studio: 17 tests passed; strict typecheck and
   production build passed. Browser checks at 1440x900 and 390x844 verified the
   branded Corpus project shell, JSON export interaction, separate feature-policy

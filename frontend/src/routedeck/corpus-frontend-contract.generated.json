@@ -1,7 +1,181 @@
 {
-  "entry_node_id": "workspace.lounge",
+  "entry_node_id": "lounge.home",
   "name": "corpus",
   "nodes": {
+    "lounge.forgot_password": {
+      "conversation_input": {
+        "disabled_message": "Chat is disabled while entering account credentials.",
+        "enabled": false
+      },
+      "deep_link_policy": "shareable",
+      "id": "lounge.forgot_password",
+      "operation_ids": [
+        "lounge.return_to_lounge"
+      ],
+      "route_template": "/forgot-password",
+      "surfaces": {
+        "active": "lounge.forgot_password",
+        "detail": [],
+        "diagnostic": [],
+        "error": [],
+        "form": [],
+        "frame": [],
+        "peer": [],
+        "review": [],
+        "status": []
+      },
+      "title": "Request password recovery"
+    },
+    "lounge.home": {
+      "conversation_input": {
+        "disabled_message": null,
+        "enabled": true
+      },
+      "deep_link_policy": "shareable",
+      "id": "lounge.home",
+      "operation_ids": [
+        "lounge.open_sign_in",
+        "lounge.open_registration",
+        "lounge.open_reset_password",
+        "lounge.open_verify_email"
+      ],
+      "route_template": "/",
+      "surfaces": {
+        "active": "lounge.home",
+        "detail": [],
+        "diagnostic": [],
+        "error": [],
+        "form": [],
+        "frame": [],
+        "peer": [],
+        "review": [],
+        "status": []
+      },
+      "title": "Lounge"
+    },
+    "lounge.register": {
+      "conversation_input": {
+        "disabled_message": "Chat is disabled while entering account credentials.",
+        "enabled": false
+      },
+      "deep_link_policy": "shareable",
+      "id": "lounge.register",
+      "operation_ids": [
+        "lounge.return_to_lounge",
+        "lounge.authentication_completed"
+      ],
+      "route_template": "/register",
+      "surfaces": {
+        "active": "lounge.register",
+        "detail": [],
+        "diagnostic": [],
+        "error": [],
+        "form": [],
+        "frame": [],
+        "peer": [],
+        "review": [],
+        "status": []
+      },
+      "title": "Create account"
+    },
+    "lounge.reset_password": {
+      "conversation_input": {
+        "disabled_message": "Chat is disabled while entering account credentials.",
+        "enabled": false
+      },
+      "deep_link_policy": "shareable",
+      "id": "lounge.reset_password",
+      "operation_ids": [
+        "lounge.return_to_lounge"
+      ],
+      "route_template": "/reset-password",
+      "surfaces": {
+        "active": "lounge.reset_password",
+        "detail": [],
+        "diagnostic": [],
+        "error": [],
+        "form": [],
+        "frame": [],
+        "peer": [],
+        "review": [],
+        "status": []
+      },
+      "title": "Set a new password"
+    },
+    "lounge.sign_in": {
+      "conversation_input": {
+        "disabled_message": "Chat is disabled while entering account credentials.",
+        "enabled": false
+      },
+      "deep_link_policy": "shareable",
+      "id": "lounge.sign_in",
+      "operation_ids": [
+        "lounge.return_to_lounge",
+        "lounge.open_forgot_password",
+        "lounge.authentication_completed"
+      ],
+      "route_template": "/sign-in",
+      "surfaces": {
+        "active": "lounge.sign_in",
+        "detail": [],
+        "diagnostic": [],
+        "error": [],
+        "form": [],
+        "frame": [],
+        "peer": [],
+        "review": [],
+        "status": []
+      },
+      "title": "Sign in"
+    },
+    "lounge.verification_pending": {
+      "conversation_input": {
+        "disabled_message": "Chat is disabled while entering account credentials.",
+        "enabled": false
+      },
+      "deep_link_policy": "session_bound",
+      "id": "lounge.verification_pending",
+      "operation_ids": [
+        "lounge.return_to_workspace"
+      ],
+      "route_template": "/verification-pending",
+      "surfaces": {
+        "active": "lounge.verification_pending",
+        "detail": [],
+        "diagnostic": [],
+        "error": [],
+        "form": [],
+        "frame": [],
+        "peer": [],
+        "review": [],
+        "status": []
+      },
+      "title": "Resend email verification"
+    },
+    "lounge.verify_email": {
+      "conversation_input": {
+        "disabled_message": "Chat is disabled while entering account credentials.",
+        "enabled": false
+      },
+      "deep_link_policy": "shareable",
+      "id": "lounge.verify_email",
+      "operation_ids": [
+        "lounge.return_to_lounge"
+      ],
+      "route_template": "/verify",
+      "surfaces": {
+        "active": "lounge.verify_email",
+        "detail": [],
+        "diagnostic": [],
+        "error": [],
+        "form": [],
+        "frame": [],
+        "peer": [],
+        "review": [],
+        "status": []
+      },
+      "title": "Confirm email verification"
+    },
     "sources.home": {
       "conversation_input": {
         "disabled_message": null,
@@ -26,30 +200,6 @@
       },
       "title": "Sources"
     },
-    "workspace.forgot_password": {
-      "conversation_input": {
-        "disabled_message": "Chat is disabled while entering account credentials.",
-        "enabled": false
-      },
-      "deep_link_policy": "shareable",
-      "id": "workspace.forgot_password",
-      "operation_ids": [
-        "workspace.return_to_lounge"
-      ],
-      "route_template": "/forgot-password",
-      "surfaces": {
-        "active": "workspace.forgot_password",
-        "detail": [],
-        "diagnostic": [],
-        "error": [],
-        "form": [],
-        "frame": [],
-        "peer": [],
-        "review": [],
-        "status": []
-      },
-      "title": "Forgot password"
-    },
     "workspace.home": {
       "conversation_input": {
         "disabled_message": null,
@@ -58,7 +208,8 @@
       "deep_link_policy": "session_bound",
       "id": "workspace.home",
       "operation_ids": [
-        "workspace.open_sources"
+        "workspace.open_sources",
+        "workspace.open_verification"
       ],
       "route_template": "/home",
       "surfaces": {
@@ -73,135 +224,170 @@
         "status": []
       },
       "title": "Home"
-    },
-    "workspace.lounge": {
-      "conversation_input": {
-        "disabled_message": null,
-        "enabled": true
-      },
-      "deep_link_policy": "shareable",
-      "id": "workspace.lounge",
-      "operation_ids": [
-        "workspace.open_sign_in",
-        "workspace.open_registration",
-        "workspace.open_reset_password",
-        "workspace.open_verify_email"
-      ],
-      "route_template": "/",
-      "surfaces": {
-        "active": "workspace.lounge",
-        "detail": [],
-        "diagnostic": [],
-        "error": [],
-        "form": [],
-        "frame": [],
-        "peer": [],
-        "review": [],
-        "status": []
-      },
-      "title": "Lounge"
-    },
-    "workspace.register": {
-      "conversation_input": {
-        "disabled_message": "Chat is disabled while entering account credentials.",
-        "enabled": false
-      },
-      "deep_link_policy": "shareable",
-      "id": "workspace.register",
-      "operation_ids": [
-        "workspace.return_to_lounge",
-        "workspace.authentication_completed"
-      ],
-      "route_template": "/register",
-      "surfaces": {
-        "active": "workspace.register",
-        "detail": [],
-        "diagnostic": [],
-        "error": [],
-        "form": [],
-        "frame": [],
-        "peer": [],
-        "review": [],
-        "status": []
-      },
-      "title": "Create account"
-    },
-    "workspace.reset_password": {
-      "conversation_input": {
-        "disabled_message": "Chat is disabled while entering account credentials.",
-        "enabled": false
-      },
-      "deep_link_policy": "shareable",
-      "id": "workspace.reset_password",
-      "operation_ids": [
-        "workspace.return_to_lounge"
-      ],
-      "route_template": "/reset-password",
-      "surfaces": {
-        "active": "workspace.reset_password",
-        "detail": [],
-        "diagnostic": [],
-        "error": [],
-        "form": [],
-        "frame": [],
-        "peer": [],
-        "review": [],
-        "status": []
-      },
-      "title": "Reset password"
-    },
-    "workspace.sign_in": {
-      "conversation_input": {
-        "disabled_message": "Chat is disabled while entering account credentials.",
-        "enabled": false
-      },
-      "deep_link_policy": "shareable",
-      "id": "workspace.sign_in",
-      "operation_ids": [
-        "workspace.return_to_lounge",
-        "workspace.open_forgot_password",
-        "workspace.authentication_completed"
-      ],
-      "route_template": "/sign-in",
-      "surfaces": {
-        "active": "workspace.sign_in",
-        "detail": [],
-        "diagnostic": [],
-        "error": [],
-        "form": [],
-        "frame": [],
-        "peer": [],
-        "review": [],
-        "status": []
-      },
-      "title": "Sign in"
-    },
-    "workspace.verify_email": {
-      "conversation_input": {
-        "disabled_message": "Chat is disabled while entering account credentials.",
-        "enabled": false
-      },
-      "deep_link_policy": "shareable",
-      "id": "workspace.verify_email",
-      "operation_ids": [
-        "workspace.return_to_lounge"
-      ],
-      "route_template": "/verify",
-      "surfaces": {
-        "active": "workspace.verify_email",
-        "detail": [],
-        "diagnostic": [],
-        "error": [],
-        "form": [],
-        "frame": [],
-        "peer": [],
-        "review": [],
-        "status": []
-      },
-      "title": "Verify email"
     }
   },
   "surfaces": {
+    "lounge.forgot_password": {
+      "affordances": [
+        {
+          "event": "open",
+          "id": "return_to_lounge",
+          "operation": {
+            "id": "lounge.return_to_lounge"
+          }
+        }
+      ],
+      "component": "lounge.forgot_password",
+      "id": "lounge.forgot_password",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
+    },
+    "lounge.home": {
+      "affordances": [
+        {
+          "event": "open",
+          "id": "open_sign_in",
+          "operation": {
+            "id": "lounge.open_sign_in"
+          }
+        },
+        {
+          "event": "open",
+          "id": "open_registration",
+          "operation": {
+            "id": "lounge.open_registration"
+          }
+        }
+      ],
+      "component": "lounge.home",
+      "id": "lounge.home",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
+    },
+    "lounge.register": {
+      "affordances": [
+        {
+          "event": "open",
+          "id": "return_to_lounge",
+          "operation": {
+            "id": "lounge.return_to_lounge"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "authentication_completed",
+          "operation": {
+            "id": "lounge.authentication_completed"
+          }
+        }
+      ],
+      "component": "lounge.register",
+      "id": "lounge.register",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
+    },
+    "lounge.reset_password": {
+      "affordances": [
+        {
+          "event": "open",
+          "id": "return_to_lounge",
+          "operation": {
+            "id": "lounge.return_to_lounge"
+          }
+        }
+      ],
+      "component": "lounge.reset_password",
+      "id": "lounge.reset_password",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
+    },
+    "lounge.sign_in": {
+      "affordances": [
+        {
+          "event": "open",
+          "id": "return_to_lounge",
+          "operation": {
+            "id": "lounge.return_to_lounge"
+          }
+        },
+        {
+          "event": "open",
+          "id": "open_forgot_password",
+          "operation": {
+            "id": "lounge.open_forgot_password"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "authentication_completed",
+          "operation": {
+            "id": "lounge.authentication_completed"
+          }
+        }
+      ],
+      "component": "lounge.sign_in",
+      "id": "lounge.sign_in",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
+    },
+    "lounge.verification_pending": {
+      "affordances": [
+        {
+          "event": "open",
+          "id": "return_to_workspace",
+          "operation": {
+            "id": "lounge.return_to_workspace"
+          }
+        }
+      ],
+      "component": "lounge.verification_pending",
+      "id": "lounge.verification_pending",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
+    },
+    "lounge.verify_email": {
+      "affordances": [
+        {
+          "event": "open",
+          "id": "return_to_lounge",
+          "operation": {
+            "id": "lounge.return_to_lounge"
+          }
+        }
+      ],
+      "component": "lounge.verify_email",
+      "id": "lounge.verify_email",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
+    },
     "sources.debug": {
       "affordances": [
         {
@@ -221,25 +407,6 @@
         "type": "object"
       }
     },
-    "workspace.forgot_password": {
-      "affordances": [
-        {
-          "event": "open",
-          "id": "return_to_lounge",
-          "operation": {
-            "id": "workspace.return_to_lounge"
-          }
-        }
-      ],
-      "component": "workspace.forgot_password",
-      "id": "workspace.forgot_password",
-      "lifecycle": "stable",
-      "public_props_schema": {
-        "additionalProperties": false,
-        "properties": {},
-        "type": "object"
-      }
-    },
     "workspace.home": {
       "affordances": [
         {
@@ -247,6 +414,13 @@
           "id": "open_sources",
           "operation": {
             "id": "workspace.open_sources"
+          }
+        },
+        {
+          "event": "open",
+          "id": "open_verification",
+          "operation": {
+            "id": "workspace.open_verification"
           }
         }
       ],
@@ -258,209 +432,98 @@
         "properties": {},
         "type": "object"
       }
-    },
-    "workspace.lounge": {
-      "affordances": [
-        {
-          "event": "open",
-          "id": "open_sign_in",
-          "operation": {
-            "id": "workspace.open_sign_in"
-          }
-        },
-        {
-          "event": "open",
-          "id": "open_registration",
-          "operation": {
-            "id": "workspace.open_registration"
-          }
-        }
-      ],
-      "component": "workspace.lounge",
-      "id": "workspace.lounge",
-      "lifecycle": "stable",
-      "public_props_schema": {
-        "additionalProperties": false,
-        "properties": {},
-        "type": "object"
-      }
-    },
-    "workspace.register": {
-      "affordances": [
-        {
-          "event": "open",
-          "id": "return_to_lounge",
-          "operation": {
-            "id": "workspace.return_to_lounge"
-          }
-        },
-        {
-          "event": "submit",
-          "id": "authentication_completed",
-          "operation": {
-            "id": "workspace.authentication_completed"
-          }
-        }
-      ],
-      "component": "workspace.register",
-      "id": "workspace.register",
-      "lifecycle": "stable",
-      "public_props_schema": {
-        "additionalProperties": false,
-        "properties": {},
-        "type": "object"
-      }
-    },
-    "workspace.reset_password": {
-      "affordances": [
-        {
-          "event": "open",
-          "id": "return_to_lounge",
-          "operation": {
-            "id": "workspace.return_to_lounge"
-          }
-        }
-      ],
-      "component": "workspace.reset_password",
-      "id": "workspace.reset_password",
-      "lifecycle": "stable",
-      "public_props_schema": {
-        "additionalProperties": false,
-        "properties": {},
-        "type": "object"
-      }
-    },
-    "workspace.sign_in": {
-      "affordances": [
-        {
-          "event": "open",
-          "id": "return_to_lounge",
-          "operation": {
-            "id": "workspace.return_to_lounge"
-          }
-        },
-        {
-          "event": "open",
-          "id": "open_forgot_password",
-          "operation": {
-            "id": "workspace.open_forgot_password"
-          }
-        },
-        {
-          "event": "submit",
-          "id": "authentication_completed",
-          "operation": {
-            "id": "workspace.authentication_completed"
-          }
-        }
-      ],
-      "component": "workspace.sign_in",
-      "id": "workspace.sign_in",
-      "lifecycle": "stable",
-      "public_props_schema": {
-        "additionalProperties": false,
-        "properties": {},
-        "type": "object"
-      }
-    },
-    "workspace.verify_email": {
-      "affordances": [
-        {
-          "event": "open",
-          "id": "return_to_lounge",
-          "operation": {
-            "id": "workspace.return_to_lounge"
-          }
-        }
-      ],
-      "component": "workspace.verify_email",
-      "id": "workspace.verify_email",
-      "lifecycle": "stable",
-      "public_props_schema": {
-        "additionalProperties": false,
-        "properties": {},
-        "type": "object"
-      }
     }
   },
   "transitions": [
     {
-      "operation_id": "workspace.open_sign_in",
+      "operation_id": "lounge.open_sign_in",
       "outcome": "opened",
-      "source": "workspace.lounge",
-      "target": "workspace.sign_in"
+      "source": "lounge.home",
+      "target": "lounge.sign_in"
     },
     {
-      "operation_id": "workspace.open_reset_password",
+      "operation_id": "lounge.open_registration",
       "outcome": "opened",
-      "source": "workspace.lounge",
-      "target": "workspace.reset_password"
+      "source": "lounge.home",
+      "target": "lounge.register"
     },
     {
-      "operation_id": "workspace.open_verify_email",
+      "operation_id": "lounge.open_reset_password",
       "outcome": "opened",
-      "source": "workspace.lounge",
-      "target": "workspace.verify_email"
+      "source": "lounge.home",
+      "target": "lounge.reset_password"
     },
     {
-      "operation_id": "workspace.open_registration",
+      "operation_id": "lounge.open_verify_email",
       "outcome": "opened",
-      "source": "workspace.lounge",
-      "target": "workspace.register"
+      "source": "lounge.home",
+      "target": "lounge.verify_email"
     },
     {
-      "operation_id": "workspace.return_to_lounge",
+      "operation_id": "lounge.return_to_lounge",
       "outcome": "opened",
-      "source": "workspace.sign_in",
-      "target": "workspace.lounge"
+      "source": "lounge.sign_in",
+      "target": "lounge.home"
     },
     {
-      "operation_id": "workspace.open_forgot_password",
+      "operation_id": "lounge.open_forgot_password",
       "outcome": "opened",
-      "source": "workspace.sign_in",
-      "target": "workspace.forgot_password"
+      "source": "lounge.sign_in",
+      "target": "lounge.forgot_password"
     },
     {
-      "operation_id": "workspace.authentication_completed",
+      "operation_id": "lounge.authentication_completed",
       "outcome": "opened",
-      "source": "workspace.sign_in",
+      "source": "lounge.sign_in",
       "target": "workspace.home"
     },
     {
-      "operation_id": "workspace.return_to_lounge",
+      "operation_id": "lounge.return_to_lounge",
       "outcome": "opened",
-      "source": "workspace.register",
-      "target": "workspace.lounge"
+      "source": "lounge.register",
+      "target": "lounge.home"
     },
     {
-      "operation_id": "workspace.authentication_completed",
+      "operation_id": "lounge.authentication_completed",
       "outcome": "opened",
-      "source": "workspace.register",
+      "source": "lounge.register",
       "target": "workspace.home"
     },
     {
-      "operation_id": "workspace.return_to_lounge",
+      "operation_id": "lounge.return_to_lounge",
       "outcome": "opened",
-      "source": "workspace.forgot_password",
-      "target": "workspace.lounge"
+      "source": "lounge.forgot_password",
+      "target": "lounge.home"
     },
     {
-      "operation_id": "workspace.return_to_lounge",
+      "operation_id": "lounge.return_to_lounge",
       "outcome": "opened",
-      "source": "workspace.reset_password",
-      "target": "workspace.lounge"
+      "source": "lounge.reset_password",
+      "target": "lounge.home"
     },
     {
-      "operation_id": "workspace.return_to_lounge",
+      "operation_id": "lounge.return_to_lounge",
       "outcome": "opened",
-      "source": "workspace.verify_email",
-      "target": "workspace.lounge"
+      "source": "lounge.verify_email",
+      "target": "lounge.home"
+    },
+    {
+      "operation_id": "lounge.return_to_workspace",
+      "outcome": "opened",
+      "source": "lounge.verification_pending",
+      "target": "workspace.home"
     },
     {
       "operation_id": "workspace.open_sources",
       "outcome": "opened",
       "source": "workspace.home",
       "target": "sources.home"
+    },
+    {
+      "operation_id": "workspace.open_verification",
+      "outcome": "opened",
+      "source": "workspace.home",
+      "target": "lounge.verification_pending"
     },
     {
       "operation_id": "sources.return_to_home",

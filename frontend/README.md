@@ -1,7 +1,7 @@
 # Corpus Frontend
 
-The frontend is the generic permanent chat shell plus Workspace owner surfaces
-and the authenticated Sources debug surface.
+The frontend is the generic permanent chat shell plus Lounge account surfaces,
+Workspace Home, and the authenticated Sources debug surface.
 
 ```text
 frontend/
@@ -9,6 +9,7 @@ frontend/
 |-- pnpm-lock.yaml
 |-- src/
 |   |-- app/                  # generic shell, chat, bootstrap, Navgraph slot
+|   |-- features/lounge/      # public Lounge + account access/recovery
 |   |-- features/workspace/   # product surfaces and navigation content
 |   |-- features/sources/     # API upload, graph, retrieval, evalset debug UI
 |   |-- routedeck/            # client and surface registry

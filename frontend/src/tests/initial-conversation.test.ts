@@ -65,7 +65,7 @@ it("does not start an entry greeting on credential surfaces", async () => {
 
   expect(result).toEqual([]);
   expect(streamAssistantTurn).not.toHaveBeenCalled();
-  expect(shouldStartEntryGreeting("workspace.verify_email")).toBe(false);
-  expect(shouldStartEntryGreeting("workspace.reset_password")).toBe(false);
-  expect(shouldStartEntryGreeting("workspace.lounge")).toBe(true);
+  expect(shouldStartEntryGreeting("lounge.verify_email")).toBe(false);
+  expect(shouldStartEntryGreeting("lounge.reset_password")).toBe(false);
+  expect(shouldStartEntryGreeting("lounge.home")).toBe(true);
 });

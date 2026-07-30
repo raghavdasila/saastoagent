@@ -3,10 +3,10 @@ import type { RouteDeckDispatchResult } from "@routedeck/core";
 import type { RouteDeckSurfaceComponentProps } from "@routedeck/react";
 import { expect, it, vi } from "vitest";
 
-import { LoungeSurface } from "../features/workspace/LoungeSurface";
-import { RegisterSurface } from "../features/workspace/RegisterSurface";
-import { SignInSurface } from "../features/workspace/SignInSurface";
-import { OwnerSessionProvider } from "../features/workspace/OwnerSessionContext";
+import { LoungeSurface } from "../features/lounge/LoungeSurface";
+import { RegisterSurface } from "../features/lounge/RegisterSurface";
+import { SignInSurface } from "../features/lounge/SignInSurface";
+import { OwnerSessionProvider } from "../features/lounge/OwnerSessionContext";
 import { corpusSurfaceRegistry } from "../routedeck/surfaces";
 
 
@@ -37,16 +37,17 @@ function surfaceProps(
 }
 
 
-it("registers all owner authentication Workspace surfaces", () => {
+it("registers Lounge, Workspace, and Sources surfaces", () => {
   expect(Object.keys(corpusSurfaceRegistry).sort()).toEqual([
+    "lounge.forgot_password",
+    "lounge.home",
+    "lounge.register",
+    "lounge.reset_password",
+    "lounge.sign_in",
+    "lounge.verification_pending",
+    "lounge.verify_email",
     "sources.debug",
-    "workspace.forgot_password",
     "workspace.home",
-    "workspace.lounge",
-    "workspace.register",
-    "workspace.reset_password",
-    "workspace.sign_in",
-    "workspace.verify_email",
   ]);
 });
 
@@ -56,12 +57,12 @@ it("dispatches Lounge actions through declared RouteDeck affordances", () => {
   render(
     <LoungeSurface
       {...surfaceProps(
-        "workspace.lounge",
+        "lounge.home",
         [
-          { id: "open_sign_in", operationId: "workspace.open_sign_in" },
+          { id: "open_sign_in", operationId: "lounge.open_sign_in" },
           {
             id: "open_registration",
-            operationId: "workspace.open_registration",
+            operationId: "lounge.open_registration",
           },
         ],
         dispatchAffordance,
@@ -88,11 +89,11 @@ it("signs in and continues through the declared RouteDeck affordance", async () 
     <OwnerSessionProvider loadSession={false}>
       <SignInSurface
         {...surfaceProps(
-          "workspace.sign_in",
+          "lounge.sign_in",
           [
-            { id: "return_to_lounge", operationId: "workspace.return_to_lounge" },
-            { id: "open_forgot_password", operationId: "workspace.open_forgot_password" },
-            { id: "authentication_completed", operationId: "workspace.authentication_completed" },
+            { id: "return_to_lounge", operationId: "lounge.return_to_lounge" },
+            { id: "open_forgot_password", operationId: "lounge.open_forgot_password" },
+            { id: "authentication_completed", operationId: "lounge.authentication_completed" },
           ],
           dispatchAffordance,
         )}
@@ -126,11 +127,11 @@ it("keeps authentication valid when Workspace continuation fails and offers retr
     <OwnerSessionProvider loadSession={false}>
       <SignInSurface
         {...surfaceProps(
-          "workspace.sign_in",
+          "lounge.sign_in",
           [
-            { id: "return_to_lounge", operationId: "workspace.return_to_lounge" },
-            { id: "open_forgot_password", operationId: "workspace.open_forgot_password" },
-            { id: "authentication_completed", operationId: "workspace.authentication_completed" },
+            { id: "return_to_lounge", operationId: "lounge.return_to_lounge" },
+            { id: "open_forgot_password", operationId: "lounge.open_forgot_password" },
+            { id: "authentication_completed", operationId: "lounge.authentication_completed" },
           ],
           dispatchAffordance,
         )}
@@ -157,11 +158,11 @@ it("recovers an authenticated session with one explicit continuation and no cred
     <OwnerSessionProvider initialSession={ownerSession()} loadSession={false}>
       <SignInSurface
         {...surfaceProps(
-          "workspace.sign_in",
+          "lounge.sign_in",
           [
-            { id: "return_to_lounge", operationId: "workspace.return_to_lounge" },
-            { id: "open_forgot_password", operationId: "workspace.open_forgot_password" },
-            { id: "authentication_completed", operationId: "workspace.authentication_completed" },
+            { id: "return_to_lounge", operationId: "lounge.return_to_lounge" },
+            { id: "open_forgot_password", operationId: "lounge.open_forgot_password" },
+            { id: "authentication_completed", operationId: "lounge.authentication_completed" },
           ],
           dispatchAffordance,
         )}
@@ -187,10 +188,10 @@ it("validates registration password policy and keeps a typed return action", () 
     <OwnerSessionProvider loadSession={false}>
       <RegisterSurface
         {...surfaceProps(
-          "workspace.register",
+          "lounge.register",
           [
-            { id: "return_to_lounge", operationId: "workspace.return_to_lounge" },
-            { id: "authentication_completed", operationId: "workspace.authentication_completed" },
+            { id: "return_to_lounge", operationId: "lounge.return_to_lounge" },
+            { id: "authentication_completed", operationId: "lounge.authentication_completed" },
           ],
           dispatchAffordance,
         )}

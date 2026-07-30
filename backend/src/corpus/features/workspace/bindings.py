@@ -10,17 +10,7 @@ from routedeck_core.ports.executor import ExecutionContext
 from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.supervision.guards import ProviderInvocationContext, ProviderResult
 
-from .declarations import (
-    AUTHENTICATION_COMPLETED,
-    OPEN_FORGOT_PASSWORD,
-    OPEN_REGISTRATION,
-    OPEN_RESET_PASSWORD,
-    OPEN_SIGN_IN,
-    OPEN_SOURCES,
-    OPEN_VERIFY_EMAIL,
-    OWNER_CONTEXT_PROVIDER,
-    RETURN_TO_LOUNGE,
-)
+from .declarations import OPEN_SOURCES, OPEN_VERIFICATION, OWNER_CONTEXT_PROVIDER
 
 
 class OwnerContextResolver(Protocol):
@@ -62,16 +52,7 @@ def create_workspace_bindings(
     return FeatureBindings(
         handlers={
             operation.ref: NavigationHandler(operation.id)
-            for operation in (
-                OPEN_SIGN_IN,
-                OPEN_REGISTRATION,
-                OPEN_FORGOT_PASSWORD,
-                OPEN_RESET_PASSWORD,
-                OPEN_VERIFY_EMAIL,
-                RETURN_TO_LOUNGE,
-                AUTHENTICATION_COMPLETED,
-                OPEN_SOURCES,
-            )
+            for operation in (OPEN_SOURCES, OPEN_VERIFICATION)
         },
         providers={
             OWNER_CONTEXT_PROVIDER.ref: OwnerContextProvider(

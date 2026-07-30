@@ -35,8 +35,8 @@ def main() -> None:
         )
         created.raise_for_status()
         projection = created.json()["projection"]
-        if projection["current"]["node_id"] != "workspace.lounge":
-            raise RuntimeError("The guest session did not enter workspace.lounge.")
+        if projection["current"]["node_id"] != "lounge.home":
+            raise RuntimeError("The guest session did not enter lounge.home.")
         if "corpus_guest" not in client.cookies:
             raise RuntimeError("The guest session cookie was not created.")
 
@@ -71,7 +71,7 @@ def main() -> None:
             raise RuntimeError(f"Unexpected durable conversation roles: {roles}")
 
     print("Corpus live smoke passed.")
-    print("node=workspace.lounge cookie=corpus_guest")
+    print("node=lounge.home cookie=corpus_guest")
     print(f"greeting_chars={len(greeting_text)} answer_chars={len(answer_text)}")
     print("history_tail=assistant,user,assistant")
 

@@ -58,11 +58,12 @@ export interface OperationDesign {
 export interface DesignFeature {
   id: string
   name: string
+  prompt: string
   stories: DesignStory[]
   policies: string[]
 }
 
 export interface WorkbenchState {
-  version: 15
+  version: 16
   features: DesignFeature[]
 }

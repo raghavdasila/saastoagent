@@ -12,12 +12,17 @@ import { RouteDeckBootstrapBoundary } from "@routedeck/react";
 import { ApplicationShell } from "./app/ApplicationShell";
 import { BootstrapLoadingShell } from "./app/BootstrapLoadingShell";
 import { BootstrapRecoveryShell } from "./app/BootstrapRecoveryShell";
+import {
+  markInitialSessionHealthy,
+  recoverInitialSession,
+} from "./app/sessionRecovery";
 import type { AppRouteDeck } from "./app/createRouteDeck";
 import {
   captureAuthTokenFragment,
-} from "./features/workspace/tokenFragment";
+} from "./features/lounge/tokenFragment";
 import {
   createGreetingRetryRequestId,
+  type InitialConversationPhase,
   loadInitialConversation,
   shouldStartEntryGreeting,
 } from "./app/initialConversation";
@@ -25,6 +30,7 @@ import { loadRouteDeck } from "./app/loadRouteDeck";
 import { CorpusHeader } from "./features/workspace/CorpusHeader";
 import { WorkspaceHeading } from "./features/workspace/WorkspaceHeading";
 import { WorkspaceNavigation } from "./features/workspace/WorkspaceNavigation";
+import { ownerAuthClient } from "./features/lounge/authClient";
 import { corpusSurfaceRegistry } from "./routedeck/surfaces";
 import "./styles.css";
 import "./features/workspace/workspace.css";
@@ -98,13 +104,14 @@ function InitialConversationGate({
     phase: "loading",
     greetingPending: shouldStartGreeting(routeDeck),
     progress: null,
+    bootstrapPhase: "loading_history",
   }));
   const retained = useRef<RetainedConversationLoad | null>(null);
 
   useEffect(() => {
     let active = true;
     const greetingPending = shouldStartGreeting(routeDeck);
-    setResult({ phase: "loading", greetingPending, progress: null });
+    setResult({ phase: "loading", greetingPending, progress: null, bootstrapPhase: "loading_history" });
     let load = retained.current;
     if (load === null || load.sequence !== attempt.sequence) {
       load = {
@@ -121,16 +128,39 @@ function InitialConversationGate({
                 : current,
             );
           },
+          (bootstrapPhase) => {
+            setResult((current) =>
+              current.phase === "loading"
+                ? { ...current, bootstrapPhase }
+                : current,
+            );
+          },
         ),
       };
       retained.current = load;
     }
     void load.promise.then(
       (conversation) => {
-        if (active) setResult({ phase: "ready", conversation });
+        if (active) {
+          markInitialSessionHealthy(window.sessionStorage);
+          setResult({ phase: "ready", conversation });
+        }
       },
       (error: unknown) => {
-        if (active) setResult({ phase: "error", error });
+        if (!active) return;
+        setResult({ phase: "recovering" });
+        void recoverInitialSession(
+          window.sessionStorage,
+          () => ownerAuthClient.recover(),
+          () => window.location.replace("/"),
+        ).then(
+          (started) => {
+            if (!started && active) setResult({ phase: "error", error });
+          },
+          (recoveryError: unknown) => {
+            if (active) setResult({ phase: "error", error: recoveryError });
+          },
+        );
       },
     );
     return () => {
@@ -155,12 +185,22 @@ function InitialConversationGate({
       />
     );
   }
+  if (result.phase === "recovering") {
+    return (
+      <BootstrapLoadingShell
+        title="Recovering session"
+        message="Clearing the stale session and reopening the Lounge."
+      />
+    );
+  }
 
   const conversation = result.phase === "ready" ? result.conversation : [];
   const conversationBootstrapPending =
     result.phase === "loading" && result.greetingPending;
   const conversationBootstrapProgress =
     result.phase === "loading" ? result.progress : null;
+  const conversationBootstrapPhase =
+    result.phase === "loading" ? result.bootstrapPhase : null;
   return (
     <ApplicationShell
       routeDeck={routeDeck}
@@ -169,6 +209,7 @@ function InitialConversationGate({
       initialConversation={conversation}
       conversationBootstrapPending={conversationBootstrapPending}
       conversationBootstrapProgress={conversationBootstrapProgress}
+      conversationBootstrapPhase={conversationBootstrapPhase}
       header={<CorpusHeader />}
       navigation={<WorkspaceNavigation />}
       mainHeader={<WorkspaceHeading />}
@@ -182,6 +223,7 @@ async function restoreInitialConversation(
   requestId: string,
   startGreeting: boolean,
   onProgress: (progress: AssistantInitiatedTurnProgress) => void,
+  onPhase: (phase: InitialConversationPhase) => void,
 ): Promise<readonly AgentHistoryTurn[]> {
   try {
     return await loadConversation(
@@ -190,6 +232,7 @@ async function restoreInitialConversation(
       requestId,
       startGreeting,
       onProgress,
+      onPhase,
     );
   } catch (error) {
     if (!isRouteDeckConversationSessionRecoveryError(error)) throw error;
@@ -200,6 +243,7 @@ async function restoreInitialConversation(
       requestId,
       startGreeting,
       onProgress,
+      onPhase,
     );
   }
 }
@@ -210,10 +254,12 @@ function loadConversation(
   requestId: string,
   startGreeting: boolean,
   onProgress: (progress: AssistantInitiatedTurnProgress) => void,
+  onPhase: (phase: InitialConversationPhase) => void,
 ) {
   return loadInitialConversation(routeDeck, chatClient, requestId, {
     startGreeting,
     onProgress,
+    onPhase,
   });
 }
 
@@ -260,6 +306,8 @@ type ConversationLoadState =
       phase: "loading";
       greetingPending: boolean;
       progress: AssistantInitiatedTurnProgress | null;
+      bootstrapPhase: InitialConversationPhase;
     }>
   | Readonly<{ phase: "ready"; conversation: readonly AgentHistoryTurn[] }>
+  | Readonly<{ phase: "recovering" }>
   | Readonly<{ phase: "error"; error: unknown }>;

@@ -4,11 +4,16 @@ export const STUDIO_CONFIG = {
   exportLabel: "Export JSON",
   exportFilename: "corpus-agent-design.json",
   behaviorCollectionLabel: "Behaviors",
+  featurePromptLabel: "Feature prompt",
   featurePolicyLabel: "Feature policies",
   views: {
     behavior: {
       label: "Behavior",
       objectType: "Node",
+    },
+    featurePrompt: {
+      label: "Feature prompt",
+      description: "Product-authored instructions active whenever RouteDeck resolves this feature from the current Node.",
     },
     featurePolicy: {
       label: "Feature AgentPolicies",

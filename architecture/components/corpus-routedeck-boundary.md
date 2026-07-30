@@ -10,8 +10,8 @@ node, transitions, operation legality, session/runtime lifecycle, projections,
 conversation transport, identifiers, recovery, and diagnostics.
 
 Owner authentication is Corpus-host-owned. RouteDeck receives only an already
-authorized internal session ID from the Corpus selector. Workspace owns product
-surfaces and typed continuation, while identity truth, cookies, persistence,
+authorized internal session ID from the Corpus selector. Lounge owns public
+account surfaces and typed continuation into Workspace, while identity truth, cookies, persistence,
 revocation, and ownership claims stay in `corpus.auth`.
 
 ## Owner Files
@@ -19,17 +19,20 @@ revocation, and ownership claims stay in `corpus.auth`.
 - `backend/src/corpus/app/**` - RouteDeck host plus concrete application
   composition roots
 - `backend/src/corpus/runtime/**` - persistence and Ollama-backed agent drivers
+- `backend/src/corpus/features/lounge/**` - public Lounge, account journeys,
+  bindings, and scoped AgentPolicies
 - `backend/src/corpus/features/workspace/**` - Workspace declarations/bindings
 - `backend/src/corpus/features/sources/**` - generic Sources lifecycle and
   transport plus connector-owned configuration, HTTP, ports, and bridges
 - `backend/src/corpus/integrations/toolrouter/**` - private copied engine and
   replaceable adapter used only by the API Source connector
-- `backend/src/corpus/composition.py` - selects Workspace, Sources, and the
-  Workspace Lounge entry
+- `backend/src/corpus/composition.py` - selects Lounge, Workspace, Sources,
+  and the Lounge entry
 - `frontend/src/app/**` - generic permanent chat shell and Navgraph slot
 - `frontend/src/routedeck/**` - client and surface-registry bridge
 - `frontend/src/components/ui/**`, `frontend/src/lib/**` - generic shadcn/ui
   primitives and helpers
+- `frontend/src/features/lounge/**` - Lounge and account-owned UI
 - `frontend/src/features/workspace/**` - Workspace-owned UI
 - `frontend/src/features/sources/**` - Sources-owned debug UI and HTTP client
 - `backend/src/corpus/auth/**`, `backend/migrations/**` - Corpus owner identity,
@@ -39,13 +42,14 @@ revocation, and ownership claims stay in `corpus.auth`.
 
 - The ASGI factory is `corpus.main:create_live_app`.
 - RouteDeck HTTP is mounted at `/api/routedeck`.
-- `workspace.lounge` is the compiled entry node and renders
-  `workspace.lounge` in the active surface slot.
-- Seven Workspace nodes cover Lounge, sign-in, registration, forgot/reset,
-  verification, and the session-bound owner home.
-- One session-bound `sources.home` node renders `sources.debug`. Together with
-  Workspace, the current live application contains eight nodes.
-- `workspace.authentication_completed` requires the claim-backed owner context
+- `lounge.home` is the compiled entry node and renders `lounge.home` in the
+  active surface slot.
+- Seven Lounge nodes cover public arrival/product help, sign-in, registration,
+  forgot/reset, verification confirmation, and signed-in verification delivery.
+- One session-bound `workspace.home` node owns authenticated Home; one
+  session-bound `sources.home` node renders `sources.debug`. The current
+  live application contains nine nodes.
+- `lounge.authentication_completed` requires the claim-backed owner context
   provider before RouteDeck can commit entry into `workspace.home`.
 - Corpus owner APIs are mounted at `/api/auth`; responses never expose auth
   tokens, RouteDeck IDs, password state, or internal membership keys.
@@ -60,7 +64,7 @@ revocation, and ownership claims stay in `corpus.auth`.
   tests prove that artifact matches `compile_corpus_app()`, and frontend tests
   plus `RouteDeckSurfaceHost` require the product registry to contain exactly
   the compiled component set, including no stale extra components.
-- Workspace credential nodes declare RouteDeck's typed
+- Lounge credential nodes declare RouteDeck's typed
   `conversation_input` policy. RouteDeck projects and resolves that static
   node contract; Corpus chooses which nodes disable chat and owns the
   owner-visible disabled message.
@@ -91,6 +95,14 @@ revocation, and ownership claims stay in `corpus.auth`.
   typed accumulated progress after every validated assistant delta. Corpus
   does not inspect raw stream events or reproduce durable coordination.
   Credential/token nodes do not initiate that Lounge-only greeting.
+- If initial conversation restoration or greeting convergence fails, Corpus
+  performs one automatic first-open reset through `/api/auth/recover`. The
+  endpoint revokes the selected owner browser session when present and clears
+  the auth, opaque owner-route, and guest cookies; the frontend then replaces
+  the current location with `/`, allowing RouteDeck to create a fresh anonymous
+  Lounge session. A per-tab recovery marker prevents a reload loop and is
+  removed only after a healthy initial conversation loads. A second failure is
+  rendered explicitly instead of being disguised as another successful reset.
 - Projected active/review surfaces render in a bounded dock immediately above
   the composer and outside the independently scrolling conversation history.
   The surface remains present near the input without being reordered to the
@@ -147,14 +159,14 @@ service.
   503 when delivery is unavailable; reset remains generic 202 and logs the
   failure. No alternate provider or synthetic success exists.
 - The broader proposed 53-node product Navgraph is not implemented. The live
-  contract intentionally contains seven Workspace nodes plus Sources.
+  contract intentionally contains seven Lounge nodes, Workspace Home, and Sources.
 - The ignored Corpus benchmark remains evidence only and is never an import,
   build, runtime, or test dependency. Separately, the ToolRouter sibling was
   used as the verified source of a namespaced, hash-manifested engine snapshot;
   the sibling path itself is not a runtime dependency.
 - Frontend primitives are generated from the pinned shadcn 4.13.1
-  Radix-Nova registry and remain generic; Workspace styling stays inside the
-  feature package.
+  Radix-Nova registry and remain generic; Lounge and Workspace styling stays
+  inside the product feature packages.
 - Ollama execution uses `langchain-ollama==1.1.0`; readiness uses the official
   `ollama==0.6.2` SDK. Neither adapter switches provider on failure.
 
@@ -165,10 +177,10 @@ service.
   guest-session behavior.
 - `pnpm --dir frontend test`, `typecheck`, and `build` protect the generic shell,
   owner session context, credential UX, pre-bootstrap fragment capture/removal,
-  non-blocking incremental greeting bootstrap, composer lockout, surface
-  registration, continuation behavior, surface/composer sibling placement,
-  mobile application-navigation drawer, and the Sources debug interaction
-  contract.
+  non-blocking incremental greeting bootstrap, one-shot failed-session reset,
+  recovery loop prevention, composer lockout, surface registration,
+  continuation behavior, surface/composer sibling placement, mobile
+  application-navigation drawer, and the Sources debug interaction contract.
 - `.\.venv\Scripts\python.exe scripts\export_frontend_contract.py --check`
   verifies the checked-in Corpus frontend contract without rewriting it.
 - `backend/tests/integrations/toolrouter/**` and `backend/tests/sources/**`
