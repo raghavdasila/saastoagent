@@ -1,18 +1,24 @@
 import { useEffect, useState } from "react"
-import { FlaskConical, Moon, Save, Sun } from "lucide-react"
+import { ShieldCheck } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { AgentPolicyList } from "@/workbench/AgentPolicyList"
+import { BehaviorDesignEditor } from "@/workbench/BehaviorDesignEditor"
 import { FeatureRail } from "@/workbench/FeatureRail"
-import { MockActionEditor } from "@/workbench/MockActionEditor"
-import { PolicyScopeEditor } from "@/workbench/PolicyScopeEditor"
 import { ReviewControls } from "@/workbench/ReviewControls"
 import { StoryEditor } from "@/workbench/StoryEditor"
+import { StudioHeader, type SaveStatus } from "@/workbench/StudioHeader"
 import { SurfacePreview } from "@/workbench/SurfacePreview"
-import { loadWorkbenchState, resetWorkbenchState, saveWorkbenchState, type LoadResult } from "@/workbench/storage"
+import {
+  exportWorkbenchState,
+  loadWorkbenchState,
+  resetWorkbenchState,
+  saveWorkbenchState,
+  type LoadResult,
+} from "@/workbench/storage"
+import { STUDIO_CONFIG } from "@/workbench/studioConfig"
 import { applyTheme, loadTheme, saveTheme, type Theme } from "@/workbench/theme"
 import type { DesignFeature, DesignStory, WorkbenchState } from "@/workbench/types"
-
-type SaveStatus = "saving" | "saved" | "error"
 
 export default function App() {
   const [loaded, setLoaded] = useState<LoadResult | null>(null)
@@ -21,6 +27,7 @@ export default function App() {
   const [selectedView, setSelectedView] = useState<"behavior" | "feature-policy">("behavior")
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saving")
   const [theme, setTheme] = useState<Theme>(loadTheme)
+  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false)
 
   useEffect(() => {
     applyTheme(theme)
@@ -53,15 +60,32 @@ export default function App() {
     return () => window.clearTimeout(timeout)
   }, [loaded])
 
+  useEffect(() => {
+    if (!mobileNavigationOpen) return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileNavigationOpen(false)
+    }
+    window.addEventListener("keydown", closeOnEscape)
+    return () => window.removeEventListener("keydown", closeOnEscape)
+  }, [mobileNavigationOpen])
+
   if (loaded === null) {
-    return <main className="grid min-h-dvh place-items-center bg-muted/30 p-6 text-sm text-muted-foreground">Loading design-state.json...</main>
+    return (
+      <main className="grid min-h-dvh place-items-center bg-background p-6 text-sm text-muted-foreground">
+        <div className="text-center">
+          <p className="font-semibold text-foreground">{STUDIO_CONFIG.productName}</p>
+          <p className="mt-1">Loading {STUDIO_CONFIG.projectName} design state...</p>
+        </div>
+      </main>
+    )
   }
 
   if (!loaded.ok) {
     return (
       <main className="grid min-h-dvh place-items-center bg-muted/30 p-6">
-        <div role="alert" className="w-full max-w-md rounded-xl border border-destructive/30 bg-card p-6 shadow-sm">
-          <h1 className="text-lg font-semibold">The saved workbench data is invalid.</h1>
+        <div role="alert" className="w-full max-w-md rounded-xl border border-destructive/30 bg-card p-6 shadow-[var(--studio-shadow-panel)]">
+          <p className="text-xs font-semibold text-primary">{STUDIO_CONFIG.productName} · {STUDIO_CONFIG.projectName}</p>
+          <h1 className="mt-2 text-lg font-semibold">The saved studio data is invalid.</h1>
           <p className="mt-2 text-sm text-muted-foreground">Corpus could not load a valid design-state.json. Replace the file with the current seed only if discarding its contents is intended.</p>
           <Button
             variant="destructive"
@@ -129,9 +153,12 @@ export default function App() {
       agentIntent: "",
       expectedBehavior: "",
       messages: [],
-      actions: [],
       mockSurfacePath: null,
-      policies: [],
+      nodePolicies: [],
+      capabilities: [],
+      surfaces: [],
+      operations: [],
+      suggestedActions: [],
       status: "draft",
       rejectionReason: "",
     }
@@ -144,6 +171,7 @@ export default function App() {
     commit(nextState)
     setSelectedStoryId(story.id)
     setSelectedView("behavior")
+    setMobileNavigationOpen(false)
   }
 
   function deleteSelectedStory() {
@@ -170,88 +198,74 @@ export default function App() {
   }
 
   return (
-    <div className="grid h-dvh overflow-hidden grid-rows-[auto_minmax(0,1fr)] bg-background">
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2 sm:px-4">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <FlaskConical className="size-5 shrink-0 text-primary" />
-          <div className="min-w-0">
-            <h1 className="truncate text-base font-semibold tracking-tight">Corpus agent design</h1>
-            <p className="text-xs text-muted-foreground">Behavior sections 0–4 · review workspace</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className={saveStatus === "error" ? "flex items-center gap-1.5 text-sm text-destructive" : "flex items-center gap-1.5 text-sm text-muted-foreground"} role={saveStatus === "error" ? "alert" : undefined}>
-            <Save /> {saveStatus === "error" ? "File not saved" : saveStatus === "saving" ? "Saving file..." : "Saved to file"}
-          </div>
-          <Button size="icon" variant="ghost" aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`} onClick={toggleTheme}>
-            {theme === "light" ? <Moon /> : <Sun />}
-          </Button>
-        </div>
-      </header>
+    <div className="studio-shell">
+      <StudioHeader
+        saveStatus={saveStatus}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onExport={() => exportWorkbenchState(state)}
+        onOpenNavigation={() => setMobileNavigationOpen(true)}
+      />
 
-      <div className="grid min-h-0 overflow-hidden grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[220px_minmax(0,1fr)] md:grid-rows-1">
+      <div className="studio-workspace">
         <FeatureRail
           features={state.features}
           selectedFeatureId={selectedFeature.id}
           selectedStoryId={selectedStory.id}
           selectedView={selectedView}
+          mobileOpen={mobileNavigationOpen}
           onSelectFeature={selectFeature}
           onSelectStory={selectStory}
           onSelectFeaturePolicy={() => setSelectedView("feature-policy")}
           onAddStory={addStory}
+          onCloseMobile={() => setMobileNavigationOpen(false)}
         />
 
         {selectedView === "feature-policy" ? (
-          <main className="min-h-0 min-w-0 overflow-y-auto">
-            <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4 sm:p-6">
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground">{selectedFeature.name}</p>
-                <h2 className="text-lg font-semibold tracking-tight">Feature policy</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Guidance that applies across this feature belongs here, independently of any one behavior.</p>
+          <main className="studio-main overflow-y-auto">
+            <div className="mx-auto flex max-w-4xl flex-col gap-5 p-4 sm:p-6 lg:p-8">
+              <div className="flex items-start gap-3 border-b border-border pb-5">
+                <div className="grid size-9 shrink-0 place-items-center rounded-md border border-primary/20 bg-primary/10 text-primary">
+                  <ShieldCheck className="size-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">{STUDIO_CONFIG.projectName} / {selectedFeature.name}</p>
+                  <h2 className="mt-0.5 text-xl font-semibold tracking-[-0.025em]">{STUDIO_CONFIG.views.featurePolicy.label}</h2>
+                  <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">{STUDIO_CONFIG.views.featurePolicy.description}</p>
+                </div>
               </div>
-              <PolicyScopeEditor
-                policies={selectedFeature.policies}
-                title="Feature AgentPolicy"
-                description="Add or edit plain-language guidance for the feature as a whole."
-                availableScopes={["feature"]}
-                suggestedNames={{ feature: selectedFeature.name }}
-                onChange={(policies) => updateFeature({ policies })}
-              />
+              <div className="studio-object-card bg-card p-4 sm:p-5">
+                <AgentPolicyList
+                  policies={selectedFeature.policies}
+                  label={`${selectedFeature.name} Feature AgentPolicy`}
+                  onChange={(policies) => updateFeature({ policies })}
+                />
+              </div>
             </div>
           </main>
         ) : (
-        <main className="min-h-0 min-w-0 overflow-y-auto lg:overflow-hidden">
-          <div className="mx-auto grid min-h-0 max-w-[1480px] lg:h-full lg:grid-cols-[minmax(360px,0.85fr)_minmax(440px,1.15fr)]">
-            <div data-editor-pane className="min-w-0 lg:grid lg:min-h-0 lg:grid-rows-[minmax(0,1fr)_auto]">
-              <div data-editor-scroll className="flex min-w-0 flex-col gap-4 p-3 lg:min-h-0 lg:overflow-y-auto lg:p-4">
-                <StoryEditor story={selectedStory} disabled={selectedStory.status !== "draft"} onChange={updateStory} />
-                <div className="border-t border-border pt-4">
-                  <MockActionEditor actions={selectedStory.actions} disabled={selectedStory.status !== "draft"} onChange={(actions) => updateStory({ actions })} />
+          <main className="studio-main">
+            <div className="studio-design-grid">
+              <div data-editor-pane className="studio-editor-pane">
+                <div data-editor-scroll className="studio-editor-scroll px-4 py-5 sm:px-5">
+                  <StoryEditor story={selectedStory} disabled={selectedStory.status !== "draft"} onChange={updateStory} />
+                  <BehaviorDesignEditor story={selectedStory} disabled={selectedStory.status !== "draft"} onChange={updateStory} />
                 </div>
-                <PolicyScopeEditor
-                  policies={selectedStory.policies}
-                  title="Behavior policies"
-                  description="Guidance that belongs only to this behavior or one of its contained scopes."
-                  availableScopes={["behavior", "node", "capability", "surface", "action", "operation", "other"]}
-                  suggestedNames={{ behavior: selectedStory.title, surface: selectedStory.mockSurfacePath ? selectedStory.title : "" }}
-                  onChange={(policies) => updateStory({ policies })}
-                />
+                <div className="studio-review-bar">
+                  <ReviewControls
+                    key={selectedStory.id}
+                    story={selectedStory}
+                    canDelete={selectedFeature.stories.length > 1}
+                    onChange={updateStory}
+                    onDelete={deleteSelectedStory}
+                  />
+                </div>
               </div>
-              <div className="border-t border-border p-3">
-                <ReviewControls
-                  key={selectedStory.id}
-                  story={selectedStory}
-                  canDelete={selectedFeature.stories.length > 1}
-                  onChange={updateStory}
-                  onDelete={deleteSelectedStory}
-                />
+              <div data-surface-pane className="studio-preview-pane">
+                <SurfacePreview story={selectedStory} theme={theme} />
               </div>
             </div>
-            <div data-surface-pane className="min-h-0 border-t border-border p-3 lg:border-t-0 lg:border-l lg:p-4">
-              <SurfacePreview story={selectedStory} theme={theme} />
-            </div>
-          </div>
-        </main>
+          </main>
         )}
       </div>
     </div>

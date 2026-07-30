@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { vi } from "vitest"
 
 import App from "@/App"
 import { createSeedState } from "@/workbench/seed"
@@ -9,10 +10,10 @@ import { THEME_STORAGE_KEY } from "@/workbench/theme"
 
 async function renderWorkbench(): Promise<void> {
   render(<App />)
-  await screen.findByRole("heading", { name: "Corpus agent design" })
+  await screen.findByRole("heading", { name: "RouteDeck Agent Design Studio" })
 }
 
-describe("Corpus behavior design workbench", () => {
+describe("RouteDeck Agent Design Studio", () => {
   it("switches across the behavior sections 0-4", async () => {
     const user = userEvent.setup()
     await renderWorkbench()
@@ -28,41 +29,42 @@ describe("Corpus behavior design workbench", () => {
     await renderWorkbench()
 
     expect(screen.getByLabelText("User intent")).toHaveValue(
-      "Understand where I am and what I can do before signing in.",
+      "Enter Corpus before signing in.",
     )
     expect(screen.getByLabelText("Agent intent")).toHaveValue(
-      "Establish the public Lounge and keep every valid public or account path available.",
+      "Establish the unauthenticated Lounge context and present Lounge home.",
     )
     expect(screen.getByLabelText("Expected behavior")).toBeInTheDocument()
   })
 
-  it("keeps feature policy in the sidebar and behavior policy with the selected behavior", async () => {
+  it("keeps only feature AgentPolicies in the sidebar destination and all narrower design inside the behavior Node", async () => {
     const user = userEvent.setup()
     await renderWorkbench()
 
-    expect(screen.getByText("Behavior policies (0)")).toBeInTheDocument()
-    await user.click(screen.getByRole("button", { name: "Feature policy" }))
-    expect(screen.getByRole("heading", { name: "Feature AgentPolicy" })).toBeInTheDocument()
-    expect(screen.getAllByLabelText("Policy guidance")).toHaveLength(2)
+    expect(screen.getByRole("heading", { name: "Node design" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Capabilities" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Surfaces" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Operations" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Suggested actions" })).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Feature policies" }))
+    expect(screen.getByRole("heading", { name: "Feature AgentPolicies" })).toBeInTheDocument()
+    expect(screen.getAllByLabelText(/^Lounge Feature AgentPolicy /)).toHaveLength(3)
+    expect(screen.queryByRole("heading", { name: "Capabilities" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: "Operations" })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Arrive in the Lounge" }))
+    const operations = screen.getByRole("heading", { name: "Operations" }).closest("section")!
+    await user.click(within(operations).getByRole("button", { name: "Add operation" }))
+    const operationNames = within(operations).getAllByLabelText("Operation name")
+    await user.clear(operationNames.at(-1)!)
+    await user.type(operationNames.at(-1)!, "Open Lounge account path")
 
-    await user.click(screen.getByRole("button", { name: "Add policy" }))
-    const scopes = screen.getAllByLabelText("Scope")
-    const scopeNames = screen.getAllByLabelText("Applies to")
-    const guidance = screen.getAllByLabelText("Policy guidance")
-
-    await user.selectOptions(scopes.at(-1)!, "behavior")
-    expect(scopeNames.at(-1)).toHaveValue("Arrive in the Lounge")
-    await user.type(guidance.at(-1)!, "Keep this behavior available to unauthenticated visitors.")
-
-    expect(screen.getByText("Behavior policies (1)")).toBeInTheDocument()
-    await waitFor(() => expect(getDesignStateFile()).toContain("Keep this behavior available to unauthenticated visitors."))
-    expect(getDesignStateFile()).not.toContain("lounge.home")
-    expect(getDesignStateFile()).not.toContain("routedeck.execution_authority")
-
-    await user.click(screen.getByRole("button", { name: "Remove policy 1" }))
-    expect(screen.getByText("Behavior policies (0)")).toBeInTheDocument()
+    await waitFor(() => expect(getDesignStateFile()).toContain("Open Lounge account path"))
+    expect(getDesignStateFile()).toContain('"nodePolicies"')
+    expect(getDesignStateFile()).toContain('"operations"')
+    expect(getDesignStateFile()).toContain('"suggestedActions"')
+    expect(getDesignStateFile()).not.toContain('"policyNodes"')
   })
 
   it("seeds Lounge as a separate unauthenticated feature with account paths and product help", async () => {
@@ -83,6 +85,10 @@ describe("Corpus behavior design workbench", () => {
     expect(lounge.stories.slice(2).every((story) => story.status === "approved")).toBe(true)
 
     await renderWorkbench()
+    const featureNavigation = screen.getByRole("navigation", { name: "Features" })
+    expect(screen.getByText("Features")).toBeInTheDocument()
+    expect(screen.queryByText("Project structure")).not.toBeInTheDocument()
+    expect(featureNavigation.querySelectorAll("svg")).toHaveLength(0)
     expect(screen.getByRole("button", { name: "Lounge 8" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Workspace 6" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Agents 9" })).toBeInTheDocument()
@@ -103,7 +109,7 @@ describe("Corpus behavior design workbench", () => {
     expect(screen.getByRole("heading", { name: "New behavior" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Lounge 9" })).toBeInTheDocument()
     await waitFor(() => expect(getDesignStateFile()).toContain("New behavior"))
-    expect(screen.getByText("Saved to file")).toBeInTheDocument()
+    expect(screen.getByRole("status", { name: "Saved" })).toBeInTheDocument()
   })
 
   it("deletes a draft behavior only after confirmation and autosaves the deletion", async () => {
@@ -140,19 +146,33 @@ describe("Corpus behavior design workbench", () => {
 
     await user.type(screen.getByLabelText("Why reject this behavior?"), "The entry point is unclear.")
     await user.click(screen.getByRole("button", { name: "Confirm rejection" }))
-    expect(screen.getByText("Rejected")).toBeInTheDocument()
+    expect(screen.getAllByText("Rejected")).not.toHaveLength(0)
   })
 
-  it("keeps Lounge account actions separate from inline surfaces", async () => {
+  it("keeps Lounge arrival limited to entry context and its surface", async () => {
     await renderWorkbench()
 
     expect(screen.getByRole("heading", { name: "Surface path" })).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "Chat path" })).toBeInTheDocument()
-    expect(screen.getByText("No surface path designed for this behavior.")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Ask about Corpus" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Sign up" })).toBeInTheDocument()
-    expect(screen.getAllByRole("button", { name: "Sign in" })).toHaveLength(2)
-    expect(screen.getByRole("button", { name: "Forgot password" })).toBeInTheDocument()
+    expect(screen.getByTitle("Mock surface: Arrive in the Lounge")).toHaveAttribute("src", "/mock-surfaces/lounge/home.html")
+    expect(screen.getByText("No Operations defined for this Node.")).toBeInTheDocument()
+    const chatPath = screen.getByRole("heading", { name: "Chat path" }).closest("section")!
+    expect(within(chatPath).queryByLabelText("Suggested actions")).not.toBeInTheDocument()
+  })
+
+  it("defines every Operation by its intended product effect", () => {
+    const stories = createSeedState().features.flatMap((feature) => feature.stories)
+
+    for (const story of stories) {
+      expect(new Set(story.operations.map((operation) => operation.name)).size).toBe(story.operations.length)
+      for (const operation of story.operations) {
+        expect(operation.purpose).not.toMatch(/^(Perform|Support)\b/)
+        expect(operation.purpose.length).toBeGreaterThan(40)
+      }
+      for (const action of story.suggestedActions) {
+        expect(story.operations.some((operation) => operation.name === action.operationName)).toBe(true)
+      }
+    }
   })
 
   it("renders an authentication surface with only height-reporting scripts allowed", async () => {
@@ -202,6 +222,26 @@ describe("Corpus behavior design workbench", () => {
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark")
   })
 
+  it("exports the current Corpus design state as JSON", async () => {
+    const user = userEvent.setup()
+    const createObjectUrl = vi.fn((_blob: Blob) => "blob:corpus-design")
+    const revokeObjectUrl = vi.fn()
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: createObjectUrl })
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revokeObjectUrl })
+    let downloadedAs = ""
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      downloadedAs = this.download
+    })
+
+    await renderWorkbench()
+    await user.click(screen.getByRole("button", { name: "Export JSON" }))
+
+    expect(createObjectUrl).toHaveBeenCalledOnce()
+    expect(createObjectUrl.mock.calls[0][0]).toBeInstanceOf(Blob)
+    expect(downloadedAs).toBe("corpus-agent-design.json")
+    click.mockRestore()
+  })
+
   it("autosaves behavior edits to design-state.json", async () => {
     const user = userEvent.setup()
     await renderWorkbench()
@@ -215,13 +255,13 @@ describe("Corpus behavior design workbench", () => {
 
   it("blocks on an invalid design-state.json and can explicitly replace it with the seed", async () => {
     const user = userEvent.setup()
-    setDesignStateFile(JSON.stringify({ version: 13, features: [] }))
+    setDesignStateFile(JSON.stringify({ version: 15, features: [] }))
     render(<App />)
 
     const alert = await screen.findByRole("alert")
-    expect(within(alert).getByText("The saved workbench data is invalid.")).toBeInTheDocument()
+    expect(within(alert).getByText("The saved studio data is invalid.")).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Replace file with seed" }))
-    await screen.findByRole("heading", { name: "Corpus agent design" })
+    await screen.findByRole("heading", { name: "RouteDeck Agent Design Studio" })
     expect(getDesignStateFile()).toContain("lounge-arrival")
   })
 })

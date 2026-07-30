@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Create an agent surface</title>
   <style>
-    :root { color-scheme: light dark; --stage: #f7f9fc; --surface: #ffffff; --text: #172033; --muted: #667085; --border: #dce2eb; --input: #cbd4e1; --shadow: rgba(37, 55, 87, .07); }
-    @media (prefers-color-scheme: dark) { :root { --stage: #0f172a; --surface: #172033; --text: #f1f5f9; --muted: #94a3b8; --border: #334155; --input: #475569; --shadow: rgba(0, 0, 0, .24); } }
+    :root { color-scheme: light dark; --stage: #f7f9fc; --surface: #ffffff; --text: #172033; --muted: #667085; --border: #dce2eb; --input: #cbd4e1; --accent: #2563eb; --accent-text: #ffffff; --shadow: rgba(37, 55, 87, .07); }
+    @media (prefers-color-scheme: dark) { :root { --stage: #111113; --surface: #18181b; --text: #f4f4f5; --muted: #a1a1aa; --border: #3f3f46; --input: #52525b; --accent: #39ff14; --accent-text: #111113; --shadow: rgba(0, 0, 0, .3); } }
     * { box-sizing: border-box; }
     body { margin: 0; min-width: 280px; padding: 2px 2px 18px; font-family: Arial, sans-serif; color: var(--text); background: transparent; }
     .surface { width: 100%; padding: 0; background: transparent; }
@@ -19,7 +19,7 @@
     .hint { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
     .actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 22px; }
     button { border: 1px solid var(--input); border-radius: 9px; padding: 9px 13px; color: var(--text); background: var(--surface); font-weight: 600; }
-    .primary { border-color: #2563eb; color: white; background: #2563eb; }
+    .primary { border-color: var(--accent); color: var(--accent-text); background: var(--accent); }
     @media (max-width: 460px) { body { padding: 2px 2px 14px; } }
   </style>
 </head>

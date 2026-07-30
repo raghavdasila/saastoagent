@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Corpus Lounge home surface</title>
+  <style>
+    :root { color-scheme: light dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; --surface: #ffffff; --text: #172033; --muted: #667085; --border: #dce2eb; --accent: #2563eb; --accent-text: #ffffff; }
+    @media (prefers-color-scheme: dark) { :root { --surface: #18181b; --text: #f4f4f5; --muted: #a1a1aa; --border: #3f3f46; --accent: #39ff14; --accent-text: #111113; } }
+    * { box-sizing: border-box; }
+    body { min-width: 280px; margin: 0; padding: 2px 2px 18px; color: var(--text); background: transparent; }
+    .lounge { padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+    h1 { margin: 0 0 6px; font-size: 20px; letter-spacing: -.02em; }
+    p { max-width: 48ch; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+    @media (max-width: 620px) { .lounge { padding: 16px; } }
+  </style>
+</head>
+<body>
+  <section class="lounge" aria-labelledby="lounge-title">
+    <div>
+      <h1 id="lounge-title">Explore Corpus</h1>
+      <p>This is the public starting point for Corpus. You are not signed in.</p>
+    </div>
+  </section>
+</body>
+</html>

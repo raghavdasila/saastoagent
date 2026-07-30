@@ -1,6 +1,6 @@
 ---
 name: design-corpus-features
-description: Drive bottom-up design of locked Corpus product features through atomic behavior inventories, user and agent intent, expected behavior, mock product chats, explicit actions, and inline mock surfaces. Use when Codex is drafting, refining, or documenting how a Corpus feature should behave for user review before cross-feature workflow design, RouteDeck candidate extraction, specification, or implementation.
+description: Drive bottom-up design of locked Corpus product features through behavior Nodes, user and agent intent, expected behavior, Operations, SuggestedActions, AgentPolicies, mock product chats, and inline mock Surfaces. Use when Codex is drafting, refining, or documenting how a Corpus feature should behave for user review before cross-feature workflow design, complete RouteDeck extraction, specification, or implementation.
 ---
 
 # Design Corpus Features
@@ -52,7 +52,9 @@ Keep these identities separate throughout the work:
 - **A feature** is a locked product ownership boundary. It is not automatically
   a screen, a workflow step, or a RouteDeck node.
 - **A behavior** is one observable thing a future user can accomplish or
-  experience through a feature.
+  experience through a feature. In the studio, each behavior is also the
+  human-readable design unit for one provisional feature Node. Canonical IDs,
+  routes, transitions, and final topology still belong to extraction.
 - **Expected behavior** is the concise observable Corpus response, including
   material constraints and the completion state. It does not repeat either
   intent as ceremonial template prose.
@@ -64,22 +66,28 @@ Keep these identities separate throughout the work:
   success condition. Keep it independent of prompts, models, tools, thresholds,
   workflow order, confidence values, and UI behavior. It is design guidance,
   not RouteDeck state or a runtime contract.
-- **An action** is a direct choice or command available to the user. Record it
-  separately from a surface; an action does not warrant a surface by itself.
+- **An Operation** is an authoritative product action legal at the behavior
+  Node. Define its name and intended effect in the studio; inputs, outcomes,
+  safety/review, and recovery remain expandable details as the design matures.
+- **A SuggestedAction** is an optional chat invitation that references a
+  defined Operation. It does not create authority or another execution path.
 - **An AgentPolicy** is plain-language agent guidance authored at an explicitly
-  named design scope. The studio must let the designer add, edit, and remove
-  policies without inventing or requesting RouteDeck declaration IDs. Those
-  identifiers and effective-policy resolution belong to later extraction.
-  Feature-scoped policy has one feature-level owner; a behavior stores only
-  policies owned by that behavior or its contained scopes.
+  named feature, node, capability, surface, or operation scope. Behavior and
+  SuggestedAction are not policy scopes. The studio must let the designer add, edit, and
+  remove policies without inventing or requesting RouteDeck declaration IDs.
+  Those identifiers and effective-policy resolution belong to later extraction.
+  The dedicated Feature policies destination stores feature-scoped policy only.
+  Each behavior stores its own Node, Capability, Surface, and Operation policy.
+  SuggestedAction and behavior are not AgentPolicy scopes.
 - **A mock surface** is a disposable interaction sketch used to expose needed
   information, structured controls, state, and feedback inline immediately
   above the chat composer. It is not a dialog, modal, approved UI design, or
   implementation contract.
-- **RouteDeck** is the later interaction-state and execution authority. Do not
-  begin with nodes or force early behavior ideas into RouteDeck vocabulary.
-  Extract candidate nodes, operations, outcomes, providers, guards, surfaces,
-  affordances, and transitions only after feature behavior is accepted.
+- **RouteDeck** is the later interaction-state and execution authority. The
+  studio deliberately defines provisional Nodes, Capabilities, Surfaces,
+  Operations, SuggestedActions, and AgentPolicies while behavior is reviewed.
+  Complete contracts, identifiers, providers, guards, affordances, outcomes,
+  transitions, bindings, and runtime authority still belong to extraction.
 - **ToolRouter** supplies API-processing and evaluation capabilities where the
   locked boundaries say it does. It does not own Corpus product behavior.
 - **AutomationBench** is a Corpus-wide validation target, not a Corpus feature,
@@ -104,7 +112,8 @@ Do not expand its scope.
 
 List small, observable user behaviors owned by that feature. Phrase each as a
 user accomplishment or product response, not as a component, page, database
-entity, RouteDeck node, or implementation task.
+entity, identifier, route, or implementation task. The studio then treats each
+behavior review unit as one provisional feature Node design.
 
 Keep cross-feature dependencies visible as questions or handoffs. Do not solve
 them prematurely.
@@ -121,7 +130,9 @@ For one behavior at a time, draft:
 - **Observable outcome:** what must be true when the behavior completes.
 - **Ownership:** why this feature owns the behavior.
 - **AgentPolicy:** any constraint exposed by this behavior, attached to its
-  human-readable feature, behavior, surface, action, or other design scope.
+  human-readable feature, node, capability, surface, or operation scope.
+- **Operations:** the authoritative actions legal at this behavior Node.
+- **SuggestedActions:** optional chat invitations bound to those Operations.
 
 Avoid generic "As a user" wording. Intent guidance does not replace the
 observable expected behavior and outcome.
@@ -131,17 +142,17 @@ observable expected behavior and outcome.
 Use only the artifacts that clarify the behavior:
 
 - Write a short mock product chat when conversation is materially involved.
-- Record direct user choices or commands as actions, separate from surfaces.
+- Define direct product actions as Operations, separate from Surfaces.
+- Record optional chat invitations as SuggestedActions referencing Operations.
 - Sketch a mock surface when the user must inspect state, compare information,
   provide structured input, or receive structured feedback.
 - Combine chat and surface when one guides or updates the other.
-- An action-only behavior has no surface. For example, `Create an agent` is an
-  action unless the behavior exposes structured state or input that needs a
-  surface.
-- Place a mock surface inline immediately above the action row and chat
+- An Operation-only behavior has no Surface. For example, `Create an agent`
+  needs a Surface only when the behavior exposes structured state or input.
+- Place a mock Surface inline immediately above the SuggestedAction row and chat
   composer. Let it grow to its content height until half the chat region, then
   scroll internally. Do not present it as a modal or dialog.
-- Do not force a chat into behavior that is clearer as a direct action.
+- Do not force a chat into behavior that is clearer as a direct Operation.
 - Do not force complex state into prose when a surface should carry it.
 
 For every mocked moment, make clear:
@@ -204,9 +215,9 @@ Only after the relevant features have accepted behavior models, explore their
 handoffs and validate that they can form the minimal launch pathway. Revise the
 owning feature behavior when a handoff exposes a genuine gap.
 
-### 10. Extract RouteDeck candidates
+### 10. Complete RouteDeck candidate extraction
 
-Only after behavior approval, translate observed requirements into candidate:
+Only after behavior approval, refine the studio's provisional design into complete candidate:
 
 - nodes and routes;
 - operations and outcomes;
@@ -226,7 +237,8 @@ Use `../routedeck-design-glossary.md` for vocabulary and
 `../routedeck-feature-and-node-design-guide.md` for the extraction sequence and
 review questions. Label the result as a candidate mapping until separately
 approved. RouteDeck extraction does not authorize implementation. Do not add
-Navgraph design to the atomic behavior workspace before this stage.
+routes, transitions, providers, guards, bindings, or complete Navgraph design
+to the atomic behavior workspace before this stage.
 
 ## Working format
 
@@ -246,8 +258,11 @@ Use this compact structure while exploring one behavior:
 **Mock product chat:**
 <only if useful>
 
-**Actions:**
-<direct choices or commands, only if useful>
+**Operations:**
+<authoritative product actions legal at this Node>
+
+**SuggestedActions:**
+<optional chat invitations referencing those Operations>
 
 **Mock surface:**
 <only if useful>
@@ -259,7 +274,7 @@ Use this compact structure while exploring one behavior:
 **Open questions:** <unknowns requiring design judgment>
 ```
 
-Do not fill every heading ceremonially. Omit chat, actions, surface, variations,
+Do not fill every heading ceremonially. Omit chat, SuggestedActions, Surface, variations,
 or open questions when they add no design value.
 
 ## Session handoff

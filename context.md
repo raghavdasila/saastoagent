@@ -1,6 +1,6 @@
 # Corpus Current Context
 
-Updated: 2026-07-28
+Updated: 2026-07-29
 
 ## Repository Boundary
 
@@ -68,16 +68,19 @@ Updated: 2026-07-28
   width the Workspace rail opens from a header hamburger Sheet, the Navgraph
   retains its own header drawer, and the surface/composer stay at the bottom of
   the viewport instead of rising above a bottom navigation row.
-- A standalone Slice 1 design workbench now lives under
-  `docs/corpus-agent-design/workbench`. It is a local prototype for reviewing
-  Workspace/Agents user and agent intents, expected behaviors, mock chats, explicit
-  actions, and tightly sandboxed inline surfaces; its labeled seed and
+- The standalone **RouteDeck Agent Design Studio** now lives under
+  `docs/corpus-agent-design/workbench`, with Corpus as its active project. It is
+  a local prototype for reviewing
+  Workspace/Agents user and agent intents, expected behaviors, mock chats,
+  provisional RouteDeck design objects, and tightly sandboxed inline surfaces; its labeled seed and
   approvals do not assert implemented product behavior. Codex drives one atomic
   behavior at a time for user review and explicit acceptance. Surfaces render
-  immediately above the action row and composer, grow to half the chat region,
-  then scroll internally; action-only behavior has no surface. The studio uses
-  a flat, compact editing system with square 13px controls and a persisted
-  system-aware light/slate-dark theme. The version 13 seed now covers
+  immediately above the SuggestedAction row and composer, grow to half the chat region,
+  then scroll internally; Operation-only behavior has no surface. The studio
+  uses a three-region desktop shell, mobile overlay project navigation,
+  centralized light/dark tokens, shared editor-section primitives, and
+  data-driven project copy and feature navigation. The version
+  15 seed now covers
   behavior-note sections 0–4 with `Lounge 8`, `Workspace 6`, `Agents 9`,
   `Source Hub 5`, and `API Source 9`. Lounge owns unauthenticated product help
   and six approved implementation-backed account entry/recovery behaviors;
@@ -85,13 +88,19 @@ Updated: 2026-07-28
   has no product-level draft-agent concept. New or materially changed feature
   behaviors remain draft for review. Design edits autosave to
   `docs/corpus-agent-design/workbench/design-state.json` through the local Vite
-  server; only the theme preference remains in browser local storage. AgentPolicy
-  entries are addable, editable, and removable plain-language guidance with a
-  scope type and human-readable target name. Feature-scoped policy has one
-  dedicated sidebar destination; each behavior stores and displays only its
-  own scoped policies. The studio exposes no policy or
-  RouteDeck declaration IDs and makes no compiled/effective-policy claim;
-  declaration references and resolution are deferred to extraction.
+  server; **Export JSON** downloads the current formatted Corpus design without
+  replacing autosave, and only the theme preference remains in browser local
+  storage. The
+  dedicated Feature policies destination contains only feature-scoped
+  AgentPolicy instructions. Each behavior is the human-readable design unit
+  for one provisional feature Node and owns its Node, Capability, Surface, and
+  Operation AgentPolicies. Operations are first-class objects with a name,
+  explicit product effect, and expandable contract details; the effect is not
+  a restatement of the chat affordance. SuggestedActions are
+  separate chat invitations that reference a defined Operation. The studio
+  exposes no policy or RouteDeck declaration IDs and makes no compiled or
+  effective-policy claim; full identifiers, references, topology, providers,
+  guards, transitions, and bindings are deferred to complete extraction.
 - The live Navgraph remains a docked, in-place expandable desktop rail. At
   mobile width it switches to a shadcn Sheet drawer without changing RouteDeck
   state ownership.
@@ -167,10 +176,11 @@ docker compose up --build
 
 ## Validation Baseline
 
-- Agent-design workbench: 18 tests passed; strict typecheck and production build
-  passed. Browser checks at 1440x900 and 390x844 verified compact square
-  controls, clear focus and disabled states, internal textarea scrolling, and
-  zero horizontal overflow or warning/error logs.
+- RouteDeck Agent Design Studio: 17 tests passed; strict typecheck and
+  production build passed. Browser checks at 1440x900 and 390x844 verified the
+  branded Corpus project shell, JSON export interaction, separate feature-policy
+  destination, mobile project drawer, centralized light/dark themes, internal
+  editor scrolling, and zero horizontal overflow or warning/error logs.
 - Responsive shell correction: 25 frontend tests passed plus strict typecheck
   and production build. At 390x844 the live browser measured zero horizontal
   overflow, a 161.5px surface dock directly above the composer, composer bottom
@@ -281,6 +291,6 @@ docker compose up --build
 
 ## Next Concrete Step
 
-Resume Slice 1 in the agent-design workbench with the draft Workspace behavior
+Resume Slice 1 in the RouteDeck Agent Design Studio with the draft Workspace behavior
 `Enter the workspace`. Review one atomic behavior at a time and move to
 Agents only after the remaining Workspace behavior is accepted.

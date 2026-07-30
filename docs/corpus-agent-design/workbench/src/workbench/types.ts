@@ -7,9 +7,11 @@ export interface MockChatMessage {
   content: string
 }
 
-export interface MockAction {
+export interface SuggestedActionDesign {
   id: string
   label: string
+  operationName: string
+  visibility: string
 }
 
 export interface DesignStory {
@@ -19,37 +21,48 @@ export interface DesignStory {
   agentIntent: string
   expectedBehavior: string
   messages: MockChatMessage[]
-  actions: MockAction[]
   mockSurfacePath: string | null
-  policies: AgentPolicyDesign[]
+  nodePolicies: string[]
+  capabilities: CapabilityDesign[]
+  surfaces: SurfaceDesign[]
+  operations: OperationDesign[]
+  suggestedActions: SuggestedActionDesign[]
   status: ReviewStatus
   rejectionReason: string
 }
 
-export type AgentPolicyScope =
-  | "feature"
-  | "behavior"
-  | "node"
-  | "capability"
-  | "surface"
-  | "action"
-  | "operation"
-  | "other"
+export interface CapabilityDesign {
+  name: string
+  purpose: string
+  operationNames: string[]
+  surfaceNames: string[]
+  policies: string[]
+}
 
-export interface AgentPolicyDesign {
-  scope: AgentPolicyScope
-  scopeName: string
-  guidance: string
+export interface SurfaceDesign {
+  name: string
+  purpose: string
+  policies: string[]
+}
+
+export interface OperationDesign {
+  name: string
+  purpose: string
+  inputs: string
+  outcomes: string
+  safetyAndReview: string
+  recovery: string
+  policies: string[]
 }
 
 export interface DesignFeature {
   id: string
   name: string
   stories: DesignStory[]
-  policies: AgentPolicyDesign[]
+  policies: string[]
 }
 
 export interface WorkbenchState {
-  version: 13
+  version: 15
   features: DesignFeature[]
 }

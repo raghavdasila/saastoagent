@@ -1,7 +1,15 @@
-import { CheckCircle2, Circle, Plus, ShieldCheck, XCircle } from "lucide-react"
+import {
+  CheckCircle2,
+  Circle,
+  Plus,
+  ShieldCheck,
+  X,
+  XCircle,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { STUDIO_CONFIG } from "@/workbench/studioConfig"
 import type { DesignFeature, ReviewStatus } from "@/workbench/types"
 
 const statusIcon: Record<ReviewStatus, typeof Circle> = {
@@ -15,82 +23,143 @@ interface FeatureRailProps {
   selectedFeatureId: string
   selectedStoryId: string
   selectedView: "behavior" | "feature-policy"
+  mobileOpen: boolean
   onSelectFeature: (featureId: string) => void
   onSelectStory: (storyId: string) => void
   onSelectFeaturePolicy: () => void
   onAddStory: () => void
+  onCloseMobile: () => void
 }
 
-export function FeatureRail({ features, selectedFeatureId, selectedStoryId, selectedView, onSelectFeature, onSelectStory, onSelectFeaturePolicy, onAddStory }: FeatureRailProps) {
+export function FeatureRail({
+  features,
+  selectedFeatureId,
+  selectedStoryId,
+  selectedView,
+  mobileOpen,
+  onSelectFeature,
+  onSelectStory,
+  onSelectFeaturePolicy,
+  onAddStory,
+  onCloseMobile,
+}: FeatureRailProps) {
   const selectedFeature = features.find((feature) => feature.id === selectedFeatureId) ?? features[0]
+  const featurePolicyCount = selectedFeature.policies.length
+
+  function selectFeature(featureId: string) {
+    onSelectFeature(featureId)
+    onCloseMobile()
+  }
+
+  function selectStory(storyId: string) {
+    onSelectStory(storyId)
+    onCloseMobile()
+  }
+
+  function selectPolicies() {
+    onSelectFeaturePolicy()
+    onCloseMobile()
+  }
 
   return (
-    <aside className="flex min-h-0 min-w-0 flex-col overflow-hidden border-b border-border bg-background md:border-r md:border-b-0">
-      <div className="flex shrink-0 overflow-x-auto border-b border-border p-1 md:flex-col md:overflow-visible">
-        {features.map((feature) => (
-          <Button
-            key={feature.id}
-            aria-label={`${feature.name} ${feature.stories.length}`}
-            variant="ghost"
-            className={cn(
-              "h-7 min-w-28 justify-start rounded-none border-0 px-2 !text-[13px] font-normal focus-visible:bg-muted focus-visible:ring-0 md:min-w-0",
-              feature.id === selectedFeature.id && "bg-muted/70 font-semibold text-foreground",
-            )}
-            onClick={() => onSelectFeature(feature.id)}
-          >
-            {feature.name}
-            <span className="ml-auto text-[11px] font-normal text-muted-foreground tabular-nums">{feature.stories.length}</span>
-          </Button>
-        ))}
-      </div>
-
-      <div className="border-b border-border p-1">
-        <Button
-          aria-label="Feature policy"
-          variant="ghost"
-          className={cn(
-            "h-8 w-full justify-start rounded-none border-0 border-l-2 border-transparent px-2 !text-[13px] focus-visible:border-l-ring focus-visible:bg-muted/50 focus-visible:ring-0",
-            selectedView === "feature-policy" && "border-l-primary bg-muted/60 font-medium text-foreground",
-          )}
-          onClick={onSelectFeaturePolicy}
-        >
-          <ShieldCheck data-icon="inline-start" className="size-3.5" />
-          Feature policy
-          <span className="ml-auto text-[11px] font-normal text-muted-foreground tabular-nums">{selectedFeature.policies.length}</span>
-        </Button>
-      </div>
-
-      <div className="flex min-h-0 flex-col py-1">
-        <div className="flex h-8 items-center justify-between gap-2 px-2">
-          <p className="text-xs font-semibold text-muted-foreground">Behaviors</p>
-          <Button aria-label="Add behavior" size="xs" variant="ghost" className="px-1.5 focus-visible:ring-1" onClick={onAddStory}>
-            <Plus data-icon="inline-start" /> Add
+    <>
+      <button
+        type="button"
+        className="studio-mobile-backdrop"
+        data-open={mobileOpen}
+        aria-label="Close project navigation"
+        tabIndex={mobileOpen ? 0 : -1}
+        onClick={onCloseMobile}
+      />
+      <aside className="studio-rail" data-open={mobileOpen} aria-label="Corpus project navigation">
+        <div className="flex h-11 shrink-0 items-center justify-between border-b border-border px-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Features</p>
+            <p className="text-xs font-medium md:hidden">{STUDIO_CONFIG.projectName}</p>
+          </div>
+          <Button type="button" size="icon-xs" variant="ghost" className="md:hidden" aria-label="Close project navigation" onClick={onCloseMobile}>
+            <X />
           </Button>
         </div>
-        <div className="grid max-h-28 min-h-0 grid-cols-2 overflow-y-auto px-1 md:max-h-none md:flex md:flex-1 md:flex-col md:overflow-x-hidden">
-          {selectedFeature.stories.map((story) => {
-            const StatusIcon = statusIcon[story.status]
-            return (
+
+        <nav aria-label="Features" className="shrink-0 border-b border-border p-2">
+          <div className="space-y-0.5">
+            {features.map((feature) => (
               <Button
-                key={story.id}
+                key={feature.id}
+                aria-label={`${feature.name} ${feature.stories.length}`}
                 variant="ghost"
                 className={cn(
-                  "h-auto min-h-8 w-full justify-start rounded-none border-0 border-l-2 border-transparent px-2 py-1 text-left !text-[13px] !leading-4 whitespace-normal focus-visible:border-l-ring focus-visible:bg-muted/50 focus-visible:ring-0",
-                  selectedView === "behavior" && story.id === selectedStoryId && "border-l-primary bg-muted/60 font-medium text-foreground",
+                  "h-9 w-full justify-start border border-transparent px-2.5 !text-[13px] font-normal focus-visible:ring-2",
+                  feature.id === selectedFeature.id && "border-primary/15 bg-primary/10 font-medium text-foreground",
                 )}
-                onClick={() => onSelectStory(story.id)}
+                onClick={() => selectFeature(feature.id)}
               >
-                <StatusIcon
-                  data-icon="inline-start"
-                  className={cn("size-3", story.status === "approved" && "text-emerald-600", story.status === "rejected" && "text-destructive")}
-                  strokeWidth={1.8}
-                />
-                <span>{story.title}</span>
+                <span className="truncate">{feature.name}</span>
+                <span className="ml-auto text-[11px] font-normal text-muted-foreground tabular-nums">{feature.stories.length}</span>
               </Button>
-            )
-          })}
+            ))}
+          </div>
+        </nav>
+
+        <div className="shrink-0 border-b border-border p-2">
+          <Button
+            aria-label={STUDIO_CONFIG.featurePolicyLabel}
+            variant="ghost"
+            className={cn(
+              "h-9 w-full justify-start border border-transparent px-2.5 !text-[13px] font-normal focus-visible:ring-2",
+              selectedView === "feature-policy" && "border-primary/15 bg-primary/10 font-medium text-foreground",
+            )}
+            onClick={selectPolicies}
+          >
+            <ShieldCheck data-icon="inline-start" className={cn("size-3.5", selectedView === "feature-policy" ? "text-primary" : "text-muted-foreground")} strokeWidth={1.8} />
+            {STUDIO_CONFIG.featurePolicyLabel}
+            <span className="ml-auto text-[11px] font-normal text-muted-foreground tabular-nums">{featurePolicyCount}</span>
+          </Button>
         </div>
-      </div>
-    </aside>
+
+        <div className="flex min-h-0 flex-1 flex-col py-2">
+          <div className="flex h-8 shrink-0 items-center justify-between gap-2 px-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{STUDIO_CONFIG.behaviorCollectionLabel}</p>
+            <Button aria-label="Add behavior" size="xs" variant="ghost" className="px-1.5" onClick={onAddStory}>
+              <Plus data-icon="inline-start" /> Add
+            </Button>
+          </div>
+          <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
+            {selectedFeature.stories.map((story) => {
+              const StatusIcon = statusIcon[story.status]
+              const selected = selectedView === "behavior" && story.id === selectedStoryId
+              return (
+                <Button
+                  key={story.id}
+                  variant="ghost"
+                  className={cn(
+                    "h-auto min-h-9 w-full justify-start border border-transparent px-2.5 py-1.5 text-left !text-[13px] !leading-4 whitespace-normal focus-visible:ring-2",
+                    selected && "border-primary/15 bg-primary/10 font-medium text-foreground",
+                  )}
+                  onClick={() => selectStory(story.id)}
+                >
+                  <StatusIcon
+                    data-icon="inline-start"
+                    className={cn(
+                      "size-3.5",
+                      story.status === "draft" && (selected ? "text-primary" : "text-muted-foreground"),
+                      story.status === "approved" && "text-[var(--studio-success)]",
+                      story.status === "rejected" && "text-destructive",
+                    )}
+                    strokeWidth={1.8}
+                  />
+                  <span>{story.title}</span>
+                </Button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="shrink-0 border-t border-border px-3 py-2 text-[11px] text-muted-foreground">
+          {selectedFeature.name} · {selectedFeature.stories.length} behaviors
+        </div>
+      </aside>
+    </>
   )
 }

@@ -1,62 +1,66 @@
 {
-  "version": 13,
+  "version": 15,
   "features": [
     {
       "id": "lounge",
       "name": "Lounge",
       "policies": [
-        {
-          "scope": "feature",
-          "scopeName": "Lounge",
-          "guidance": "Keep unauthenticated help general and never expose private Workspace state."
-        },
-        {
-          "scope": "feature",
-          "scopeName": "Lounge",
-          "guidance": "Offer product help and account access without implying that the visitor is authenticated."
-        }
+        "Keep unauthenticated help general and never expose private Workspace state.",
+        "Offer product help and account access without implying that the visitor is authenticated.",
+        "Describe only currently available Corpus behavior as available; label planned, deferred, unknown, or unavailable behavior explicitly."
       ],
       "stories": [
         {
           "id": "lounge-arrival",
           "title": "Arrive in the Lounge",
-          "userIntent": "Understand where I am and what I can do before signing in.",
-          "agentIntent": "Establish the public Lounge and keep every valid public or account path available.",
-          "expectedBehavior": "An unauthenticated visitor opens Corpus. Corpus places them in the Lounge, explains that it is the public starting point, and offers product help, sign-up, sign-in, and password-recovery paths without exposing private Workspace state.",
+          "userIntent": "Enter Corpus before signing in.",
+          "agentIntent": "Establish the unauthenticated Lounge context and present Lounge home.",
+          "expectedBehavior": "An unauthenticated visitor opens Corpus. Corpus establishes Lounge as the active public context, renders Lounge home, and begins the public conversation. Entry is complete when the visitor can see they are in Lounge; no product-help or account behavior has started.",
           "messages": [
             {
               "id": "lounge-arrival-owner",
               "actor": "Owner",
-              "content": "What can I do here?"
+              "content": "Open Corpus."
             },
             {
               "id": "lounge-arrival-corpus",
               "actor": "Corpus",
-              "content": "You are in the Lounge. Ask me about Corpus, sign up, sign in, or recover your password when you are ready."
+              "content": "You are in the Lounge."
             }
           ],
-          "actions": [
+          "mockSurfacePath": "/mock-surfaces/lounge/home.html",
+          "nodePolicies": [
+            "Use public Corpus context only and never expose or imply access to a private Workspace.",
+            "Present current public help and account paths truthfully, distinguishing unavailable or deferred behavior."
+          ],
+          "capabilities": [
             {
-              "id": "lounge-ask-product",
-              "label": "Ask about Corpus"
-            },
-            {
-              "id": "lounge-sign-up",
-              "label": "Sign up"
-            },
-            {
-              "id": "lounge-sign-in",
-              "label": "Sign in"
-            },
-            {
-              "id": "lounge-forgot-password",
-              "label": "Forgot password"
+              "name": "Lounge entry",
+              "purpose": "Establish the unauthenticated Lounge context and present Lounge home.",
+              "policies": [
+                "Establish only unauthenticated public context.",
+                "Complete entry when Lounge home is visible; do not start or claim completion of any downstream behavior."
+              ],
+              "operationNames": [],
+              "surfaceNames": [
+                "Lounge home"
+              ]
             }
           ],
-          "mockSurfacePath": null,
+          "surfaces": [
+            {
+              "name": "Lounge home",
+              "purpose": "Present the structured product UI required for ‘Arrive in the Lounge’.",
+              "policies": [
+                "Present only public orientation and entry paths; never expose or imply access to private Workspace state.",
+                "Keep this surface limited to Lounge orientation; product-help and account interactions belong to their own behaviors."
+              ]
+            }
+          ],
+          "operations": [],
+          "suggestedActions": [],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "lounge-product-help",
@@ -76,11 +80,28 @@
               "content": "Corpus helps you connect sources, design behavior, test, evaluate, deploy, and operate an agent. You will need an account when you want to create private Workspace resources."
             }
           ],
-          "actions": [],
           "mockSurfacePath": null,
+          "nodePolicies": [
+            "Use public Corpus context only and never expose or imply access to a private Workspace.",
+            "Present current public help and account paths truthfully, distinguishing unavailable or deferred behavior."
+          ],
+          "capabilities": [
+            {
+              "name": "Product help",
+              "purpose": "Answer unauthenticated questions about Corpus and explain available next steps.",
+              "policies": [
+                "Answer from current product knowledge and label planned, deferred, unknown, or unavailable behavior explicitly.",
+                "When a request requires private Workspace state, explain the boundary and offer an account path without inventing an answer."
+              ],
+              "operationNames": [],
+              "surfaceNames": []
+            }
+          ],
+          "surfaces": [],
+          "operations": [],
+          "suggestedActions": [],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "owner-auth-register",
@@ -100,16 +121,60 @@
               "content": "Sign up here. When account creation completes, I will take you into your Workspace."
             }
           ],
-          "actions": [
+          "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#register",
+          "nodePolicies": [
+            "Keep credential input private and do not expose authenticated Workspace state before account creation and continuation succeed.",
+            "Preserve partial-success truth when identity creation succeeds but authenticated continuation fails."
+          ],
+          "capabilities": [
             {
-              "id": "register-submit",
-              "label": "Sign up"
+              "name": "Create owner account",
+              "purpose": "Validate account details, create the owner identity and personal Workspace, and continue into authenticated context.",
+              "policies": [
+                "Create an account only from explicit valid input and never repeat password values in chat or visible confirmation.",
+                "Do not retry identity creation after partial success; continue or report the exact continuation failure instead."
+              ],
+              "operationNames": [
+                "Create owner account"
+              ],
+              "surfaceNames": [
+                "Create owner account surface"
+              ]
             }
           ],
-          "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#register",
+          "surfaces": [
+            {
+              "name": "Create owner account surface",
+              "purpose": "Present the structured product UI required for “Create an owner account”.",
+              "policies": [
+                "Keep password values private and masked; never repeat credentials in chat, confirmation text, or persisted design-visible state."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Create owner account",
+              "purpose": "Create the owner identity and personal Workspace, establish the authenticated session, and enter that Workspace.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Submit account creation only after required fields are valid and only after the visitor explicitly chooses Create account.",
+                "Claim success only after the owner identity and personal Workspace are created; report partial continuation failure without recreating the account."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "register-submit",
+              "label": "Sign up",
+              "operationName": "Create owner account",
+              "visibility": ""
+            }
+          ],
           "status": "approved",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "owner-auth-sign-in",
@@ -129,16 +194,59 @@
               "content": "Sign in to resume the Workspace associated with your account."
             }
           ],
-          "actions": [
+          "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#sign-in",
+          "nodePolicies": [
+            "Keep credentials private and expose no Workspace facts until authentication succeeds.",
+            "Invalid authentication remains a visible failure and must not reveal whether unrelated private state exists."
+          ],
+          "capabilities": [
             {
-              "id": "sign-in-submit",
-              "label": "Sign in"
+              "name": "Authenticate owner",
+              "purpose": "Validate owner credentials and resume only the authorized Workspace.",
+              "policies": [
+                "Use the authenticated identity as the authority for Workspace selection; never accept a user-supplied Workspace target as authority.",
+                "Describe sign-in as complete only after authentication and Workspace continuation both succeed."
+              ],
+              "operationNames": [
+                "Authenticate owner"
+              ],
+              "surfaceNames": [
+                "Owner sign-in surface"
+              ]
             }
           ],
-          "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#sign-in",
+          "surfaces": [
+            {
+              "name": "Owner sign-in surface",
+              "purpose": "Present the structured product UI required for “Sign in”.",
+              "policies": [
+                "Keep credentials private and masked; never echo passwords or include them in conversational output."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Authenticate owner",
+              "purpose": "Validate the submitted credentials, establish the owner session, and resume only the Workspace authorized for that owner.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Resume only the Workspace authorized for the authenticated owner; invalid credentials remain a failure and expose no private state."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "sign-in-submit",
+              "label": "Sign in",
+              "operationName": "Authenticate owner",
+              "visibility": ""
+            }
+          ],
           "status": "approved",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "owner-auth-request-reset",
@@ -158,16 +266,60 @@
               "content": "Enter your email to request recovery. The confirmation will not reveal whether an account exists."
             }
           ],
-          "actions": [
+          "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#request-reset",
+          "nodePolicies": [
+            "Protect account existence during recovery requests and keep one-time recovery tokens out of visible URLs and product output.",
+            "A missing, invalid, used, or expired token changes nothing and remains an explicit failure."
+          ],
+          "capabilities": [
             {
-              "id": "request-reset-submit",
-              "label": "Send recovery link"
+              "name": "Request recovery",
+              "purpose": "Request password-reset delivery without disclosing whether the submitted account exists.",
+              "policies": [
+                "Use the same account-neutral response for existing and non-existing accounts.",
+                "Report delivery-system unavailability without disclosing account existence or claiming delivery success."
+              ],
+              "operationNames": [
+                "Request password recovery"
+              ],
+              "surfaceNames": [
+                "Password reset request surface"
+              ]
             }
           ],
-          "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#request-reset",
+          "surfaces": [
+            {
+              "name": "Password reset request surface",
+              "purpose": "Present the structured product UI required for “Request password recovery”.",
+              "policies": [
+                "Use the same account-neutral confirmation whether or not the submitted email belongs to an account."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Request password recovery",
+              "purpose": "Create an account-neutral recovery request and request delivery of a one-time recovery link when an eligible account exists.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Do not reveal account existence; report delivery-system unavailability without disclosing whether the submitted account exists.",
+                "Treat submission as a recovery request only, not as proof that an account exists or that delivery succeeded."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "request-reset-submit",
+              "label": "Send recovery link",
+              "operationName": "Request password recovery",
+              "visibility": ""
+            }
+          ],
           "status": "approved",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "owner-auth-confirm-reset",
@@ -187,16 +339,59 @@
               "content": "Choose a new password. Completing this will sign out existing sessions and return you to sign-in."
             }
           ],
-          "actions": [
+          "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#reset-password",
+          "nodePolicies": [
+            "Protect account existence during recovery requests and keep one-time recovery tokens out of visible URLs and product output.",
+            "A missing, invalid, used, or expired token changes nothing and remains an explicit failure."
+          ],
+          "capabilities": [
             {
-              "id": "confirm-reset-submit",
-              "label": "Set new password"
+              "name": "Set new password",
+              "purpose": "Validate a one-time recovery link, change the password, and revoke existing sessions.",
+              "policies": [
+                "Accept only a valid unexpired one-time token bound to the recovery request.",
+                "Claim success only after the password changes and existing sessions are revoked; then return the owner to sign-in."
+              ],
+              "operationNames": [
+                "Change owner password"
+              ],
+              "surfaceNames": [
+                "Set new password surface"
+              ]
             }
           ],
-          "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#reset-password",
+          "surfaces": [
+            {
+              "name": "Set new password surface",
+              "purpose": "Present the structured product UI required for “Set a new password”.",
+              "policies": [
+                "Remove the one-time token from the visible URL and never render, repeat, or persist it in visible product state."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Change owner password",
+              "purpose": "Replace the password using a valid one-time recovery token, revoke existing sessions, and return the owner to sign-in.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Accept only a valid unexpired one-time token; on success change the password and revoke existing sessions."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "confirm-reset-submit",
+              "label": "Set new password",
+              "operationName": "Change owner password",
+              "visibility": ""
+            }
+          ],
           "status": "approved",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "owner-auth-request-verification",
@@ -216,16 +411,50 @@
               "content": "I will request a fresh verification message and report whether delivery succeeds."
             }
           ],
-          "actions": [
+          "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#verification-pending",
+          "nodePolicies": [
+            "Keep one-time verification tokens out of the visible URL, chat, and persisted visible state.",
+            "Pending verification must not block otherwise permitted Workspace behavior unless a separate product rule explicitly requires it."
+          ],
+          "capabilities": [
             {
-              "id": "resend-verification",
-              "label": "Resend verification"
+              "name": "Request verification delivery",
+              "purpose": "Request a fresh verification message for the signed-in owner's pending email.",
+              "policies": [
+                "Operate only on the signed-in owner and send only after an explicit request.",
+                "Report the actual delivery request result without describing a request as successful verification."
+              ],
+              "operationNames": [
+                "Request verification delivery"
+              ],
+              "surfaceNames": []
             }
           ],
-          "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#verification-pending",
+          "surfaces": [],
+          "operations": [
+            {
+              "name": "Request verification delivery",
+              "purpose": "Request delivery of a fresh one-time verification link for the signed-in owner and return the actual delivery result.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Request another verification message only after the owner explicitly asks; do not send automatically or repeatedly.",
+                "Report the actual delivery request result, and do not block otherwise permitted Workspace use when verification remains pending."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "resend-verification",
+              "label": "Resend verification",
+              "operationName": "Request verification delivery",
+              "visibility": ""
+            }
+          ],
           "status": "approved",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "owner-auth-confirm-verification",
@@ -245,16 +474,59 @@
               "content": "I will validate the one-time link and show the verification result."
             }
           ],
-          "actions": [
+          "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#verify-email",
+          "nodePolicies": [
+            "Keep one-time verification tokens out of the visible URL, chat, and persisted visible state.",
+            "Pending verification must not block otherwise permitted Workspace behavior unless a separate product rule explicitly requires it."
+          ],
+          "capabilities": [
             {
-              "id": "confirm-verification",
-              "label": "Verify email"
+              "name": "Confirm owner email",
+              "purpose": "Validate a one-time verification link and refresh owner verification state.",
+              "policies": [
+                "Apply verification only to the owner account bound to a valid unexpired token.",
+                "Refresh and present verified state only after confirmation succeeds; token failure changes nothing."
+              ],
+              "operationNames": [
+                "Confirm owner email"
+              ],
+              "surfaceNames": [
+                "Confirm owner email surface"
+              ]
             }
           ],
-          "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#verify-email",
+          "surfaces": [
+            {
+              "name": "Confirm owner email surface",
+              "purpose": "Present the structured product UI required for “Confirm email verification”.",
+              "policies": [
+                "Remove the one-time token from the visible URL and never expose it in chat or visible confirmation state."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Confirm owner email",
+              "purpose": "Validate the one-time verification token, mark the bound owner email as verified, and refresh owner state.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Apply verification only to the owner account bound to a valid unexpired one-time token."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "confirm-verification",
+              "label": "Verify email",
+              "operationName": "Confirm owner email",
+              "visibility": ""
+            }
+          ],
           "status": "approved",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         }
       ]
     },
@@ -262,16 +534,8 @@
       "id": "workspace",
       "name": "Workspace",
       "policies": [
-        {
-          "scope": "feature",
-          "scopeName": "Workspace",
-          "guidance": "Use only the authenticated owner's authorized Workspace context."
-        },
-        {
-          "scope": "feature",
-          "scopeName": "Workspace",
-          "guidance": "Keep Workspace home oriented toward overview, navigation, and continuation; do not edit domain records here."
-        }
+        "Use only the authenticated owner's authorized Workspace context.",
+        "Keep Workspace home oriented toward overview, navigation, and continuation; do not edit domain records here."
       ],
       "stories": [
         {
@@ -292,11 +556,52 @@
               "content": "Here is the current overview of your agents, sources, and recent activity."
             }
           ],
-          "actions": [],
           "mockSurfacePath": null,
+          "nodePolicies": [
+            "Use only the authenticated owner's authorized Workspace facts and distinguish empty state from unavailable information.",
+            "Keep this location focused on overview, guidance, and navigation; do not mutate domain records here."
+          ],
+          "capabilities": [
+            {
+              "name": "Workspace overview",
+              "purpose": "Present agents, sources, recent activity, and honest empty states for the current Workspace.",
+              "policies": [
+                "Use authoritative current counts and activity only; never fabricate recent work or infer records from navigation history.",
+                "Offer deeper inspection through the owning feature when the overview is insufficient."
+              ],
+              "operationNames": [
+                "Navigate from Workspace overview"
+              ],
+              "surfaceNames": [
+                "Workspace overview"
+              ]
+            }
+          ],
+          "surfaces": [
+            {
+              "name": "Workspace overview",
+              "purpose": "Present the structured product UI required for “Enter the Workspace”.",
+              "policies": [
+                "Distinguish real counts and recent activity from truthful empty states and from temporarily unavailable information."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Navigate from Workspace overview",
+              "purpose": "Open the selected owning feature while preserving the authenticated Workspace and conversation context.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Navigation to the owning feature does not create or modify agents, sources, operations, or other domain records."
+              ]
+            }
+          ],
+          "suggestedActions": [],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "workspace-activity-help",
@@ -316,11 +621,38 @@
               "content": "I will summarize the activity visible in this Workspace and point you to the affected resources."
             }
           ],
-          "actions": [],
           "mockSurfacePath": null,
+          "nodePolicies": [
+            "Use only the authenticated owner's authorized Workspace facts and distinguish empty state from unavailable information.",
+            "Keep this location focused on overview, guidance, and navigation; do not mutate domain records here."
+          ],
+          "capabilities": [
+            {
+              "name": "Workspace overview",
+              "purpose": "Present agents, sources, recent activity, and honest empty states for the current Workspace.",
+              "policies": [
+                "Use authoritative current counts and activity only; never fabricate recent work or infer records from navigation history.",
+                "Offer deeper inspection through the owning feature when the overview is insufficient."
+              ],
+              "operationNames": [],
+              "surfaceNames": [
+                "Workspace overview"
+              ]
+            }
+          ],
+          "surfaces": [
+            {
+              "name": "Workspace overview",
+              "purpose": "Present the structured product UI required for “Ask about Workspace activity”.",
+              "policies": [
+                "When structured state supports the answer, present the matching agents, sources, or activity without fabricating missing records."
+              ]
+            }
+          ],
+          "operations": [],
+          "suggestedActions": [],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "workspace-product-help",
@@ -340,11 +672,42 @@
               "content": "Evaluations run against an exact version and retain evidence. I can take you to Evaluation when you want to inspect or start one."
             }
           ],
-          "actions": [],
           "mockSurfacePath": null,
+          "nodePolicies": [
+            "Use only the authenticated owner's authorized Workspace facts and distinguish empty state from unavailable information.",
+            "Keep this location focused on overview, guidance, and navigation; do not mutate domain records here."
+          ],
+          "capabilities": [
+            {
+              "name": "Product guidance",
+              "purpose": "Answer general Corpus questions without discarding authenticated Workspace context.",
+              "policies": [
+                "Use current product knowledge and preserve the active Workspace while answering.",
+                "Offer only next actions actually available to the owner in the current product state."
+              ],
+              "operationNames": [
+                "Open relevant product feature"
+              ],
+              "surfaceNames": []
+            }
+          ],
+          "surfaces": [],
+          "operations": [
+            {
+              "name": "Open relevant product feature",
+              "purpose": "Open the feature relevant to the product question while preserving the authenticated Workspace context.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Offer only currently available next steps and do not imply that choosing a destination completes the owner's task."
+              ]
+            }
+          ],
+          "suggestedActions": [],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "workspace-route-task",
@@ -364,11 +727,42 @@
               "content": "That work belongs with the agent's sources. I will open the relevant path and continue with the attachment choices there."
             }
           ],
-          "actions": [],
           "mockSurfacePath": null,
+          "nodePolicies": [
+            "Use only the authenticated owner's authorized Workspace facts and distinguish empty state from unavailable information.",
+            "Keep this location focused on overview, guidance, and navigation; do not mutate domain records here."
+          ],
+          "capabilities": [
+            {
+              "name": "Task routing",
+              "purpose": "Identify the feature that owns a requested task and continue the same conversation there.",
+              "policies": [
+                "Ask for clarification when the intended feature or resource is materially ambiguous.",
+                "Carry the task and relevant context forward; navigation is not task completion."
+              ],
+              "operationNames": [
+                "Navigate to owning feature"
+              ],
+              "surfaceNames": []
+            }
+          ],
+          "surfaces": [],
+          "operations": [
+            {
+              "name": "Navigate to owning feature",
+              "purpose": "Move the active task to its owning feature and carry forward the task and conversation context.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Navigation changes location only and must never be reported as completion of the requested task."
+              ]
+            }
+          ],
+          "suggestedActions": [],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "workspace-quick-actions",
@@ -388,24 +782,71 @@
               "content": "I will open Agents. Nothing changes until you choose an action there."
             }
           ],
-          "actions": [
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Use only the authenticated owner's authorized Workspace facts and distinguish empty state from unavailable information.",
+            "Keep this location focused on overview, guidance, and navigation; do not mutate domain records here."
+          ],
+          "capabilities": [
+            {
+              "name": "Task routing",
+              "purpose": "Identify the feature that owns a requested task and continue the same conversation there.",
+              "policies": [
+                "Ask for clarification when the intended feature or resource is materially ambiguous.",
+                "Carry the task and relevant context forward; navigation is not task completion."
+              ],
+              "operationNames": [
+                "Navigate to Workspace destination"
+              ],
+              "surfaceNames": [
+                "Workspace overview"
+              ]
+            }
+          ],
+          "surfaces": [
+            {
+              "name": "Workspace overview",
+              "purpose": "Present the structured product UI required for “Use Workspace quick actions”.",
+              "policies": [
+                "Show only destinations currently available to this owner and keep unavailable or empty areas truthful."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Navigate to Workspace destination",
+              "purpose": "Open the owner-selected Workspace feature without creating or changing a domain record.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Navigate to the selected feature without creating, editing, archiving, deleting, deploying, or processing a resource."
+              ]
+            }
+          ],
+          "suggestedActions": [
             {
               "id": "workspace-manage-agents",
-              "label": "Manage agents"
+              "label": "Manage agents",
+              "operationName": "Navigate to Workspace destination",
+              "visibility": ""
             },
             {
               "id": "workspace-manage-sources",
-              "label": "Manage sources"
+              "label": "Manage sources",
+              "operationName": "Navigate to Workspace destination",
+              "visibility": ""
             },
             {
               "id": "workspace-manage-operations",
-              "label": "Manage operations"
+              "label": "Manage operations",
+              "operationName": "Navigate to Workspace destination",
+              "visibility": ""
             }
           ],
-          "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "owner-auth-sign-out",
@@ -425,16 +866,60 @@
               "content": "I will end this browser session and return you to the Lounge. Your Workspace remains private."
             }
           ],
-          "actions": [
+          "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#sign-out",
+          "nodePolicies": [
+            "Use only the authenticated owner's authorized Workspace facts and distinguish empty state from unavailable information.",
+            "Keep this location focused on overview, guidance, and navigation; do not mutate domain records here."
+          ],
+          "capabilities": [
             {
-              "id": "sign-out",
-              "label": "Sign out"
+              "name": "Owner session",
+              "purpose": "End current browser access and return to a fresh public Lounge when the owner signs out.",
+              "policies": [
+                "Sign out only after explicit owner intent and keep the Workspace and its resources unchanged.",
+                "Claim completion only after current browser access and route capability are revoked and public Lounge context is established."
+              ],
+              "operationNames": [
+                "Sign out"
+              ],
+              "surfaceNames": [
+                "Owner sign-out surface"
+              ]
             }
           ],
-          "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#sign-out",
+          "surfaces": [
+            {
+              "name": "Owner sign-out surface",
+              "purpose": "Present the structured product UI required for “Sign out to Lounge”.",
+              "policies": [
+                "Identify the current owner context and state clearly that signing out ends browser access but does not delete the Workspace or its resources."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Sign out",
+              "purpose": "Revoke the current browser session and owner route handle, clear browser credentials, and return to a fresh Lounge.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Sign out only after the authenticated owner explicitly requests it; never infer sign-out from navigation or inactivity.",
+                "Success requires revoking the current browser session and owner route handle, clearing browser credentials, and returning to a fresh Lounge; failure remains visible."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "sign-out",
+              "label": "Sign out",
+              "operationName": "Sign out",
+              "visibility": ""
+            }
+          ],
           "status": "approved",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         }
       ]
     },
@@ -442,16 +927,9 @@
       "id": "agents",
       "name": "Agents",
       "policies": [
-        {
-          "scope": "feature",
-          "scopeName": "Agents",
-          "guidance": "Keep every agent isolated to the authenticated owner's Workspace."
-        },
-        {
-          "scope": "feature",
-          "scopeName": "Agents",
-          "guidance": "Never describe an agent as runnable or deployed unless a corresponding version and deployment exist."
-        }
+        "Keep every agent isolated to the authenticated owner's Workspace.",
+        "Never describe an agent as runnable or deployed unless a corresponding version and deployment exist.",
+        "Changes to an agent's current identity or configuration never rewrite existing runnable or deployed versions unless a separate versioning or deployment action explicitly does so."
       ],
       "stories": [
         {
@@ -472,16 +950,59 @@
               "content": "Here are the agents in this Workspace and the current state of each one."
             }
           ],
-          "actions": [
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Use only agents owned by the authenticated Workspace and present lifecycle state from authoritative records.",
+            "Agent existence never implies that a runnable version or active deployment exists."
+          ],
+          "capabilities": [
             {
-              "id": "agents-create",
-              "label": "Create agent"
+              "name": "Agent inventory",
+              "purpose": "List agents with identity, lifecycle state, and valid next actions.",
+              "policies": [
+                "Distinguish configured, runnable, deployed, archived, empty, and unavailable states.",
+                "Never infer lifecycle state from an agent name, recent activity, or the presence of configuration alone."
+              ],
+              "operationNames": [
+                "Open agent creation"
+              ],
+              "surfaceNames": [
+                "Agent list"
+              ]
             }
           ],
-          "mockSurfacePath": null,
+          "surfaces": [
+            {
+              "name": "Agent list",
+              "purpose": "Present the structured product UI required for “View agents”.",
+              "policies": [
+                "Distinguish configured, runnable, deployed, archived, empty, and unavailable states without inferring deployment from agent existence."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Open agent creation",
+              "purpose": "Open the new-agent design path without creating an agent, runnable version, or deployment.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Opening agent creation does not create an agent, runnable version, or deployment."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "agents-create",
+              "label": "Create agent",
+              "operationName": "Open agent creation",
+              "visibility": ""
+            }
+          ],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "agents-create",
@@ -501,16 +1022,60 @@
               "content": "Provide its name, description, and goal. I will create the agent and then open it for you."
             }
           ],
-          "actions": [
+          "mockSurfacePath": "/mock-surfaces/agents/create-agent.html",
+          "nodePolicies": [
+            "Use only agents owned by the authenticated Workspace and present lifecycle state from authoritative records.",
+            "Agent existence never implies that a runnable version or active deployment exists."
+          ],
+          "capabilities": [
             {
-              "id": "agents-create-confirm",
-              "label": "Create agent"
+              "name": "Agent creation",
+              "purpose": "Create a Workspace-owned agent from its required identity and goal inputs.",
+              "policies": [
+                "Create one agent only from explicit valid name, description, and goal input.",
+                "Creation produces an agent record only; it does not produce a runnable version, evaluation, channel, or deployment."
+              ],
+              "operationNames": [
+                "Create agent"
+              ],
+              "surfaceNames": [
+                "Create agent surface"
+              ]
             }
           ],
-          "mockSurfacePath": "/mock-surfaces/agents/create-agent.html",
+          "surfaces": [
+            {
+              "name": "Create agent surface",
+              "purpose": "Present the structured product UI required for “Create an agent”.",
+              "policies": [
+                "Collect name, description, and goal as agent identity inputs and do not imply that versioning or deployment is part of creation."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Create agent",
+              "purpose": "Create one Workspace-owned agent from the validated identity fields and open the new agent for inspection.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Submit the exact validated values once after explicit confirmation; invalid required fields must not create a record.",
+                "Success creates one Workspace-owned agent record only; it does not create a runnable version, evaluation result, channel, or deployment."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "agents-create-confirm",
+              "label": "Create agent",
+              "operationName": "Create agent",
+              "visibility": ""
+            }
+          ],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "agents-inspect",
@@ -530,11 +1095,39 @@
               "content": "I will show its identity, goals, configuration, sources, versions, and active deployment state in one place."
             }
           ],
-          "actions": [],
           "mockSurfacePath": null,
+          "nodePolicies": [
+            "Keep every presented or changed fact bound to the exact selected agent.",
+            "Keep current configuration, historical runnable versions, and active deployment state distinct."
+          ],
+          "capabilities": [
+            {
+              "name": "Agent configuration",
+              "purpose": "Inspect and edit the selected agent's identity and configuration inputs.",
+              "policies": [
+                "Expose editable inputs separately from immutable historical versions and private bindings.",
+                "Saving configuration never silently rewrites an existing runnable or deployed version."
+              ],
+              "operationNames": [],
+              "surfaceNames": [
+                "Agent detail"
+              ]
+            }
+          ],
+          "surfaces": [
+            {
+              "name": "Agent detail",
+              "purpose": "Present the structured product UI required for “Inspect an agent”.",
+              "policies": [
+                "Present configured, runnable, and deployed state as distinct sections and show a public URL only when an active deployment actually exists.",
+                "Do not expose source credentials, private bindings, or other secret configuration while presenting the agent record."
+              ]
+            }
+          ],
+          "operations": [],
+          "suggestedActions": [],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "agents-edit",
@@ -554,16 +1147,60 @@
               "content": "I will update the agent's goal and keep existing version and deployment history distinct."
             }
           ],
-          "actions": [
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Keep every presented or changed fact bound to the exact selected agent.",
+            "Keep current configuration, historical runnable versions, and active deployment state distinct."
+          ],
+          "capabilities": [
             {
-              "id": "agents-save",
-              "label": "Save changes"
+              "name": "Agent configuration",
+              "purpose": "Inspect and edit the selected agent's identity and configuration inputs.",
+              "policies": [
+                "Expose editable inputs separately from immutable historical versions and private bindings.",
+                "Saving configuration never silently rewrites an existing runnable or deployed version."
+              ],
+              "operationNames": [
+                "Save agent changes"
+              ],
+              "surfaceNames": [
+                "Agent detail edit"
+              ]
             }
           ],
-          "mockSurfacePath": null,
+          "surfaces": [
+            {
+              "name": "Agent detail edit",
+              "purpose": "Present the structured product UI required for “Edit an agent”.",
+              "policies": [
+                "Distinguish editable identity and configuration inputs from immutable historical versions and active deployment state."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Save agent changes",
+              "purpose": "Persist the validated editable fields on the selected agent while leaving existing versions and deployments unchanged.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Apply validated edits to the selected agent configuration only; never silently rewrite an existing runnable or deployed version.",
+                "Claim completion only after the exact changes are persisted; validation or persistence failure leaves the prior agent state authoritative."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "agents-save",
+              "label": "Save changes",
+              "operationName": "Save agent changes",
+              "visibility": ""
+            }
+          ],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "agents-attach-source",
@@ -583,16 +1220,60 @@
               "content": "I will attach that existing Workspace source and return to this agent."
             }
           ],
-          "actions": [
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Keep every presented or changed fact bound to the exact selected agent.",
+            "Keep current configuration, historical runnable versions, and active deployment state distinct."
+          ],
+          "capabilities": [
             {
-              "id": "agents-attach-existing",
-              "label": "Attach source"
+              "name": "Source attachments",
+              "purpose": "Inspect, attach, create, and open sources associated with the selected agent.",
+              "policies": [
+                "Attach only eligible sources from the same Workspace and prevent duplicate attachment.",
+                "Preserve the selected agent across Source Hub and API Source handoffs; navigation alone does not attach or edit a source."
+              ],
+              "operationNames": [
+                "Attach source to agent"
+              ],
+              "surfaceNames": [
+                "Agent source picker"
+              ]
             }
           ],
-          "mockSurfacePath": null,
+          "surfaces": [
+            {
+              "name": "Agent source picker",
+              "purpose": "Present the structured product UI required for “Attach an existing source”.",
+              "policies": [
+                "Show only eligible sources from the same Workspace, including readiness and whether each source is already attached."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Attach source to agent",
+              "purpose": "Persist one association between the selected eligible Workspace source and the originating agent.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Attach only the exact source selected by the owner and prevent duplicate attachment of the same source.",
+                "Claim success only after the association is persisted and the originating agent shows the attached source."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "agents-attach-existing",
+              "label": "Attach source",
+              "operationName": "Attach source to agent",
+              "visibility": ""
+            }
+          ],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "agents-create-source",
@@ -612,16 +1293,61 @@
               "content": "I will take you to Source Hub and return here with the completed source attached."
             }
           ],
-          "actions": [
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Keep every presented or changed fact bound to the exact selected agent.",
+            "Keep current configuration, historical runnable versions, and active deployment state distinct."
+          ],
+          "capabilities": [
             {
-              "id": "agents-create-source",
-              "label": "Add new source"
+              "name": "Source attachments",
+              "purpose": "Inspect, attach, create, and open sources associated with the selected agent.",
+              "policies": [
+                "Attach only eligible sources from the same Workspace and prevent duplicate attachment.",
+                "Preserve the selected agent across Source Hub and API Source handoffs; navigation alone does not attach or edit a source."
+              ],
+              "operationNames": [
+                "Open source creation",
+                "Attach newly created source"
+              ],
+              "surfaceNames": []
             }
           ],
-          "mockSurfacePath": null,
+          "surfaces": [],
+          "operations": [
+            {
+              "name": "Open source creation",
+              "purpose": "Open Source Hub in creation mode while retaining the originating agent as the return context.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Navigation to source creation does not attach a source and must not be presented as task completion."
+              ]
+            },
+            {
+              "name": "Attach newly created source",
+              "purpose": "Attach the successfully created eligible source to the originating agent and return to that agent.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Attach only a successfully created eligible source; cancellation or source-creation failure returns without changing the agent."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "agents-create-source",
+              "label": "Add new source",
+              "operationName": "Open source creation",
+              "visibility": ""
+            }
+          ],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "agents-open-source",
@@ -641,11 +1367,42 @@
               "content": "I will open that source in its owning feature and keep this agent as the return context."
             }
           ],
-          "actions": [],
           "mockSurfacePath": null,
+          "nodePolicies": [
+            "Keep every presented or changed fact bound to the exact selected agent.",
+            "Keep current configuration, historical runnable versions, and active deployment state distinct."
+          ],
+          "capabilities": [
+            {
+              "name": "Source attachments",
+              "purpose": "Inspect, attach, create, and open sources associated with the selected agent.",
+              "policies": [
+                "Attach only eligible sources from the same Workspace and prevent duplicate attachment.",
+                "Preserve the selected agent across Source Hub and API Source handoffs; navigation alone does not attach or edit a source."
+              ],
+              "operationNames": [
+                "Open attached source"
+              ],
+              "surfaceNames": []
+            }
+          ],
+          "surfaces": [],
+          "operations": [
+            {
+              "name": "Open attached source",
+              "purpose": "Open the selected source in its owning feature while retaining the originating agent as return context.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Preserve the originating agent and return context when navigating to the selected source."
+              ]
+            }
+          ],
+          "suggestedActions": [],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "agents-archive",
@@ -665,16 +1422,60 @@
               "content": "Confirm the agent you want to archive. It will leave the active list but will not be described as deleted."
             }
           ],
-          "actions": [
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Keep every presented or changed fact bound to the exact selected agent.",
+            "Keep current configuration, historical runnable versions, and active deployment state distinct."
+          ],
+          "capabilities": [
             {
-              "id": "agents-archive-confirm",
-              "label": "Archive agent"
+              "name": "Agent lifecycle",
+              "purpose": "Archive or permanently delete the exact selected agent with appropriate consequence awareness.",
+              "policies": [
+                "Identify the target, lifecycle state, deployment state, dependencies, and blockers before confirmation.",
+                "Archive and delete remain distinct; consequential actions require explicit confirmation and authoritative completion or visible failure."
+              ],
+              "operationNames": [
+                "Archive agent"
+              ],
+              "surfaceNames": [
+                "Agent lifecycle review"
+              ]
             }
           ],
-          "mockSurfacePath": null,
+          "surfaces": [
+            {
+              "name": "Agent lifecycle review",
+              "purpose": "Present the structured product UI required for “Archive an agent”.",
+              "policies": [
+                "Identify the exact agent and show relevant lifecycle and deployment consequences before archive confirmation."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Archive agent",
+              "purpose": "Move the confirmed agent out of the active list while preserving it as an archived record.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Archive only after explicit confirmation of the selected agent; never infer archive intent from list filtering or navigation.",
+                "Archive is not deletion: preserve the agent record and report success only after it leaves the active list; blockers or failure remain visible."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "agents-archive-confirm",
+              "label": "Archive agent",
+              "operationName": "Archive agent",
+              "visibility": ""
+            }
+          ],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "agents-delete",
@@ -694,16 +1495,60 @@
               "content": "I will check its dependencies and ask you to confirm the exact agent before permanent deletion."
             }
           ],
-          "actions": [
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Keep every presented or changed fact bound to the exact selected agent.",
+            "Keep current configuration, historical runnable versions, and active deployment state distinct."
+          ],
+          "capabilities": [
             {
-              "id": "agents-delete-confirm",
-              "label": "Delete permanently"
+              "name": "Agent lifecycle",
+              "purpose": "Archive or permanently delete the exact selected agent with appropriate consequence awareness.",
+              "policies": [
+                "Identify the target, lifecycle state, deployment state, dependencies, and blockers before confirmation.",
+                "Archive and delete remain distinct; consequential actions require explicit confirmation and authoritative completion or visible failure."
+              ],
+              "operationNames": [
+                "Delete agent"
+              ],
+              "surfaceNames": [
+                "Agent lifecycle review"
+              ]
             }
           ],
-          "mockSurfacePath": null,
+          "surfaces": [
+            {
+              "name": "Agent lifecycle review",
+              "purpose": "Present the structured product UI required for “Delete an agent”.",
+              "policies": [
+                "Identify the exact agent, active deployment, attached dependencies, and irreversible consequence before deletion can be confirmed."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Delete agent",
+              "purpose": "Permanently remove the confirmed agent only when its dependencies permit deletion.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Require explicit confirmation after material blockers and consequences are shown; never treat archive intent as delete intent.",
+                "Do not delete while declared blockers remain; claim success only after authoritative removal of the exact agent, and keep failure visible."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "agents-delete-confirm",
+              "label": "Delete permanently",
+              "operationName": "Delete agent",
+              "visibility": ""
+            }
+          ],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         }
       ]
     },
@@ -711,16 +1556,9 @@
       "id": "source-hub",
       "name": "Source Hub",
       "policies": [
-        {
-          "scope": "feature",
-          "scopeName": "Source Hub",
-          "guidance": "Expose only sources owned by the authenticated Workspace."
-        },
-        {
-          "scope": "feature",
-          "scopeName": "Source Hub",
-          "guidance": "At launch, offer API sources only; do not imply database, knowledge, or MCP support."
-        }
+        "Expose only sources owned by the authenticated Workspace.",
+        "At launch, offer API sources only; do not imply database, knowledge, or MCP support.",
+        "Keep source readiness and agent-attachment state truthful; navigation between Source Hub, Agents, and API Source does not itself mutate either record."
       ],
       "stories": [
         {
@@ -741,16 +1579,59 @@
               "content": "Here are your Workspace sources, their readiness, and their agent attachments."
             }
           ],
-          "actions": [
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Use only sources owned by the authenticated Workspace and present type, readiness, and attachment state truthfully.",
+            "At launch expose API sources only; navigation to another feature never implies that a source was created, changed, attached, or deleted."
+          ],
+          "capabilities": [
             {
-              "id": "sources-add-api",
-              "label": "Add API source"
+              "name": "Source inventory",
+              "purpose": "List Workspace sources, readiness, and the agents that use them.",
+              "policies": [
+                "Distinguish empty, processing, ready, failed, attached, and unavailable source states.",
+                "Do not imply support for database, knowledge, or MCP source families during the API-only launch scope."
+              ],
+              "operationNames": [
+                "Open API source creation"
+              ],
+              "surfaceNames": [
+                "Source Hub inventory"
+              ]
             }
           ],
-          "mockSurfacePath": null,
+          "surfaces": [
+            {
+              "name": "Source Hub inventory",
+              "purpose": "Present the structured product UI required for “View sources”.",
+              "policies": [
+                "Distinguish empty, processing, ready, failed, attached, and unavailable states; at launch present API as the only available source family."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Open API source creation",
+              "purpose": "Open API Source for a new source while preserving any calling-agent attachment context.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Opening API Source starts the creation path but does not create, upload, process, or attach a source."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "sources-add-api",
+              "label": "Add API source",
+              "operationName": "Open API source creation",
+              "visibility": ""
+            }
+          ],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "sources-start-api",
@@ -770,16 +1651,49 @@
               "content": "I will open API Source and keep your current attachment context if you arrived from an agent."
             }
           ],
-          "actions": [
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Use only sources owned by the authenticated Workspace and present type, readiness, and attachment state truthfully.",
+            "At launch expose API sources only; navigation to another feature never implies that a source was created, changed, attached, or deleted."
+          ],
+          "capabilities": [
             {
-              "id": "sources-open-api",
-              "label": "Add API source"
+              "name": "API source entry",
+              "purpose": "Start API-source creation or description work in the API Source feature.",
+              "policies": [
+                "Enter API Source only from Source Hub with the exact selected source or new-source intent.",
+                "Preserve any originating agent context and do not claim source creation before API Source completes it."
+              ],
+              "operationNames": [
+                "Open API source creation"
+              ],
+              "surfaceNames": []
             }
           ],
-          "mockSurfacePath": null,
+          "surfaces": [],
+          "operations": [
+            {
+              "name": "Open API source creation",
+              "purpose": "Open API Source for a new source while preserving any calling-agent attachment context.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Navigation to API Source does not create a source or imply that an API file has been accepted."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "sources-open-api",
+              "label": "Add API source",
+              "operationName": "Open API source creation",
+              "visibility": ""
+            }
+          ],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "sources-select-for-agent",
@@ -799,16 +1713,60 @@
               "content": "I will attach it and return to the agent that started this task."
             }
           ],
-          "actions": [
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Use only sources owned by the authenticated Workspace and present type, readiness, and attachment state truthfully.",
+            "At launch expose API sources only; navigation to another feature never implies that a source was created, changed, attached, or deleted."
+          ],
+          "capabilities": [
             {
-              "id": "sources-select",
-              "label": "Select source"
+              "name": "Agent source selection",
+              "purpose": "Select an eligible existing source for the originating agent and return with it attached.",
+              "policies": [
+                "Show only same-Workspace eligible sources, including readiness and existing attachment state.",
+                "Attach only the exact owner-selected source and claim completion only after the association is persisted."
+              ],
+              "operationNames": [
+                "Attach selected source"
+              ],
+              "surfaceNames": [
+                "Source Hub picker"
+              ]
             }
           ],
-          "mockSurfacePath": null,
+          "surfaces": [
+            {
+              "name": "Source Hub picker",
+              "purpose": "Present the structured product UI required for “Select a source for an agent”.",
+              "policies": [
+                "Show same-Workspace sources eligible for the originating agent, including readiness and existing attachment state."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Attach selected source",
+              "purpose": "Persist the selected eligible source on the originating agent and return to that agent.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Use the exact owner-selected source and prevent duplicate attachment; do not auto-select based on name similarity.",
+                "Return to the originating agent and claim completion only after the selected source association is persisted."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "sources-select",
+              "label": "Select source",
+              "operationName": "Attach selected source",
+              "visibility": ""
+            }
+          ],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "sources-delete",
@@ -828,16 +1786,60 @@
               "content": "I will show where it is used and ask for confirmation before deleting it."
             }
           ],
-          "actions": [
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Use only sources owned by the authenticated Workspace and present type, readiness, and attachment state truthfully.",
+            "At launch expose API sources only; navigation to another feature never implies that a source was created, changed, attached, or deleted."
+          ],
+          "capabilities": [
             {
-              "id": "sources-delete-confirm",
-              "label": "Delete source"
+              "name": "Source lifecycle",
+              "purpose": "Delete an exact API source when its agent attachments and other dependencies permit removal.",
+              "policies": [
+                "Show the selected source, attachments, processing state, and blockers before explicit confirmation.",
+                "Do not delete while declared blockers remain; authoritative deletion or visible failure is required."
+              ],
+              "operationNames": [
+                "Delete API source"
+              ],
+              "surfaceNames": [
+                "Source deletion review"
+              ]
             }
           ],
-          "mockSurfacePath": null,
+          "surfaces": [
+            {
+              "name": "Source deletion review",
+              "purpose": "Present the structured product UI required for “Delete an API source”.",
+              "policies": [
+                "Identify the exact source, attached agents, processing state, and other material blockers before confirmation."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Delete API source",
+              "purpose": "Permanently remove the confirmed API source only when its attachments and processing state permit deletion.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Require explicit confirmation of the selected source after dependencies and consequences are shown.",
+                "Do not delete while declared dependencies block removal; claim success only after authoritative deletion and keep failure visible."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "sources-delete-confirm",
+              "label": "Delete source",
+              "operationName": "Delete API source",
+              "visibility": ""
+            }
+          ],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "sources-start-description",
@@ -857,16 +1859,49 @@
               "content": "I will open that API source at its description input and return here when it is saved."
             }
           ],
-          "actions": [
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Use only sources owned by the authenticated Workspace and present type, readiness, and attachment state truthfully.",
+            "At launch expose API sources only; navigation to another feature never implies that a source was created, changed, attached, or deleted."
+          ],
+          "capabilities": [
             {
-              "id": "sources-add-description",
-              "label": "Add API description"
+              "name": "API source entry",
+              "purpose": "Start API-source creation or description work in the API Source feature.",
+              "policies": [
+                "Enter API Source only from Source Hub with the exact selected source or new-source intent.",
+                "Preserve any originating agent context and do not claim source creation before API Source completes it."
+              ],
+              "operationNames": [
+                "Open API description editor"
+              ],
+              "surfaceNames": []
             }
           ],
-          "mockSurfacePath": null,
+          "surfaces": [],
+          "operations": [
+            {
+              "name": "Open API description editor",
+              "purpose": "Open the selected API source at its Markdown description input while preserving Source Hub return context.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Navigation to the description input does not upload, validate, save, or process description content."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "sources-add-description",
+              "label": "Add API description",
+              "operationName": "Open API description editor",
+              "visibility": ""
+            }
+          ],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         }
       ]
     },
@@ -874,16 +1909,11 @@
       "id": "api-source",
       "name": "API Source",
       "policies": [
-        {
-          "scope": "feature",
-          "scopeName": "API Source",
-          "guidance": "Keep API specifications, credentials, artifacts, and processing isolated to the authenticated Workspace."
-        },
-        {
-          "scope": "feature",
-          "scopeName": "API Source",
-          "guidance": "Enter API Source only from Source Hub and keep processing failures explicit."
-        }
+        "Keep API specifications, credentials, artifacts, and processing isolated to the authenticated Workspace.",
+        "Enter API Source only from Source Hub and keep processing failures explicit.",
+        "Bind configuration, processing status, graph artifacts, operation selections, and recovery evidence to the exact API source revision they describe.",
+        "Never expose stored credentials, tokens, or private connection bindings in chat, surfaces, logs, or generated artifacts.",
+        "Present only real persisted ToolRouter results as processed artifacts; never substitute fixtures, synthetic graphs, cached success, or alternate processing paths."
       ],
       "stories": [
         {
@@ -904,16 +1934,71 @@
               "content": "I will validate the file and create a source revision only if it is accepted."
             }
           ],
-          "actions": [
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Keep specification and description inputs distinct and bind every accepted change to the exact Workspace-owned API source.",
+            "Reject invalid inputs explicitly and never substitute fixtures, samples, or synthetic content."
+          ],
+          "capabilities": [
             {
-              "id": "api-upload",
-              "label": "Upload YAML"
+              "name": "Specification revisions",
+              "purpose": "Validate an OpenAPI YAML file and create an identifiable accepted source revision.",
+              "policies": [
+                "Enforce documented format and file limits; invalid input creates no accepted revision.",
+                "Bind subsequent connection, processing, graph, and curation state to the exact accepted revision."
+              ],
+              "operationNames": [
+                "Upload YAML",
+                "Accept API revision"
+              ],
+              "surfaceNames": [
+                "API intake and connection"
+              ]
             }
           ],
-          "mockSurfacePath": null,
+          "surfaces": [
+            {
+              "name": "API intake and connection",
+              "purpose": "Present the structured product UI required for “Upload an API YAML file”.",
+              "policies": [
+                "Accept only the documented OpenAPI YAML format and file limits, and show exact validation errors without substituting sample content."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Upload YAML",
+              "purpose": "Submit the owner-selected OpenAPI YAML file for format and file-limit validation.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Process only the file explicitly chosen by the owner and never replace missing or invalid input with a fixture or example specification."
+              ]
+            },
+            {
+              "name": "Accept API revision",
+              "purpose": "Create an identifiable API source revision from the validated OpenAPI YAML file.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Invalid input creates no accepted revision; successful acceptance creates an identifiable revision bound to the uploaded file."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "api-upload",
+              "label": "Upload YAML",
+              "operationName": "Upload YAML",
+              "visibility": ""
+            }
+          ],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "api-description",
@@ -933,16 +2018,67 @@
               "content": "I will validate it as descriptive context and keep it separate from the OpenAPI specification."
             }
           ],
-          "actions": [
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Keep specification and description inputs distinct and bind every accepted change to the exact Workspace-owned API source.",
+            "Reject invalid inputs explicitly and never substitute fixtures, samples, or synthetic content."
+          ],
+          "capabilities": [
             {
-              "id": "api-description-upload",
-              "label": "Upload Markdown"
+              "name": "Description context",
+              "purpose": "Validate and save Markdown guidance that helps Corpus understand the selected API.",
+              "policies": [
+                "Treat Markdown as supporting context rather than as the API specification and render it without active content execution.",
+                "A failed description update must not replace the previously persisted valid description."
+              ],
+              "operationNames": [
+                "Save API description"
+              ],
+              "surfaceNames": [
+                "API intake and connection",
+                "API description"
+              ]
             }
           ],
-          "mockSurfacePath": null,
+          "surfaces": [
+            {
+              "name": "API intake and connection",
+              "purpose": "Present the structured product UI required for “Add or update the API description”.",
+              "policies": [
+                "Present Markdown description as supporting context distinct from the OpenAPI specification and enforce its documented file limits."
+              ]
+            },
+            {
+              "name": "API description",
+              "purpose": "Present the structured product UI required for “Add or update the API description”.",
+              "policies": [
+                "Render description content safely without executing embedded active content or exposing unrelated private files."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Save API description",
+              "purpose": "Persist the validated Markdown description on the selected API source without changing its OpenAPI revision.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Persist valid description content only to the selected API source; invalid or failed uploads must not replace the prior description."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "api-description-upload",
+              "label": "Upload Markdown",
+              "operationName": "Save API description",
+              "visibility": ""
+            }
+          ],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "api-configure-connection",
@@ -962,20 +2098,78 @@
               "content": "I will keep the credential private, show the non-secret connection settings, and only run a safe check when you request it."
             }
           ],
-          "actions": [
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Keep configuration bound to the exact source revision and named environment or profile.",
+            "Keep credentials, tokens, and private connection bindings masked and out of chat, logs, and generated artifacts."
+          ],
+          "capabilities": [
+            {
+              "name": "Connection profiles",
+              "purpose": "Save connection settings and perform an explicitly requested safe connection check.",
+              "policies": [
+                "Keep saving configuration and testing a connection as distinct owner actions.",
+                "A failed check remains a failure; never switch endpoint, environment, credentials, or provider silently."
+              ],
+              "operationNames": [
+                "Save API connection",
+                "Test API connection"
+              ],
+              "surfaceNames": [
+                "API intake and connection"
+              ]
+            }
+          ],
+          "surfaces": [
+            {
+              "name": "API intake and connection",
+              "purpose": "Present the structured product UI required for “Configure the API connection”.",
+              "policies": [
+                "Distinguish base URL, authentication method, non-secret settings, and private credentials; keep secret values masked and out of chat."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Save API connection",
+              "purpose": "Persist the validated connection settings and private credential references on the selected API connection profile.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Persist only the exact validated settings and credential references supplied for the selected connection profile."
+              ]
+            },
+            {
+              "name": "Test API connection",
+              "purpose": "Run an explicitly requested safe check against the selected API connection profile and return the observed result.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Run a safe connection check only when explicitly requested and keep testing distinct from saving configuration.",
+                "A failed or unavailable check remains a failure; never switch provider, environment, credentials, or endpoint silently."
+              ]
+            }
+          ],
+          "suggestedActions": [
             {
               "id": "api-save-connection",
-              "label": "Save connection"
+              "label": "Save connection",
+              "operationName": "Save API connection",
+              "visibility": ""
             },
             {
               "id": "api-test-connection",
-              "label": "Test connection"
+              "label": "Test connection",
+              "operationName": "Test API connection",
+              "visibility": ""
             }
           ],
-          "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "api-process-toolrouter",
@@ -995,16 +2189,60 @@
               "content": "I will run ToolRouter against this exact revision and report each completed phase or failure."
             }
           ],
-          "actions": [
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Use the real ToolRouter pipeline for the exact revision and present only observed processing states and persisted artifacts.",
+            "Never invent progress, substitute cached or synthetic success, or mark a revision ready before required processing completes."
+          ],
+          "capabilities": [
             {
-              "id": "api-process",
-              "label": "Process API"
+              "name": "ToolRouter processing",
+              "purpose": "Start one processing run, expose real phases, and produce the semantic graph and operation inventory.",
+              "policies": [
+                "Start only after explicit owner request and satisfied prerequisites; avoid duplicate concurrent runs for the same revision.",
+                "Keep active, completed, failed, and ready states distinct and supported by actual evidence."
+              ],
+              "operationNames": [
+                "Process API through ToolRouter"
+              ],
+              "surfaceNames": [
+                "API processing status"
+              ]
             }
           ],
-          "mockSurfacePath": null,
+          "surfaces": [
+            {
+              "name": "API processing status",
+              "purpose": "Present the structured product UI required for “Process the API through ToolRouter”.",
+              "policies": [
+                "Identify the exact accepted revision and show unmet prerequisites before processing can start."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Process API through ToolRouter",
+              "purpose": "Run ToolRouter for the exact accepted revision, persist its real artifacts, and update that revision's processing state.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Start processing only after explicit owner request and do not create duplicate concurrent runs for the same revision.",
+                "Use the real ToolRouter pipeline for the exact revision; never substitute cached success, a mock graph, or another processor."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "api-process",
+              "label": "Process API",
+              "operationName": "Process API through ToolRouter",
+              "visibility": ""
+            }
+          ],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "api-monitor-processing",
@@ -1024,11 +2262,39 @@
               "content": "I will show the latest recorded processing phase and the exact failure if processing stopped."
             }
           ],
-          "actions": [],
           "mockSurfacePath": null,
+          "nodePolicies": [
+            "Use the real ToolRouter pipeline for the exact revision and present only observed processing states and persisted artifacts.",
+            "Never invent progress, substitute cached or synthetic success, or mark a revision ready before required processing completes."
+          ],
+          "capabilities": [
+            {
+              "name": "ToolRouter processing",
+              "purpose": "Start one processing run, expose real phases, and produce the semantic graph and operation inventory.",
+              "policies": [
+                "Start only after explicit owner request and satisfied prerequisites; avoid duplicate concurrent runs for the same revision.",
+                "Keep active, completed, failed, and ready states distinct and supported by actual evidence."
+              ],
+              "operationNames": [],
+              "surfaceNames": [
+                "API processing status"
+              ]
+            }
+          ],
+          "surfaces": [
+            {
+              "name": "API processing status",
+              "purpose": "Present the structured product UI required for “Monitor API processing”.",
+              "policies": [
+                "Show only observed phases, states, timestamps, and evidence; never invent a percentage, phase, or success state.",
+                "Keep actionable failure detail visible without exposing credentials, private bindings, or unrelated Workspace data."
+              ]
+            }
+          ],
+          "operations": [],
+          "suggestedActions": [],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "api-inspect-graph",
@@ -1048,11 +2314,38 @@
               "content": "I will open the graph produced for this revision and keep every node tied to its source evidence."
             }
           ],
-          "actions": [],
           "mockSurfacePath": null,
+          "nodePolicies": [
+            "Use only graph artifacts produced for the exact selected revision and retain source evidence for presented nodes and edges.",
+            "Do not describe persisted inspection or replay as live ToolRouter processing."
+          ],
+          "capabilities": [
+            {
+              "name": "Graph inspection",
+              "purpose": "Explore persisted nodes and relationships for the selected API revision.",
+              "policies": [
+                "If graph artifacts are unavailable, show that state explicitly rather than constructing a synthetic graph.",
+                "Never mix nodes, edges, or evidence from another API source or revision."
+              ],
+              "operationNames": [],
+              "surfaceNames": [
+                "API graph explorer"
+              ]
+            }
+          ],
+          "surfaces": [
+            {
+              "name": "API graph explorer",
+              "purpose": "Present the structured product UI required for “Inspect the semantic graph”.",
+              "policies": [
+                "Render only the persisted graph for the selected revision and retain the identity of its nodes, edges, and source evidence."
+              ]
+            }
+          ],
+          "operations": [],
+          "suggestedActions": [],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "api-replay-graph",
@@ -1072,20 +2365,65 @@
               "content": "I will replay the recorded construction events in order, one node at a time."
             }
           ],
-          "actions": [
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Use only graph artifacts produced for the exact selected revision and retain source evidence for presented nodes and edges.",
+            "Do not describe persisted inspection or replay as live ToolRouter processing."
+          ],
+          "capabilities": [
+            {
+              "name": "Construction replay",
+              "purpose": "Replay recorded graph-construction events with pause, resume, and step controls.",
+              "policies": [
+                "Replay events only in recorded order and keep playback controls from mutating or rerunning the graph.",
+                "Label replay as recorded evidence and never claim live streaming when no live stream exists."
+              ],
+              "operationNames": [
+                "Control graph replay"
+              ],
+              "surfaceNames": [
+                "API graph explorer"
+              ]
+            }
+          ],
+          "surfaces": [
+            {
+              "name": "API graph explorer",
+              "purpose": "Present the structured product UI required for “Replay graph construction”.",
+              "policies": [
+                "Replay only persisted construction events in their recorded order and keep pause, resume, and step controls from mutating the graph."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Control graph replay",
+              "purpose": "Change the playback position of the persisted construction trace without rerunning processing or mutating the graph.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Replay commands change only replay position; they do not rerun processing or create new graph artifacts."
+              ]
+            }
+          ],
+          "suggestedActions": [
             {
               "id": "api-replay-start",
-              "label": "Replay construction"
+              "label": "Replay construction",
+              "operationName": "Control graph replay",
+              "visibility": ""
             },
             {
               "id": "api-replay-step",
-              "label": "Step"
+              "label": "Step",
+              "operationName": "Control graph replay",
+              "visibility": ""
             }
           ],
-          "mockSurfacePath": null,
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "api-curate-operations",
@@ -1105,16 +2443,60 @@
               "content": "I will keep those exact discovered operations and exclude the others from downstream agent design."
             }
           ],
-          "actions": [
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Use only operations discovered for the selected revision and distinguish included from excluded operations visibly.",
+            "Never invent, rename, infer, or silently broaden the owner's operation selection."
+          ],
+          "capabilities": [
             {
-              "id": "api-save-operations",
-              "label": "Save operation selection"
+              "name": "Operation selection",
+              "purpose": "Persist explicit inclusion decisions for the exact discovered operation inventory.",
+              "policies": [
+                "Treat inspection, search, or filtering as non-mutating; save only explicit owner selections.",
+                "Bind the saved selection to the revision and require review when a new revision changes the discovered inventory."
+              ],
+              "operationNames": [
+                "Save operation curation"
+              ],
+              "surfaceNames": [
+                "API operation curation"
+              ]
             }
           ],
-          "mockSurfacePath": null,
+          "surfaces": [
+            {
+              "name": "API operation curation",
+              "purpose": "Present the structured product UI required for “Curate API operations”.",
+              "policies": [
+                "Show exact operations discovered for the selected revision and visibly distinguish included from excluded operations."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Save operation curation",
+              "purpose": "Persist the owner's exact included and excluded discovered operations for the selected API revision.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Persist only the owner's explicit inclusion decisions and never infer selection from inspection, filtering, or search.",
+                "Do not invent, rename, or silently broaden discovered operations; bind the saved selection to the exact source revision."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "api-save-operations",
+              "label": "Save operation selection",
+              "operationName": "Save operation curation",
+              "visibility": ""
+            }
+          ],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         },
         {
           "id": "api-recover-processing",
@@ -1134,16 +2516,60 @@
               "content": "I will save the corrected input and retry only the failed processing step when you confirm."
             }
           ],
-          "actions": [
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Use the real ToolRouter pipeline for the exact revision and present only observed processing states and persisted artifacts.",
+            "Never invent progress, substitute cached or synthetic success, or mark a revision ready before required processing completes."
+          ],
+          "capabilities": [
             {
-              "id": "api-retry",
-              "label": "Retry processing"
+              "name": "Processing recovery",
+              "purpose": "Preserve failure evidence, accept a valid correction, and explicitly retry the affected processing step.",
+              "policies": [
+                "Keep the failed step, evidence, revision, and valid corrective actions visible; never retry automatically.",
+                "If correction creates a new revision, preserve the prior failure and identify the new revision before reporting success."
+              ],
+              "operationNames": [
+                "Retry API processing"
+              ],
+              "surfaceNames": [
+                "API processing recovery"
+              ]
             }
           ],
-          "mockSurfacePath": null,
+          "surfaces": [
+            {
+              "name": "API processing recovery",
+              "purpose": "Present the structured product UI required for “Recover from API processing failure”.",
+              "policies": [
+                "Keep the original failed step, evidence, affected revision, and valid corrective actions visible during recovery."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Retry API processing",
+              "purpose": "Start a new attempt for the failed processing step using the corrected input while retaining the original failure evidence.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Retry only the affected step after explicit owner request; never retry automatically or conceal the original failure.",
+                "Use the corrected real input and required dependency; never substitute a mock, cached success, alternate processor, or generic successful result."
+              ]
+            }
+          ],
+          "suggestedActions": [
+            {
+              "id": "api-retry",
+              "label": "Retry processing",
+              "operationName": "Retry API processing",
+              "visibility": ""
+            }
+          ],
           "status": "draft",
-          "rejectionReason": "",
-          "policies": []
+          "rejectionReason": ""
         }
       ]
     }

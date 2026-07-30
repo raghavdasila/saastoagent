@@ -1,5 +1,6 @@
 import { createSeedState } from "@/workbench/seed"
-import type { AgentPolicyScope, WorkbenchState } from "@/workbench/types"
+import { STUDIO_CONFIG } from "@/workbench/studioConfig"
+import type { WorkbenchState } from "@/workbench/types"
 
 const DESIGN_STATE_ENDPOINT = "/__design-studio/state"
 let saveQueue: Promise<void> = Promise.resolve()
@@ -12,24 +13,52 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
 }
 
-const POLICY_SCOPES = new Set<AgentPolicyScope>([
-  "feature",
-  "behavior",
-  "node",
-  "capability",
-  "surface",
-  "action",
-  "operation",
-  "other",
-])
-
 function hasValidPolicies(value: unknown): boolean {
-  return Array.isArray(value) && value.every((policy) => (
-    isRecord(policy)
-    && typeof policy.scope === "string"
-    && POLICY_SCOPES.has(policy.scope as AgentPolicyScope)
-    && typeof policy.scopeName === "string"
-    && typeof policy.guidance === "string"
+  return Array.isArray(value) && value.every((policy) => typeof policy === "string")
+}
+
+function hasValidCapabilities(value: unknown): boolean {
+  return Array.isArray(value) && value.every((capability) => (
+    isRecord(capability)
+    && typeof capability.name === "string"
+    && typeof capability.purpose === "string"
+    && Array.isArray(capability.operationNames)
+    && capability.operationNames.every((name) => typeof name === "string")
+    && Array.isArray(capability.surfaceNames)
+    && capability.surfaceNames.every((name) => typeof name === "string")
+    && hasValidPolicies(capability.policies)
+  ))
+}
+
+function hasValidSurfaces(value: unknown): boolean {
+  return Array.isArray(value) && value.every((surface) => (
+    isRecord(surface)
+    && typeof surface.name === "string"
+    && typeof surface.purpose === "string"
+    && hasValidPolicies(surface.policies)
+  ))
+}
+
+function hasValidOperations(value: unknown): boolean {
+  return Array.isArray(value) && value.every((operation) => (
+    isRecord(operation)
+    && typeof operation.name === "string"
+    && typeof operation.purpose === "string"
+    && typeof operation.inputs === "string"
+    && typeof operation.outcomes === "string"
+    && typeof operation.safetyAndReview === "string"
+    && typeof operation.recovery === "string"
+    && hasValidPolicies(operation.policies)
+  ))
+}
+
+function hasValidSuggestedActions(value: unknown): boolean {
+  return Array.isArray(value) && value.every((action) => (
+    isRecord(action)
+    && typeof action.id === "string"
+    && typeof action.label === "string"
+    && typeof action.operationName === "string"
+    && typeof action.visibility === "string"
   ))
 }
 
@@ -56,10 +85,12 @@ function hasValidFeatureData(value: unknown): boolean {
         && (message.actor === "Corpus" || message.actor === "Owner")
         && typeof message.content === "string"
       ))
-      && Array.isArray(story.actions)
-      && story.actions.every((action) => isRecord(action) && typeof action.id === "string" && typeof action.label === "string")
       && (story.mockSurfacePath === null || typeof story.mockSurfacePath === "string")
-      && hasValidPolicies(story.policies)
+      && hasValidPolicies(story.nodePolicies)
+      && hasValidCapabilities(story.capabilities)
+      && hasValidSurfaces(story.surfaces)
+      && hasValidOperations(story.operations)
+      && hasValidSuggestedActions(story.suggestedActions)
       && (story.status === "draft" || story.status === "approved" || story.status === "rejected")
       && typeof story.rejectionReason === "string"
     ))
@@ -68,7 +99,7 @@ function hasValidFeatureData(value: unknown): boolean {
 
 function isWorkbenchState(value: unknown): value is WorkbenchState {
   return isRecord(value)
-    && value.version === 13
+    && value.version === 15
     && hasValidFeatureData(value.features)
 }
 
@@ -107,4 +138,17 @@ export async function resetWorkbenchState(): Promise<WorkbenchState> {
   const state = createSeedState()
   await saveWorkbenchState(state)
   return state
+}
+
+export function exportWorkbenchState(state: WorkbenchState): void {
+  const blob = new Blob([`${JSON.stringify(state, null, 2)}\n`], { type: "application/json" })
+  const objectUrl = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+  anchor.href = objectUrl
+  anchor.download = STUDIO_CONFIG.exportFilename
+  anchor.hidden = true
+  document.body.append(anchor)
+  anchor.click()
+  anchor.remove()
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0)
 }

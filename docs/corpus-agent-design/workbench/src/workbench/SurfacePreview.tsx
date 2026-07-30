@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { ArrowUp } from "lucide-react"
+import { ArrowUp, ChevronDown, PanelsTopLeft } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -21,7 +21,6 @@ export function resolveInlineSurfaceHeight(contentHeight: number, chatHeight: nu
 
   return Math.max(1, Math.min(safeContentHeight, Math.floor(safeChatHeight / 2)))
 }
-
 export function SurfacePreview({ story, theme }: { story: DesignStory; theme: Theme }) {
   const chatSurfaceRef = useRef<HTMLDivElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
@@ -80,37 +79,33 @@ export function SurfacePreview({ story, theme }: { story: DesignStory; theme: Th
   }, [])
 
   return (
-    <section aria-labelledby="experience-preview-heading" className="flex min-h-0 flex-col gap-2 lg:h-full">
-      <div className="flex items-center justify-between gap-3">
-        <h2 id="experience-preview-heading" className="text-sm font-semibold">Behavior paths</h2>
-        <span className="text-xs text-muted-foreground">Same task, two interaction modes</span>
+    <section aria-labelledby="experience-preview-heading" className="flex min-h-0 flex-col gap-3 lg:h-full">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 id="experience-preview-heading" className="text-sm font-semibold tracking-[-0.01em]">Behavior paths</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">Same task, two interaction modes</p>
+        </div>
+        <details className="group rounded-md border border-border bg-[var(--studio-panel-subtle)] px-2.5 py-1.5 text-xs">
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 font-medium text-muted-foreground [&::-webkit-details-marker]:hidden">
+            <ChevronDown className="size-3 transition-transform group-open:rotate-180" />
+            {story.capabilities.length} capabilities · {story.surfaces.length} surfaces · {story.operations.length} operations
+          </summary>
+          <div className="mt-2 space-y-1.5 border-t border-border pt-2 text-muted-foreground">
+            <p><span className="font-medium text-foreground">Node AgentPolicies:</span> {story.nodePolicies.length}</p>
+            {story.capabilities.map((capability, index) => <p key={`capability-${index}`}><span className="font-medium text-foreground">Capability:</span> {capability.name || "Unnamed capability"}</p>)}
+            {story.operations.map((operation, index) => <p key={`operation-${index}`}><span className="font-medium text-foreground">Operation:</span> {operation.name || "Unnamed operation"}</p>)}
+          </div>
+        </details>
       </div>
 
-      <details className="border border-border px-3 py-2 text-xs">
-        <summary className="cursor-pointer font-medium">Behavior policies ({story.policies.length})</summary>
-        <div className="mt-2 space-y-2 border-l border-border pl-2">
-          {story.policies.length === 0 && <p className="text-muted-foreground">No policies defined for this behavior.</p>}
-          {story.policies.map((policy, index) => (
-            <p key={index}>
-              <span className="font-medium capitalize">{policy.scope}</span>
-              <span className="text-muted-foreground"> · {policy.scopeName || "Unnamed scope"}</span>
-              <span> — {policy.guidance || "No guidance yet."}</span>
-            </p>
-          ))}
-        </div>
-      </details>
-
-      <div ref={chatSurfaceRef} className="grid min-h-96 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] overflow-hidden border border-border bg-background lg:min-h-0">
+      <div ref={chatSurfaceRef} className="grid min-h-96 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] overflow-hidden rounded-lg border border-border bg-[var(--studio-field)] shadow-[var(--studio-shadow-panel)] lg:min-h-0">
         <section aria-labelledby="surface-path-heading" className="flex min-h-0 flex-col border-b border-border">
-          <div className="border-b border-border px-3 py-2">
-            <h3 id="surface-path-heading" className="text-xs font-semibold uppercase tracking-wide">Surface path</h3>
-            <p className="text-xs text-muted-foreground">The task completed through structured product UI.</p>
-          </div>
+          <PathHeader id="surface-path-heading" title="Surface path" description="The task completed through structured product UI." />
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
             {story.mockSurfacePath ? (
               <iframe
                 ref={iframeRef}
-                className="block w-full border-0 bg-background"
+                className="block w-full rounded-md border-0 bg-background"
                 src={story.mockSurfacePath}
                 title={`Mock surface: ${story.title}`}
                 sandbox="allow-scripts"
@@ -118,50 +113,50 @@ export function SurfacePreview({ story, theme }: { story: DesignStory; theme: Th
                 onLoad={() => iframeRef.current?.contentWindow?.postMessage({ type: SURFACE_HEIGHT_REQUEST }, "*")}
               />
             ) : (
-              <div className="grid min-h-40 place-items-center border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
-                No surface path designed for this behavior.
+              <div className="grid min-h-40 h-full place-items-center rounded-md border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
+                <div>
+                  <PanelsTopLeft className="mx-auto mb-3 size-6 text-muted-foreground/70" strokeWidth={1.5} />
+                  <p>No surface path designed for this behavior.</p>
+                </div>
               </div>
             )}
           </div>
         </section>
 
         <section aria-labelledby="chat-path-heading" className="flex min-h-0 flex-col">
-          <div className="border-b border-border px-3 py-2">
-            <h3 id="chat-path-heading" className="text-xs font-semibold uppercase tracking-wide">Chat path</h3>
-            <p className="text-xs text-muted-foreground">The same task completed conversationally.</p>
-          </div>
+          <PathHeader id="chat-path-heading" title="Chat path" description="The same task completed conversationally." />
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
             <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col justify-end gap-3">
-            {story.messages.map((message) => (
-              <div
-                key={message.id}
-                className={cn(
-                  "max-w-[84%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
-                  message.actor === "Owner"
-                    ? "ml-auto bg-primary text-primary-foreground"
-                    : "mr-auto bg-muted text-foreground",
-                )}
-              >
-                <p className="mb-1 text-[11px] font-semibold opacity-65">{message.actor}</p>
-                <p>{message.content || "Empty message"}</p>
-              </div>
-            ))}
+              {story.messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={cn(
+                    "max-w-[84%] rounded-xl border px-4 py-3 text-[13px] leading-relaxed shadow-[var(--studio-shadow-panel)]",
+                    message.actor === "Owner"
+                      ? "ml-auto border-primary/30 bg-primary text-primary-foreground"
+                      : "mr-auto border-border bg-[var(--studio-panel-raised)] text-foreground",
+                  )}
+                >
+                  <p className="mb-1 text-[11px] font-semibold opacity-65">{message.actor}</p>
+                  <p>{message.content || "Empty message"}</p>
+                </div>
+              ))}
 
-            {story.messages.length === 0 && <p className="text-center text-sm text-muted-foreground">No chat path drafted yet.</p>}
+              {story.messages.length === 0 && <p className="text-center text-sm text-muted-foreground">No chat path drafted yet.</p>}
             </div>
           </div>
-          <div className="border-t border-border bg-background px-4 py-3">
-            {story.actions.length > 0 && (
-              <div className="mb-3 flex flex-wrap gap-2" aria-label="Available actions">
-                {story.actions.map((action) => (
+          <div className="border-t border-border bg-[var(--studio-panel)] px-4 py-3">
+            {story.suggestedActions.length > 0 && (
+              <div className="mb-3 flex flex-wrap gap-2" aria-label="Suggested actions">
+                {story.suggestedActions.map((action) => (
                   <Button key={action.id} type="button" variant="outline" size="sm">
-                    {action.label || "Untitled action"}
+                    {action.label || "Untitled suggested action"}
                   </Button>
                 ))}
               </div>
             )}
-            <div className="flex items-center gap-3 rounded-2xl border border-input bg-card px-4 py-3 shadow-sm">
-              <span className="min-w-0 flex-1 text-sm text-muted-foreground">Message Corpus...</span>
+            <div className="flex items-center gap-3 rounded-lg border border-input bg-[var(--studio-field)] px-3 py-2 shadow-[var(--studio-shadow-panel)]">
+              <span className="min-w-0 flex-1 text-[13px] text-muted-foreground">Message Corpus...</span>
               <span className="grid size-8 place-items-center rounded-full bg-primary text-primary-foreground" aria-hidden="true">
                 <ArrowUp className="size-4" />
               </span>
@@ -170,5 +165,17 @@ export function SurfacePreview({ story, theme }: { story: DesignStory; theme: Th
         </section>
       </div>
     </section>
+  )
+}
+
+function PathHeader({ id, title, description }: { id: string; title: string; description: string }) {
+  return (
+    <div className="flex shrink-0 items-start gap-2 border-b border-border bg-[var(--studio-panel)] px-3 py-2.5">
+      <ChevronDown className="mt-0.5 size-3.5 text-muted-foreground" aria-hidden="true" />
+      <div>
+        <h3 id={id} className="text-xs font-semibold">{title}</h3>
+        <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+      </div>
+    </div>
   )
 }

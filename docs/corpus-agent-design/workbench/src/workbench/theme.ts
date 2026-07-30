@@ -1,6 +1,6 @@
 export type Theme = "light" | "dark"
 
-export const THEME_STORAGE_KEY = "corpus.feature-design-workbench.theme"
+export const THEME_STORAGE_KEY = "routedeck.agent-design-studio.theme"
 
 export function loadTheme(): Theme {
   const saved = localStorage.getItem(THEME_STORAGE_KEY)

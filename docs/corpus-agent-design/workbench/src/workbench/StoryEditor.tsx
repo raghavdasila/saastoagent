@@ -1,6 +1,8 @@
 import { Input } from "@/components/ui/input"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Textarea } from "@/components/ui/textarea"
+import { cn } from "@/lib/utils"
+import { STUDIO_CONFIG } from "@/workbench/studioConfig"
 import type { DesignStory } from "@/workbench/types"
 
 interface StoryEditorProps {
@@ -11,21 +13,32 @@ interface StoryEditorProps {
 
 export function StoryEditor({ story, disabled, onChange }: StoryEditorProps) {
   return (
-    <section aria-labelledby="story-heading" className="flex flex-col gap-3">
-      <div>
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-semibold text-muted-foreground">Behavior</p>
-          {story.status === "draft" && <span className="text-xs font-medium text-muted-foreground">Draft</span>}
+    <section aria-labelledby="story-heading" className="pb-5">
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+            <span>{STUDIO_CONFIG.views.behavior.label}</span>
+            <span aria-hidden="true">·</span>
+            <span className={cn(
+              story.status === "approved" && "text-[var(--studio-success)]",
+              story.status === "rejected" && "text-destructive",
+            )}>
+              {story.status[0].toUpperCase() + story.status.slice(1)}
+            </span>
+          </div>
+          <h2 id="story-heading" className="mt-1 truncate text-xl font-semibold tracking-[-0.025em]">{story.title}</h2>
         </div>
-        <h2 id="story-heading" className="mt-0.5 text-lg font-semibold tracking-tight">{story.title}</h2>
+        <span className="shrink-0 rounded-full border border-primary/35 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+          {STUDIO_CONFIG.views.behavior.objectType}
+        </span>
       </div>
 
-      <FieldGroup className="gap-3">
+      <FieldGroup className="gap-4">
         <Field>
           <FieldLabel htmlFor="story-title">Title</FieldLabel>
           <Input id="story-title" value={story.title} disabled={disabled} onChange={(event) => onChange({ title: event.target.value })} />
         </Field>
-        <div className="grid gap-3 border-y border-border py-3 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field>
             <FieldLabel htmlFor="user-intent">User intent</FieldLabel>
             <Textarea
