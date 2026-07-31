@@ -125,12 +125,16 @@ public conversations, persistence, revocation, and ownership claims stay in
 - The generic shell renders RouteDeck's Navgraph in an expandable docked rail
   on desktop and a separate header-triggered shadcn Sheet on mobile; neither
   presentation owns or copies navigation state.
-- That shell also offers an Agent context view. It loads RouteDeck's
-  authenticated private/no-store inspection payload for the selected
-  conversation and renders the current default-deny model context, effective
-  ordered policy instructions, and exact assembled system prompt. Corpus does
-  not reconstruct policy scope or prompt assembly in the browser; unsupported
-  driver inspection remains visibly unavailable.
+- The shell mounts RouteDeck's framework-owned `RouteDeckInspector`. RouteDeck
+  owns its Graph/Agent-context switch, authenticated private/no-store
+  inspection lifecycle, topology diagnostics, current default-deny model
+  context, reconstructed messages, effective tools, policy provenance, prompt
+  composition, limits, exclusions, and invalid/unavailable states. Corpus owns
+  only the docked desktop/mobile shell placement around that component; it does
+  not interpret or reconstruct inspection data. The desktop shell owns its
+  accessible 320–720 px resize affordance, while Corpus themes the mounted
+  inspector through RouteDeck's explicit root-class and stable data-attribute
+  styling hooks. Mobile continues to use the fixed Sheet width.
 - The model adapter uses the native `langchain-ollama` integration; readiness
   verifies the exact configured model through the official Ollama Python SDK.
 - A substantive product question from Lounge home is supervised through the

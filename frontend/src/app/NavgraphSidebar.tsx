@@ -1,15 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { ChevronLeft, ChevronRight, Network } from "lucide-react";
 import {
   RouteDeckError,
-  RouteDeckNavGraph,
+  RouteDeckInspector,
   RouteDeckStatus,
   useRouteDeckClientError,
   useRouteDeckMutationRecovery,
   useRouteDeckProjection,
-  useRouteDeckRuntime,
 } from "@routedeck/react";
-import type { JsonObject, RouteDeckInspection } from "@routedeck/core";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -21,39 +19,56 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
+/** Corpus shell placement for the framework-owned RouteDeck inspector. */
 export function NavgraphSidebar() {
-  const runtime = useRouteDeckRuntime();
   const projection = useRouteDeckProjection();
   const clientError = useRouteDeckClientError();
   const mutationRecovery = useRouteDeckMutationRecovery();
   const [expanded, setExpanded] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState(false);
   const [recoveryError, setRecoveryError] = useState<Error | null>(null);
-  const [view, setView] = useState<"graph" | "context">("graph");
-  const [inspection, setInspection] = useState<RouteDeckInspection | null>(null);
-  const [inspectionError, setInspectionError] = useState<Error | null>(null);
-  const [inspectionLoading, setInspectionLoading] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(420);
+  const [resizing, setResizing] = useState(false);
 
-  const loadInspection = useCallback(async () => {
-    setInspectionLoading(true);
-    setInspectionError(null);
-    try {
-      setInspection(await runtime.store.inspect());
-    } catch (caught) {
-      setInspectionError(
-        caught instanceof Error
-          ? caught
-          : new Error("The current agent context could not be inspected."),
-      );
-    } finally {
-      setInspectionLoading(false);
-    }
-  }, [runtime.store]);
+  const sidebarLimits = useCallback(() => ({
+    min: 320,
+    max: Math.max(320, Math.min(720, Math.floor(window.innerWidth * 0.65))),
+  }), []);
 
-  useEffect(() => {
-    if (view !== "context") return;
-    void loadInspection();
-  }, [loadInspection, projection?.projection_version, view]);
+  const clampSidebarWidth = useCallback((width: number) => {
+    const { min, max } = sidebarLimits();
+    return Math.min(max, Math.max(min, width));
+  }, [sidebarLimits]);
+
+  const startResize = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    if (!expanded || event.button !== 0) return;
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = sidebarWidth;
+    setResizing(true);
+    const move = (moveEvent: globalThis.PointerEvent) => {
+      setSidebarWidth(clampSidebarWidth(startWidth + startX - moveEvent.clientX));
+    };
+    const finish = () => {
+      setResizing(false);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", finish);
+  }, [clampSidebarWidth, expanded, sidebarWidth]);
+
+  const resizeWithKeyboard = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight" && event.key !== "Home") return;
+    event.preventDefault();
+    setSidebarWidth((width) => (
+      event.key === "Home"
+        ? clampSidebarWidth(420)
+        : clampSidebarWidth(width + (event.key === "ArrowLeft" ? 24 : -24))
+    ));
+  }, [clampSidebarWidth]);
 
   const recover = useCallback(async (action: () => Promise<unknown>) => {
     setRecoveryError(null);
@@ -77,38 +92,7 @@ export function NavgraphSidebar() {
           </p>
         )}
       </RouteDeckStatus>
-      <div aria-label="Navgraph view" data-navgraph-view-switcher="">
-        <Button
-          type="button"
-          size="sm"
-          variant={view === "graph" ? "default" : "outline"}
-          aria-pressed={view === "graph"}
-          onClick={() => setView("graph")}
-        >
-          Graph
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant={view === "context" ? "default" : "outline"}
-          aria-pressed={view === "context"}
-          onClick={() => setView("context")}
-        >
-          Agent context
-        </Button>
-      </div>
-      {view === "graph" ? (
-        <div data-navgraph-map="">
-          <RouteDeckNavGraph />
-        </div>
-      ) : (
-        <AgentContextInspection
-          inspection={inspection}
-          error={inspectionError}
-          loading={inspectionLoading}
-          onRefresh={() => void loadInspection()}
-        />
-      )}
+      <RouteDeckInspector className="corpus-navgraph-inspector" />
       {projection?.failure === null || projection?.failure === undefined ? null : (
         <RouteDeckError failure={projection.failure} />
       )}
@@ -148,9 +132,26 @@ export function NavgraphSidebar() {
     <aside
       aria-label="Navgraph"
       data-expanded={expanded}
+      data-resizing={resizing}
       data-navgraph-sidebar=""
+      style={{ "--corpus-navgraph-width": `${sidebarWidth}px` } as CSSProperties}
     >
       <div data-navgraph-docked="">
+        {expanded ? (
+          <div
+            role="separator"
+            aria-label="Resize Navgraph sidebar"
+            aria-orientation="vertical"
+            aria-valuemin={sidebarLimits().min}
+            aria-valuemax={sidebarLimits().max}
+            aria-valuenow={sidebarWidth}
+            tabIndex={0}
+            data-navgraph-resize-handle=""
+            onDoubleClick={() => setSidebarWidth(clampSidebarWidth(420))}
+            onKeyDown={resizeWithKeyboard}
+            onPointerDown={startResize}
+          />
+        ) : null}
         <Button
           type="button"
           variant="ghost"
@@ -180,152 +181,31 @@ export function NavgraphSidebar() {
       </div>
 
       <div data-navgraph-mobile="">
-      <Sheet open={mobileExpanded} onOpenChange={setMobileExpanded}>
-        <SheetTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            aria-label="Open Navgraph drawer"
-            className="h-full w-full flex-col gap-1 rounded-none px-2 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <Network data-icon="inline-start" />
-            <span>Navgraph</span>
-          </Button>
-        </SheetTrigger>
-        <SheetContent className="w-[min(92vw,440px)] overflow-y-auto p-0 sm:max-w-[440px]">
-          <SheetHeader className="border-b px-5 py-5">
-            <SheetTitle>Navgraph</SheetTitle>
-            <SheetDescription>
-              Live nodes, operations, and projected surfaces.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="grid gap-4 p-5" data-navgraph-content="">
-            {renderNavgraphContent()}
-          </div>
-        </SheetContent>
-      </Sheet>
+        <Sheet open={mobileExpanded} onOpenChange={setMobileExpanded}>
+          <SheetTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              aria-label="Open Navgraph drawer"
+              className="h-full w-full flex-col gap-1 rounded-none px-2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <Network data-icon="inline-start" />
+              <span>Navgraph</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent className="w-[min(92vw,440px)] overflow-y-auto p-0 sm:max-w-[440px]">
+            <SheetHeader className="border-b px-5 py-5">
+              <SheetTitle>Navgraph</SheetTitle>
+              <SheetDescription>
+                Live nodes, operations, and projected surfaces.
+              </SheetDescription>
+            </SheetHeader>
+            <div className="grid gap-4 p-5" data-navgraph-content="">
+              {renderNavgraphContent()}
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     </aside>
   );
-}
-
-function AgentContextInspection({
-  inspection,
-  error,
-  loading,
-  onRefresh,
-}: {
-  inspection: RouteDeckInspection | null;
-  error: Error | null;
-  loading: boolean;
-  onRefresh: () => void;
-}) {
-  if (loading && inspection === null) {
-    return <p data-agent-context-state="">Loading current agent context…</p>;
-  }
-  if (error !== null) {
-    return (
-      <section role="alert" data-agent-context-state="">
-        <strong>Agent context unavailable</strong>
-        <span>{error.message}</span>
-        <Button type="button" size="sm" variant="outline" onClick={onRefresh}>
-          Retry
-        </Button>
-      </section>
-    );
-  }
-  const payload = inspection?.agent_context;
-  if (payload === null || payload === undefined) {
-    return (
-      <section data-agent-context-state="">
-        <strong>Agent context unavailable</strong>
-        <p>The configured agent driver does not expose an inspection context.</p>
-      </section>
-    );
-  }
-  let parsed: ReturnType<typeof parseAgentContext>;
-  try {
-    parsed = parseAgentContext(payload);
-  } catch (caught) {
-    return (
-      <section role="alert" data-agent-context-state="">
-        <strong>Agent context invalid</strong>
-        <span>{caught instanceof Error ? caught.message : "The inspection payload is invalid."}</span>
-      </section>
-    );
-  }
-  const { modelContext, policies, prompt } = parsed;
-
-  return (
-    <section aria-label="Current agent context" data-agent-context="">
-      <header>
-        <div>
-          <strong>Current agent context</strong>
-          <small>{requireString(modelContext.current_node, "current_node")}</small>
-        </div>
-        <Button type="button" size="sm" variant="outline" disabled={loading} onClick={onRefresh}>
-          Refresh
-        </Button>
-      </header>
-
-      <ContextJsonSection title="Status" value={modelContext.status} />
-      <ContextJsonSection title="Active surface" value={modelContext.active_surface} />
-      <ContextJsonSection title="Visible entities" value={modelContext.visible_entities} />
-      <ContextJsonSection title="Legal tools" value={modelContext.legal_tools} />
-      <ContextJsonSection title="Suggested actions" value={modelContext.suggested_actions} />
-      <ContextJsonSection title="Recent observations" value={modelContext.recent_observations} />
-
-      <section data-agent-context-policies="">
-        <h3>Policies in effect</h3>
-        {policies.length === 0 ? <p>None.</p> : policies.map((policy) => (
-          <article key={requireString(policy.policy_id, "policy_id")}>
-            <strong>{requireString(policy.policy_id, "policy_id")}</strong>
-            <pre>{requireString(policy.instruction, "instruction")}</pre>
-          </article>
-        ))}
-      </section>
-
-      <section data-agent-context-prompt="">
-        <h3>Exact system prompt</h3>
-        <pre>{prompt}</pre>
-      </section>
-    </section>
-  );
-}
-
-function ContextJsonSection({ title, value }: { title: string; value: unknown }) {
-  return (
-    <details data-agent-context-section="">
-      <summary>{title}</summary>
-      <pre>{JSON.stringify(value, null, 2)}</pre>
-    </details>
-  );
-}
-
-function requireObject(value: unknown, field: string): JsonObject {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`Agent context ${field} is invalid.`);
-  }
-  return value as JsonObject;
-}
-
-function parseAgentContext(payload: JsonObject) {
-  const modelContext = requireObject(payload.model_context, "model_context");
-  return {
-    modelContext,
-    prompt: requireString(payload.system_prompt, "system_prompt"),
-    policies: requireObjectArray(modelContext.policies, "policies"),
-  };
-}
-
-function requireObjectArray(value: unknown, field: string): JsonObject[] {
-  if (!Array.isArray(value)) throw new Error(`Agent context ${field} is invalid.`);
-  return value.map((item) => requireObject(item, field));
-}
-
-function requireString(value: unknown, field: string): string {
-  if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`Agent context ${field} is invalid.`);
-  }
-  return value;
 }

@@ -74,6 +74,14 @@ it("renders the permanent chat, projected surface, and Navgraph slot", async () 
   expect(
     within(navgraph).getByRole("region", { name: "Navgraph" }),
   ).toBeVisible();
+  const resizeHandle = within(navgraph).getByRole("separator", {
+    name: "Resize Navgraph sidebar",
+  });
+  expect(resizeHandle).toHaveAttribute("aria-valuenow", "420");
+  fireEvent.keyDown(resizeHandle, { key: "ArrowLeft" });
+  expect(resizeHandle).toHaveAttribute("aria-valuenow", "444");
+  expect(navgraph).toHaveStyle({ "--corpus-navgraph-width": "444px" });
+  expect(navgraph.querySelector(".corpus-navgraph-inspector")).toBeInTheDocument();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
   harness.dispose();
@@ -94,6 +102,9 @@ it("shows the exact current agent context, effective policy prompts, and system 
       route_traces: [],
       diagnostics: {},
       agent_context: {
+        kind: "current_snapshot",
+        snapshot: { session_version: 2, projection_version: 2, event_cursor: 4 },
+        model: { provider: "ollama", name: "test-model" },
         model_context: {
           current_node: "test.home",
           active_surface: null,
@@ -109,7 +120,26 @@ it("shows the exact current agent context, effective policy prompts, and system 
           status: { code: "ready", message: null },
           recent_observations: [],
         },
+        policy_resolution: [
+          {
+            policy_id: "test.policy",
+            instruction: "Use only legal test operations.",
+            scope: "node",
+            owner_id: "test.home",
+            source_order: 0,
+          },
+        ],
+        prompt: {
+          base: "Base prompt",
+          policy_section: "Effective policy prompt",
+          context_section: "Current context",
+          assembled: "Base prompt\n\nEffective policy prompt",
+        },
         system_prompt: "Base prompt\n\nEffective policy prompt",
+        messages: [{ id: "user-1", role: "human", content: "Hello" }],
+        tools: [],
+        limits: { recent_observations: 8 },
+        intentional_exclusions: ["private_form_values"],
       },
     },
   });
@@ -120,7 +150,9 @@ it("shows the exact current agent context, effective policy prompts, and system 
   const context = await screen.findByRole("region", { name: "Current agent context" });
   expect(within(context).getByText("test.policy")).toBeVisible();
   expect(within(context).getByText("Use only legal test operations.")).toBeVisible();
-  expect(within(context).getByText(/Effective policy prompt/)).toBeVisible();
+  expect(within(context).getAllByText(/Effective policy prompt/)).toHaveLength(2);
+  expect(within(context).getByText(/node · test.home/)).toBeVisible();
+  expect(within(context).getByText("Navgraph diagnostics")).toBeVisible();
 
   harness.dispose();
 });

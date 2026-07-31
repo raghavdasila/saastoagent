@@ -191,7 +191,11 @@ button, input, textarea { font: inherit; }
 [data-agent-composer] > [role="alert"] { grid-column: 1 / -1; width: 100%; margin: 0; color: var(--destructive); font-size: 12px; }
 
 [data-navgraph-sidebar] { width: 58px; min-width: 0; overflow: hidden; border-left: 1px solid var(--border); background: var(--sidebar); transition: width 180ms ease; }
-[data-navgraph-sidebar][data-expanded="true"] { width: min(420px, 34vw); }
+[data-navgraph-sidebar][data-expanded="true"] { position: relative; width: var(--corpus-navgraph-width, 420px); max-width: 65vw; }
+[data-navgraph-sidebar][data-resizing="true"] { transition: none; user-select: none; }
+[data-navgraph-resize-handle] { position: absolute; z-index: 3; top: 0; bottom: 0; left: -4px; width: 9px; cursor: ew-resize; touch-action: none; outline: none; }
+[data-navgraph-resize-handle]::after { position: absolute; top: 0; bottom: 0; left: 4px; width: 1px; background: transparent; content: ""; transition: background 120ms ease, box-shadow 120ms ease; }
+[data-navgraph-resize-handle]:hover::after, [data-navgraph-resize-handle]:focus-visible::after, [data-navgraph-sidebar][data-resizing="true"] [data-navgraph-resize-handle]::after { background: var(--ring); box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring) 20%, transparent); }
 [data-navgraph-docked] { display: grid; height: 100%; min-height: 0; grid-template-columns: 58px minmax(0, 1fr); }
 [data-navgraph-docked] > button > span { writing-mode: vertical-rl; }
 [data-navgraph-panel] { min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; border-left: 1px solid var(--border); background: var(--background); scrollbar-gutter: stable; }
@@ -205,16 +209,19 @@ button, input, textarea { font: inherit; }
 [data-navgraph-map] { min-width: 0; }
 [data-navgraph-map] [data-routedeck-navgraph-canvas] { height: min(440px, calc(100dvh - 270px)) !important; min-height: 340px !important; }
 [data-navgraph-view-switcher] { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.corpus-navgraph-inspector [data-navgraph-view-switcher] > button { min-height: 34px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--background); color: var(--foreground); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
+.corpus-navgraph-inspector [data-navgraph-view-switcher] > button[aria-pressed="true"] { border-color: var(--primary); background: var(--primary); color: var(--primary-foreground); }
+.corpus-navgraph-inspector [data-agent-context] > header > button, .corpus-navgraph-inspector [data-agent-context-state] > button { min-height: 32px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--background); padding: 0 10px; color: var(--foreground); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
 [data-agent-context] { display: grid; min-width: 0; gap: 12px; }
 [data-agent-context] > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 [data-agent-context] > header > div { display: grid; min-width: 0; gap: 2px; }
 [data-agent-context] > header small { color: var(--muted-foreground); overflow-wrap: anywhere; }
-[data-agent-context-section], [data-agent-context-policies], [data-agent-context-prompt], [data-agent-context-state] { min-width: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
+[data-agent-context-section], [data-agent-context-policies], [data-agent-context-prompt], [data-agent-context-prompt-parts], [data-agent-context-topology], [data-agent-context-state] { min-width: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
 [data-agent-context-section] > summary { cursor: pointer; padding: 10px 12px; font-size: 12px; font-weight: 650; }
 [data-agent-context-section] > pre, [data-agent-context-prompt] > pre, [data-agent-context-policies] pre { margin: 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 11px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace; }
 [data-agent-context-section] > pre { max-height: 260px; padding: 0 12px 12px; }
-[data-agent-context-policies], [data-agent-context-prompt] { display: grid; gap: 10px; padding: 12px; }
-[data-agent-context-policies] h3, [data-agent-context-prompt] h3 { margin: 0; font-size: 12px; }
+[data-agent-context-policies], [data-agent-context-prompt], [data-agent-context-prompt-parts], [data-agent-context-topology] { display: grid; gap: 10px; padding: 12px; }
+[data-agent-context-policies] h3, [data-agent-context-prompt] h3, [data-agent-context-prompt-parts] h3, [data-agent-context-topology] h3 { margin: 0; font-size: 12px; }
 [data-agent-context-policies] article { display: grid; gap: 6px; padding-top: 10px; border-top: 1px solid var(--border); }
 [data-agent-context-policies] article:first-of-type { padding-top: 0; border-top: 0; }
 [data-agent-context-policies] article > strong { color: var(--muted-foreground); font-size: 11px; overflow-wrap: anywhere; }
@@ -233,7 +240,7 @@ button, input, textarea { font: inherit; }
 
 @media (max-width: 940px) {
   [data-application-layout] { grid-template-columns: 76px minmax(0, 1fr) auto; }
-  [data-navgraph-sidebar][data-expanded="true"] { width: min(380px, 42vw); }
+  [data-navgraph-sidebar][data-expanded="true"] { width: min(var(--corpus-navgraph-width, 380px), 65vw); }
   [data-agent-shell] { padding-inline: 22px; }
 }
 
@@ -247,6 +254,7 @@ button, input, textarea { font: inherit; }
   [data-application-navigation-mobile] { display: flex; flex: 0 0 auto; }
   [data-application-navigation-drawer] { min-height: 0; overflow-y: auto; }
   [data-navgraph-sidebar], [data-navgraph-sidebar][data-expanded="true"] { position: fixed; z-index: 20; top: 13px; right: 62px; width: 44px; height: 44px; overflow: visible; border: 0; border-radius: var(--radius); background: var(--background); transition: none; }
+  [data-navgraph-resize-handle] { display: none; }
   [data-navgraph-docked] { display: none; }
   [data-navgraph-mobile] { display: block; }
   [data-navgraph-mobile] > button > span { display: none; }

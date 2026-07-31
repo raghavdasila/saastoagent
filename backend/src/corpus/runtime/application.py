@@ -137,6 +137,12 @@ def _create_graphs(
         ),
         ignored_event_tags=frozenset(),
         system_prompt=CORPUS_AGENT_PROMPT,
+        model_configuration={
+            "provider": "ollama",
+            "name": settings.ollama_model,
+            "streaming": True,
+            "tool_calling": True,
+        },
     )
 
 

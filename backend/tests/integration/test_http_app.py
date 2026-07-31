@@ -102,6 +102,20 @@ def test_live_http_app_serves_a_bearer_selected_conversation(
         )
         assert inspected.status_code == 200, inspected.text
         agent_context = inspected.json()["agent_context"]
+        assert agent_context["kind"] == "current_snapshot"
+        assert agent_context["snapshot"]["session_version"] == inspected.json()[
+            "diagnostics"
+        ]["session_version"]
+        assert agent_context["snapshot"]["projection_version"] == inspected.json()[
+            "diagnostics"
+        ]["projection_version"]
+        assert agent_context["snapshot"]["event_cursor"] == inspected.json()[
+            "diagnostics"
+        ]["event_cursor"]
+        assert agent_context["snapshot"]["interaction_phase"] == "active"
+        assert inspected.json()["diagnostics"]["inspected_at"].endswith("+00:00")
+        assert agent_context["model"]["provider"] == "ollama"
+        assert agent_context["model"]["name"] == "gemma4:latest"
         assert agent_context["model_context"]["current_node"] == "lounge.home"
         policy_ids = {
             policy["policy_id"]
@@ -111,3 +125,12 @@ def test_live_http_app_serves_a_bearer_selected_conversation(
         assert agent_context["system_prompt"].startswith(CORPUS_AGENT_PROMPT)
         assert ROUTEDECK_POLICY_SECTION in agent_context["system_prompt"]
         assert ROUTEDECK_CONTEXT_SECTION in agent_context["system_prompt"]
+        assert agent_context["prompt"]["assembled"] == agent_context["system_prompt"]
+        assert agent_context["tools"] == agent_context["model_context"]["legal_tools"]
+        assert agent_context["limits"] == {"recent_observations": 8}
+        assert "private_form_values" in agent_context["intentional_exclusions"]
+        assert all(
+            {"policy_id", "instruction", "scope", "owner_id", "source_order"}
+            <= policy.keys()
+            for policy in agent_context["policy_resolution"]
+        )
