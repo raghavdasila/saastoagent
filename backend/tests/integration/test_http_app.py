@@ -12,6 +12,11 @@ from corpus.auth.migrations import upgrade_database
 from corpus.features.sources.config import SourceSettings
 from corpus.main import create_live_app
 from corpus.runtime.config import CorpusRuntimeSettings
+from corpus.runtime.prompt import CORPUS_AGENT_PROMPT
+from routedeck_langgraph.prompt import (
+    ROUTEDECK_CONTEXT_SECTION,
+    ROUTEDECK_POLICY_SECTION,
+)
 
 
 def test_live_http_app_serves_a_bearer_selected_conversation(
@@ -87,3 +92,22 @@ def test_live_http_app_serves_a_bearer_selected_conversation(
         )
         assert selected.status_code == 200, selected.text
         assert selected.json()["projection"]["current"]["node_id"] == "lounge.home"
+
+        inspected = client.get(
+            "/api/routedeck/inspect",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "X-Corpus-Conversation-ID": created.json()["id"],
+            },
+        )
+        assert inspected.status_code == 200, inspected.text
+        agent_context = inspected.json()["agent_context"]
+        assert agent_context["model_context"]["current_node"] == "lounge.home"
+        policy_ids = {
+            policy["policy_id"]
+            for policy in agent_context["model_context"]["policies"]
+        }
+        assert "lounge.feature.public_context_only" in policy_ids
+        assert agent_context["system_prompt"].startswith(CORPUS_AGENT_PROMPT)
+        assert ROUTEDECK_POLICY_SECTION in agent_context["system_prompt"]
+        assert ROUTEDECK_CONTEXT_SECTION in agent_context["system_prompt"]

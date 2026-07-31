@@ -24,10 +24,16 @@ import type { ReactElement, ReactNode } from "react";
 export class TestRouteDeckClient implements RouteDeckClient {
   private projection: RouteDeckProjection;
   private readonly contract: FrontendContract | null;
+  private readonly inspection: RouteDeckInspection | null;
 
-  constructor(projection: RouteDeckProjection, contract: FrontendContract | null = null) {
+  constructor(
+    projection: RouteDeckProjection,
+    contract: FrontendContract | null = null,
+    inspection: RouteDeckInspection | null = null,
+  ) {
     this.projection = structuredClone(projection);
     this.contract = contract === null ? null : structuredClone(contract);
+    this.inspection = inspection === null ? null : structuredClone(inspection);
   }
 
   readonly privateFormSaves: Array<{
@@ -106,7 +112,10 @@ export class TestRouteDeckClient implements RouteDeckClient {
   }
 
   async inspect(): Promise<RouteDeckInspection> {
-    throw new Error("No inspection is configured for this framework test.");
+    if (this.inspection === null) {
+      throw new Error("No inspection is configured for this framework test.");
+    }
+    return structuredClone(this.inspection);
   }
 
   connectEvents(
@@ -168,9 +177,14 @@ export async function renderRouteDeckComponent(
   options: {
     contract: FrontendContract;
     projection: RouteDeckProjection;
+    inspection?: RouteDeckInspection;
   },
 ): Promise<RenderResult & { client: TestRouteDeckClient; dispose(): void }> {
-  const client = new TestRouteDeckClient(options.projection);
+  const client = new TestRouteDeckClient(
+    options.projection,
+    null,
+    options.inspection ?? null,
+  );
   const routes = createRouteDeckRouteCodec(options.contract, {
     validatePublicRouteKey: () => true,
     validateResumeCapability: () => true,

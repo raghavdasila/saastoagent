@@ -42,6 +42,10 @@ Updated: 2026-07-31
   implementation uses the generic Corpus system prompt; the Lounge-specific
   `features/lounge/prompt.py` instruction exists but is not wired into the
   entry agent.
+- The NavGraph sidebar now has Graph and Agent context views. Agent context is
+  loaded from RouteDeck's authenticated private/no-store inspection contract
+  and shows the current model context, ordered policy instructions, and exact
+  assembled system prompt without browser-side policy reconstruction.
 
 ## Runtime
 
@@ -70,8 +74,7 @@ removes the owned runtime on success. It never selects `.runtime` databases.
 
 - Corpus backend: 69 passed; one upstream Starlette/httpx warning.
 - Restart safeguards: 27 passed.
-- Frontend: 32 passed; strict typecheck and production build passed earlier in
-  the same implementation slice.
+- Frontend: 33 passed; strict typecheck and production build passed.
 - RouteDeck core: 88 passed plus typecheck.
 - RouteDeck focused public-contract/generation lane: 36 passed.
 - Real isolated restart smoke passed against local Ollama: owner authorized,
@@ -79,6 +82,9 @@ removes the owned runtime on success. It never selects `.runtime` databases.
   auth and RouteDeck databases removed, normal runtime untouched.
 - Local product, readiness, and Studio URLs returned HTTP 200; all three Docker
   services reported healthy.
+- Rebuilt desktop and 390x844 browser checks rendered the live Agent context,
+  20 effective Lounge policies, and exact system prompt with zero horizontal
+  overflow and no browser warnings/errors.
 - Documentation coverage mapped every changed Corpus owner. The full advisory
   still emits unrelated warnings from checked-in `mockruns/**/node_modules`.
 
@@ -96,10 +102,10 @@ Detailed evidence: `logs/20260731_server_owned_conversations.md` and
   checkpoint.
 - Multi-worker active-run handoff, native secure credential adapters, broader
   product features, and production persistence remain unimplemented.
-- Next session: inspect the compiled prompt/context policy path for
-  `lounge.home` and decide whether the unused Lounge-specific prompt should be
-  wired, removed, or represented solely through scoped AgentPolicies. Follow
-  the mandatory Studio-to-RouteDeck mapping gate before changing behavior.
+- Next session: use the now-visible compiled `lounge.home` context to decide
+  whether the unused Lounge-specific prompt should be wired, removed, or
+  represented solely through scoped AgentPolicies. Follow the mandatory
+  Studio-to-RouteDeck mapping gate before changing behavior.
 
 ## Documentation Owners
 

@@ -24,6 +24,7 @@ from corpus.session import create_guest_session, initialize_guest_session
 from .agent import create_corpus_agent, create_corpus_entry_agent
 from .config import CorpusRuntimeSettings
 from .model import create_ollama_chat_model
+from .prompt import CORPUS_AGENT_PROMPT
 
 
 _READINESS_SESSION_ID = "routedeck-readiness-probe"
@@ -135,6 +136,7 @@ def _create_graphs(
             runtime=services,
         ),
         ignored_event_tags=frozenset(),
+        system_prompt=CORPUS_AGENT_PROMPT,
     )
 
 

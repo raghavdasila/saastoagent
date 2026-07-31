@@ -125,6 +125,12 @@ public conversations, persistence, revocation, and ownership claims stay in
 - The generic shell renders RouteDeck's Navgraph in an expandable docked rail
   on desktop and a separate header-triggered shadcn Sheet on mobile; neither
   presentation owns or copies navigation state.
+- That shell also offers an Agent context view. It loads RouteDeck's
+  authenticated private/no-store inspection payload for the selected
+  conversation and renders the current default-deny model context, effective
+  ordered policy instructions, and exact assembled system prompt. Corpus does
+  not reconstruct policy scope or prompt assembly in the browser; unsupported
+  driver inspection remains visibly unavailable.
 - The model adapter uses the native `langchain-ollama` integration; readiness
   verifies the exact configured model through the official Ollama Python SDK.
 - A substantive product question from Lounge home is supervised through the

@@ -79,6 +79,52 @@ it("renders the permanent chat, projected surface, and Navgraph slot", async () 
   harness.dispose();
 });
 
+it("shows the exact current agent context, effective policy prompts, and system prompt", async () => {
+  const harness = await renderRouteDeckComponent(<NavgraphSidebar />, {
+    contract: frameworkContractFixture(),
+    projection: frameworkProjectionFixture(),
+    inspection: {
+      current_node: "test.home",
+      reachable_nodes: [],
+      legal_operations: [],
+      blocked_operations: [],
+      guard_explanations: [],
+      capabilities: [],
+      surfaces: {},
+      route_traces: [],
+      diagnostics: {},
+      agent_context: {
+        model_context: {
+          current_node: "test.home",
+          active_surface: null,
+          visible_entities: [],
+          legal_tools: [],
+          suggested_actions: [],
+          policies: [
+            {
+              policy_id: "test.policy",
+              instruction: "Use only legal test operations.",
+            },
+          ],
+          status: { code: "ready", message: null },
+          recent_observations: [],
+        },
+        system_prompt: "Base prompt\n\nEffective policy prompt",
+      },
+    },
+  });
+
+  fireEvent.click(screen.getByRole("button", { name: "Open docked Navgraph" }));
+  fireEvent.click(screen.getByRole("button", { name: "Agent context" }));
+
+  const context = await screen.findByRole("region", { name: "Current agent context" });
+  expect(within(context).getByText("test.policy")).toBeVisible();
+  expect(within(context).getByText("Use only legal test operations.")).toBeVisible();
+  expect(within(context).getByText(/Effective policy prompt/)).toBeVisible();
+
+  harness.dispose();
+});
+
 it("docks the projected surface immediately above the composer outside chat history", async () => {
   const harness = await renderRouteDeckComponent(
     <AgentShell registry={testRegistry} client={idleChatClient} />,

@@ -204,6 +204,24 @@ button, input, textarea { font: inherit; }
 [data-navgraph-status] small { flex: 0 0 auto; color: var(--muted-foreground); font-size: 11px; text-transform: capitalize; }
 [data-navgraph-map] { min-width: 0; }
 [data-navgraph-map] [data-routedeck-navgraph-canvas] { height: min(440px, calc(100dvh - 270px)) !important; min-height: 340px !important; }
+[data-navgraph-view-switcher] { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+[data-agent-context] { display: grid; min-width: 0; gap: 12px; }
+[data-agent-context] > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+[data-agent-context] > header > div { display: grid; min-width: 0; gap: 2px; }
+[data-agent-context] > header small { color: var(--muted-foreground); overflow-wrap: anywhere; }
+[data-agent-context-section], [data-agent-context-policies], [data-agent-context-prompt], [data-agent-context-state] { min-width: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
+[data-agent-context-section] > summary { cursor: pointer; padding: 10px 12px; font-size: 12px; font-weight: 650; }
+[data-agent-context-section] > pre, [data-agent-context-prompt] > pre, [data-agent-context-policies] pre { margin: 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 11px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace; }
+[data-agent-context-section] > pre { max-height: 260px; padding: 0 12px 12px; }
+[data-agent-context-policies], [data-agent-context-prompt] { display: grid; gap: 10px; padding: 12px; }
+[data-agent-context-policies] h3, [data-agent-context-prompt] h3 { margin: 0; font-size: 12px; }
+[data-agent-context-policies] article { display: grid; gap: 6px; padding-top: 10px; border-top: 1px solid var(--border); }
+[data-agent-context-policies] article:first-of-type { padding-top: 0; border-top: 0; }
+[data-agent-context-policies] article > strong { color: var(--muted-foreground); font-size: 11px; overflow-wrap: anywhere; }
+[data-agent-context-policies] pre { max-height: 220px; padding: 10px; border-radius: calc(var(--radius) - 2px); background: var(--muted); }
+[data-agent-context-prompt] > pre { max-height: 520px; padding: 10px; border-radius: calc(var(--radius) - 2px); background: var(--muted); }
+[data-agent-context-state] { display: grid; gap: 8px; margin: 0; padding: 12px; font-size: 12px; }
+[data-agent-context-state] p { margin: 0; color: var(--muted-foreground); }
 [data-navgraph-mobile] { display: none; height: 100%; }
 .react-flow { min-height: 430px; border: 1px solid var(--border); border-radius: var(--radius); }
 [data-navgraph-content] [role="alert"] { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); }
