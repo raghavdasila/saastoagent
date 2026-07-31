@@ -156,14 +156,19 @@ Corpus feature definitions own product meaning
 ## Docker Development Topology
 
 `compose.yaml` is a process-orchestration boundary, not a product or framework
-boundary. It runs three independently healthy development services:
+boundary. The current product runtime starts its backend and frontend services;
+the authoritative Design Studio is a separate Vite workbench:
 
 ```text
 127.0.0.1:5199 -> Vite frontend -> http://backend:8099
 127.0.0.1:8099 -> Corpus backend -> embedded RouteDeck + ToolRouter
-127.0.0.1:8771 -> design notebook
+127.0.0.1:8782 -> RouteDeck Agent Design Studio workbench (host Vite process)
 Corpus backend -> http://host.docker.internal:11434 -> host Ollama
 ```
+
+The Compose `notebook` service on `127.0.0.1:8771` is stale and excluded from
+the current startup command. The isolated R1 prototype on `8783` is also stale.
+See `docs/local-runtime-runbook.md` for the authoritative procedure.
 
 The backend and frontend images consume the sibling RouteDeck source through a
 filtered local build context and preserve its existing package boundaries. The

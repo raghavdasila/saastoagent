@@ -122,6 +122,8 @@ services:
       retries: 12
       start_period: 30s
 
+  # STALE legacy behavior notebook. This is not the authoritative Agent Design
+  # Studio. Active design work uses docs/corpus-agent-design/workbench on 8782.
   notebook:
     build: *backend-build
     init: true

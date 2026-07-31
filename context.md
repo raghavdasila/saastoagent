@@ -49,16 +49,31 @@ Updated: 2026-07-31
 
 ## Runtime
 
-Local Docker services were healthy at closeout:
+Run Corpus locally with:
 
 ```powershell
-docker compose up --build -d
+docker compose up --build -d backend frontend
 ```
 
 - Product: `http://127.0.0.1:5199/`
 - Backend readiness: `http://127.0.0.1:8099/readyz`
-- RouteDeck Agent Design Studio / notebook: `http://127.0.0.1:8771/`
 - Real local model: host Ollama `gemma4:latest`; no model fallback exists.
+
+Run the authoritative RouteDeck Agent Design Studio separately with:
+
+```powershell
+pnpm --dir docs/corpus-agent-design/workbench dev --host 0.0.0.0 --port 8782 --strictPort
+```
+
+- Authoritative Studio: `http://127.0.0.1:8782/`
+- Authoritative Studio state:
+  `docs/corpus-agent-design/workbench/design-state.json`
+- Authoritative local runtime procedure: `docs/local-runtime-runbook.md`
+- **Stale legacy notebook:** `http://127.0.0.1:8771/`. The root Compose
+  `notebook` service is historical and is not the Agent Design Studio.
+- **Stale isolated R1 prototype Studio:** `http://127.0.0.1:8783/` under
+  `mockruns/corpus-r1/agent-design-studio`. It is reference-only and is not the
+  current design authority.
 
 The canonical restart proof is:
 
@@ -80,8 +95,11 @@ removes the owned runtime on success. It never selects `.runtime` databases.
 - Real isolated restart smoke passed against local Ollama: owner authorized,
   public conversation preserved, run recovered as `turn_interrupted`, temporary
   auth and RouteDeck databases removed, normal runtime untouched.
-- Local product, readiness, and Studio URLs returned HTTP 200; all three Docker
-  services reported healthy.
+- The 2026-07-31 closeout historically verified the product, readiness, and
+  legacy notebook URLs. That `8771` result is not Design Studio evidence.
+- Current runtime verification: Corpus `5199`, backend readiness `8099`, and
+  authoritative Studio `8782` returned HTTP 200. Ports `8771` and `8783` were
+  explicitly stopped.
 - Rebuilt desktop and 390x844 browser checks rendered the live Agent context,
   20 effective Lounge policies, and exact system prompt with zero horizontal
   overflow and no browser warnings/errors.
@@ -115,5 +133,7 @@ Detailed evidence: `logs/20260731_server_owned_conversations.md` and
 - Runtime flows: `SYSTEM_FLOW_INDEX.md`
 - Completed implementation plan:
   `docs/superpowers/plans/2026-07-30-server-owned-conversations-and-agent-session-selection.md`
-- Product design authority: RouteDeck Agent Design Studio and
-  `contracts/corpus-agent-design-routedeck-manifest.json`
+- Product design authority:
+  `docs/corpus-agent-design/workbench/`, its `design-state.json`, and
+  `contracts/corpus-agent-design-routedeck-manifest.json`. The legacy notebook
+  and isolated R1 prototype are not authoritative.

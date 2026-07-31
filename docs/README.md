@@ -17,8 +17,29 @@ artifacts. It does not own current source boundaries or session state.
 - `toolrouter-integration-requirements.md` owns the implemented launch-scope
   requirements, connector/adapter boundaries, persistence/failure contracts,
   and exact local completion evidence for the Sources API connector.
+- `local-runtime-runbook.md` is the authoritative procedure for host Ollama,
+  Corpus Docker backend/frontend, and the RouteDeck Agent Design Studio at
+  `http://127.0.0.1:8782/`.
 
-Run the behavior notebook locally with:
+## Stale Design Artifacts
+
+`corpus-feature-behavior-notebook.html` and its server on port `8771` are stale
+legacy design artifacts. They are retained as historical reference, not as the
+current Design Studio or startup path. The isolated R1 prototype under
+`mockruns/corpus-r1` on port `8783` is also stale and reference-only.
+
+The authoritative Studio is `docs/corpus-agent-design/workbench/`; run it with:
+
+```powershell
+pnpm --dir docs/corpus-agent-design/workbench dev --host 0.0.0.0 --port 8782 --strictPort
+```
+
+Open `http://127.0.0.1:8782/`.
+
+## Historical Notebook Instructions
+
+Run the behavior notebook only when intentionally reviewing that stale
+historical artifact:
 
 ```powershell
 python scripts/feature_behavior_notebook.py

@@ -18,6 +18,8 @@ Operations remain later work in the launch milestone.
 - `AGENTIC_CODING_GUIDE.md` - start, completion, and closeout sequence
 - `critical_prompt.md` - product north star and non-negotiable boundaries
 - `context.md` - concise current restart state
+- `docs/local-runtime-runbook.md` - authoritative Docker, Ollama, and Agent
+  Design Studio startup and diagnosis
 - `docs/corpus-product-definition.md` - locked layout and feature set
 - `docs/corpus-behavior-reference.md` - verified legacy behavior reference
 - `docs/toolrouter-integration-requirements.md` - implemented Sources/API and
@@ -27,26 +29,27 @@ Operations remain later work in the launch milestone.
 
 ## Local Setup
 
-The primary development path is one local Docker Compose command. Docker
-Desktop's Linux engine, the sibling `..\routedeck` checkout, and host Ollama
-with the two configured models are required:
+The primary development path runs host Ollama, Corpus backend/frontend in
+Docker, and the authoritative Agent Design Studio separately:
 
 ```powershell
 ollama pull gemma4:latest
 ollama pull qwen2.5-coder:7b
-docker compose up --build
+docker compose up --build -d backend frontend
+pnpm --dir docs/corpus-agent-design/workbench dev --host 0.0.0.0 --port 8782 --strictPort
 ```
 
 Smoke URLs:
 
 - Product: `http://127.0.0.1:5199/`
 - Backend readiness: `http://127.0.0.1:8099/readyz`
-- Design notebook: `http://127.0.0.1:8771/#structure`
+- RouteDeck Agent Design Studio: `http://127.0.0.1:8782/`
 
 ToolRouter runs inside the backend container; Ollama stays on the host at the
 explicit Compose-configured endpoint. Runtime state persists under `.runtime`.
-See `docs/docker-development.md` for logs, overrides, rebuilds, shutdown, and
-failure diagnosis.
+See `docs/local-runtime-runbook.md` for prerequisites, exact startup order,
+health checks, logs, rebuilds, shutdown, and failure diagnosis. The Compose
+`notebook` service on port `8771` is stale and is deliberately excluded.
 
 The direct-host setup remains available for focused development without
 containers.
