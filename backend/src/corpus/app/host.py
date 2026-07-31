@@ -75,9 +75,14 @@ def create_routedeck_host(
     application.add_middleware(
         CORSMiddleware,
         allow_origins=sorted(trusted_origins),
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=[
+            "X-Corpus-Auth-Tokens",
+            "X-Corpus-Auth-Revoked",
+            "X-Corpus-Conversation-ID",
+        ],
     )
     application.include_router(
         create_routedeck_router_from_runtime_provider(

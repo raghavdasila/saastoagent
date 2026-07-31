@@ -64,6 +64,6 @@ export interface DesignFeature {
 }
 
 export interface WorkbenchState {
-  version: 16
+  version: 20
   features: DesignFeature[]
 }

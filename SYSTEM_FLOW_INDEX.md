@@ -48,18 +48,20 @@ The responsive shell changes only presentation. RouteDeck continues to own the
 current node, legal operations, surface projection, history, and Navgraph
 state; Corpus does not duplicate those contracts in either drawer.
 
-## Implemented Guest Lounge
+## Implemented Bearer-Selected Lounge
 
 ```text
-browser loads RouteDeck frontend contract
-  -> host resumes or creates encrypted-cookie guest session
-  -> RouteDeck enters lounge.home and projects the Lounge-owned surface
-  -> Corpus renders the Lounge shell with conversation pending
-  -> assistant-initiated LangGraph turn calls configured Ollama model in background
-  -> each validated assistant delta updates the visible greeting immediately
-  -> conversation is persisted through RouteDeck SQLAlchemy runtime
-  -> completed durable greeting replaces transient progress with canonical history
-  -> owner message streams through /api/routedeck/chat
+browser issues or refreshes an anonymous bearer identity
+  -> GET /api/conversations validates the caller's public conversation catalog
+  -> frontend selects one public conversation ID per tab or creates one
+  -> Corpus authorizes bearer + X-Corpus-Conversation-ID
+  -> Corpus reserves the opaque public-to-internal conversation mapping
+  -> RouteDeckRuntime.provision_session centrally creates/replays the session
+  -> RouteDeck enters lounge.home and durably claims its declared welcome run
+  -> projection interaction.request_id identifies the active run generically
+  -> SSE subscribers may disconnect and reconnect from a monotonic run cursor
+  -> completed history remains canonical RouteDeck state
+  -> owner messages use the same detached server-owned run lifecycle
   -> sign-in/register affordance dispatches a typed Lounge operation
   -> RouteDeck commits the legal node transition and new surface projection
 ```
@@ -67,73 +69,49 @@ browser loads RouteDeck frontend contract
 Ollama or persistence unavailability fails readiness and the user-visible chat
 path. There is no canned response or alternate-model execution branch.
 
-## Implemented Bootstrap Recovery
+## Implemented Client Bootstrap And Recovery
 
 ```text
-RouteDeck store is idle
-  -> RouteDeckBootstrapBoundary starts bootstrap
-  -> loading state renders the generic Corpus loading shell
-  -> ready state mounts Corpus conversation and surfaces
-  -> an expired/missing selected session on a shareable route creates one replacement
-  -> a session-bound recovery automatically invokes RouteDeck's legal start-new action
-  -> the create response passes the originating request to the host selector
-  -> valid Corpus auth atomically rebinds the same opaque owner handle to the replacement
-  -> absent or invalid auth clears stale owner cookies and binds the replacement as guest
-  -> ready state mounts the Lounge without exposing an expired-session screen
-  -> later projection resync/reconnect keeps the ready Corpus tree mounted
+refresh credential is read inside the cross-tab lock
+  -> valid refresh rotates atomically and keeps the access token in memory
+  -> only a 401 invalid/expired refresh clears local credentials
+  -> client issues a fresh anonymous bearer when no valid refresh exists
+  -> selected tab conversation is validated against the authorized catalog
+  -> missing catalog creates a new public conversation
+  -> RouteDeckBootstrapBoundary resumes that already selected session
+  -> active interaction.request_id reconnects the generic run subscriber
+  -> ready state mounts Corpus without exposing an internal RouteDeck ID
 ```
 
-Corpus does not inspect `pendingBootstrap`, retained request IDs, uncertain
-navigation state, or retry legality. RouteDeck owns those mechanics and the
-transition back to ready. Corpus owns principal validation, opaque-handle
-rebinding, guest fallback, and the generic reconnect error shown only when
-replacement itself fails.
-
-## Implemented Initial Conversation Reset
-
-```text
-initial conversation restoration or greeting convergence fails
-  -> frontend records one recovery attempt for the current tab
-  -> POST /api/auth/recover
-  -> revoke the selected owner browser session when present
-  -> clear auth, opaque owner-route, and guest cookies
-  -> replace the browser location with /
-  -> RouteDeck creates a fresh guest session at lounge.home
-  -> Corpus runs and renders a fresh real assistant greeting
-  -> successful conversation load clears the recovery marker
-  -> a second failure stays visible instead of causing a reload loop
-```
-
-The greeting convergence limit is 30 seconds. This reset deliberately returns
-the browser to first-time anonymous Lounge state; it does not preserve a broken
-selected owner or guest session.
+Corpus does not infer entry request IDs, reset authentication on conversation
+failure, or impose a client convergence timeout. RouteDeck owns durable turn
+authority, restart interruption, cursor replay, and terminal history. Corpus
+owns bearer identity, public conversation authorization, and client storage.
 
 ## Implemented Corpus Owner Authentication
 
 ```text
-guest Lounge -> sign-in or registration surface
-  -> same-origin Corpus auth mutation
-  -> owner + personal organization + membership + revocable auth session
-  -> permanent claim over the current guest RouteDeck session
-  -> HttpOnly auth cookie + opaque owner-route handle; guest cookie cleared
+anonymous Lounge -> sign-in or registration surface
+  -> supervised RouteDeck operation reads encrypted private form
+  -> owner + personal organization + membership + revocable token session
+  -> atomic adoption of the selected public Corpus conversation
+  -> anonymous credentials revoked; owner token pair returned out of RouteDeck state
   -> lounge.authentication_completed
   -> claim-backed owner context provider
   -> session-bound workspace.home
 ```
 
-Reload and additional browser sessions resolve the owner's durable claim.
-Anonymous replay of the adopted guest cookie fails. Logout revokes the browser
-auth session and handle, clears cookies, and creates a new guest Lounge without
-releasing the owned RouteDeck session. Expiry recovery preserves valid owner
-authentication by rebinding its opaque handle to the newly created RouteDeck
-session; invalid owner credentials fall back to a fresh guest Lounge.
+Reload and additional clients resolve authorized conversations from the owner
+catalog. Anonymous replay after adoption fails. Logout revokes the token
+session; the next bootstrap issues a new anonymous identity and conversation
+without releasing the owner's durable conversation.
 
 Verification and reset tokens travel in URL fragments. Corpus captures the
 fragment before RouteDeck contract/session bootstrap can rewrite browser
 history, retains the token only in frontend memory, and immediately removes the
 fragment from the visible URL. These token surfaces do not start a Lounge
 greeting. Verification is advisory. Reset changes the password and revokes
-every browser session and owner-route handle.
+every owner token session.
 
 Signed-in verification delivery is a Lounge-owned account behavior reached
 from `workspace.home` through `workspace.open_verification`. The
@@ -167,7 +145,7 @@ between the API engine port and the replaceable
 The private ToolRouter engine owns OpenAPI/graph/retrieval/evalset algorithms;
 it owns no product node or owner/session behavior.
 
-The live product now has nine nodes: seven `lounge.*` nodes, one
+The live product now has ten nodes: eight `lounge.*` nodes, one
 `workspace.home` node, and one `sources.home` node. The Sources surface is an authenticated experimental debug
 surface, not Agent Designer, an execution Sandbox, or a public deployed Web
 channel. The four evidence stages are UI state derived from the Source,

@@ -4,6 +4,7 @@ import type { RouteDeckSurfaceComponentProps } from "@routedeck/react";
 import { expect, it, vi } from "vitest";
 
 import { SourceDebugSurface } from "../features/sources/SourceDebugSurface";
+import { SourceClient } from "../features/sources/sourceClient";
 
 
 it("exercises API upload, retrieval, evalset generation, and RouteDeck return", async () => {
@@ -59,7 +60,12 @@ it("exercises API upload, retrieval, evalset generation, and RouteDeck return", 
   });
   vi.stubGlobal("fetch", fetchMock);
   const dispatchAffordance = vi.fn(async () => dispatchResult());
-  render(<SourceDebugSurface {...surfaceProps(dispatchAffordance)} />);
+  render(
+    <SourceDebugSurface
+      {...surfaceProps(dispatchAffordance)}
+      sourceClient={new SourceClient({ fetch: fetchMock })}
+    />,
+  );
 
   expect(await screen.findByText("No API sources uploaded yet.")).toBeVisible();
   expect(screen.getByRole("region", { name: "API connector ToolRouter pipeline" })).toBeVisible();

@@ -23,13 +23,7 @@ from .repository import SourceNotFound, SourceNotReady, SourceRepositoryError
 
 
 class OwnerSessionResolver(Protocol):
-    async def resolve_browser_session(
-        self,
-        *,
-        auth_token: str,
-        owner_route_handle: str | None,
-        require_route: bool,
-    ): ...
+    async def resolve_access_token(self, access_token: str): ...
 
 
 class SourceProblem(BaseModel):
@@ -58,19 +52,26 @@ async def owner_key(
     service: OwnerSessionResolver,
     settings: AuthSettings,
 ) -> str:
-    auth_token = request.cookies.get(settings.auth_cookie_name)
-    if not auth_token:
+    del settings
+    authorization = request.headers.get("authorization")
+    if authorization is None:
+        raise unauthorized()
+    scheme, separator, auth_token = authorization.partition(" ")
+    if (
+        not separator
+        or scheme.casefold() != "bearer"
+        or not auth_token
+        or auth_token != auth_token.strip()
+        or " " in auth_token
+        or len(auth_token) > 512
+    ):
         raise unauthorized()
     try:
-        current = await service.resolve_browser_session(
-            auth_token=auth_token,
-            owner_route_handle=request.cookies.get(
-                settings.owner_route_cookie_name
-            ),
-            require_route=True,
-        )
+        current = await service.resolve_access_token(auth_token)
     except SessionUnavailable as error:
         raise unauthorized() from error
+    if current.user_id is None:
+        raise unauthorized()
     return str(current.user_id)
 
 

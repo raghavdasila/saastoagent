@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
-from sqlalchemy import event
+from sqlalchemy import event, inspect
 from alembic.runtime.migration import MigrationContext
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -75,10 +75,17 @@ class AuthDatabase:
                     sync_connection
                 ).get_current_revision()
             )
+            schema_error = await connection.run_sync(_schema_error)
         if current != expected_revision:
             raise MigrationRevisionError(
                 f"Corpus auth database revision is {current!r}; expected "
                 f"{expected_revision!r}. Run the explicit auth migration command."
+            )
+        if schema_error is not None:
+            raise MigrationRevisionError(
+                "Corpus auth database has the expected revision label but not "
+                f"the current initial schema: {schema_error}. Provision it from "
+                "the current 0001_owner_auth migration."
             )
 
     async def close(self) -> None:
@@ -89,6 +96,26 @@ def _enable_sqlite_foreign_keys(dbapi_connection, _connection_record) -> None:
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
+
+
+def _schema_error(sync_connection) -> str | None:
+    inspector = inspect(sync_connection)
+    actual_tables = set(inspector.get_table_names())
+    expected_tables = set(Base.metadata.tables)
+    missing_tables = sorted(expected_tables - actual_tables)
+    if missing_tables:
+        return f"missing tables {missing_tables}"
+    for table_name in sorted(expected_tables):
+        actual_columns = {
+            column["name"] for column in inspector.get_columns(table_name)
+        }
+        expected_columns = set(Base.metadata.tables[table_name].columns.keys())
+        if actual_columns != expected_columns:
+            return (
+                f"table {table_name!r} columns are {sorted(actual_columns)!r}; "
+                f"expected {sorted(expected_columns)!r}"
+            )
+    return None
 
 
 class MigrationRevisionError(RuntimeError):

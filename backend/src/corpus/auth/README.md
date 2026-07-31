@@ -17,7 +17,7 @@ strategies, routes, database session strategy, or persistence types.
 ## Runtime
 
 `scripts/init-local.ps1` generates separate reset/verification secrets, adds
-the explicit cookie and SMTP settings, and applies Alembic migrations to
+the explicit bearer-token and SMTP settings, and applies Alembic migrations to
 `.runtime/corpus-auth.sqlite3`. Backend startup only verifies the configured
 revision. Run an upgrade explicitly with:
 
@@ -25,8 +25,11 @@ revision. Run an upgrade explicitly with:
 .\.venv\Scripts\python.exe -m corpus.auth.migrations
 ```
 
-Raw auth tokens and owner-route handles exist only in HttpOnly cookies. The
-database stores their SHA-256 digests.
+The API returns opaque access and refresh tokens to clients. Access tokens are
+short-lived and kept in client memory; refresh tokens are stored by the client
+appropriate to its platform. The database stores only their SHA-256 digests.
+Public Corpus conversation IDs select conversations without exposing internal
+RouteDeck session IDs.
 
 ## Gmail Delivery
 

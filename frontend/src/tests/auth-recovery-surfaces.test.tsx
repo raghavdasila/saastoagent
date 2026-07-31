@@ -10,36 +10,39 @@ import {
   captureAuthTokenFragment,
   clearCapturedTokenFragment,
 } from "../features/lounge/tokenFragment";
+import {
+  frameworkContractFixture,
+  frameworkProjectionFixture,
+  renderRouteDeckComponent,
+} from "./routeDeckHarness";
 
 
 it("captures a reset token in memory and immediately removes the URL fragment", async () => {
   clearCapturedTokenFragment("password_reset");
   window.history.replaceState({}, "", "/reset-password#token=one-time-token");
-  const fetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => ({
-    ok: true,
-    status: 204,
-    json: async () => ({}),
-  }));
-  vi.stubGlobal("fetch", fetch);
-
-  render(
+  const dispatchAffordance = vi.fn(async () => ({}) as never);
+  const rendered = await renderRouteDeckComponent(
     <OwnerSessionProvider loadSession={false}>
-      <ResetPasswordSurface {...surfaceProps()} />
+      <ResetPasswordSurface {...surfaceProps("lounge.reset_password", dispatchAffordance)} />
     </OwnerSessionProvider>,
+    { contract: frameworkContractFixture(), projection: frameworkProjectionFixture() },
   );
 
   expect(window.location.hash).toBe("");
-  fireEvent.change(screen.getByLabelText("New password"), {
+  fireEvent.change(await screen.findByLabelText("New password"), {
     target: { value: "a new sufficiently private password" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Change password" }));
 
-  await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
-  const [, init] = fetch.mock.calls[0];
-  expect(JSON.parse(String(init?.body))).toEqual({
-    token: "one-time-token",
-    new_password: "a new sufficiently private password",
+  await waitFor(() => expect(dispatchAffordance).toHaveBeenCalledWith("change_owner_password", {}));
+  expect(rendered.client.privateFormSaves.at(-1)).toMatchObject({
+    formId: "lounge-password-reset-confirm",
+    request: { value: {
+      token: "one-time-token",
+      new_password: "a new sufficiently private password",
+    } },
   });
+  rendered.dispose();
 });
 
 
@@ -49,25 +52,30 @@ it("retains a verification token captured before RouteDeck replaces browser hist
   captureAuthTokenFragment(window);
   expect(window.location.hash).toBe("");
   window.history.replaceState({}, "", "/verify");
-  const fetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => ({
-    ok: true,
-    status: 204,
-    json: async () => ({}),
+  const fetch = vi.fn(async () => ({
+    ok: false,
+    status: 401,
+    json: async () => ({ code: "authentication_required", message: "Authentication is required." }),
   }));
   vi.stubGlobal("fetch", fetch);
+  const dispatchAffordance = vi.fn(async () => ({}) as never);
 
-  render(
+  const rendered = await renderRouteDeckComponent(
     <OwnerSessionProvider loadSession={false}>
-      <VerifyEmailSurface {...surfaceProps()} />
+      <VerifyEmailSurface {...surfaceProps("lounge.verify_email", dispatchAffordance)} />
     </OwnerSessionProvider>,
+    { contract: frameworkContractFixture(), projection: frameworkProjectionFixture() },
   );
 
-  const verify = screen.getByRole("button", { name: "Verify email" });
+  const verify = await screen.findByRole("button", { name: "Verify email" });
   expect(verify).toBeEnabled();
   fireEvent.click(verify);
-  await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
-  const [, init] = fetch.mock.calls[0];
-  expect(JSON.parse(String(init?.body))).toEqual({ token: "verification-token" });
+  await waitFor(() => expect(dispatchAffordance).toHaveBeenCalledWith("confirm_owner_email", {}));
+  expect(rendered.client.privateFormSaves.at(-1)).toMatchObject({
+    formId: "lounge-email-verification",
+    request: { value: { token: "verification-token" } },
+  });
+  rendered.dispose();
 });
 
 
@@ -76,30 +84,36 @@ it("locks the chat composer on credential-entry surfaces", () => {
     <Composer
       disabled
       showCancel={false}
-      disabledReason="Chat is disabled while entering account credentials."
+      disabledReason="Chat is disabled while entering private account information."
       onSend={vi.fn(async () => undefined)}
       onCancel={vi.fn()}
     />,
   );
 
   expect(screen.getByLabelText("Message the assistant")).toBeDisabled();
-  expect(screen.getByText("Chat is disabled while entering account credentials.")).toBeVisible();
+  expect(screen.getByText("Chat is disabled while entering private account information.")).toBeVisible();
   expect(screen.queryByRole("button", { name: "Stop response" })).not.toBeInTheDocument();
 });
 
 
-function surfaceProps(): RouteDeckSurfaceComponentProps {
+function surfaceProps(
+  surfaceId: string,
+  dispatchAffordance: RouteDeckSurfaceComponentProps["dispatchAffordance"],
+): RouteDeckSurfaceComponentProps {
+  const formHandle = surfaceId === "lounge.reset_password"
+    ? "lounge-password-reset-confirm"
+    : "lounge-email-verification";
   return {
-    surface: { surface_id: "lounge.reset_password", component: "lounge.reset_password", props: [] },
+    surface: { surface_id: surfaceId, component: surfaceId, props: [] },
     slot: "active",
-    props: {},
+    props: { form_handle: formHandle },
     spec: {
-      id: "lounge.reset_password",
-      component: "lounge.reset_password",
+      id: surfaceId,
+      component: surfaceId,
       lifecycle: "stable",
       public_props_schema: {},
-      affordances: [{ id: "return_to_lounge", event: "open", operation: { id: "lounge.return_to_lounge" } }],
+      affordances: [],
     },
-    dispatchAffordance: vi.fn(async () => ({}) as never),
+    dispatchAffordance,
   };
 }

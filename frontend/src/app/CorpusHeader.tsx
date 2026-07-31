@@ -8,8 +8,8 @@ import { Bot, CircleUserRound, LogOut } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { ownerAuthClient } from "../lounge/authClient";
-import { useOwnerSession } from "../lounge/OwnerSessionContext";
+import { ownerAuthClient } from "../features/lounge/authClient";
+import { useOwnerSession } from "../features/lounge/OwnerSessionContext";
 
 export function CorpusHeader() {
   const contract = useRouteDeckContract();

@@ -19,9 +19,6 @@ def test_host_settings_load_every_runtime_value_explicitly(tmp_path: Path) -> No
                 "ROUTEDECK_REVIEW_TTL_SECONDS=300",
                 "ROUTEDECK_RESUME_CAPABILITY_TTL_SECONDS=600",
                 "ROUTEDECK_WORKER_COUNT=1",
-                "ROUTEDECK_GUEST_COOKIE_NAME=framework_guest",
-                "ROUTEDECK_GUEST_COOKIE_SECURE=false",
-                "ROUTEDECK_GUEST_COOKIE_PATH=/",
                 "ROUTEDECK_BROWSER_ORIGINS=http://127.0.0.1:5199",
             )
         ),
@@ -33,7 +30,6 @@ def test_host_settings_load_every_runtime_value_explicitly(tmp_path: Path) -> No
     assert settings.routedeck_database_url.endswith("runtime.sqlite3")
     assert settings.routedeck_instance_id == "framework-contract"
     assert settings.routedeck_worker_count == 1
-    assert settings.routedeck_guest_cookie_secure is False
     assert tuple(map(str, settings.routedeck_browser_origins)) == (
         "http://127.0.0.1:5199/",
     )

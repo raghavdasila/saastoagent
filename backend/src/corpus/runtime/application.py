@@ -70,6 +70,10 @@ async def open_live_corpus_application(
     settings: CorpusRuntimeSettings | None = None,
     *,
     owner_context_resolver,
+    auth_service,
+    auth_limiter,
+    auth_mail,
+    credential_transition,
 ) -> LiveRouteDeckApplication:
     configured = settings or CorpusRuntimeSettings.from_env()
     compiled = compile_corpus_app()
@@ -77,8 +81,17 @@ async def open_live_corpus_application(
     def application_factory(
         resources: SqlAlchemyRuntimeResources,
     ):
-        del resources
-        return bind_corpus_app(compiled, owner_context_resolver)
+        return bind_corpus_app(
+            compiled,
+            owner_context_resolver,
+            auth_service=auth_service,
+            auth_limiter=auth_limiter,
+            auth_mail=auth_mail,
+            auth_settings=configured.auth,
+            private_form_store=resources.store,
+            private_form_codec=resources.codec,
+            credential_transition=credential_transition,
+        )
 
     runtime = await open_sqlalchemy_routedeck_runtime(
         compiled_app=compiled,

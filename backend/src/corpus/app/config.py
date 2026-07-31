@@ -20,9 +20,6 @@ class RouteDeckHostSettings(BaseModel):
     routedeck_review_ttl_seconds: int = Field(gt=0)
     routedeck_resume_capability_ttl_seconds: int = Field(gt=0)
     routedeck_worker_count: int = Field(ge=1)
-    routedeck_guest_cookie_name: str = Field(min_length=1)
-    routedeck_guest_cookie_secure: bool
-    routedeck_guest_cookie_path: str = Field(pattern=r"^/")
     routedeck_browser_origins: tuple[AnyHttpUrl, ...] = Field(min_length=1)
 
     @classmethod
@@ -53,9 +50,6 @@ _FIELD_BY_ENV = {
         "routedeck_resume_capability_ttl_seconds"
     ),
     "ROUTEDECK_WORKER_COUNT": "routedeck_worker_count",
-    "ROUTEDECK_GUEST_COOKIE_NAME": "routedeck_guest_cookie_name",
-    "ROUTEDECK_GUEST_COOKIE_SECURE": "routedeck_guest_cookie_secure",
-    "ROUTEDECK_GUEST_COOKIE_PATH": "routedeck_guest_cookie_path",
     "ROUTEDECK_BROWSER_ORIGINS": "routedeck_browser_origins",
 }
 _ENV_FIELDS = frozenset(_FIELD_BY_ENV)

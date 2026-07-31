@@ -1,4 +1,7 @@
+import type { AuthorizedTransport } from "@/app/transports";
+
 export interface OwnerSessionView {
+  type?: "owner";
   owner: {
     email: string;
     display_name: string | null;
@@ -6,7 +9,11 @@ export interface OwnerSessionView {
   };
   organization: { name: string; slug: string };
   membership: { role: "owner" | "admin" | "member" };
-  route_session_state: "adopted" | "resumed";
+  route_session_state?: "adopted" | "resumed";
+}
+
+interface AnonymousSessionView {
+  type: "anonymous";
 }
 
 export class AuthProblemError extends Error {
@@ -19,12 +26,26 @@ export class AuthProblemError extends Error {
   }
 }
 
-async function request<T>(
-  path: string,
-  init: RequestInit = {},
-): Promise<T> {
-  const response = await fetch(path, {
-    credentials: "same-origin",
+let authTransport: AuthorizedTransport | null = null;
+let revokeClientCredentials: (() => Promise<void>) | null = null;
+
+export function configureOwnerAuthClient(options: {
+  transport: AuthorizedTransport;
+  signOut: () => Promise<void>;
+}): void {
+  authTransport = options.transport;
+  revokeClientCredentials = options.signOut;
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  if (authTransport === null) {
+    throw new AuthProblemError(
+      "authentication_transport_unconfigured",
+      "Corpus owner authentication transport is unavailable.",
+      0,
+    );
+  }
+  const response = await authTransport.fetch(path, {
     ...init,
     headers: {
       ...(init.body === undefined ? {} : { "Content-Type": "application/json" }),
@@ -46,46 +67,17 @@ async function request<T>(
 }
 
 export const ownerAuthClient = Object.freeze({
-  register(input: { email: string; password: string; display_name?: string }) {
-    return request<OwnerSessionView>("/api/auth/register", {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
+  async session(): Promise<OwnerSessionView | null> {
+    const result = await request<OwnerSessionView | AnonymousSessionView>(
+      "/api/auth/session",
+    );
+    return result.type === "anonymous" ? null : result;
   },
-  signIn(input: { email: string; password: string }) {
-    return request<OwnerSessionView>("/api/auth/sign-in", {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
-  },
-  session() {
-    return request<OwnerSessionView>("/api/auth/session");
-  },
-  signOut() {
-    return request<void>("/api/auth/sign-out", { method: "POST", body: "{}" });
-  },
-  sendVerification() {
-    return request<void>("/api/auth/verification-email", { method: "POST", body: "{}" });
-  },
-  verify(token: string) {
-    return request<void>("/api/auth/verify", {
-      method: "POST",
-      body: JSON.stringify({ token }),
-    });
-  },
-  requestPasswordReset(email: string) {
-    return request<void>("/api/auth/password-reset/request", {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    });
-  },
-  confirmPasswordReset(token: string, newPassword: string) {
-    return request<void>("/api/auth/password-reset/confirm", {
-      method: "POST",
-      body: JSON.stringify({ token, new_password: newPassword }),
-    });
-  },
-  recover() {
-    return request<void>("/api/auth/recover", { method: "POST", body: "{}" });
+  async signOut(): Promise<void> {
+    if (revokeClientCredentials !== null) {
+      await revokeClientCredentials();
+      return;
+    }
+    await request<void>("/api/auth/sign-out", { method: "POST" });
   },
 });

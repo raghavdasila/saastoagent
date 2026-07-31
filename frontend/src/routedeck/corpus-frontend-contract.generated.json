@@ -4,13 +4,14 @@
   "nodes": {
     "lounge.forgot_password": {
       "conversation_input": {
-        "disabled_message": "Chat is disabled while entering account credentials.",
+        "disabled_message": "Chat is disabled while entering private account information.",
         "enabled": false
       },
       "deep_link_policy": "shareable",
       "id": "lounge.forgot_password",
       "operation_ids": [
-        "lounge.return_to_lounge"
+        "lounge.request_password_reset",
+        "lounge.request_password_reset.return_to_lounge"
       ],
       "route_template": "/forgot-password",
       "surfaces": {
@@ -34,10 +35,11 @@
       "deep_link_policy": "shareable",
       "id": "lounge.home",
       "operation_ids": [
-        "lounge.open_sign_in",
-        "lounge.open_registration",
-        "lounge.open_reset_password",
-        "lounge.open_verify_email"
+        "lounge.open_product_help",
+        "lounge.arrival.open_registration",
+        "lounge.arrival.open_sign_in",
+        "lounge.arrival.open_reset_password",
+        "lounge.arrival.open_verify_email"
       ],
       "route_template": "/",
       "surfaces": {
@@ -53,16 +55,43 @@
       },
       "title": "Lounge"
     },
+    "lounge.product_help": {
+      "conversation_input": {
+        "disabled_message": null,
+        "enabled": true
+      },
+      "deep_link_policy": "shareable",
+      "id": "lounge.product_help",
+      "operation_ids": [
+        "lounge.product_help.return_to_lounge",
+        "lounge.product_help.open_registration",
+        "lounge.product_help.open_sign_in"
+      ],
+      "route_template": "/help",
+      "surfaces": {
+        "active": null,
+        "detail": [],
+        "diagnostic": [],
+        "error": [],
+        "form": [],
+        "frame": [],
+        "peer": [],
+        "review": [],
+        "status": []
+      },
+      "title": "Product help"
+    },
     "lounge.register": {
       "conversation_input": {
-        "disabled_message": "Chat is disabled while entering account credentials.",
+        "disabled_message": "Chat is disabled while entering private account information.",
         "enabled": false
       },
       "deep_link_policy": "shareable",
       "id": "lounge.register",
       "operation_ids": [
-        "lounge.return_to_lounge",
-        "lounge.authentication_completed"
+        "lounge.create_owner_account",
+        "lounge.registration.continue_to_workspace",
+        "lounge.registration.return_to_lounge"
       ],
       "route_template": "/register",
       "surfaces": {
@@ -80,13 +109,14 @@
     },
     "lounge.reset_password": {
       "conversation_input": {
-        "disabled_message": "Chat is disabled while entering account credentials.",
+        "disabled_message": "Chat is disabled while entering private account information.",
         "enabled": false
       },
       "deep_link_policy": "shareable",
       "id": "lounge.reset_password",
       "operation_ids": [
-        "lounge.return_to_lounge"
+        "lounge.change_owner_password",
+        "lounge.change_password.return_to_lounge"
       ],
       "route_template": "/reset-password",
       "surfaces": {
@@ -104,15 +134,16 @@
     },
     "lounge.sign_in": {
       "conversation_input": {
-        "disabled_message": "Chat is disabled while entering account credentials.",
+        "disabled_message": "Chat is disabled while entering private account information.",
         "enabled": false
       },
       "deep_link_policy": "shareable",
       "id": "lounge.sign_in",
       "operation_ids": [
-        "lounge.return_to_lounge",
-        "lounge.open_forgot_password",
-        "lounge.authentication_completed"
+        "lounge.authenticate_owner_account",
+        "lounge.sign_in.continue_to_workspace",
+        "lounge.sign_in.open_password_recovery",
+        "lounge.sign_in.return_to_lounge"
       ],
       "route_template": "/sign-in",
       "surfaces": {
@@ -130,17 +161,18 @@
     },
     "lounge.verification_pending": {
       "conversation_input": {
-        "disabled_message": "Chat is disabled while entering account credentials.",
-        "enabled": false
+        "disabled_message": null,
+        "enabled": true
       },
       "deep_link_policy": "session_bound",
       "id": "lounge.verification_pending",
       "operation_ids": [
-        "lounge.return_to_workspace"
+        "lounge.request_verification_delivery",
+        "lounge.verification_delivery.return_to_workspace"
       ],
       "route_template": "/verification-pending",
       "surfaces": {
-        "active": "lounge.verification_pending",
+        "active": null,
         "detail": [],
         "diagnostic": [],
         "error": [],
@@ -154,13 +186,14 @@
     },
     "lounge.verify_email": {
       "conversation_input": {
-        "disabled_message": "Chat is disabled while entering account credentials.",
+        "disabled_message": "Chat is disabled while entering private account information.",
         "enabled": false
       },
       "deep_link_policy": "shareable",
       "id": "lounge.verify_email",
       "operation_ids": [
-        "lounge.return_to_lounge"
+        "lounge.confirm_owner_email",
+        "lounge.confirm_email.return_to_lounge"
       ],
       "route_template": "/verify",
       "surfaces": {
@@ -230,10 +263,17 @@
     "lounge.forgot_password": {
       "affordances": [
         {
+          "event": "submit",
+          "id": "request_password_recovery",
+          "operation": {
+            "id": "lounge.request_password_reset"
+          }
+        },
+        {
           "event": "open",
           "id": "return_to_lounge",
           "operation": {
-            "id": "lounge.return_to_lounge"
+            "id": "lounge.request_password_reset.return_to_lounge"
           }
         }
       ],
@@ -242,7 +282,15 @@
       "lifecycle": "stable",
       "public_props_schema": {
         "additionalProperties": false,
-        "properties": {},
+        "properties": {
+          "form_handle": {
+            "const": "lounge-password-reset-request",
+            "type": "string"
+          }
+        },
+        "required": [
+          "form_handle"
+        ],
         "type": "object"
       }
     },
@@ -250,16 +298,23 @@
       "affordances": [
         {
           "event": "open",
+          "id": "start_product_help",
+          "operation": {
+            "id": "lounge.open_product_help"
+          }
+        },
+        {
+          "event": "open",
           "id": "open_sign_in",
           "operation": {
-            "id": "lounge.open_sign_in"
+            "id": "lounge.arrival.open_sign_in"
           }
         },
         {
           "event": "open",
           "id": "open_registration",
           "operation": {
-            "id": "lounge.open_registration"
+            "id": "lounge.arrival.open_registration"
           }
         }
       ],
@@ -275,17 +330,24 @@
     "lounge.register": {
       "affordances": [
         {
-          "event": "open",
-          "id": "return_to_lounge",
+          "event": "submit",
+          "id": "create_owner_account",
           "operation": {
-            "id": "lounge.return_to_lounge"
+            "id": "lounge.create_owner_account"
           }
         },
         {
-          "event": "submit",
-          "id": "authentication_completed",
+          "event": "open",
+          "id": "continue_to_workspace",
           "operation": {
-            "id": "lounge.authentication_completed"
+            "id": "lounge.registration.continue_to_workspace"
+          }
+        },
+        {
+          "event": "open",
+          "id": "return_to_lounge",
+          "operation": {
+            "id": "lounge.registration.return_to_lounge"
           }
         }
       ],
@@ -294,17 +356,32 @@
       "lifecycle": "stable",
       "public_props_schema": {
         "additionalProperties": false,
-        "properties": {},
+        "properties": {
+          "form_handle": {
+            "const": "lounge-register",
+            "type": "string"
+          }
+        },
+        "required": [
+          "form_handle"
+        ],
         "type": "object"
       }
     },
     "lounge.reset_password": {
       "affordances": [
         {
+          "event": "submit",
+          "id": "change_owner_password",
+          "operation": {
+            "id": "lounge.change_owner_password"
+          }
+        },
+        {
           "event": "open",
           "id": "return_to_lounge",
           "operation": {
-            "id": "lounge.return_to_lounge"
+            "id": "lounge.change_password.return_to_lounge"
           }
         }
       ],
@@ -313,31 +390,46 @@
       "lifecycle": "stable",
       "public_props_schema": {
         "additionalProperties": false,
-        "properties": {},
+        "properties": {
+          "form_handle": {
+            "const": "lounge-password-reset-confirm",
+            "type": "string"
+          }
+        },
+        "required": [
+          "form_handle"
+        ],
         "type": "object"
       }
     },
     "lounge.sign_in": {
       "affordances": [
         {
+          "event": "submit",
+          "id": "authenticate_owner",
+          "operation": {
+            "id": "lounge.authenticate_owner_account"
+          }
+        },
+        {
+          "event": "open",
+          "id": "continue_to_workspace",
+          "operation": {
+            "id": "lounge.sign_in.continue_to_workspace"
+          }
+        },
+        {
+          "event": "open",
+          "id": "open_password_recovery",
+          "operation": {
+            "id": "lounge.sign_in.open_password_recovery"
+          }
+        },
+        {
           "event": "open",
           "id": "return_to_lounge",
           "operation": {
-            "id": "lounge.return_to_lounge"
-          }
-        },
-        {
-          "event": "open",
-          "id": "open_forgot_password",
-          "operation": {
-            "id": "lounge.open_forgot_password"
-          }
-        },
-        {
-          "event": "submit",
-          "id": "authentication_completed",
-          "operation": {
-            "id": "lounge.authentication_completed"
+            "id": "lounge.sign_in.return_to_lounge"
           }
         }
       ],
@@ -346,36 +438,32 @@
       "lifecycle": "stable",
       "public_props_schema": {
         "additionalProperties": false,
-        "properties": {},
-        "type": "object"
-      }
-    },
-    "lounge.verification_pending": {
-      "affordances": [
-        {
-          "event": "open",
-          "id": "return_to_workspace",
-          "operation": {
-            "id": "lounge.return_to_workspace"
+        "properties": {
+          "form_handle": {
+            "const": "lounge-sign-in",
+            "type": "string"
           }
-        }
-      ],
-      "component": "lounge.verification_pending",
-      "id": "lounge.verification_pending",
-      "lifecycle": "stable",
-      "public_props_schema": {
-        "additionalProperties": false,
-        "properties": {},
+        },
+        "required": [
+          "form_handle"
+        ],
         "type": "object"
       }
     },
     "lounge.verify_email": {
       "affordances": [
         {
+          "event": "submit",
+          "id": "confirm_owner_email",
+          "operation": {
+            "id": "lounge.confirm_owner_email"
+          }
+        },
+        {
           "event": "open",
           "id": "return_to_lounge",
           "operation": {
-            "id": "lounge.return_to_lounge"
+            "id": "lounge.confirm_email.return_to_lounge"
           }
         }
       ],
@@ -384,7 +472,15 @@
       "lifecycle": "stable",
       "public_props_schema": {
         "additionalProperties": false,
-        "properties": {},
+        "properties": {
+          "form_handle": {
+            "const": "lounge-email-verification",
+            "type": "string"
+          }
+        },
+        "required": [
+          "form_handle"
+        ],
         "type": "object"
       }
     },
@@ -436,82 +532,142 @@
   },
   "transitions": [
     {
-      "operation_id": "lounge.open_sign_in",
+      "operation_id": "lounge.open_product_help",
       "outcome": "opened",
       "source": "lounge.home",
-      "target": "lounge.sign_in"
+      "target": "lounge.product_help"
     },
     {
-      "operation_id": "lounge.open_registration",
+      "operation_id": "lounge.arrival.open_registration",
       "outcome": "opened",
       "source": "lounge.home",
       "target": "lounge.register"
     },
     {
-      "operation_id": "lounge.open_reset_password",
+      "operation_id": "lounge.arrival.open_sign_in",
+      "outcome": "opened",
+      "source": "lounge.home",
+      "target": "lounge.sign_in"
+    },
+    {
+      "operation_id": "lounge.arrival.open_reset_password",
       "outcome": "opened",
       "source": "lounge.home",
       "target": "lounge.reset_password"
     },
     {
-      "operation_id": "lounge.open_verify_email",
+      "operation_id": "lounge.arrival.open_verify_email",
       "outcome": "opened",
       "source": "lounge.home",
       "target": "lounge.verify_email"
     },
     {
-      "operation_id": "lounge.return_to_lounge",
+      "operation_id": "lounge.product_help.return_to_lounge",
       "outcome": "opened",
-      "source": "lounge.sign_in",
+      "source": "lounge.product_help",
       "target": "lounge.home"
     },
     {
-      "operation_id": "lounge.open_forgot_password",
+      "operation_id": "lounge.product_help.open_registration",
+      "outcome": "opened",
+      "source": "lounge.product_help",
+      "target": "lounge.register"
+    },
+    {
+      "operation_id": "lounge.product_help.open_sign_in",
+      "outcome": "opened",
+      "source": "lounge.product_help",
+      "target": "lounge.sign_in"
+    },
+    {
+      "operation_id": "lounge.create_owner_account",
+      "outcome": "created",
+      "source": "lounge.register",
+      "target": "workspace.home"
+    },
+    {
+      "operation_id": "lounge.registration.continue_to_workspace",
+      "outcome": "opened",
+      "source": "lounge.register",
+      "target": "workspace.home"
+    },
+    {
+      "operation_id": "lounge.registration.return_to_lounge",
+      "outcome": "opened",
+      "source": "lounge.register",
+      "target": "lounge.home"
+    },
+    {
+      "operation_id": "lounge.authenticate_owner_account",
+      "outcome": "authenticated",
+      "source": "lounge.sign_in",
+      "target": "workspace.home"
+    },
+    {
+      "operation_id": "lounge.sign_in.continue_to_workspace",
+      "outcome": "opened",
+      "source": "lounge.sign_in",
+      "target": "workspace.home"
+    },
+    {
+      "operation_id": "lounge.sign_in.open_password_recovery",
       "outcome": "opened",
       "source": "lounge.sign_in",
       "target": "lounge.forgot_password"
     },
     {
-      "operation_id": "lounge.authentication_completed",
+      "operation_id": "lounge.sign_in.return_to_lounge",
       "outcome": "opened",
       "source": "lounge.sign_in",
-      "target": "workspace.home"
-    },
-    {
-      "operation_id": "lounge.return_to_lounge",
-      "outcome": "opened",
-      "source": "lounge.register",
       "target": "lounge.home"
     },
     {
-      "operation_id": "lounge.authentication_completed",
-      "outcome": "opened",
-      "source": "lounge.register",
-      "target": "workspace.home"
+      "operation_id": "lounge.request_password_reset",
+      "outcome": "requested",
+      "source": "lounge.forgot_password",
+      "target": "lounge.forgot_password"
     },
     {
-      "operation_id": "lounge.return_to_lounge",
+      "operation_id": "lounge.request_password_reset.return_to_lounge",
       "outcome": "opened",
       "source": "lounge.forgot_password",
       "target": "lounge.home"
     },
     {
-      "operation_id": "lounge.return_to_lounge",
+      "operation_id": "lounge.change_owner_password",
+      "outcome": "changed",
+      "source": "lounge.reset_password",
+      "target": "lounge.sign_in"
+    },
+    {
+      "operation_id": "lounge.change_password.return_to_lounge",
       "outcome": "opened",
       "source": "lounge.reset_password",
       "target": "lounge.home"
     },
     {
-      "operation_id": "lounge.return_to_lounge",
-      "outcome": "opened",
-      "source": "lounge.verify_email",
-      "target": "lounge.home"
+      "operation_id": "lounge.request_verification_delivery",
+      "outcome": "requested",
+      "source": "lounge.verification_pending",
+      "target": "lounge.verification_pending"
     },
     {
-      "operation_id": "lounge.return_to_workspace",
+      "operation_id": "lounge.verification_delivery.return_to_workspace",
       "outcome": "opened",
       "source": "lounge.verification_pending",
       "target": "workspace.home"
+    },
+    {
+      "operation_id": "lounge.confirm_owner_email",
+      "outcome": "confirmed",
+      "source": "lounge.verify_email",
+      "target": "lounge.verify_email"
+    },
+    {
+      "operation_id": "lounge.confirm_email.return_to_lounge",
+      "outcome": "opened",
+      "source": "lounge.verify_email",
+      "target": "lounge.home"
     },
     {
       "operation_id": "workspace.open_sources",

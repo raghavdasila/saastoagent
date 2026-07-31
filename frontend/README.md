@@ -21,6 +21,13 @@ frontend/
 The primary chat is not an optional assistant feature. RouteDeck changes the
 scope available to the same Corpus agent as the active node changes.
 
+Startup is client-neutral: Corpus rotates or issues an opaque bearer identity,
+selects an authorized public conversation ID, and sends both values on every
+session-bound RouteDeck request. Browser access tokens remain in memory;
+refresh credentials use IndexedDB behind Web Locks. Active RouteDeck runs are
+resumed from the projected request ID and server cursor, with no Lounge-specific
+request ID or client convergence timeout.
+
 `sources.debug` is intentionally an owner-only experimental workbench. It uses
 the neutral `/api/sources/**` response contract to upload a collection, inspect
 persisted graph counts, run bounded/full retrieval, and inspect real

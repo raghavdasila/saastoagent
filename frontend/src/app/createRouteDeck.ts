@@ -15,8 +15,6 @@ import {
 } from "@routedeck/core";
 import type { RouteDeckNavigationActions } from "@routedeck/react";
 
-import { routeDeckClient } from "../routedeck/client";
-
 export interface AppRouteDeck {
   store: RouteDeckStore;
   privateForms: ReturnType<typeof createPrivateFormState>;
@@ -30,10 +28,10 @@ export interface AppRouteDeck {
 export function createAppRouteDeck(options: {
   contract: FrontendContract | unknown;
   browser: BrowserHistoryTarget;
-  client?: RouteDeckClient;
+  client: RouteDeckClient;
 }): AppRouteDeck {
   const contract = decodeFrontendContract(options.contract);
-  const client = options.client ?? routeDeckClient;
+  const client = options.client;
   const history = createBrowserHistoryAdapter(options.browser);
   let store: RouteDeckStore | null = null;
   const validatePublicRouteKey = (name: string, value: string) => {
@@ -81,7 +79,7 @@ export function createAppRouteDeck(options: {
     history,
     routes,
     routeController,
-    bootstrapMode: "resume_or_create_shareable",
+    bootstrapMode: "resume",
   });
   return {
     store,

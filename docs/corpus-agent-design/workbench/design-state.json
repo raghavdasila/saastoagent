@@ -1,5 +1,5 @@
 {
-  "version": 16,
+  "version": 20,
   "features": [
     {
       "id": "lounge",
@@ -8,7 +8,9 @@
       "policies": [
         "Keep unauthenticated help general and never expose private Workspace state.",
         "Offer product help and account access without implying that the visitor is authenticated.",
-        "Describe only currently available Corpus behavior as available; label planned, deferred, unknown, or unavailable behavior explicitly."
+        "Describe only currently available Corpus behavior as available; label planned, deferred, unknown, or unavailable behavior explicitly.",
+        "While Lounge is active, identify the product location as Lounge and keep private Workspace and feature navigation hidden until authenticated entry succeeds.",
+        "Describe Lounge choices in user-facing product language and never expose internal operation, tool, Node, AgentPolicy, or identifier names."
       ],
       "stories": [
         {
@@ -42,7 +44,13 @@
                 "Establish only unauthenticated public context.",
                 "Complete entry when Lounge home is visible; do not start or claim completion of any downstream behavior."
               ],
-              "operationNames": [],
+              "operationNames": [
+                "Start product help",
+                "Open owner registration",
+                "Open owner sign-in",
+                "Open password reset link",
+                "Open email verification link"
+              ],
               "surfaceNames": [
                 "Lounge home"
               ]
@@ -51,14 +59,71 @@
           "surfaces": [
             {
               "name": "Lounge home",
-              "purpose": "Present the structured product UI required for ‘Arrive in the Lounge’.",
+              "purpose": "Present the structured product UI required for “Arrive in the Lounge”.",
               "policies": [
                 "Present only public orientation and entry paths; never expose or imply access to private Workspace state.",
-                "Keep this surface limited to Lounge orientation; product-help and account interactions belong to their own behaviors."
+                "Keep this surface limited to Lounge orientation; product-help and account interactions belong to their own behaviors.",
+                "Identify the active product location as Lounge and show only Lounge-scoped navigation; keep private Workspace and feature navigation hidden until authenticated entry succeeds."
               ]
             }
           ],
-          "operations": [],
+          "operations": [
+            {
+              "name": "Start product help",
+              "purpose": "Move the public conversation into product-help context so Corpus can answer under the product-help policies.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Silently enter product-help context before answering a substantive Corpus product question from Lounge home; never mention the operation, tool, or Node name in product output."
+              ]
+            },
+            {
+              "name": "Open owner registration",
+              "purpose": "Move the Lounge visitor into owner registration while retaining the current conversation context.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Open account creation without implying that an account has already been created."
+              ]
+            },
+            {
+              "name": "Open owner sign-in",
+              "purpose": "Move the Lounge visitor into owner sign-in while retaining the current conversation context.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Open sign-in without implying that the visitor is already authenticated."
+              ]
+            },
+            {
+              "name": "Open password reset link",
+              "purpose": "Open the password-reset location associated with a captured one-time recovery link without validating or consuming the token.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Open password reset only from the matching one-time recovery route; never claim that the token is valid before validation."
+              ]
+            },
+            {
+              "name": "Open email verification link",
+              "purpose": "Open the email-verification location associated with a captured one-time verification link without validating or consuming the token.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Open email verification only from the matching one-time verification route; never claim that the token is valid before validation."
+              ]
+            }
+          ],
           "suggestedActions": [],
           "status": "draft",
           "rejectionReason": ""
@@ -94,12 +159,50 @@
                 "Answer from current product knowledge and label planned, deferred, unknown, or unavailable behavior explicitly.",
                 "When a request requires private Workspace state, explain the boundary and offer an account path without inventing an answer."
               ],
-              "operationNames": [],
+              "operationNames": [
+                "Return to Lounge",
+                "Open owner registration",
+                "Open owner sign-in"
+              ],
               "surfaceNames": []
             }
           ],
           "surfaces": [],
-          "operations": [],
+          "operations": [
+            {
+              "name": "Return to Lounge",
+              "purpose": "Return to public Lounge orientation without completing or retrying the behavior being left.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Return to Lounge orientation without claiming that another product task completed."
+              ]
+            },
+            {
+              "name": "Open owner registration",
+              "purpose": "Move the Lounge visitor into owner registration while retaining the current conversation context.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Offer account creation only when the visitor wants to begin private Workspace work."
+              ]
+            },
+            {
+              "name": "Open owner sign-in",
+              "purpose": "Move the Lounge visitor into owner sign-in while retaining the current conversation context.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Offer sign-in only when the visitor wants to resume private Workspace work."
+              ]
+            }
+          ],
           "suggestedActions": [],
           "status": "draft",
           "rejectionReason": ""
@@ -136,7 +239,9 @@
                 "Do not retry identity creation after partial success; continue or report the exact continuation failure instead."
               ],
               "operationNames": [
-                "Create owner account"
+                "Create owner account",
+                "Continue to Workspace",
+                "Return to Lounge"
               ],
               "surfaceNames": [
                 "Create owner account surface"
@@ -164,6 +269,28 @@
                 "Submit account creation only after required fields are valid and only after the visitor explicitly chooses Create account.",
                 "Claim success only after the owner identity and personal Workspace are created; report partial continuation failure without recreating the account."
               ]
+            },
+            {
+              "name": "Continue to Workspace",
+              "purpose": "Enter the Workspace already authorized to the authenticated browser session without repeating authentication or account creation.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Continue only an already-authenticated owner into the authorized Workspace; never recreate the account or resubmit credentials."
+              ]
+            },
+            {
+              "name": "Return to Lounge",
+              "purpose": "Return to public Lounge orientation without completing or retrying the behavior being left.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Leave account creation without submitting or retaining an incomplete credential form."
+              ]
             }
           ],
           "suggestedActions": [
@@ -171,6 +298,12 @@
               "id": "register-submit",
               "label": "Sign up",
               "operationName": "Create owner account",
+              "visibility": ""
+            },
+            {
+              "id": "register-continue",
+              "label": "Continue to Workspace",
+              "operationName": "Continue to Workspace",
               "visibility": ""
             }
           ],
@@ -209,7 +342,10 @@
                 "Describe sign-in as complete only after authentication and Workspace continuation both succeed."
               ],
               "operationNames": [
-                "Authenticate owner"
+                "Authenticate owner",
+                "Continue to Workspace",
+                "Open password recovery",
+                "Return to Lounge"
               ],
               "surfaceNames": [
                 "Owner sign-in surface"
@@ -236,6 +372,39 @@
               "policies": [
                 "Resume only the Workspace authorized for the authenticated owner; invalid credentials remain a failure and expose no private state."
               ]
+            },
+            {
+              "name": "Continue to Workspace",
+              "purpose": "Enter the Workspace already authorized to the authenticated browser session without repeating authentication or account creation.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Continue only an already-authenticated owner into the authorized Workspace; never resubmit credentials."
+              ]
+            },
+            {
+              "name": "Open password recovery",
+              "purpose": "Move the Lounge visitor into the password-recovery request path.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Open account-neutral password recovery without revealing whether the entered email belongs to an account."
+              ]
+            },
+            {
+              "name": "Return to Lounge",
+              "purpose": "Return to public Lounge orientation without completing or retrying the behavior being left.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Leave sign-in without submitting or retaining an incomplete credential form."
+              ]
             }
           ],
           "suggestedActions": [
@@ -243,6 +412,12 @@
               "id": "sign-in-submit",
               "label": "Sign in",
               "operationName": "Authenticate owner",
+              "visibility": ""
+            },
+            {
+              "id": "sign-in-continue",
+              "label": "Continue to Workspace",
+              "operationName": "Continue to Workspace",
               "visibility": ""
             }
           ],
@@ -253,8 +428,8 @@
           "id": "owner-auth-request-reset",
           "title": "Request password recovery",
           "userIntent": "Regain access because I cannot use my current password.",
-          "agentIntent": "Accept a reset request without revealing whether the account exists and report delivery failures truthfully.",
-          "expectedBehavior": "A visitor submits an email for password recovery. Corpus shows the same generic confirmation whether or not the account exists. When an account exists, delivery is requested; unavailable delivery remains an explicit failure.",
+          "agentIntent": "Accept a reset request without revealing whether the account exists and distinguish a known delivery-service outage from recipient-specific delivery results.",
+          "expectedBehavior": "A visitor submits an email for password recovery. Corpus shows the same generic confirmation whether or not the account exists. A delivery-service outage may be reported only when it is known independently of the submitted account; recipient-specific delivery results never reveal account existence.",
           "messages": [
             {
               "id": "owner-auth-request-reset-owner",
@@ -281,7 +456,8 @@
                 "Report delivery-system unavailability without disclosing account existence or claiming delivery success."
               ],
               "operationNames": [
-                "Request password recovery"
+                "Request password recovery",
+                "Return to Lounge"
               ],
               "surfaceNames": [
                 "Password reset request surface"
@@ -308,6 +484,17 @@
               "policies": [
                 "Do not reveal account existence; report delivery-system unavailability without disclosing whether the submitted account exists.",
                 "Treat submission as a recovery request only, not as proof that an account exists or that delivery succeeded."
+              ]
+            },
+            {
+              "name": "Return to Lounge",
+              "purpose": "Return to public Lounge orientation without completing or retrying the behavior being left.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Return to Lounge without revealing whether the submitted email belongs to an account."
               ]
             }
           ],
@@ -354,7 +541,8 @@
                 "Claim success only after the password changes and existing sessions are revoked; then return the owner to sign-in."
               ],
               "operationNames": [
-                "Change owner password"
+                "Change owner password",
+                "Return to Lounge"
               ],
               "surfaceNames": [
                 "Set new password surface"
@@ -380,6 +568,17 @@
               "recovery": "",
               "policies": [
                 "Accept only a valid unexpired one-time token; on success change the password and revoke existing sessions."
+              ]
+            },
+            {
+              "name": "Return to Lounge",
+              "purpose": "Return to public Lounge orientation without completing or retrying the behavior being left.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Leave password reset without changing the password or consuming the one-time token."
               ]
             }
           ],
@@ -412,7 +611,7 @@
               "content": "I will request a fresh verification message and report whether delivery succeeds."
             }
           ],
-          "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#verification-pending",
+          "mockSurfacePath": null,
           "nodePolicies": [
             "Keep one-time verification tokens out of the visible URL, chat, and persisted visible state.",
             "Pending verification must not block otherwise permitted Workspace behavior unless a separate product rule explicitly requires it."
@@ -426,7 +625,8 @@
                 "Report the actual delivery request result without describing a request as successful verification."
               ],
               "operationNames": [
-                "Request verification delivery"
+                "Request verification delivery",
+                "Return to Workspace"
               ],
               "surfaceNames": []
             }
@@ -444,6 +644,17 @@
                 "Request another verification message only after the owner explicitly asks; do not send automatically or repeatedly.",
                 "Report the actual delivery request result, and do not block otherwise permitted Workspace use when verification remains pending."
               ]
+            },
+            {
+              "name": "Return to Workspace",
+              "purpose": "Return to the authenticated Workspace without changing email-verification state.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Return to the authenticated Workspace without treating pending verification as a blocker."
+              ]
             }
           ],
           "suggestedActions": [
@@ -451,6 +662,12 @@
               "id": "resend-verification",
               "label": "Resend verification",
               "operationName": "Request verification delivery",
+              "visibility": ""
+            },
+            {
+              "id": "verification-return",
+              "label": "Return to Workspace",
+              "operationName": "Return to Workspace",
               "visibility": ""
             }
           ],
@@ -489,7 +706,8 @@
                 "Refresh and present verified state only after confirmation succeeds; token failure changes nothing."
               ],
               "operationNames": [
-                "Confirm owner email"
+                "Confirm owner email",
+                "Return to Lounge"
               ],
               "surfaceNames": [
                 "Confirm owner email surface"
@@ -515,6 +733,17 @@
               "recovery": "",
               "policies": [
                 "Apply verification only to the owner account bound to a valid unexpired one-time token."
+              ]
+            },
+            {
+              "name": "Return to Lounge",
+              "purpose": "Return to public Lounge orientation without completing or retrying the behavior being left.",
+              "inputs": "",
+              "outcomes": "",
+              "safetyAndReview": "",
+              "recovery": "",
+              "policies": [
+                "Leave email confirmation without consuming or exposing the one-time token."
               ]
             }
           ],

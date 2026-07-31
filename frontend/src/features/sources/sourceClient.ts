@@ -1,3 +1,5 @@
+import type { AuthorizedTransport } from "@/app/transports";
+
 export type SourceState = "processing" | "ready" | "failed";
 
 export interface SourceRevision {
@@ -71,16 +73,18 @@ export class SourceClientError extends Error {
   }
 }
 
-class SourceClient {
+export class SourceClient {
+  constructor(private readonly transport: AuthorizedTransport) {}
+
   async list(): Promise<readonly SourceView[]> {
-    return request<readonly SourceView[]>("/api/sources");
+    return this.request<readonly SourceView[]>("/api/sources");
   }
 
   async uploadApi(name: string, file: File): Promise<SourceView> {
     const body = new FormData();
     body.set("name", name);
     body.set("file", file);
-    return request<SourceView>("/api/sources/api", {
+    return this.request<SourceView>("/api/sources/api", {
       method: "POST",
       body,
     });
@@ -95,7 +99,7 @@ class SourceClient {
       readonly provided_params: Readonly<Record<string, unknown>> | null;
     },
   ): Promise<RetrievalResult> {
-    return request<RetrievalResult>(
+    return this.request<RetrievalResult>(
       `/api/sources/${encodeURIComponent(sourceId)}/retrieve`,
       jsonRequest(body),
     );
@@ -111,34 +115,33 @@ class SourceClient {
       readonly max_review_attempts: number;
     },
   ): Promise<EvalsetResult> {
-    return request<EvalsetResult>(
+    return this.request<EvalsetResult>(
       `/api/sources/${encodeURIComponent(sourceId)}/evalsets`,
       jsonRequest(body),
     );
   }
-}
 
-
-async function request<T>(url: string, init: RequestInit = {}): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(url, { credentials: "include", ...init });
-  } catch (error) {
-    throw new SourceClientError(
-      error instanceof Error ? error.message : "The Sources API is unavailable.",
-      "source_network_failure",
-      0,
-    );
+  private async request<T>(url: string, init: RequestInit = {}): Promise<T> {
+    let response: Response;
+    try {
+      response = await this.transport.fetch(url, init);
+    } catch (error) {
+      throw new SourceClientError(
+        error instanceof Error ? error.message : "The Sources API is unavailable.",
+        "source_network_failure",
+        0,
+      );
+    }
+    if (!response.ok) {
+      const problem = await readProblem(response);
+      throw new SourceClientError(
+        problem.message ?? `The Sources request failed (${response.status}).`,
+        problem.code ?? "source_request_failed",
+        response.status,
+      );
+    }
+    return response.json() as Promise<T>;
   }
-  if (!response.ok) {
-    const problem = await readProblem(response);
-    throw new SourceClientError(
-      problem.message ?? `The Sources request failed (${response.status}).`,
-      problem.code ?? "source_request_failed",
-      response.status,
-    );
-  }
-  return response.json() as Promise<T>;
 }
 
 
@@ -160,6 +163,3 @@ async function readProblem(
     return {};
   }
 }
-
-
-export const sourceClient = new SourceClient();

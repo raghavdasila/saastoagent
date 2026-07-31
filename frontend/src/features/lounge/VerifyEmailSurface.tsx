@@ -1,27 +1,38 @@
 import { useState } from "react";
-import type { RouteDeckSurfaceComponentProps } from "@routedeck/react";
+import {
+  useRouteDeckStore,
+  type RouteDeckPrivateFormBinding,
+  type RouteDeckSurfaceComponentProps,
+} from "@routedeck/react";
 
 import { Button } from "@/components/ui/button";
-import { ownerAuthClient } from "./authClient";
+import { PrivateFormGate, requireFormHandle } from "./PrivateFormGate";
 import { useOwnerSession } from "./OwnerSessionContext";
-import {
-  clearCapturedTokenFragment,
-  useCapturedTokenFragment,
-} from "./tokenFragment";
+import { clearCapturedTokenFragment, useCapturedTokenFragment } from "./tokenFragment";
 
-export function VerifyEmailSurface({ dispatchAffordance }: RouteDeckSurfaceComponentProps) {
+export function VerifyEmailSurface(props: RouteDeckSurfaceComponentProps) {
   const token = useCapturedTokenFragment("verification");
+  return (
+    <PrivateFormGate formId={requireFormHandle(props.props)}>
+      {(privateForm) => <VerifyEmailForm {...props} privateForm={privateForm} token={token} />}
+    </PrivateFormGate>
+  );
+}
+
+function VerifyEmailForm({ privateForm, token, dispatchAffordance }: RouteDeckSurfaceComponentProps & { privateForm: RouteDeckPrivateFormBinding; token: string | null }) {
+  const store = useRouteDeckStore();
   const { refresh } = useOwnerSession();
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(
-    token === null ? "This verification link is missing its token." : null,
-  );
+  const [message, setMessage] = useState<string | null>(token === null ? "This verification link is missing its token." : null);
+
   async function verify() {
     if (token === null || busy) return;
     setBusy(true);
     setMessage(null);
     try {
-      await ownerAuthClient.verify(token);
+      await privateForm.save({ token }, { complete: true });
+      await store.resync();
+      await dispatchAffordance("confirm_owner_email", {});
       clearCapturedTokenFragment("verification");
       await refresh();
       setMessage("Email verified.");
@@ -31,6 +42,7 @@ export function VerifyEmailSurface({ dispatchAffordance }: RouteDeckSurfaceCompo
       setBusy(false);
     }
   }
+
   return (
     <section className="workspace-auth" aria-labelledby="verify-email-title">
       <header><p>Corpus account</p><h1 id="verify-email-title">Verify email</h1><span>Confirm the address associated with your owner account.</span></header>

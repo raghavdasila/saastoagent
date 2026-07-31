@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import {
   createRouteDeckAgentClient,
-  type AssistantInitiatedTurnProgress,
   type AgentChatClient,
   type AgentHistoryTurn,
   type RouteDeckClientState,
@@ -19,7 +18,6 @@ import {
 
 import { Composer } from "./Composer";
 import { Conversation } from "./Conversation";
-import type { InitialConversationPhase } from "./initialConversation";
 
 const CONVERSATION_SURFACE_SLOTS: readonly RouteDeckSurfaceSlot[] = Object.freeze([
   "active",
@@ -29,26 +27,27 @@ const EMPTY_LEGAL_OPERATIONS = Object.freeze([]);
 const selectSessionVersion = (state: RouteDeckClientState) => state.sessionVersion;
 const selectLegalOperations = (state: RouteDeckClientState) =>
   state.projection?.legal_operations ?? EMPTY_LEGAL_OPERATIONS;
+const selectActiveChatRequestId = (state: RouteDeckClientState) => {
+  const interaction = state.projection?.interaction;
+  return interaction?.phase === "active" && interaction.owner === "chat"
+    ? interaction.request_id
+    : null;
+};
 export interface AgentShellProps {
   registry: RouteDeckSurfaceRegistry;
   client?: AgentChatClient;
   initialConversation?: readonly AgentHistoryTurn[];
-  conversationBootstrapPending?: boolean;
-  conversationBootstrapProgress?: AssistantInitiatedTurnProgress | null;
-  conversationBootstrapPhase?: InitialConversationPhase | null;
 }
 
 export function AgentShell({
   registry,
   client,
   initialConversation = [],
-  conversationBootstrapPending = false,
-  conversationBootstrapProgress = null,
-  conversationBootstrapPhase = null,
 }: AgentShellProps) {
   const runtime = useRouteDeckRuntime();
   const sessionVersion = useRouteDeckSelector(selectSessionVersion);
   const legalOperations = useRouteDeckSelector(selectLegalOperations);
+  const activeRunRequestId = useRouteDeckSelector(selectActiveChatRequestId);
   const conversationInput = useRouteDeckConversationInputPolicy();
   const chatClient = useMemo(
     () => client ?? createRouteDeckAgentClient(),
@@ -61,6 +60,7 @@ export function AgentShell({
     createRequestId: runtime.createRequestId,
     synchronizeTo: runtime.store.synchronizeTo,
     resync: runtime.store.resync,
+    activeRunRequestId,
   });
   const reviewIsCurrent =
     agent.review !== null &&
@@ -71,37 +71,17 @@ export function AgentShell({
     );
   const conversationInputDisabled = conversationInput?.enabled === false;
   const composerDisabled =
-    conversationBootstrapPending ||
     agent.status === "streaming" ||
     conversationInputDisabled;
   const disabledReason = conversationInputDisabled
     ? conversationInput.disabled_message ?? undefined
-    : conversationBootstrapPending
-      ? bootstrapMessage(conversationBootstrapPhase)
-      : undefined;
-  const visibleMessages = useMemo(
-    () =>
-      conversationBootstrapProgress === null ||
-      conversationBootstrapProgress.content.length === 0
-        ? agent.messages
-        : [
-            ...agent.messages,
-            {
-              id: `assistant:${conversationBootstrapProgress.requestId}`,
-              requestId: conversationBootstrapProgress.requestId,
-              role: "assistant" as const,
-              content: conversationBootstrapProgress.content,
-              status: "streaming" as const,
-            },
-          ],
-    [agent.messages, conversationBootstrapProgress],
-  );
+    : undefined;
 
   return (
     <main data-agent-shell="">
       <Conversation
-        messages={visibleMessages}
-        status={conversationBootstrapPending ? "streaming" : agent.status}
+        messages={agent.messages}
+        status={agent.status}
         suggestedActions={
           <RouteDeckSuggestedActions disabled={agent.status === "streaming"} />
         }
@@ -142,18 +122,4 @@ export function AgentShell({
       </div>
     </main>
   );
-}
-
-function bootstrapMessage(phase: InitialConversationPhase | null): string {
-  switch (phase) {
-    case "loading_history":
-      return "Loading the saved RouteDeck conversation.";
-    case "waiting_for_active_turn":
-      return "Waiting for an active RouteDeck Lounge greeting turn to finish.";
-    case "streaming_ollama":
-      return "Receiving the Lounge greeting from Ollama.";
-    case "waiting_for_ollama":
-    default:
-      return "Waiting for Ollama to generate the Lounge greeting.";
-  }
 }

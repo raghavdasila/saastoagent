@@ -3,7 +3,7 @@ from __future__ import annotations
 from corpus.auth.models import Base, MembershipRole
 
 
-def test_owner_auth_schema_has_only_hashed_browser_credentials() -> None:
+def test_auth_schema_has_hashed_bearer_credentials_and_opaque_conversations() -> None:
     tables = Base.metadata.tables
 
     assert {
@@ -11,14 +11,16 @@ def test_owner_auth_schema_has_only_hashed_browser_credentials() -> None:
         "organizations",
         "memberships",
         "auth_sessions",
-        "owner_route_claims",
-        "owner_route_handles",
+        "access_tokens",
+        "corpus_conversations",
         "auth_rate_limits",
-    }.issubset(tables)
-    assert "token_hash" in tables["auth_sessions"].columns
-    assert "token" not in tables["auth_sessions"].columns
-    assert "token_hash" in tables["owner_route_handles"].columns
-    assert "handle" not in tables["owner_route_handles"].columns
+    } == set(tables)
+    assert "refresh_token_hash" in tables["auth_sessions"].columns
+    assert "refresh_token" not in tables["auth_sessions"].columns
+    assert "token_hash" in tables["access_tokens"].columns
+    assert "token" not in tables["access_tokens"].columns
+    assert "public_id" in tables["corpus_conversations"].columns
+    assert "route_session_id" in tables["corpus_conversations"].columns
     assert {role.value for role in MembershipRole} == {
         "owner",
         "admin",

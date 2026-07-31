@@ -7,150 +7,163 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from routedeck_fastapi import SameOriginMutationPolicy
 
-from corpus.auth.config import AuthSettings
 from corpus.auth.database import AuthDatabase
 from corpus.auth.http import AuthHttpProblem, auth_problem_response, create_auth_router
-from corpus.auth.mail import OwnerMailDelivery
-from corpus.auth.rate_limits import AuthRateLimiter
+from corpus.auth.rate_limits import AuthRateLimiter, RateLimitExceeded
+from corpus.auth.security import hash_opaque_token
 from corpus.auth.service import AuthService
 
 
-class RecordingMail(OwnerMailDelivery):
-    def __init__(self) -> None:
-        self.verification: list[tuple[str, str]] = []
-        self.resets: list[tuple[str, str]] = []
-
-    async def send_verification(self, recipient: str, link: str) -> None:
-        self.verification.append((recipient, link))
-
-    async def send_password_reset(self, recipient: str, link: str) -> None:
-        self.resets.append((recipient, link))
-
-
-def _settings(database_url: str) -> AuthSettings:
-    return AuthSettings(
-        database_url=database_url,
-        migration_revision="0001_owner_auth",
-        reset_secret="r" * 40,
-        verification_secret="v" * 40,
-        auth_cookie_name="corpus_auth",
-        owner_route_cookie_name="corpus_owner_route",
-        auth_cookie_secure=False,
-        auth_cookie_path="/",
-        public_frontend_url="http://127.0.0.1:5199",
-    )
-
-
-def test_owner_auth_http_contract_sets_and_revokes_http_only_cookies(
-    tmp_path: Path,
-) -> None:
-    database_url = f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}"
-    database = AuthDatabase(database_url)
-    asyncio.run(database.create_schema_for_tests())
-    settings = _settings(database_url)
-    mail = RecordingMail()
-    service = AuthService(
-        database,
-        reset_secret=settings.reset_secret.get_secret_value(),
-        verification_secret=settings.verification_secret.get_secret_value(),
-    )
-    app = FastAPI()
-    app.add_exception_handler(AuthHttpProblem, auth_problem_response)
-    app.include_router(
-        create_auth_router(
-            service=service,
-            limiter=AuthRateLimiter(database),
-            mail=mail,
-            settings=settings,
-            mutation_policy=SameOriginMutationPolicy(
-                trusted_origins=frozenset({"http://127.0.0.1:5199"})
-            ),
-            guest_cookie_name="corpus_guest",
-            route_session_exists=lambda _request, _session_id: _true(),
-        )
-    )
-    try:
-        with TestClient(app) as client:
-            client.cookies.set(
-                "corpus_guest",
-                "guest-route-1",
-                domain="testserver.local",
-                path="/",
-            )
-            registered = client.post(
-                "/api/auth/register",
-                headers={"Origin": "http://127.0.0.1:5199"},
-                json={
-                    "email": "owner@example.com",
-                    "password": "a sufficiently private password",
-                    "display_name": "Ada",
-                },
-            )
-            assert registered.status_code == 201
-            assert registered.json()["organization"]["name"] == "Ada's Workspace"
-            assert "corpus_auth=" in registered.headers["set-cookie"]
-            assert "corpus_owner_route=" in registered.headers["set-cookie"]
-            assert client.cookies.get("corpus_guest") is None
-            assert "auth_token" not in registered.text
-
-            current = client.get("/api/auth/session")
-            assert current.status_code == 200
-            assert current.json()["owner"]["is_verified"] is False
-
-            sent = client.post(
-                "/api/auth/verification-email",
-                headers={"Origin": "http://127.0.0.1:5199"},
-                json={},
-            )
-            assert sent.status_code == 204
-            assert len(mail.verification) == 1
-
-            signed_out = client.post(
-                "/api/auth/sign-out",
-                headers={"Origin": "http://127.0.0.1:5199"},
-                json={},
-            )
-            assert signed_out.status_code == 204
-            assert client.get("/api/auth/session").status_code == 401
-    finally:
-        asyncio.run(database.close())
-
-
-def test_mutations_reject_cross_origin_with_stable_auth_problem(tmp_path: Path) -> None:
-    database_url = f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}"
-    database = AuthDatabase(database_url)
-    asyncio.run(database.create_schema_for_tests())
-    settings = _settings(database_url)
+def _app(
+    database: AuthDatabase,
+    *,
+    limiter=None,
+    trusted_proxies: tuple[str, ...] = (),
+) -> FastAPI:
     app = FastAPI()
     app.add_exception_handler(AuthHttpProblem, auth_problem_response)
     app.include_router(
         create_auth_router(
             service=AuthService(database),
-            limiter=AuthRateLimiter(database),
-            mail=RecordingMail(),
-            settings=settings,
+            limiter=limiter or AuthRateLimiter(database),
+            trusted_proxies=trusted_proxies,
             mutation_policy=SameOriginMutationPolicy(
                 trusted_origins=frozenset({"http://127.0.0.1:5199"})
             ),
-            guest_cookie_name="corpus_guest",
-            route_session_exists=lambda _request, _session_id: _true(),
         )
     )
+    return app
+
+
+def test_anonymous_refresh_session_and_signout_are_bearer_only(
+    tmp_path: Path,
+) -> None:
+    database = AuthDatabase(
+        f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}"
+    )
+    asyncio.run(database.create_schema_for_tests())
     try:
-        with TestClient(app) as client:
-            response = client.post(
-                "/api/auth/password-reset/request",
-                headers={"Origin": "https://attacker.invalid"},
-                json={"email": "owner@example.com"},
+        with TestClient(_app(database)) as client:
+            anonymous = client.post(
+                "/api/auth/anonymous",
+                headers={"Origin": "http://127.0.0.1:5199"},
             )
-        assert response.status_code == 403
-        assert response.json() == {
-            "code": "mutation_origin_rejected",
-            "message": "The mutation request origin is not authorized.",
+            assert anonymous.status_code == 201
+            tokens = anonymous.json()
+            assert tokens["principal"] == {"type": "anonymous"}
+            assert "set-cookie" not in anonymous.headers
+
+            current = client.get(
+                "/api/auth/session",
+                headers={
+                    "Authorization": f"Bearer {tokens['access_token']}"
+                },
+            )
+            assert current.json() == {"type": "anonymous"}
+
+            refreshed = client.post(
+                "/api/auth/refresh",
+                headers={"Origin": "http://127.0.0.1:5199"},
+                json={"refresh_token": tokens["refresh_token"]},
+            )
+            assert refreshed.status_code == 200
+            assert refreshed.json()["refresh_token"] != tokens["refresh_token"]
+            stale = client.post(
+                "/api/auth/refresh",
+                headers={"Origin": "http://127.0.0.1:5199"},
+                json={"refresh_token": tokens["refresh_token"]},
+            )
+            assert stale.status_code == 401
+
+            signed_out = client.post(
+                "/api/auth/sign-out",
+                headers={
+                    "Origin": "http://127.0.0.1:5199",
+                    "Authorization": (
+                        f"Bearer {refreshed.json()['access_token']}"
+                    ),
+                },
+            )
+            assert signed_out.status_code == 204
+            assert "set-cookie" not in signed_out.headers
+    finally:
+        asyncio.run(database.close())
+
+
+class RecordingLimiter:
+    def __init__(self, *, reject: bool = False) -> None:
+        self.reject = reject
+        self.calls = []
+
+    async def consume(self, **values) -> None:
+        self.calls.append(values)
+        if self.reject:
+            raise RateLimitExceeded("limited")
+
+
+def test_anonymous_and_refresh_apply_explicit_rate_limits(tmp_path: Path) -> None:
+    database = AuthDatabase(
+        f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}"
+    )
+    asyncio.run(database.create_schema_for_tests())
+    recording = RecordingLimiter()
+    try:
+        with TestClient(
+            _app(
+                database,
+                limiter=recording,
+                trusted_proxies=("testclient",),
+            )
+        ) as client:
+            anonymous = client.post(
+                "/api/auth/anonymous",
+                headers={
+                    "Origin": "http://127.0.0.1:5199",
+                    "X-Forwarded-For": "198.51.100.8, 10.0.0.1",
+                },
+            )
+            refresh_token = anonymous.json()["refresh_token"]
+            refreshed = client.post(
+                "/api/auth/refresh",
+                headers={"Origin": "http://127.0.0.1:5199"},
+                json={"refresh_token": refresh_token},
+            )
+        assert refreshed.status_code == 200
+        assert recording.calls[0]["scope"] == "anonymous-ip"
+        assert recording.calls[0]["subject"] == "198.51.100.8"
+        assert recording.calls[1]["scope"] == "refresh-token"
+        assert recording.calls[1]["subject"] == hash_opaque_token(refresh_token)
+
+        rejecting = RecordingLimiter(reject=True)
+        with TestClient(_app(database, limiter=rejecting)) as client:
+            limited = client.post(
+                "/api/auth/anonymous",
+                headers={"Origin": "http://127.0.0.1:5199"},
+            )
+        assert limited.status_code == 429
+        assert limited.json() == {
+            "code": "rate_limit_exceeded",
+            "message": "Too many authentication attempts. Try again later.",
         }
     finally:
         asyncio.run(database.close())
 
 
-async def _true() -> bool:
-    return True
+def test_recover_is_removed_and_mutations_reject_cross_origin(
+    tmp_path: Path,
+) -> None:
+    database = AuthDatabase(
+        f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}"
+    )
+    asyncio.run(database.create_schema_for_tests())
+    try:
+        with TestClient(_app(database)) as client:
+            assert client.post("/api/auth/recover").status_code == 404
+            response = client.post(
+                "/api/auth/anonymous",
+                headers={"Origin": "https://attacker.invalid"},
+            )
+        assert response.status_code == 403
+        assert response.json()["code"] == "mutation_origin_rejected"
+    finally:
+        asyncio.run(database.close())

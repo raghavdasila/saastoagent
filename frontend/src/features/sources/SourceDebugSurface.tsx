@@ -22,9 +22,9 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  sourceClient,
   type EvalsetResult,
   type RetrievalResult,
+  type SourceClient,
   type SourceView,
 } from "./sourceClient";
 
@@ -34,7 +34,8 @@ type BusyAction = "loading" | "upload" | "retrieval" | "evalset" | "return";
 
 export function SourceDebugSurface({
   dispatchAffordance,
-}: RouteDeckSurfaceComponentProps) {
+  sourceClient,
+}: RouteDeckSurfaceComponentProps & { sourceClient: SourceClient }) {
   const [sources, setSources] = useState<readonly SourceView[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState<BusyAction | null>("loading");

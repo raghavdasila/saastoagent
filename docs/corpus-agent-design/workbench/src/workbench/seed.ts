@@ -19,34 +19,52 @@ const BEHAVIOR_POLICY_SEED: Record<string, PolicySeed[]> = {
   "lounge-arrival": [
     ["surface", "Lounge home", "Present only public orientation and entry paths; never expose or imply access to private Workspace state."],
     ["surface", "Lounge home", "Keep this surface limited to Lounge orientation; product-help and account interactions belong to their own behaviors."],
+    ["surface", "Lounge home", "Identify the active product location as Lounge and show only Lounge-scoped navigation; keep private Workspace and feature navigation hidden until authenticated entry succeeds."],
+    ["operation", "Start product help", "Silently enter product-help context before answering a substantive Corpus product question from Lounge home; never mention the operation, tool, or Node name in product output."],
+    ["operation", "Open owner registration", "Open account creation without implying that an account has already been created."],
+    ["operation", "Open owner sign-in", "Open sign-in without implying that the visitor is already authenticated."],
+    ["operation", "Open password reset link", "Open password reset only from the matching one-time recovery route; never claim that the token is valid before validation."],
+    ["operation", "Open email verification link", "Open email verification only from the matching one-time verification route; never claim that the token is valid before validation."],
   ],
   "lounge-product-help": [
+    ["operation", "Return to Lounge", "Return to Lounge orientation without claiming that another product task completed."],
+    ["operation", "Open owner registration", "Offer account creation only when the visitor wants to begin private Workspace work."],
+    ["operation", "Open owner sign-in", "Offer sign-in only when the visitor wants to resume private Workspace work."],
   ],
   "owner-auth-register": [
     ["surface", "Create owner account surface", "Keep password values private and masked; never repeat credentials in chat, confirmation text, or persisted design-visible state."],
     ["operation", "Create owner account", "Submit account creation only after required fields are valid and only after the visitor explicitly chooses Create account."],
     ["operation", "Create owner account", "Claim success only after the owner identity and personal Workspace are created; report partial continuation failure without recreating the account."],
+    ["operation", "Continue to Workspace", "Continue only an already-authenticated owner into the authorized Workspace; never recreate the account or resubmit credentials."],
+    ["operation", "Return to Lounge", "Leave account creation without submitting or retaining an incomplete credential form."],
   ],
   "owner-auth-sign-in": [
     ["surface", "Owner sign-in surface", "Keep credentials private and masked; never echo passwords or include them in conversational output."],
     ["operation", "Authenticate owner", "Resume only the Workspace authorized for the authenticated owner; invalid credentials remain a failure and expose no private state."],
+    ["operation", "Continue to Workspace", "Continue only an already-authenticated owner into the authorized Workspace; never resubmit credentials."],
+    ["operation", "Open password recovery", "Open account-neutral password recovery without revealing whether the entered email belongs to an account."],
+    ["operation", "Return to Lounge", "Leave sign-in without submitting or retaining an incomplete credential form."],
   ],
   "owner-auth-request-reset": [
     ["surface", "Password reset request surface", "Use the same account-neutral confirmation whether or not the submitted email belongs to an account."],
     ["operation", "Request password recovery", "Do not reveal account existence; report delivery-system unavailability without disclosing whether the submitted account exists."],
     ["operation", "Request password recovery", "Treat submission as a recovery request only, not as proof that an account exists or that delivery succeeded."],
+    ["operation", "Return to Lounge", "Return to Lounge without revealing whether the submitted email belongs to an account."],
   ],
   "owner-auth-confirm-reset": [
     ["surface", "Set new password surface", "Remove the one-time token from the visible URL and never render, repeat, or persist it in visible product state."],
     ["operation", "Change owner password", "Accept only a valid unexpired one-time token; on success change the password and revoke existing sessions."],
+    ["operation", "Return to Lounge", "Leave password reset without changing the password or consuming the one-time token."],
   ],
   "owner-auth-request-verification": [
     ["operation", "Request verification delivery", "Request another verification message only after the owner explicitly asks; do not send automatically or repeatedly."],
     ["operation", "Request verification delivery", "Report the actual delivery request result, and do not block otherwise permitted Workspace use when verification remains pending."],
+    ["operation", "Return to Workspace", "Return to the authenticated Workspace without treating pending verification as a blocker."],
   ],
   "owner-auth-confirm-verification": [
     ["surface", "Confirm owner email surface", "Remove the one-time token from the visible URL and never expose it in chat or visible confirmation state."],
     ["operation", "Confirm owner email", "Apply verification only to the owner account bound to a valid unexpired one-time token."],
+    ["operation", "Return to Lounge", "Leave email confirmation without consuming or exposing the one-time token."],
   ],
   "enter-workspace": [
     ["surface", "Workspace overview", "Distinguish real counts and recent activity from truthful empty states and from temporarily unavailable information."],
@@ -175,10 +193,16 @@ const BEHAVIOR_POLICY_SEED: Record<string, PolicySeed[]> = {
 }
 
 const OPERATION_INTENDED_EFFECTS: Record<string, string> = {
+  "Start product help": "Move the public conversation into product-help context so Corpus can answer under the product-help policies.",
   "Answer product help": "Return a public, product-grounded answer about Corpus and identify an available next path when one is needed.",
   "Open owner registration": "Move the Lounge visitor into owner registration while retaining the current conversation context.",
   "Open owner sign-in": "Move the Lounge visitor into owner sign-in while retaining the current conversation context.",
   "Open password recovery": "Move the Lounge visitor into the password-recovery request path.",
+  "Open password reset link": "Open the password-reset location associated with a captured one-time recovery link without validating or consuming the token.",
+  "Open email verification link": "Open the email-verification location associated with a captured one-time verification link without validating or consuming the token.",
+  "Return to Lounge": "Return to public Lounge orientation without completing or retrying the behavior being left.",
+  "Continue to Workspace": "Enter the Workspace already authorized to the authenticated browser session without repeating authentication or account creation.",
+  "Return to Workspace": "Return to the authenticated Workspace without changing email-verification state.",
   "Create owner account": "Create the owner identity and personal Workspace, establish the authenticated session, and enter that Workspace.",
   "Authenticate owner": "Validate the submitted credentials, establish the owner session, and resume only the Workspace authorized for that owner.",
   "Request password recovery": "Create an account-neutral recovery request and request delivery of a one-time recovery link when an eligible account exists.",
@@ -647,10 +671,13 @@ const BEHAVIOR_NODE_TEMPLATE: Record<string, [featureId: string, nodeName: strin
 
 const SUGGESTED_ACTION_OPERATION: Record<string, string> = {
   "register-submit": "Create owner account",
+  "register-continue": "Continue to Workspace",
   "sign-in-submit": "Authenticate owner",
+  "sign-in-continue": "Continue to Workspace",
   "request-reset-submit": "Request password recovery",
   "confirm-reset-submit": "Change owner password",
   "resend-verification": "Request verification delivery",
+  "verification-return": "Return to Workspace",
   "confirm-verification": "Confirm owner email",
   "workspace-manage-agents": "Navigate to Workspace destination",
   "workspace-manage-sources": "Navigate to Workspace destination",
@@ -778,7 +805,7 @@ function policies(_scopeName: string, instructions: string[]): string[] {
 
 export function createSeedState(): WorkbenchState {
   return {
-    version: 16,
+    version: 20,
     features: [
       {
         id: "lounge",
@@ -788,6 +815,8 @@ export function createSeedState(): WorkbenchState {
           "Keep unauthenticated help general and never expose private Workspace state.",
           "Offer product help and account access without implying that the visitor is authenticated.",
           "Describe only currently available Corpus behavior as available; label planned, deferred, unknown, or unavailable behavior explicitly.",
+          "While Lounge is active, identify the product location as Lounge and keep private Workspace and feature navigation hidden until authenticated entry succeeds.",
+          "Describe Lounge choices in user-facing product language and never expose internal operation, tool, Node, AgentPolicy, or identifier names.",
         ]),
         stories: [
           story(
@@ -817,7 +846,7 @@ export function createSeedState(): WorkbenchState {
             "A Lounge visitor signs up with the required account details. Corpus creates the owner account and personal Workspace, signs the owner in, and enters Workspace. If account creation succeeds but continuation fails, Corpus keeps the authenticated state valid and reports the continuation failure.",
             "I want to create an account.",
             "Sign up here. When account creation completes, I will take you into your Workspace.",
-            { suggestedActions: [{ id: "register-submit", label: "Sign up" }], surface: "/mock-surfaces/workspace/authentication.html#register", status: "approved" },
+            { suggestedActions: [{ id: "register-submit", label: "Sign up" }, { id: "register-continue", label: "Continue to Workspace" }], surface: "/mock-surfaces/workspace/authentication.html#register", status: "approved" },
           ),
           story(
             "owner-auth-sign-in",
@@ -827,14 +856,14 @@ export function createSeedState(): WorkbenchState {
             "An existing owner signs in from Lounge with email and password. Corpus resumes only that owner's Workspace. Invalid credentials remain a visible failure and do not open private state.",
             "I already have a Corpus account.",
             "Sign in to resume the Workspace associated with your account.",
-            { suggestedActions: [{ id: "sign-in-submit", label: "Sign in" }], surface: "/mock-surfaces/workspace/authentication.html#sign-in", status: "approved" },
+            { suggestedActions: [{ id: "sign-in-submit", label: "Sign in" }, { id: "sign-in-continue", label: "Continue to Workspace" }], surface: "/mock-surfaces/workspace/authentication.html#sign-in", status: "approved" },
           ),
           story(
             "owner-auth-request-reset",
             "Request password recovery",
             "Regain access because I cannot use my current password.",
-            "Accept a reset request without revealing whether the account exists and report delivery failures truthfully.",
-            "A visitor submits an email for password recovery. Corpus shows the same generic confirmation whether or not the account exists. When an account exists, delivery is requested; unavailable delivery remains an explicit failure.",
+            "Accept a reset request without revealing whether the account exists and distinguish a known delivery-service outage from recipient-specific delivery results.",
+            "A visitor submits an email for password recovery. Corpus shows the same generic confirmation whether or not the account exists. A delivery-service outage may be reported only when it is known independently of the submitted account; recipient-specific delivery results never reveal account existence.",
             "I forgot my password.",
             "Enter your email to request recovery. The confirmation will not reveal whether an account exists.",
             { suggestedActions: [{ id: "request-reset-submit", label: "Send recovery link" }], surface: "/mock-surfaces/workspace/authentication.html#request-reset", status: "approved" },
@@ -857,7 +886,7 @@ export function createSeedState(): WorkbenchState {
             "A signed-in owner whose email is pending verification asks for another verification message. Corpus requests delivery and reports the actual result without blocking permitted Workspace use.",
             "Send the verification email again.",
             "I will request a fresh verification message and report whether delivery succeeds.",
-            { suggestedActions: [{ id: "resend-verification", label: "Resend verification" }], surface: "/mock-surfaces/workspace/authentication.html#verification-pending", status: "approved" },
+            { suggestedActions: [{ id: "resend-verification", label: "Resend verification" }, { id: "verification-return", label: "Return to Workspace" }], status: "approved" },
           ),
           story(
             "owner-auth-confirm-verification",

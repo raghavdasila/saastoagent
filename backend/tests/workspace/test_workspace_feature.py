@@ -2,18 +2,26 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
-from routedeck_core.contracts.operations import DeliveryPhase
+from routedeck_core.contracts.operations import DeliveryPhase, OperationSource
 from routedeck_core.contracts.session import SessionSnapshot
 
 from corpus.bindings import bind_corpus_app
+from corpus.auth.credential_transition import AccountOperationRequest
 from corpus.auth.service import OwnerRouteContext
 from corpus.composition import CORPUS_APP, compile_corpus_app
 from corpus.features.lounge.declarations import (
-    OPEN_REGISTRATION,
-    OPEN_SIGN_IN,
-    RETURN_TO_LOUNGE,
+    ARRIVAL_OPEN_REGISTRATION,
+    ARRIVAL_OPEN_SIGN_IN,
+    AUTHENTICATE_OWNER,
+    CHANGE_OWNER_PASSWORD,
+    CONFIRM_OWNER_EMAIL,
+    CREATE_OWNER_ACCOUNT,
+    HELP_RETURN_TO_LOUNGE,
+    REQUEST_PASSWORD_RESET,
+    REQUEST_VERIFICATION_DELIVERY,
 )
 from corpus.features.lounge.feature import LOUNGE_FEATURE
 from corpus.features.workspace.declarations import OPEN_SOURCES
@@ -35,6 +43,17 @@ class OwnerContextProbe:
         )
 
 
+class CredentialTransitionProbe:
+    def current_request(self) -> AccountOperationRequest | None:
+        return None
+
+    def publish_issued_tokens(self, tokens) -> None:
+        raise AssertionError(f"Unexpected issued tokens: {tokens!r}")
+
+    def publish_revocation(self) -> None:
+        raise AssertionError("Unexpected credential revocation")
+
+
 def test_composition_selects_workspace_and_sources_and_enters_the_lounge() -> None:
     compiled = compile_corpus_app()
 
@@ -42,6 +61,7 @@ def test_composition_selects_workspace_and_sources_and_enters_the_lounge() -> No
     assert compiled.frontend_contract.entry_node_id == "lounge.home"
     assert set(compiled.frontend_contract.nodes) == {
         "lounge.home",
+        "lounge.product_help",
         "lounge.sign_in",
         "lounge.register",
         "lounge.forgot_password",
@@ -72,10 +92,11 @@ def test_lounge_and_workspace_own_their_operations_transitions_and_surfaces() ->
     contract = compile_corpus_app().frontend_contract
 
     assert set(contract.nodes["lounge.home"].operation_ids) == {
-        "lounge.open_sign_in",
-        "lounge.open_registration",
-        "lounge.open_reset_password",
-        "lounge.open_verify_email",
+        "lounge.open_product_help",
+        "lounge.arrival.open_sign_in",
+        "lounge.arrival.open_registration",
+        "lounge.arrival.open_reset_password",
+        "lounge.arrival.open_verify_email",
     }
     assert contract.nodes["lounge.home"].surfaces.active == "lounge.home"
     assert contract.nodes["lounge.sign_in"].surfaces.active == "lounge.sign_in"
@@ -90,7 +111,7 @@ def test_lounge_and_workspace_own_their_operations_transitions_and_surfaces() ->
         policy = contract.nodes[node_id].conversation_input
         assert policy.enabled is False
         assert policy.disabled_message == (
-            "Chat is disabled while entering account credentials."
+            "Chat is disabled while entering private account information."
         )
     assert contract.nodes["workspace.home"].conversation_input.enabled is True
     assert contract.nodes["sources.home"].surfaces.active == "sources.debug"
@@ -102,25 +123,26 @@ def test_lounge_and_workspace_own_their_operations_transitions_and_surfaces() ->
         "sources.return_to_home"
     }
     expected = {
-        ("lounge.home", "lounge.open_sign_in", "lounge.sign_in"),
+        ("lounge.home", "lounge.open_product_help", "lounge.product_help"),
+        ("lounge.home", "lounge.arrival.open_sign_in", "lounge.sign_in"),
         (
             "lounge.home",
-            "lounge.open_registration",
+            "lounge.arrival.open_registration",
             "lounge.register",
         ),
-        ("lounge.sign_in", "lounge.return_to_lounge", "lounge.home"),
-        ("lounge.register", "lounge.return_to_lounge", "lounge.home"),
-        ("lounge.sign_in", "lounge.open_forgot_password", "lounge.forgot_password"),
-        ("lounge.sign_in", "lounge.authentication_completed", "workspace.home"),
-        ("lounge.register", "lounge.authentication_completed", "workspace.home"),
-        ("lounge.home", "lounge.open_reset_password", "lounge.reset_password"),
-        ("lounge.home", "lounge.open_verify_email", "lounge.verify_email"),
-        ("lounge.forgot_password", "lounge.return_to_lounge", "lounge.home"),
-        ("lounge.reset_password", "lounge.return_to_lounge", "lounge.home"),
-        ("lounge.verify_email", "lounge.return_to_lounge", "lounge.home"),
+        ("lounge.sign_in", "lounge.sign_in.return_to_lounge", "lounge.home"),
+        ("lounge.register", "lounge.registration.return_to_lounge", "lounge.home"),
+        ("lounge.sign_in", "lounge.sign_in.open_password_recovery", "lounge.forgot_password"),
+        ("lounge.sign_in", "lounge.authenticate_owner_account", "workspace.home"),
+        ("lounge.register", "lounge.create_owner_account", "workspace.home"),
+        ("lounge.home", "lounge.arrival.open_reset_password", "lounge.reset_password"),
+        ("lounge.home", "lounge.arrival.open_verify_email", "lounge.verify_email"),
+        ("lounge.forgot_password", "lounge.request_password_reset.return_to_lounge", "lounge.home"),
+        ("lounge.reset_password", "lounge.change_password.return_to_lounge", "lounge.home"),
+        ("lounge.verify_email", "lounge.confirm_email.return_to_lounge", "lounge.home"),
         ("workspace.home", "workspace.open_sources", "sources.home"),
         ("workspace.home", "workspace.open_verification", "lounge.verification_pending"),
-        ("lounge.verification_pending", "lounge.return_to_workspace", "workspace.home"),
+        ("lounge.verification_pending", "lounge.verification_delivery.return_to_workspace", "workspace.home"),
         ("sources.home", "sources.return_to_home", "workspace.home"),
     }
     assert expected.issubset(
@@ -139,35 +161,50 @@ def test_lounge_policies_are_compiled_as_routedeck_agent_policies() -> None:
         for feature in compiled.application.features
         if feature.namespace == "lounge"
     )
-    assert lounge.agent_prompt is not None
-    assert "public Lounge" in lounge.agent_prompt
-
-    assert {
-        "lounge.public_context_only",
-        "lounge.account_access_boundary",
-        "lounge.current_product_truth",
-        "lounge.arrival_boundary",
-        "lounge.product_help_boundary",
-        "lounge.credential_privacy",
-        "lounge.authorization_boundary",
-        "lounge.partial_account_success",
-        "lounge.account_neutral_recovery",
-        "lounge.one_time_reset_token",
-        "lounge.verification_delivery",
-        "lounge.one_time_verification_token",
-        "lounge.verification_is_advisory",
-    } == set(compiled.agent_policies)
+    lounge_home = next(node for node in lounge.nodes if node.id == "lounge.home")
+    assert lounge_home.entry_turn is not None
+    assert lounge_home.entry_turn.id == "welcome"
+    assert {ref.id for ref in lounge.policy_refs} == {
+        "lounge.feature.public_context_only",
+        "lounge.feature.account_access_boundary",
+        "lounge.feature.current_product_truth",
+        "lounge.feature.chrome_boundary",
+        "lounge.feature.user_facing_language",
+    }
+    assert len(compiled.agent_policies) >= 40
 
 
 @pytest.mark.asyncio
 async def test_workspace_navigation_bindings_return_only_declared_outcomes() -> None:
     compiled = compile_corpus_app()
-    bound = bind_corpus_app(compiled, OwnerContextProbe())
+    credential_transition = CredentialTransitionProbe()
+    bound = bind_corpus_app(
+        compiled,
+        OwnerContextProbe(),
+        auth_service=object(),
+        auth_limiter=object(),
+        auth_mail=object(),
+        auth_settings=object(),
+        private_form_store=object(),
+        private_form_codec=object(),
+        credential_transition=credential_transition,
+    )
 
     for operation in (
-        OPEN_SIGN_IN,
-        OPEN_REGISTRATION,
-        RETURN_TO_LOUNGE,
+        CREATE_OWNER_ACCOUNT,
+        AUTHENTICATE_OWNER,
+        REQUEST_PASSWORD_RESET,
+        CHANGE_OWNER_PASSWORD,
+        REQUEST_VERIFICATION_DELIVERY,
+        CONFIRM_OWNER_EMAIL,
+    ):
+        handler = bound.bindings.handlers[operation.ref]
+        assert handler.credential_transition is credential_transition
+
+    for operation in (
+        ARRIVAL_OPEN_SIGN_IN,
+        ARRIVAL_OPEN_REGISTRATION,
+        HELP_RETURN_TO_LOUNGE,
         OPEN_SOURCES,
         RETURN_TO_HOME,
     ):
@@ -177,6 +214,43 @@ async def test_workspace_navigation_bindings_return_only_declared_outcomes() -> 
         assert outcome.outcome == "opened"
         assert outcome.delivery_phase is DeliveryPhase.RESPONSE_RECEIVED
         assert outcome.failure is None
+
+
+@pytest.mark.asyncio
+async def test_account_operations_fail_explicitly_without_a_request_context() -> None:
+    compiled = compile_corpus_app()
+    bound = bind_corpus_app(
+        compiled,
+        OwnerContextProbe(),
+        auth_service=object(),
+        auth_limiter=object(),
+        auth_mail=object(),
+        auth_settings=object(),
+        private_form_store=object(),
+        private_form_codec=object(),
+        credential_transition=CredentialTransitionProbe(),
+    )
+    context = SimpleNamespace(
+        source=OperationSource.SURFACE,
+        attempt_id="attempt-context-required",
+        request_id="request-context-required",
+    )
+
+    for operation in (
+        CREATE_OWNER_ACCOUNT,
+        AUTHENTICATE_OWNER,
+        REQUEST_PASSWORD_RESET,
+        CHANGE_OWNER_PASSWORD,
+        REQUEST_VERIFICATION_DELIVERY,
+        CONFIRM_OWNER_EMAIL,
+    ):
+        outcome = await bound.bindings.handlers[operation.ref](
+            {}, context  # type: ignore[arg-type]
+        )
+
+        assert outcome.failure is not None
+        assert outcome.failure.code == "http_request_context_required"
+        assert outcome.failure.phase == "request_context"
 
 
 @pytest.mark.asyncio

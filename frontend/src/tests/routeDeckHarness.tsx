@@ -14,6 +14,7 @@ import {
   type RouteDeckInspection,
   type RouteDeckNavigationRequest,
   type RouteDeckProjection,
+  type RouteDeckPrivateFormSaveRequest,
   type RouteDeckReviewRequest,
   type RouteDeckSessionCreateRequest,
 } from "@routedeck/core";
@@ -29,12 +30,35 @@ export class TestRouteDeckClient implements RouteDeckClient {
     this.contract = contract === null ? null : structuredClone(contract);
   }
 
+  readonly privateFormSaves: Array<{
+    formId: string;
+    request: RouteDeckPrivateFormSaveRequest;
+  }> = [];
+
   readonly privateForms = {
-    async load(_formId: string): Promise<never> {
-      throw new Error("No private form is configured for this framework test.");
+    load: async (formId: string) => {
+      return {
+        form_id: formId,
+        revision: 0,
+        complete: false,
+        session_version: this.projection.session_version,
+        value: {},
+      };
     },
-    async save(): Promise<never> {
-      throw new Error("No private form is configured for this framework test.");
+    save: async (formId: string, request: RouteDeckPrivateFormSaveRequest) => {
+      this.privateFormSaves.push({ formId, request: structuredClone(request) });
+      this.projection = {
+        ...this.projection,
+        session_version: request.expected_session_version + 1,
+        projection_version: this.projection.projection_version + 1,
+      };
+      return {
+        form_id: formId,
+        revision: 1,
+        complete: request.complete ?? false,
+        session_version: this.projection.session_version,
+        projection_version: this.projection.projection_version,
+      };
     },
   };
 
@@ -145,7 +169,7 @@ export async function renderRouteDeckComponent(
     contract: FrontendContract;
     projection: RouteDeckProjection;
   },
-): Promise<RenderResult & { dispose(): void }> {
+): Promise<RenderResult & { client: TestRouteDeckClient; dispose(): void }> {
   const client = new TestRouteDeckClient(options.projection);
   const routes = createRouteDeckRouteCodec(options.contract, {
     validatePublicRouteKey: () => true,
@@ -192,6 +216,7 @@ export async function renderRouteDeckComponent(
   });
   return {
     ...result,
+    client,
     dispose() {
       result.unmount();
       privateForms.dispose();

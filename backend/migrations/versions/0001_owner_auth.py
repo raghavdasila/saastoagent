@@ -54,41 +54,60 @@ def upgrade() -> None:
     op.create_table(
         "auth_sessions",
         sa.Column("id", sa.Uuid(), nullable=False),
-        sa.Column("user_id", sa.Uuid(), nullable=False),
-        sa.Column("token_hash", sa.String(64), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=True),
+        sa.Column("refresh_token_hash", sa.String(64), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("last_seen_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("absolute_expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("token_hash"),
+        sa.UniqueConstraint("refresh_token_hash"),
     )
     op.create_index("ix_auth_sessions_user_active", "auth_sessions", ["user_id", "revoked_at"])
     op.create_table(
-        "owner_route_claims",
-        sa.Column("route_session_id", sa.String(512), nullable=False),
-        sa.Column("user_id", sa.Uuid(), nullable=False),
-        sa.Column("organization_id", sa.Uuid(), nullable=False),
-        sa.Column("claimed_at", sa.DateTime(timezone=True), nullable=False),
-        sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("route_session_id"),
-    )
-    op.create_table(
-        "owner_route_handles",
+        "access_tokens",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("auth_session_id", sa.Uuid(), nullable=False),
-        sa.Column("route_session_id", sa.String(512), nullable=False),
         sa.Column("token_hash", sa.String(64), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(["auth_session_id"], ["auth_sessions.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["route_session_id"], ["owner_route_claims.route_session_id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("token_hash"),
     )
-    op.create_index("ix_owner_route_handles_auth_active", "owner_route_handles", ["auth_session_id", "revoked_at"])
+    op.create_index("ix_access_tokens_session_active", "access_tokens", ["auth_session_id", "revoked_at"])
+    op.create_table(
+        "corpus_conversations",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("public_id", sa.String(64), nullable=False),
+        sa.Column("anonymous_session_id", sa.Uuid(), nullable=True),
+        sa.Column("owner_user_id", sa.Uuid(), nullable=True),
+        sa.Column("route_session_id", sa.String(512), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("archived_at", sa.DateTime(timezone=True), nullable=True),
+        sa.CheckConstraint(
+            "(anonymous_session_id IS NOT NULL AND owner_user_id IS NULL) OR "
+            "(anonymous_session_id IS NULL AND owner_user_id IS NOT NULL)",
+            name="ck_conversation_exactly_one_principal",
+        ),
+        sa.ForeignKeyConstraint(["anonymous_session_id"], ["auth_sessions.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["owner_user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("public_id"),
+        sa.UniqueConstraint("route_session_id"),
+    )
+    op.create_index(
+        "uq_conversation_active_anonymous",
+        "corpus_conversations",
+        ["anonymous_session_id"],
+        unique=True,
+        sqlite_where=sa.text("archived_at IS NULL"),
+        postgresql_where=sa.text("archived_at IS NULL"),
+    )
+    op.create_index("ix_conversations_owner_updated", "corpus_conversations", ["owner_user_id", "updated_at"])
     op.create_table(
         "auth_rate_limits",
         sa.Column("id", sa.Uuid(), nullable=False),
@@ -104,9 +123,11 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("auth_rate_limits")
-    op.drop_index("ix_owner_route_handles_auth_active", table_name="owner_route_handles")
-    op.drop_table("owner_route_handles")
-    op.drop_table("owner_route_claims")
+    op.drop_index("ix_conversations_owner_updated", table_name="corpus_conversations")
+    op.drop_index("uq_conversation_active_anonymous", table_name="corpus_conversations")
+    op.drop_table("corpus_conversations")
+    op.drop_index("ix_access_tokens_session_active", table_name="access_tokens")
+    op.drop_table("access_tokens")
     op.drop_index("ix_auth_sessions_user_active", table_name="auth_sessions")
     op.drop_table("auth_sessions")
     op.drop_table("memberships")

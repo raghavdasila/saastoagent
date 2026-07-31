@@ -1,4 +1,5 @@
 import { Menu } from "lucide-react";
+import { useRouteDeckCurrentNode } from "@routedeck/react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,13 @@ export interface ApplicationNavigationDrawerProps {
 export function ApplicationNavigationDrawer({
   navigation,
 }: ApplicationNavigationDrawerProps) {
+  const currentNode = useRouteDeckCurrentNode();
+  const loungeActive = currentNode?.startsWith("lounge.") ?? false;
+  const title = loungeActive ? "Lounge navigation" : "Workspace navigation";
+  const description = loungeActive
+    ? "Public Corpus locations and account paths."
+    : "Corpus features and application areas.";
+
   return (
     <div data-application-navigation-mobile="">
       <Sheet>
@@ -36,12 +44,10 @@ export function ApplicationNavigationDrawer({
           className="w-[min(88vw,360px)] gap-0 overflow-y-auto p-0 sm:max-w-[360px]"
         >
           <SheetHeader className="border-b px-5 py-5">
-            <SheetTitle>Workspace navigation</SheetTitle>
-            <SheetDescription>
-              Current Corpus nodes and application areas.
-            </SheetDescription>
+            <SheetTitle>{title}</SheetTitle>
+            <SheetDescription>{description}</SheetDescription>
           </SheetHeader>
-          <nav aria-label="Workspace sections" data-application-navigation-drawer="">
+          <nav aria-label={loungeActive ? "Lounge sections" : "Workspace sections"} data-application-navigation-drawer="">
             {navigation}
           </nav>
         </SheetContent>

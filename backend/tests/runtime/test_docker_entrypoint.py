@@ -4,6 +4,8 @@ import importlib.util
 from pathlib import Path
 from types import ModuleType
 
+import yaml  # type: ignore[import-untyped]
+
 
 def _load_entrypoint() -> ModuleType:
     repository_root = Path(__file__).resolve().parents[3]
@@ -44,3 +46,20 @@ def test_environment_values_explicitly_override_persisted_values(
     assert resolved["CORPUS_VERIFICATION_SECRET"] == original[
         "CORPUS_VERIFICATION_SECRET"
     ]
+
+
+def test_compose_backend_gracefully_cancels_active_runs_before_docker_kill() -> None:
+    repository_root = Path(__file__).resolve().parents[3]
+    compose = yaml.safe_load(
+        (repository_root / "compose.yaml").read_text(encoding="utf-8")
+    )
+    backend = compose["services"]["backend"]
+    command = backend["command"]
+    timeout_index = command.index("--timeout-graceful-shutdown")
+
+    uvicorn_timeout = int(command[timeout_index + 1])
+    docker_stop_grace = int(backend["stop_grace_period"].removesuffix("s"))
+
+    assert uvicorn_timeout == 5
+    assert docker_stop_grace == 10
+    assert uvicorn_timeout < docker_stop_grace

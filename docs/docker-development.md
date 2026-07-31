@@ -76,6 +76,13 @@ The backend entrypoint creates only missing development secrets in
 migration, and then replaces itself with Uvicorn. It does not recover from a
 failed migration or dependency by choosing another path.
 
+The backend gives Uvicorn five seconds for graceful shutdown inside Docker's
+explicit ten-second stop grace. If an SSE subscriber or model task is still
+active during recreation, Uvicorn cancels it before Docker's final kill so the
+ASGI lifespan can close the RouteDeck runtime and release its instance lease.
+This is local process-lifecycle configuration; it does not change RouteDeck's
+lease, interruption, or restart-recovery semantics.
+
 ## Inspect And Stop
 
 ```powershell

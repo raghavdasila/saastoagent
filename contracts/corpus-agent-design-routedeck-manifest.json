@@ -14,16 +14,26 @@
           "surfaces": {
             "Lounge home": "lounge.home"
           },
-          "operations": {}
+          "operations": {
+            "Start product help": "lounge.open_product_help",
+            "Open owner registration": "lounge.arrival.open_registration",
+            "Open owner sign-in": "lounge.arrival.open_sign_in",
+            "Open password reset link": "lounge.arrival.open_reset_password",
+            "Open email verification link": "lounge.arrival.open_verify_email"
+          }
         },
         {
           "designBehavior": "Ask Lounge for product help",
-          "node": "lounge.home",
+          "node": "lounge.product_help",
           "capabilities": {
             "Product help": "lounge.product_help"
           },
           "surfaces": {},
-          "operations": {}
+          "operations": {
+            "Return to Lounge": "lounge.product_help.return_to_lounge",
+            "Open owner registration": "lounge.product_help.open_registration",
+            "Open owner sign-in": "lounge.product_help.open_sign_in"
+          }
         },
         {
           "designBehavior": "Create an owner account",
@@ -35,7 +45,9 @@
             "Create owner account surface": "lounge.register"
           },
           "operations": {
-            "Create owner account": "lounge.create_owner_account"
+            "Create owner account": "lounge.create_owner_account",
+            "Continue to Workspace": "lounge.registration.continue_to_workspace",
+            "Return to Lounge": "lounge.registration.return_to_lounge"
           }
         },
         {
@@ -48,7 +60,10 @@
             "Owner sign-in surface": "lounge.sign_in"
           },
           "operations": {
-            "Authenticate owner": "lounge.authenticate_owner_account"
+            "Authenticate owner": "lounge.authenticate_owner_account",
+            "Continue to Workspace": "lounge.sign_in.continue_to_workspace",
+            "Open password recovery": "lounge.sign_in.open_password_recovery",
+            "Return to Lounge": "lounge.sign_in.return_to_lounge"
           }
         },
         {
@@ -61,7 +76,8 @@
             "Password reset request surface": "lounge.forgot_password"
           },
           "operations": {
-            "Request password recovery": "lounge.request_password_reset"
+            "Request password recovery": "lounge.request_password_reset",
+            "Return to Lounge": "lounge.request_password_reset.return_to_lounge"
           }
         },
         {
@@ -74,7 +90,8 @@
             "Set new password surface": "lounge.reset_password"
           },
           "operations": {
-            "Change owner password": "lounge.change_owner_password"
+            "Change owner password": "lounge.change_owner_password",
+            "Return to Lounge": "lounge.change_password.return_to_lounge"
           }
         },
         {
@@ -85,7 +102,8 @@
           },
           "surfaces": {},
           "operations": {
-            "Request verification delivery": "lounge.request_verification_delivery"
+            "Request verification delivery": "lounge.request_verification_delivery",
+            "Return to Workspace": "lounge.verification_delivery.return_to_workspace"
           }
         },
         {
@@ -98,7 +116,8 @@
             "Confirm owner email surface": "lounge.verify_email"
           },
           "operations": {
-            "Confirm owner email": "lounge.confirm_owner_email"
+            "Confirm owner email": "lounge.confirm_owner_email",
+            "Return to Lounge": "lounge.confirm_email.return_to_lounge"
           }
         }
       ]

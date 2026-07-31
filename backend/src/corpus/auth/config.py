@@ -16,10 +16,7 @@ class AuthSettings(BaseModel):
     migration_revision: str = Field(min_length=1)
     reset_secret: SecretStr = Field(min_length=32)
     verification_secret: SecretStr = Field(min_length=32)
-    auth_cookie_name: str = Field(min_length=1)
-    owner_route_cookie_name: str = Field(min_length=1)
-    auth_cookie_secure: bool
-    auth_cookie_path: str = Field(pattern=r"^/")
+    access_token_minutes: int = Field(default=15, gt=0)
     idle_session_days: int = Field(default=7, gt=0)
     absolute_session_days: int = Field(default=30, gt=0)
     verification_token_hours: int = Field(default=24, gt=0)
@@ -55,10 +52,7 @@ _FIELD_BY_ENV = {
     "CORPUS_AUTH_MIGRATION_REVISION": "migration_revision",
     "CORPUS_RESET_SECRET": "reset_secret",
     "CORPUS_VERIFICATION_SECRET": "verification_secret",
-    "CORPUS_AUTH_COOKIE_NAME": "auth_cookie_name",
-    "CORPUS_OWNER_ROUTE_COOKIE_NAME": "owner_route_cookie_name",
-    "CORPUS_AUTH_COOKIE_SECURE": "auth_cookie_secure",
-    "CORPUS_AUTH_COOKIE_PATH": "auth_cookie_path",
+    "CORPUS_AUTH_ACCESS_TOKEN_MINUTES": "access_token_minutes",
     "CORPUS_AUTH_IDLE_SESSION_DAYS": "idle_session_days",
     "CORPUS_AUTH_ABSOLUTE_SESSION_DAYS": "absolute_session_days",
     "CORPUS_VERIFICATION_TOKEN_HOURS": "verification_token_hours",

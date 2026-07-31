@@ -1,33 +1,39 @@
 from __future__ import annotations
 
 import re
+import secrets
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users.exceptions import InvalidPasswordException, UserAlreadyExists
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 
 from .database import AuthDatabase, TransactionalUserDatabase
 from .manager import CorpusUserManager
 from .models import (
+    AccessToken,
     AuthSession,
+    CorpusConversation,
     Membership,
     MembershipRole,
     Organization,
-    OwnerRouteClaim,
-    OwnerRouteHandle,
     User,
 )
 from .schemas import (
+    AnonymousPrincipalView,
     MembershipView,
     OrganizationView,
+    OwnerPrincipalView,
     OwnerSessionView,
     OwnerUserCreate,
     OwnerView,
+    TokenPairView,
 )
-from .security import issue_opaque_token, normalize_email, validate_password
+from .security import hash_opaque_token, issue_opaque_token, normalize_email, validate_password
 
 
 class AuthServiceError(RuntimeError):
@@ -42,7 +48,11 @@ class InvalidCredentials(AuthServiceError):
     pass
 
 
-class GuestSessionUnavailable(AuthServiceError):
+class ConversationUnavailable(AuthServiceError):
+    pass
+
+
+class ConversationLimitReached(AuthServiceError):
     pass
 
 
@@ -55,19 +65,20 @@ class InvalidAuthToken(AuthServiceError):
 
 
 @dataclass(frozen=True)
-class IssuedOwnerSession:
-    view: OwnerSessionView
-    auth_token: str
-    owner_route_handle: str
-    route_session_id: str
+class CurrentPrincipal:
+    kind: Literal["anonymous", "owner"]
+    auth_session_id: uuid.UUID
+    user_id: uuid.UUID | None
+    access_expires_at: datetime
+    owner: OwnerPrincipalView | None
 
 
 @dataclass(frozen=True)
-class CurrentOwnerSession:
+class IssuedOwnerSession:
     view: OwnerSessionView
-    auth_session_id: object
-    user_id: object
-    route_session_id: str | None
+    tokens: TokenPairView
+    conversation_id: str
+    route_session_id: str
 
 
 @dataclass(frozen=True)
@@ -92,6 +103,7 @@ class AuthService:
         *,
         reset_secret: str = "test-reset-secret-at-least-32-bytes-long",
         verification_secret: str = "test-verification-secret-at-least-32-bytes-long",
+        access_lifetime: timedelta = timedelta(minutes=15),
         idle_lifetime: timedelta = timedelta(days=7),
         absolute_lifetime: timedelta = timedelta(days=30),
         reset_token_lifetime: timedelta = timedelta(hours=1),
@@ -100,6 +112,7 @@ class AuthService:
         self.database = database
         self.reset_secret = reset_secret
         self.verification_secret = verification_secret
+        self.access_lifetime = access_lifetime
         self.idle_lifetime = idle_lifetime
         self.absolute_lifetime = absolute_lifetime
         self.reset_token_lifetime = reset_token_lifetime
@@ -117,13 +130,72 @@ class AuthService:
         )
         return manager
 
+    async def issue_anonymous(self) -> TokenPairView:
+        now = datetime.now(UTC)
+        async with self.database.session() as session:
+            async with session.begin():
+                return await self._issue_token_pair(session, user_id=None, now=now)
+
+    async def refresh(self, refresh_token: str) -> TokenPairView:
+        now = datetime.now(UTC)
+        replacement = issue_opaque_token()
+        async with self.database.session() as session:
+            async with session.begin():
+                auth_session = await session.scalar(
+                    select(AuthSession).where(
+                        AuthSession.refresh_token_hash
+                        == hash_opaque_token(refresh_token)
+                    )
+                )
+                if auth_session is None or not _refresh_is_active(
+                    auth_session,
+                    now=now,
+                    idle_timeout=self.idle_lifetime,
+                ):
+                    if auth_session is not None and auth_session.revoked_at is None:
+                        auth_session.revoked_at = now
+                    raise SessionUnavailable("The refresh session is unavailable.")
+                result = await session.execute(
+                    update(AuthSession)
+                    .where(
+                        AuthSession.id == auth_session.id,
+                        AuthSession.refresh_token_hash
+                        == hash_opaque_token(refresh_token),
+                        AuthSession.revoked_at.is_(None),
+                    )
+                    .values(
+                        refresh_token_hash=replacement.digest,
+                        last_seen_at=now,
+                    )
+                )
+                if result.rowcount != 1:
+                    raise SessionUnavailable("The refresh session is unavailable.")
+                return await self._issue_access_for_session(
+                    session,
+                    auth_session=auth_session,
+                    refresh_token=replacement.raw,
+                    now=now,
+                )
+
+    async def resolve_access_token(self, access_token: str) -> CurrentPrincipal:
+        now = datetime.now(UTC)
+        async with self.database.session() as session:
+            async with session.begin():
+                return await self._resolve_access_in_session(
+                    session,
+                    access_token,
+                    now,
+                )
+
     async def register(
         self,
         *,
         email: str,
         password: str,
         display_name: str | None,
-        guest_route_session_id: str,
+        anonymous_access_token: str,
+        conversation_id: str,
+        route_session_id: str,
     ) -> IssuedOwnerSession:
         normalized = normalize_email(email)
         validate_password(password, normalized)
@@ -132,10 +204,10 @@ class AuthService:
         try:
             async with self.database.session() as session:
                 async with session.begin():
-                    if await session.get(OwnerRouteClaim, guest_route_session_id):
-                        raise GuestSessionUnavailable(
-                            "The guest Workspace session is unavailable."
-                        )
+                    anonymous = await self._resolve_access_in_session(
+                        session, anonymous_access_token, now
+                    )
+                    _require_anonymous_principal(anonymous)
                     user_db = TransactionalUserDatabase(session, User)
                     user = await self._manager(user_db).create(
                         OwnerUserCreate(
@@ -159,24 +231,27 @@ class AuthService:
                         created_at=now,
                     )
                     session.add(membership)
-                    session.add(
-                        OwnerRouteClaim(
-                            route_session_id=guest_route_session_id,
-                            user_id=user.id,
-                            organization_id=organization.id,
-                            claimed_at=now,
-                        )
-                    )
-                    issued = await self._issue_browser_session(
+                    await session.flush()
+                    conversation = await self._claim_anonymous_conversation(
                         session,
-                        user=user,
-                        organization=organization,
-                        membership=membership,
-                        route_session_id=guest_route_session_id,
-                        route_session_state="adopted",
+                        principal=anonymous,
+                        conversation_id=conversation_id,
+                        route_session_id=route_session_id,
+                        owner_user_id=user.id,
                         now=now,
                     )
-                return issued
+                    await self._revoke_auth_session(
+                        session, anonymous.auth_session_id, now
+                    )
+                    tokens = await self._issue_token_pair(
+                        session, user_id=user.id, now=now
+                    )
+                    return IssuedOwnerSession(
+                        view=_view(user, organization, membership, "adopted"),
+                        tokens=tokens,
+                        conversation_id=conversation.public_id,
+                        route_session_id=conversation.route_session_id,
+                    )
         except (UserAlreadyExists, IntegrityError) as error:
             raise AuthConflict("An owner with that email already exists.") from error
         except InvalidPasswordException as error:
@@ -187,8 +262,9 @@ class AuthService:
         *,
         email: str,
         password: str,
-        guest_route_session_id: str | None,
-        current_auth_token: str | None = None,
+        anonymous_access_token: str,
+        conversation_id: str,
+        route_session_id: str,
     ) -> IssuedOwnerSession:
         try:
             normalized = normalize_email(email)
@@ -197,6 +273,10 @@ class AuthService:
         now = datetime.now(UTC)
         async with self.database.session() as session:
             async with session.begin():
+                anonymous = await self._resolve_access_in_session(
+                    session, anonymous_access_token, now
+                )
+                _require_anonymous_principal(anonymous)
                 user_db = TransactionalUserDatabase(session, User)
                 user = await self._manager(user_db).authenticate(
                     OAuth2PasswordRequestForm(
@@ -206,198 +286,159 @@ class AuthService:
                 )
                 if user is None or not user.is_active:
                     raise InvalidCredentials("Invalid email or password.")
-                if current_auth_token:
-                    previous = await session.scalar(
-                        select(AuthSession).where(
-                            AuthSession.token_hash == _hash(current_auth_token)
-                        )
-                    )
-                    if previous is not None:
-                        await self._revoke_auth_session(session, previous.id, now)
-                membership, organization = (
-                    await session.execute(
-                        select(Membership, Organization)
-                        .join(
-                            Organization,
-                            Organization.id == Membership.organization_id,
-                        )
-                        .where(Membership.user_id == user.id)
-                        .order_by(Membership.created_at)
-                    )
-                ).one()
-                claim = await session.scalar(
-                    select(OwnerRouteClaim)
-                    .where(OwnerRouteClaim.user_id == user.id)
-                    .order_by(OwnerRouteClaim.claimed_at.desc())
+                membership, organization = await self._personal_membership(
+                    session, user.id
                 )
-                state = "resumed"
-                if claim is None:
-                    if not guest_route_session_id or await session.get(
-                        OwnerRouteClaim, guest_route_session_id
-                    ):
-                        raise GuestSessionUnavailable(
-                            "The guest Workspace session is unavailable."
-                        )
-                    claim = OwnerRouteClaim(
-                        route_session_id=guest_route_session_id,
-                        user_id=user.id,
-                        organization_id=organization.id,
-                        claimed_at=now,
-                    )
-                    session.add(claim)
-                    state = "adopted"
-                return await self._issue_browser_session(
+                conversation = await self._claim_anonymous_conversation(
                     session,
-                    user=user,
-                    organization=organization,
-                    membership=membership,
-                    route_session_id=claim.route_session_id,
-                    route_session_state=state,
-                    now=now,
-                )
-
-    async def resolve_browser_session(
-        self,
-        *,
-        auth_token: str,
-        owner_route_handle: str | None,
-        require_route: bool,
-    ) -> CurrentOwnerSession:
-        now = datetime.now(UTC)
-        async with self.database.session() as session:
-            async with session.begin():
-                auth_session = await session.scalar(
-                    select(AuthSession).where(
-                        AuthSession.token_hash == _hash(auth_token)
-                    )
-                )
-                if auth_session is None or not _session_is_active(
-                    auth_session,
-                    now=now,
-                    idle_timeout=self.idle_lifetime,
-                ):
-                    if auth_session is not None and auth_session.revoked_at is None:
-                        await self._revoke_auth_session(session, auth_session.id, now)
-                    raise SessionUnavailable("The owner session is unavailable.")
-                route_session_id: str | None = None
-                if require_route:
-                    if not owner_route_handle:
-                        raise SessionUnavailable("The owner session is unavailable.")
-                    handle = await session.scalar(
-                        select(OwnerRouteHandle).where(
-                            OwnerRouteHandle.token_hash == _hash(owner_route_handle),
-                            OwnerRouteHandle.auth_session_id == auth_session.id,
-                            OwnerRouteHandle.revoked_at.is_(None),
-                        )
-                    )
-                    if handle is None:
-                        raise SessionUnavailable("The owner session is unavailable.")
-                    claim = await session.get(OwnerRouteClaim, handle.route_session_id)
-                    if claim is None or claim.user_id != auth_session.user_id:
-                        raise SessionUnavailable("The owner session is unavailable.")
-                    route_session_id = claim.route_session_id
-                user = await session.get(User, auth_session.user_id)
-                if user is None or not user.is_active:
-                    raise SessionUnavailable("The owner session is unavailable.")
-                membership, organization = await self._personal_membership(session, user.id)
-                auth_session.last_seen_at = now
-                return CurrentOwnerSession(
-                    view=_view(user, organization, membership, "resumed"),
-                    auth_session_id=auth_session.id,
-                    user_id=user.id,
+                    principal=anonymous,
+                    conversation_id=conversation_id,
                     route_session_id=route_session_id,
+                    owner_user_id=user.id,
+                    now=now,
+                )
+                await self._revoke_auth_session(
+                    session, anonymous.auth_session_id, now
+                )
+                tokens = await self._issue_token_pair(
+                    session, user_id=user.id, now=now
+                )
+                return IssuedOwnerSession(
+                    view=_view(user, organization, membership, "adopted"),
+                    tokens=tokens,
+                    conversation_id=conversation.public_id,
+                    route_session_id=conversation.route_session_id,
                 )
 
-    async def replace_browser_route(
+    async def reserve_conversation(
         self,
         *,
-        auth_token: str,
-        owner_route_handle: str,
-        replacement_route_session_id: str,
-    ) -> None:
-        if (
-            not replacement_route_session_id
-            or len(replacement_route_session_id) > 512
-        ):
-            raise ValueError("The replacement route session ID is invalid.")
+        access_token: str,
+        route_session_id: str,
+    ) -> CorpusConversation:
+        now = datetime.now(UTC)
+        public_id = secrets.token_urlsafe(24)
+        try:
+            async with self.database.session() as session:
+                async with session.begin():
+                    principal = await self._resolve_access_in_session(
+                        session, access_token, now
+                    )
+                    if principal.kind == "anonymous":
+                        existing = await session.scalar(
+                            select(CorpusConversation.id).where(
+                                CorpusConversation.anonymous_session_id
+                                == principal.auth_session_id,
+                                CorpusConversation.archived_at.is_(None),
+                            )
+                        )
+                        if existing is not None:
+                            raise ConversationLimitReached(
+                                "Anonymous callers may have one active conversation."
+                            )
+                    conversation = CorpusConversation(
+                        public_id=public_id,
+                        anonymous_session_id=(
+                            principal.auth_session_id
+                            if principal.kind == "anonymous"
+                            else None
+                        ),
+                        owner_user_id=principal.user_id,
+                        route_session_id=route_session_id,
+                        created_at=now,
+                        updated_at=now,
+                        archived_at=None,
+                    )
+                    session.add(conversation)
+                    await session.flush()
+                    return conversation
+        except IntegrityError as error:
+            raise ConversationLimitReached(
+                "A conversation could not be reserved for this caller."
+            ) from error
+
+    async def release_conversation(self, conversation_id: str) -> None:
+        async with self.database.session() as session:
+            async with session.begin():
+                await session.execute(
+                    delete(CorpusConversation).where(
+                        CorpusConversation.public_id == conversation_id
+                    )
+                )
+
+    async def list_conversations(
+        self, access_token: str
+    ) -> tuple[CorpusConversation, ...]:
         now = datetime.now(UTC)
         async with self.database.session() as session:
             async with session.begin():
-                auth_session = await session.scalar(
-                    select(AuthSession).where(
-                        AuthSession.token_hash == _hash(auth_token)
+                principal = await self._resolve_access_in_session(
+                    session, access_token, now
+                )
+                rows = await session.scalars(
+                    select(CorpusConversation)
+                    .where(
+                        *self._conversation_owner_predicate(principal),
+                        CorpusConversation.archived_at.is_(None),
+                    )
+                    .order_by(
+                        CorpusConversation.updated_at.desc(),
+                        CorpusConversation.created_at.desc(),
                     )
                 )
-                if auth_session is None or not _session_is_active(
-                    auth_session,
-                    now=now,
-                    idle_timeout=self.idle_lifetime,
-                ):
-                    if auth_session is not None and auth_session.revoked_at is None:
-                        await self._revoke_auth_session(session, auth_session.id, now)
-                    raise SessionUnavailable("The owner session is unavailable.")
-                handle = await session.scalar(
-                    select(OwnerRouteHandle).where(
-                        OwnerRouteHandle.token_hash == _hash(owner_route_handle),
-                        OwnerRouteHandle.auth_session_id == auth_session.id,
-                        OwnerRouteHandle.revoked_at.is_(None),
-                    )
-                )
-                if handle is None:
-                    raise SessionUnavailable("The owner session is unavailable.")
-                current_claim = await session.get(
-                    OwnerRouteClaim,
-                    handle.route_session_id,
-                )
-                if (
-                    current_claim is None
-                    or current_claim.user_id != auth_session.user_id
-                ):
-                    raise SessionUnavailable("The owner session is unavailable.")
-                replacement_claim = await session.get(
-                    OwnerRouteClaim,
-                    replacement_route_session_id,
-                )
-                if replacement_claim is None:
-                    session.add(
-                        OwnerRouteClaim(
-                            route_session_id=replacement_route_session_id,
-                            user_id=current_claim.user_id,
-                            organization_id=current_claim.organization_id,
-                            claimed_at=now,
-                        )
-                    )
-                elif (
-                    replacement_claim.user_id != current_claim.user_id
-                    or replacement_claim.organization_id
-                    != current_claim.organization_id
-                ):
-                    raise SessionUnavailable("The owner session is unavailable.")
-                handle.route_session_id = replacement_route_session_id
-                auth_session.last_seen_at = now
+                return tuple(rows)
 
-    async def is_route_claimed(self, route_session_id: str) -> bool:
+    async def resolve_conversation(
+        self,
+        *,
+        access_token: str,
+        conversation_id: str,
+        touch: bool = False,
+    ) -> CorpusConversation:
+        now = datetime.now(UTC)
         async with self.database.session() as session:
-            return await session.get(OwnerRouteClaim, route_session_id) is not None
+            async with session.begin():
+                principal = await self._resolve_access_in_session(
+                    session, access_token, now
+                )
+                conversation = await session.scalar(
+                    select(CorpusConversation).where(
+                        CorpusConversation.public_id == conversation_id,
+                        *self._conversation_owner_predicate(principal),
+                    )
+                )
+                if conversation is None:
+                    raise ConversationUnavailable(
+                        "The selected conversation is unavailable."
+                    )
+                if conversation.archived_at is not None:
+                    raise ConversationUnavailable(
+                        "The selected conversation is archived."
+                    )
+                if touch:
+                    conversation.updated_at = now
+                return conversation
 
     async def owner_context_for_route(
         self,
         route_session_id: str,
     ) -> OwnerRouteContext:
         async with self.database.session() as session:
-            claim = await session.get(OwnerRouteClaim, route_session_id)
-            if claim is None:
-                raise SessionUnavailable("The owner context is unavailable.")
-            user = await session.get(User, claim.user_id)
-            organization = await session.get(Organization, claim.organization_id)
-            membership = await session.scalar(
-                select(Membership).where(
-                    Membership.user_id == claim.user_id,
-                    Membership.organization_id == claim.organization_id,
+            conversation = await session.scalar(
+                select(CorpusConversation).where(
+                    CorpusConversation.route_session_id == route_session_id,
+                    CorpusConversation.owner_user_id.is_not(None),
+                    CorpusConversation.archived_at.is_(None),
                 )
             )
-            if user is None or organization is None or membership is None:
+            if conversation is None or conversation.owner_user_id is None:
                 raise SessionUnavailable("The owner context is unavailable.")
+            user = await session.get(User, conversation.owner_user_id)
+            if user is None:
+                raise SessionUnavailable("The owner context is unavailable.")
+            membership, organization = await self._personal_membership(
+                session, user.id
+            )
             return OwnerRouteContext(
                 display_name=user.display_name,
                 organization_name=organization.name,
@@ -406,28 +447,50 @@ class AuthService:
                 is_verified=user.is_verified,
             )
 
-    async def sign_out(self, auth_token: str | None) -> None:
-        if not auth_token:
-            return
+    async def sign_out(self, access_token: str) -> None:
         now = datetime.now(UTC)
         async with self.database.session() as session:
             async with session.begin():
-                auth_session = await session.scalar(
-                    select(AuthSession).where(AuthSession.token_hash == _hash(auth_token))
+                current = await self._resolve_access_in_session(
+                    session, access_token, now
                 )
-                if auth_session is not None:
-                    await self._revoke_auth_session(session, auth_session.id, now)
+                await self._revoke_auth_session(
+                    session, current.auth_session_id, now
+                )
 
-    async def request_verification(self, auth_token: str) -> EmailToken | None:
-        current = await self.resolve_browser_session(
-            auth_token=auth_token,
-            owner_route_handle=None,
-            require_route=False,
-        )
+    async def request_verification(self, access_token: str) -> EmailToken | None:
+        current = await self.resolve_access_token(access_token)
+        if current.user_id is None:
+            raise SessionUnavailable("Authentication is required.")
         async with self.database.session() as session:
             async with session.begin():
                 user = await session.get(User, current.user_id)
                 if user is None or user.is_verified:
+                    return None
+                manager = self._manager(TransactionalUserDatabase(session, User))
+                await manager.request_verify(user)
+                if manager.generated_verification_token is None:
+                    raise RuntimeError("Verification token generation failed.")
+                return EmailToken(user.email, manager.generated_verification_token)
+
+    async def request_verification_for_route(
+        self,
+        route_session_id: str,
+    ) -> EmailToken | None:
+        async with self.database.session() as session:
+            async with session.begin():
+                conversation = await session.scalar(
+                    select(CorpusConversation).where(
+                        CorpusConversation.route_session_id == route_session_id,
+                        CorpusConversation.owner_user_id.is_not(None),
+                    )
+                )
+                if conversation is None or conversation.owner_user_id is None:
+                    raise SessionUnavailable("The owner context is unavailable.")
+                user = await session.get(User, conversation.owner_user_id)
+                if user is None:
+                    raise SessionUnavailable("The owner context is unavailable.")
+                if user.is_verified:
                     return None
                 manager = self._manager(TransactionalUserDatabase(session, User))
                 await manager.request_verify(user)
@@ -445,7 +508,9 @@ class AuthService:
                         TransactionalUserDatabase(session, User)
                     ).verify(token)
             except (InvalidVerifyToken, UserAlreadyVerified) as error:
-                raise InvalidAuthToken("The verification token is invalid or expired.") from error
+                raise InvalidAuthToken(
+                    "The verification token is invalid or expired."
+                ) from error
 
     async def request_password_reset(self, email: str) -> EmailToken | None:
         from fastapi_users.exceptions import UserInactive, UserNotExists
@@ -481,63 +546,142 @@ class AuthService:
                     user = await manager.reset_password(token, new_password)
                     await session.execute(
                         update(AuthSession)
-                        .where(AuthSession.user_id == user.id, AuthSession.revoked_at.is_(None))
+                        .where(
+                            AuthSession.user_id == user.id,
+                            AuthSession.revoked_at.is_(None),
+                        )
                         .values(revoked_at=now)
                     )
-                    session_ids = select(AuthSession.id).where(AuthSession.user_id == user.id)
+                    session_ids = select(AuthSession.id).where(
+                        AuthSession.user_id == user.id
+                    )
                     await session.execute(
-                        update(OwnerRouteHandle)
+                        update(AccessToken)
                         .where(
-                            OwnerRouteHandle.auth_session_id.in_(session_ids),
-                            OwnerRouteHandle.revoked_at.is_(None),
+                            AccessToken.auth_session_id.in_(session_ids),
+                            AccessToken.revoked_at.is_(None),
                         )
                         .values(revoked_at=now)
                     )
             except (InvalidResetPasswordToken, UserInactive) as error:
-                raise InvalidAuthToken("The reset token is invalid or expired.") from error
+                raise InvalidAuthToken(
+                    "The reset token is invalid or expired."
+                ) from error
             except InvalidPasswordException as error:
                 raise ValueError(error.reason) from error
 
-    async def _personal_membership(self, session, user_id):
-        return (
-            await session.execute(
-                select(Membership, Organization)
-                .join(Organization, Organization.id == Membership.organization_id)
-                .where(Membership.user_id == user_id)
-                .order_by(Membership.created_at)
-            )
-        ).one()
-
-    async def _revoke_auth_session(self, session, auth_session_id, now: datetime) -> None:
-        await session.execute(
-            update(AuthSession)
-            .where(AuthSession.id == auth_session_id, AuthSession.revoked_at.is_(None))
-            .values(revoked_at=now)
-        )
-        await session.execute(
-            update(OwnerRouteHandle)
-            .where(
-                OwnerRouteHandle.auth_session_id == auth_session_id,
-                OwnerRouteHandle.revoked_at.is_(None),
-            )
-            .values(revoked_at=now)
-        )
-
-    async def _issue_browser_session(
+    async def _claim_anonymous_conversation(
         self,
         session,
         *,
-        user: User,
-        organization: Organization,
-        membership: Membership,
+        principal: CurrentPrincipal,
+        conversation_id: str,
         route_session_id: str,
-        route_session_state: str,
+        owner_user_id: uuid.UUID,
         now: datetime,
-    ) -> IssuedOwnerSession:
-        auth_token = issue_opaque_token()
+    ) -> CorpusConversation:
+        _require_anonymous_principal(principal)
+        result = await session.execute(
+            update(CorpusConversation)
+            .where(
+                CorpusConversation.public_id == conversation_id,
+                CorpusConversation.route_session_id == route_session_id,
+                CorpusConversation.anonymous_session_id
+                == principal.auth_session_id,
+                CorpusConversation.owner_user_id.is_(None),
+                CorpusConversation.archived_at.is_(None),
+            )
+            .values(
+                anonymous_session_id=None,
+                owner_user_id=owner_user_id,
+                updated_at=now,
+            )
+        )
+        if result.rowcount != 1:
+            raise ConversationUnavailable(
+                "The selected anonymous conversation is unavailable."
+            )
+        conversation = await session.scalar(
+            select(CorpusConversation).where(
+                CorpusConversation.public_id == conversation_id,
+                CorpusConversation.owner_user_id == owner_user_id,
+            )
+        )
+        if conversation is None:
+            raise ConversationUnavailable(
+                "The selected anonymous conversation is unavailable."
+            )
+        return conversation
+
+    def _conversation_owner_predicate(
+        self, principal: CurrentPrincipal
+    ) -> tuple[object, ...]:
+        if principal.kind == "anonymous":
+            return (
+                CorpusConversation.anonymous_session_id
+                == principal.auth_session_id,
+            )
+        return (CorpusConversation.owner_user_id == principal.user_id,)
+
+    async def _resolve_access_in_session(
+        self,
+        session,
+        access_token: str,
+        now: datetime,
+    ) -> CurrentPrincipal:
+        row = (
+            await session.execute(
+                select(AccessToken, AuthSession)
+                .join(
+                    AuthSession,
+                    AuthSession.id == AccessToken.auth_session_id,
+                )
+                .where(
+                    AccessToken.token_hash == hash_opaque_token(access_token)
+                )
+            )
+        ).one_or_none()
+        if row is None:
+            raise SessionUnavailable("The access token is unavailable.")
+        access, auth_session = row
+        if (
+            access.revoked_at is not None
+            or now >= _as_utc(access.expires_at)
+            or not _refresh_is_active(
+                auth_session,
+                now=now,
+                idle_timeout=self.idle_lifetime,
+            )
+        ):
+            raise SessionUnavailable("The access token is unavailable.")
+        owner: OwnerPrincipalView | None = None
+        if auth_session.user_id is not None:
+            user = await session.get(User, auth_session.user_id)
+            if user is None or not user.is_active:
+                raise SessionUnavailable("The access token is unavailable.")
+            membership, organization = await self._personal_membership(
+                session, user.id
+            )
+            owner = _owner_principal(user, organization, membership)
+        return CurrentPrincipal(
+            kind="owner" if auth_session.user_id is not None else "anonymous",
+            auth_session_id=auth_session.id,
+            user_id=auth_session.user_id,
+            access_expires_at=_as_utc(access.expires_at),
+            owner=owner,
+        )
+
+    async def _issue_token_pair(
+        self,
+        session,
+        *,
+        user_id: uuid.UUID | None,
+        now: datetime,
+    ) -> TokenPairView:
+        refresh = issue_opaque_token()
         auth_session = AuthSession(
-            user_id=user.id,
-            token_hash=auth_token.digest,
+            user_id=user_id,
+            refresh_token_hash=refresh.digest,
             created_at=now,
             last_seen_at=now,
             absolute_expires_at=now + self.absolute_lifetime,
@@ -545,21 +689,83 @@ class AuthService:
         )
         session.add(auth_session)
         await session.flush()
-        route_handle = issue_opaque_token()
+        return await self._issue_access_for_session(
+            session,
+            auth_session=auth_session,
+            refresh_token=refresh.raw,
+            now=now,
+        )
+
+    async def _issue_access_for_session(
+        self,
+        session,
+        *,
+        auth_session: AuthSession,
+        refresh_token: str,
+        now: datetime,
+    ) -> TokenPairView:
+        access = issue_opaque_token()
+        access_expires_at = now + self.access_lifetime
         session.add(
-            OwnerRouteHandle(
+            AccessToken(
                 auth_session_id=auth_session.id,
-                route_session_id=route_session_id,
-                token_hash=route_handle.digest,
+                token_hash=access.digest,
                 created_at=now,
+                expires_at=access_expires_at,
                 revoked_at=None,
             )
         )
-        return IssuedOwnerSession(
-            view=_view(user, organization, membership, route_session_state),
-            auth_token=auth_token.raw,
-            owner_route_handle=route_handle.raw,
-            route_session_id=route_session_id,
+        if auth_session.user_id is None:
+            principal = AnonymousPrincipalView()
+        else:
+            user = await session.get(User, auth_session.user_id)
+            if user is None:
+                raise SessionUnavailable("The owner is unavailable.")
+            membership, organization = await self._personal_membership(
+                session, user.id
+            )
+            principal = _owner_principal(user, organization, membership)
+        absolute = _as_utc(auth_session.absolute_expires_at)
+        return TokenPairView(
+            access_token=access.raw,
+            access_expires_at=access_expires_at,
+            refresh_token=refresh_token,
+            refresh_idle_expires_at=min(now + self.idle_lifetime, absolute),
+            refresh_absolute_expires_at=absolute,
+            principal=principal,
+        )
+
+    async def _personal_membership(self, session, user_id):
+        return (
+            await session.execute(
+                select(Membership, Organization)
+                .join(
+                    Organization,
+                    Organization.id == Membership.organization_id,
+                )
+                .where(Membership.user_id == user_id)
+                .order_by(Membership.created_at)
+            )
+        ).one()
+
+    async def _revoke_auth_session(
+        self, session, auth_session_id, now: datetime
+    ) -> None:
+        await session.execute(
+            update(AuthSession)
+            .where(
+                AuthSession.id == auth_session_id,
+                AuthSession.revoked_at.is_(None),
+            )
+            .values(revoked_at=now)
+        )
+        await session.execute(
+            update(AccessToken)
+            .where(
+                AccessToken.auth_session_id == auth_session_id,
+                AccessToken.revoked_at.is_(None),
+            )
+            .values(revoked_at=now)
         )
 
 
@@ -584,7 +790,9 @@ async def _available_slug(session, user: User, display_name: str | None) -> str:
     base = f"{base}-workspace"
     candidate = base
     suffix = 2
-    while await session.scalar(select(Organization.id).where(Organization.slug == candidate)):
+    while await session.scalar(
+        select(Organization.id).where(Organization.slug == candidate)
+    ):
         candidate = f"{base}-{suffix}"
         suffix += 1
     return candidate
@@ -598,23 +806,44 @@ def _view(
 ) -> OwnerSessionView:
     return OwnerSessionView(
         owner=OwnerView.model_validate(user),
-        organization=OrganizationView(name=organization.name, slug=organization.slug),
+        organization=OrganizationView(
+            name=organization.name, slug=organization.slug
+        ),
         membership=MembershipView(role=membership.role.value),
         route_session_state=route_session_state,
     )
 
 
-def _hash(raw: str) -> str:
-    from .security import hash_opaque_token
-
-    return hash_opaque_token(raw)
+def _owner_principal(
+    user: User,
+    organization: Organization,
+    membership: Membership,
+) -> OwnerPrincipalView:
+    return OwnerPrincipalView(
+        owner=OwnerView.model_validate(user),
+        organization=OrganizationView(
+            name=organization.name, slug=organization.slug
+        ),
+        membership=MembershipView(role=membership.role.value),
+    )
 
 
 def _as_utc(value: datetime) -> datetime:
-    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+    return (
+        value.replace(tzinfo=UTC)
+        if value.tzinfo is None
+        else value.astimezone(UTC)
+    )
 
 
-def _session_is_active(
+def _require_anonymous_principal(principal: CurrentPrincipal) -> None:
+    if principal.kind != "anonymous":
+        raise ConversationUnavailable(
+            "Account access requires an anonymous conversation."
+        )
+
+
+def _refresh_is_active(
     auth_session: AuthSession,
     *,
     now: datetime,
@@ -631,11 +860,12 @@ __all__ = [
     "AuthConflict",
     "AuthService",
     "AuthServiceError",
-    "CurrentOwnerSession",
+    "ConversationLimitReached",
+    "ConversationUnavailable",
+    "CurrentPrincipal",
     "EmailToken",
-    "GuestSessionUnavailable",
-    "InvalidCredentials",
     "InvalidAuthToken",
+    "InvalidCredentials",
     "IssuedOwnerSession",
     "OwnerRouteContext",
     "SessionUnavailable",

@@ -13,6 +13,10 @@ import {
 
 const idleChatClient: AgentChatClient = Object.freeze({
   async *stream() {},
+  async loadConversation() { return []; },
+  async startAssistantRun() { throw new Error("not used"); },
+  async loadConversationRun() { throw new Error("not used"); },
+  async *streamConversationRunEvents() {},
 });
 
 const testRegistry = defineRouteDeckSurfaceRegistry({
@@ -117,53 +121,6 @@ it("applies the compiled node conversation-input policy without product node IDs
 
   expect(screen.getByLabelText("Message the assistant")).toBeDisabled();
   expect(screen.getByText("Input is unavailable for this test node.")).toBeVisible();
-
-  harness.dispose();
-});
-
-it("renders the active surface while the entry greeting continues in background", async () => {
-  const harness = await renderRouteDeckComponent(
-    <AgentShell
-      registry={testRegistry}
-      client={idleChatClient}
-      conversationBootstrapPending
-    />,
-    {
-      contract: frameworkContractFixture(),
-      projection: frameworkProjectionFixture(),
-    },
-  );
-
-  expect(screen.getByText("Framework active surface")).toBeVisible();
-  expect(screen.getByRole("status", { name: "Assistant is thinking" })).toBeVisible();
-  expect(screen.getByLabelText("Message the assistant")).toBeDisabled();
-  expect(
-    screen.getByText("Waiting for Ollama to generate the Lounge greeting."),
-  ).toBeVisible();
-  expect(screen.queryByRole("button", { name: "Stop response" })).not.toBeInTheDocument();
-
-  harness.dispose();
-});
-
-it("renders partial entry-greeting text while the durable turn is still streaming", async () => {
-  const harness = await renderRouteDeckComponent(
-    <AgentShell
-      registry={testRegistry}
-      client={idleChatClient}
-      conversationBootstrapPending
-      conversationBootstrapProgress={{
-        requestId: "corpus.lounge-greeting.v1",
-        content: "Welcome to Corpus",
-      }}
-    />,
-    {
-      contract: frameworkContractFixture(),
-      projection: frameworkProjectionFixture(),
-    },
-  );
-
-  expect(screen.getByText("Welcome to Corpus")).toBeVisible();
-  expect(screen.getByRole("status", { name: "Assistant is responding" })).toBeVisible();
 
   harness.dispose();
 });

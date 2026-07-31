@@ -7,6 +7,7 @@ from cryptography.fernet import Fernet
 
 from corpus.app.config import RouteDeckHostSettings
 from corpus.auth.config import AuthSettings
+from corpus.auth.operation_http import HttpCredentialTransition
 from corpus.runtime.application import open_live_corpus_application
 from corpus.runtime.config import CorpusRuntimeSettings
 from corpus.features.sources.config import SourceSettings
@@ -39,9 +40,6 @@ async def test_live_runtime_opens_workspace_and_proves_ollama_readiness(
             routedeck_review_ttl_seconds=300,
             routedeck_resume_capability_ttl_seconds=600,
             routedeck_worker_count=1,
-            routedeck_guest_cookie_name="corpus_guest",
-            routedeck_guest_cookie_secure=False,
-            routedeck_guest_cookie_path="/",
             routedeck_browser_origins=("http://127.0.0.1:5199",),
         ),
         auth=AuthSettings(
@@ -49,10 +47,6 @@ async def test_live_runtime_opens_workspace_and_proves_ollama_readiness(
             migration_revision="0001_owner_auth",
             reset_secret="r" * 40,
             verification_secret="v" * 40,
-            auth_cookie_name="corpus_auth",
-            owner_route_cookie_name="corpus_owner_route",
-            auth_cookie_secure=False,
-            auth_cookie_path="/",
             public_frontend_url="http://127.0.0.1:5199",
         ),
         sources=SourceSettings(data_root=tmp_path / "sources"),
@@ -63,6 +57,10 @@ async def test_live_runtime_opens_workspace_and_proves_ollama_readiness(
     live = await open_live_corpus_application(
         settings,
         owner_context_resolver=OwnerContextProbe(),
+        auth_service=object(),
+        auth_limiter=object(),
+        auth_mail=object(),
+        credential_transition=HttpCredentialTransition(),
     )
     try:
         assert live.runtime.services.app.app.frontend_contract.entry_node_id == (

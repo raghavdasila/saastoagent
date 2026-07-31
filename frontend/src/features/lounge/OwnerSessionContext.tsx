@@ -18,7 +18,7 @@ interface OwnerSessionState {
   session: OwnerSessionView | null;
   loading: boolean;
   setSession(session: OwnerSessionView | null): void;
-  refresh(): Promise<void>;
+  refresh(): Promise<OwnerSessionView | null>;
 }
 
 const OwnerSessionContext = createContext<OwnerSessionState | null>(null);
@@ -37,10 +37,13 @@ export function OwnerSessionProvider({
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      setSession(await ownerAuthClient.session());
+      const current = await ownerAuthClient.session();
+      setSession(current);
+      return current;
     } catch (error) {
       if (error instanceof AuthProblemError && error.status === 401) {
         setSession(null);
+        return null;
       } else {
         throw error;
       }

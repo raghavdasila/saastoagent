@@ -15,6 +15,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     Uuid,
+    text as sa_text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -82,10 +83,12 @@ class AuthSession(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
     )
-    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    refresh_token_hash: Mapped[str] = mapped_column(
+        String(64), nullable=False, unique=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     absolute_expires_at: Mapped[datetime] = mapped_column(
@@ -96,23 +99,10 @@ class AuthSession(Base):
     )
 
 
-class OwnerRouteClaim(Base):
-    __tablename__ = "owner_route_claims"
-
-    route_session_id: Mapped[str] = mapped_column(String(512), primary_key=True)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
-    organization_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
-    )
-    claimed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-
-
-class OwnerRouteHandle(Base):
-    __tablename__ = "owner_route_handles"
+class AccessToken(Base):
+    __tablename__ = "access_tokens"
     __table_args__ = (
-        Index("ix_owner_route_handles_auth_active", "auth_session_id", "revoked_at"),
+        Index("ix_access_tokens_session_active", "auth_session_id", "revoked_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -121,13 +111,49 @@ class OwnerRouteHandle(Base):
     auth_session_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("auth_sessions.id", ondelete="CASCADE"), nullable=False
     )
-    route_session_id: Mapped[str] = mapped_column(
-        ForeignKey("owner_route_claims.route_session_id", ondelete="CASCADE"),
-        nullable=False,
-    )
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class CorpusConversation(Base):
+    __tablename__ = "corpus_conversations"
+    __table_args__ = (
+        CheckConstraint(
+            "(anonymous_session_id IS NOT NULL AND owner_user_id IS NULL) OR "
+            "(anonymous_session_id IS NULL AND owner_user_id IS NOT NULL)",
+            name="ck_conversation_exactly_one_principal",
+        ),
+        Index(
+            "uq_conversation_active_anonymous",
+            "anonymous_session_id",
+            unique=True,
+            sqlite_where=sa_text("archived_at IS NULL"),
+            postgresql_where=sa_text("archived_at IS NULL"),
+        ),
+        Index("ix_conversations_owner_updated", "owner_user_id", "updated_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    public_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    anonymous_session_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("auth_sessions.id", ondelete="CASCADE"), nullable=True
+    )
+    owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+    )
+    route_session_id: Mapped[str] = mapped_column(
+        nullable=False,
+        unique=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    archived_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 
@@ -149,13 +175,13 @@ class AuthRateLimit(Base):
 
 
 __all__ = [
+    "AccessToken",
     "AuthRateLimit",
     "AuthSession",
     "Base",
+    "CorpusConversation",
     "Membership",
     "MembershipRole",
     "Organization",
-    "OwnerRouteClaim",
-    "OwnerRouteHandle",
     "User",
 ]

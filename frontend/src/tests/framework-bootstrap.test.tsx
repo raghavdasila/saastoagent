@@ -18,6 +18,10 @@ import {
 
 const idleChatClient: AgentChatClient = Object.freeze({
   async *stream() {},
+  async loadConversation() { return []; },
+  async startAssistantRun() { throw new Error("not used"); },
+  async loadConversationRun() { throw new Error("not used"); },
+  async *streamConversationRunEvents() {},
 });
 const registry = defineRouteDeckSurfaceRegistry({
   "test.active": () => <section>Loaded feature surface</section>,

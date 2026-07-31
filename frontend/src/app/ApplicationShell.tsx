@@ -1,7 +1,6 @@
 import type {
   AgentChatClient,
   AgentHistoryTurn,
-  AssistantInitiatedTurnProgress,
 } from "@routedeck/core";
 import {
   RouteDeckProvider,
@@ -10,7 +9,6 @@ import {
 import type { ReactNode } from "react";
 
 import { AgentShell } from "./AgentShell";
-import type { InitialConversationPhase } from "./initialConversation";
 import { ApplicationNavigationDrawer } from "./ApplicationNavigationDrawer";
 import type { AppRouteDeck } from "./createRouteDeck";
 import { NavgraphSidebar } from "./NavgraphSidebar";
@@ -24,9 +22,6 @@ export interface ApplicationShellProps {
   mainHeader?: ReactNode;
   chatClient?: AgentChatClient;
   initialConversation?: readonly AgentHistoryTurn[];
-  conversationBootstrapPending?: boolean;
-  conversationBootstrapProgress?: AssistantInitiatedTurnProgress | null;
-  conversationBootstrapPhase?: InitialConversationPhase | null;
 }
 
 export function ApplicationShell({
@@ -37,9 +32,6 @@ export function ApplicationShell({
   mainHeader,
   chatClient,
   initialConversation = [],
-  conversationBootstrapPending = false,
-  conversationBootstrapProgress = null,
-  conversationBootstrapPhase = null,
 }: ApplicationShellProps) {
   const conversationKey =
     initialConversation.at(-1)?.turn_id ?? "empty-conversation";
@@ -72,9 +64,6 @@ export function ApplicationShell({
                 key={conversationKey}
                 registry={registry}
                 initialConversation={initialConversation}
-                conversationBootstrapPending={conversationBootstrapPending}
-                conversationBootstrapProgress={conversationBootstrapProgress}
-                conversationBootstrapPhase={conversationBootstrapPhase}
                 {...(chatClient === undefined ? {} : { client: chatClient })}
               />
             </section>

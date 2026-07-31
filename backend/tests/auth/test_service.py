@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -7,18 +8,12 @@ import pytest_asyncio
 from sqlalchemy import func, select
 
 from corpus.auth.database import AuthDatabase
-from corpus.auth.models import (
-    AuthSession,
-    Membership,
-    Organization,
-    OwnerRouteClaim,
-    OwnerRouteHandle,
-    User,
-)
+from corpus.auth.models import AccessToken, AuthSession, CorpusConversation, User
 from corpus.auth.service import (
-    AuthConflict,
     AuthService,
-    InvalidCredentials,
+    ConversationUnavailable,
+    IssuedOwnerSession,
+    SessionUnavailable,
 )
 
 
@@ -36,130 +31,186 @@ async def auth_service(tmp_path: Path):
 
 
 @pytest.mark.asyncio
-async def test_registration_atomically_provisions_personal_owner_and_claim(
+async def test_opaque_anonymous_tokens_rotate_atomically_and_store_only_hashes(
     auth_service,
 ) -> None:
     database, service = auth_service
+    issued = await service.issue_anonymous()
+
+    current = await service.resolve_access_token(issued.access_token)
+    assert current.kind == "anonymous"
+    rotated = await service.refresh(issued.refresh_token)
+    assert rotated.refresh_token != issued.refresh_token
+    assert rotated.access_token != issued.access_token
+    with pytest.raises(SessionUnavailable):
+        await service.refresh(issued.refresh_token)
+
+    async with database.session() as session:
+        auth = (await session.scalars(select(AuthSession))).one()
+        access = (await session.scalars(select(AccessToken))).all()
+        assert auth.refresh_token_hash not in {
+            issued.refresh_token,
+            rotated.refresh_token,
+        }
+        assert all(
+            row.token_hash not in {issued.access_token, rotated.access_token}
+            for row in access
+        )
+
+
+@pytest.mark.asyncio
+async def test_registration_adopts_selected_anonymous_conversation(
+    auth_service,
+) -> None:
+    database, service = auth_service
+    anonymous = await service.issue_anonymous()
+    conversation = await service.reserve_conversation(
+        access_token=anonymous.access_token,
+        route_session_id="internal-route-1",
+    )
 
     issued = await service.register(
         email=" Owner@Example.com ",
         password="a sufficiently private password",
         display_name="Ada Owner",
-        guest_route_session_id="route-guest-1",
+        anonymous_access_token=anonymous.access_token,
+        conversation_id=conversation.public_id,
+        route_session_id="internal-route-1",
     )
 
     assert issued.view.owner.email == "owner@example.com"
-    assert issued.view.organization.name == "Ada Owner's Workspace"
-    assert issued.view.membership.role == "owner"
-    assert issued.view.route_session_state == "adopted"
-    assert issued.auth_token != issued.owner_route_handle
+    assert issued.conversation_id == conversation.public_id
+    assert issued.tokens.principal.type == "owner"
+    with pytest.raises(SessionUnavailable):
+        await service.resolve_access_token(anonymous.access_token)
+    owner_conversations = await service.list_conversations(
+        issued.tokens.access_token
+    )
+    assert [item.public_id for item in owner_conversations] == [
+        conversation.public_id
+    ]
+    assert owner_conversations[0].route_session_id == "internal-route-1"
+    second = await service.reserve_conversation(
+        access_token=issued.tokens.access_token,
+        route_session_id="internal-route-2",
+    )
+    assert second.owner_user_id == owner_conversations[0].owner_user_id
+    assert len(
+        await service.list_conversations(issued.tokens.access_token)
+    ) == 2
 
     async with database.session() as session:
-        for model in (
-            User,
-            Organization,
-            Membership,
-            AuthSession,
-            OwnerRouteClaim,
-            OwnerRouteHandle,
-        ):
-            count = await session.scalar(select(func.count()).select_from(model))
-            assert count == 1
-        auth_row = (await session.scalars(select(AuthSession))).one()
-        handle_row = (await session.scalars(select(OwnerRouteHandle))).one()
-        assert auth_row.token_hash != issued.auth_token
-        assert handle_row.token_hash != issued.owner_route_handle
+        assert await session.scalar(select(func.count()).select_from(User)) == 1
+        row = await session.scalar(
+            select(CorpusConversation).where(
+                CorpusConversation.public_id == conversation.public_id
+            )
+        )
+        assert row is not None
+        assert row.anonymous_session_id is None
+        assert row.owner_user_id is not None
 
 
 @pytest.mark.asyncio
-async def test_duplicate_registration_rolls_back_every_provisioning_write(
+async def test_sign_out_revokes_owner_token_pair(
+    auth_service,
+) -> None:
+    _, service = auth_service
+    anonymous = await service.issue_anonymous()
+    conversation = await service.reserve_conversation(
+        access_token=anonymous.access_token,
+        route_session_id="internal-route-1",
+    )
+    owner = await service.register(
+        email="owner@example.com",
+        password="a sufficiently private password",
+        display_name=None,
+        anonymous_access_token=anonymous.access_token,
+        conversation_id=conversation.public_id,
+        route_session_id="internal-route-1",
+    )
+
+    await service.sign_out(owner.tokens.access_token)
+    with pytest.raises(SessionUnavailable):
+        await service.resolve_access_token(owner.tokens.access_token)
+    with pytest.raises(SessionUnavailable):
+        await service.refresh(owner.tokens.refresh_token)
+
+
+@pytest.mark.asyncio
+async def test_password_reset_revokes_every_owner_token_pair(auth_service) -> None:
+    _, service = auth_service
+    anonymous = await service.issue_anonymous()
+    conversation = await service.reserve_conversation(
+        access_token=anonymous.access_token,
+        route_session_id="internal-route-reset",
+    )
+    owner = await service.register(
+        email="reset-owner@example.com",
+        password="a sufficiently private password",
+        display_name=None,
+        anonymous_access_token=anonymous.access_token,
+        conversation_id=conversation.public_id,
+        route_session_id="internal-route-reset",
+    )
+    reset = await service.request_password_reset("reset-owner@example.com")
+    assert reset is not None
+    await service.confirm_password_reset(
+        reset.token,
+        "a different sufficiently private password",
+    )
+    with pytest.raises(SessionUnavailable):
+        await service.resolve_access_token(owner.tokens.access_token)
+    with pytest.raises(SessionUnavailable):
+        await service.refresh(owner.tokens.refresh_token)
+
+
+@pytest.mark.asyncio
+async def test_concurrent_sign_in_can_claim_anonymous_conversation_once(
     auth_service,
 ) -> None:
     database, service = auth_service
+    registration_principal = await service.issue_anonymous()
+    registration_conversation = await service.reserve_conversation(
+        access_token=registration_principal.access_token,
+        route_session_id="registration-route",
+    )
     await service.register(
         email="owner@example.com",
         password="a sufficiently private password",
         display_name=None,
-        guest_route_session_id="route-guest-1",
+        anonymous_access_token=registration_principal.access_token,
+        conversation_id=registration_conversation.public_id,
+        route_session_id="registration-route",
+    )
+    anonymous = await service.issue_anonymous()
+    conversation = await service.reserve_conversation(
+        access_token=anonymous.access_token,
+        route_session_id="concurrent-route",
     )
 
-    with pytest.raises(AuthConflict):
-        await service.register(
-            email="OWNER@example.com",
-            password="another sufficiently private password",
-            display_name="Other",
-            guest_route_session_id="route-guest-2",
+    async def sign_in():
+        return await service.sign_in(
+            email="owner@example.com",
+            password="a sufficiently private password",
+            anonymous_access_token=anonymous.access_token,
+            conversation_id=conversation.public_id,
+            route_session_id="concurrent-route",
         )
+
+    results = await asyncio.gather(sign_in(), sign_in(), return_exceptions=True)
+    assert sum(isinstance(result, IssuedOwnerSession) for result in results) == 1
+    assert sum(
+        isinstance(result, (ConversationUnavailable, SessionUnavailable))
+        for result in results
+    ) == 1
 
     async with database.session() as session:
-        assert await session.scalar(select(func.count()).select_from(User)) == 1
-        assert (
-            await session.scalar(select(func.count()).select_from(Organization))
-            == 1
+        claimed = await session.scalar(
+            select(CorpusConversation).where(
+                CorpusConversation.public_id == conversation.public_id
+            )
         )
-        assert (
-            await session.scalar(select(func.count()).select_from(OwnerRouteClaim))
-            == 1
-        )
-
-
-@pytest.mark.asyncio
-async def test_sign_in_resumes_owner_claim_and_rejects_invalid_password(
-    auth_service,
-) -> None:
-    _, service = auth_service
-    registered = await service.register(
-        email="owner@example.com",
-        password="a sufficiently private password",
-        display_name=None,
-        guest_route_session_id="route-guest-1",
-    )
-
-    resumed = await service.sign_in(
-        email="owner@example.com",
-        password="a sufficiently private password",
-        guest_route_session_id="unclaimed-guest-2",
-    )
-    assert resumed.view.route_session_state == "resumed"
-    assert resumed.route_session_id == registered.route_session_id
-    assert resumed.auth_token != registered.auth_token
-
-    with pytest.raises(InvalidCredentials):
-        await service.sign_in(
-            email="owner@example.com",
-            password="wrong password value",
-            guest_route_session_id="unclaimed-guest-2",
-        )
-
-
-@pytest.mark.asyncio
-async def test_replaced_owner_route_is_current_for_reload_and_future_sign_in(
-    auth_service,
-) -> None:
-    _, service = auth_service
-    issued = await service.register(
-        email="owner@example.com",
-        password="a sufficiently private password",
-        display_name=None,
-        guest_route_session_id="route-expired",
-    )
-
-    await service.replace_browser_route(
-        auth_token=issued.auth_token,
-        owner_route_handle=issued.owner_route_handle,
-        replacement_route_session_id="route-fresh",
-    )
-
-    current = await service.resolve_browser_session(
-        auth_token=issued.auth_token,
-        owner_route_handle=issued.owner_route_handle,
-        require_route=True,
-    )
-    assert current.route_session_id == "route-fresh"
-
-    signed_in = await service.sign_in(
-        email="owner@example.com",
-        password="a sufficiently private password",
-        guest_route_session_id=None,
-    )
-    assert signed_in.route_session_id == "route-fresh"
+        assert claimed is not None
+        assert claimed.anonymous_session_id is None
+        assert claimed.owner_user_id is not None

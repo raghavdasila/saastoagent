@@ -49,7 +49,7 @@ describe("RouteDeck Agent Design Studio", () => {
 
     await user.click(screen.getByRole("button", { name: "Feature policies" }))
     expect(screen.getByRole("heading", { name: "Feature AgentPolicies" })).toBeInTheDocument()
-    expect(screen.getAllByLabelText(/^Lounge Feature AgentPolicy /)).toHaveLength(3)
+    expect(screen.getAllByLabelText(/^Lounge Feature AgentPolicy /)).toHaveLength(5)
     expect(screen.queryByRole("heading", { name: "Capabilities" })).not.toBeInTheDocument()
     expect(screen.queryByRole("heading", { name: "Operations" })).not.toBeInTheDocument()
 
@@ -98,6 +98,15 @@ describe("RouteDeck Agent Design Studio", () => {
     ])
     expect(lounge.stories.slice(0, 2).every((story) => story.status === "draft")).toBe(true)
     expect(lounge.stories.slice(2).every((story) => story.status === "approved")).toBe(true)
+    expect(lounge.policies).toContain(
+      "While Lounge is active, identify the product location as Lounge and keep private Workspace and feature navigation hidden until authenticated entry succeeds.",
+    )
+    expect(lounge.policies).toContain(
+      "Describe Lounge choices in user-facing product language and never expose internal operation, tool, Node, AgentPolicy, or identifier names.",
+    )
+    expect(lounge.stories[0]?.surfaces[0]?.policies).toContain(
+      "Identify the active product location as Lounge and show only Lounge-scoped navigation; keep private Workspace and feature navigation hidden until authenticated entry succeeds.",
+    )
 
     await renderWorkbench()
     const featureNavigation = screen.getByRole("navigation", { name: "Features" })
@@ -164,13 +173,15 @@ describe("RouteDeck Agent Design Studio", () => {
     expect(screen.getAllByText("Rejected")).not.toHaveLength(0)
   })
 
-  it("keeps Lounge arrival limited to entry context and its surface", async () => {
+  it("keeps Lounge arrival limited to public entry operations and its surface", async () => {
     await renderWorkbench()
 
     expect(screen.getByRole("heading", { name: "Surface path" })).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "Chat path" })).toBeInTheDocument()
     expect(screen.getByTitle("Mock surface: Arrive in the Lounge")).toHaveAttribute("src", "/mock-surfaces/lounge/home.html")
-    expect(screen.getByText("No Operations defined for this Node.")).toBeInTheDocument()
+    expect(screen.getByDisplayValue("Start product help")).toBeInTheDocument()
+    expect(screen.getByDisplayValue("Open owner registration")).toBeInTheDocument()
+    expect(screen.getByDisplayValue("Open owner sign-in")).toBeInTheDocument()
     const chatPath = screen.getByRole("heading", { name: "Chat path" }).closest("section")!
     expect(within(chatPath).queryByLabelText("Suggested actions")).not.toBeInTheDocument()
   })
@@ -270,7 +281,7 @@ describe("RouteDeck Agent Design Studio", () => {
 
   it("blocks on an invalid design-state.json and can explicitly replace it with the seed", async () => {
     const user = userEvent.setup()
-    setDesignStateFile(JSON.stringify({ version: 16, features: [] }))
+    setDesignStateFile(JSON.stringify({ version: 20, features: [] }))
     render(<App />)
 
     const alert = await screen.findByRole("alert")

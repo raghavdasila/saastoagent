@@ -34,15 +34,7 @@ from corpus.integrations.toolrouter import ToolRouterAdapter, ToolRouterSettings
 
 
 class OwnerResolver:
-    async def resolve_browser_session(
-        self,
-        *,
-        auth_token: str,
-        owner_route_handle: str | None,
-        require_route: bool,
-    ):
-        if owner_route_handle != "owned-route" or not require_route:
-            raise SessionUnavailable
+    async def resolve_access_token(self, auth_token: str):
         owners = {
             "owner-a": UUID("00000000-0000-0000-0000-000000000001"),
             "owner-b": UUID("00000000-0000-0000-0000-000000000002"),
@@ -126,10 +118,6 @@ def _auth_settings() -> AuthSettings:
         migration_revision="0001_owner_auth",
         reset_secret="r" * 40,
         verification_secret="v" * 40,
-        auth_cookie_name="corpus_auth",
-        owner_route_cookie_name="corpus_owner_route",
-        auth_cookie_secure=False,
-        auth_cookie_path="/",
         public_frontend_url="http://127.0.0.1:5199",
     )
 
@@ -180,8 +168,7 @@ def test_owner_authenticated_sources_http_path_uploads_retrieves_and_generates(
     source_file = write_openapi_fixture(tmp_path / "widgets.json")
 
     with TestClient(app) as client:
-        client.cookies.set("corpus_auth", "owner-a")
-        client.cookies.set("corpus_owner_route", "owned-route")
+        client.headers.update({"Authorization": "Bearer owner-a"})
         uploaded = client.post(
             "/api/sources/api",
             headers={"Origin": "http://127.0.0.1:5199"},
@@ -228,7 +215,7 @@ def test_owner_authenticated_sources_http_path_uploads_retrieves_and_generates(
         assert evalset.json()["status"] == "ready", evalset.text
         assert evalset.json()["accepted_count"] == 1
 
-        client.cookies.set("corpus_auth", "owner-b")
+        client.headers.update({"Authorization": "Bearer owner-b"})
         hidden = client.get(f"/api/sources/{source_id}")
         assert hidden.status_code == 404
 

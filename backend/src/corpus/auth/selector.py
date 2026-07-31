@@ -1,48 +1,86 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from fastapi import Request, Response
 from routedeck_fastapi.contracts import RouteDeckHttpProblem
 
-from .service import AuthService, SessionUnavailable
+from .service import (
+    AuthService,
+    ConversationLimitReached,
+    ConversationUnavailable,
+    SessionUnavailable,
+)
 
 
-@dataclass(frozen=True)
-class CorpusSessionCookieSettings:
-    auth_name: str
-    owner_route_name: str
-    guest_name: str
-    secure: bool
-    path: str = "/"
+_PUBLIC_ID = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
+
+
+class BearerCredentialError(ValueError):
+    pass
+
+
+def bearer_token(request: Request) -> str:
+    authorization = request.headers.get("authorization")
+    if authorization is None:
+        raise BearerCredentialError("Authorization bearer credentials are required.")
+    scheme, separator, value = authorization.partition(" ")
+    if (
+        not separator
+        or scheme.casefold() != "bearer"
+        or not value
+        or value != value.strip()
+        or " " in value
+        or len(value) > 512
+    ):
+        raise BearerCredentialError("Authorization bearer credentials are invalid.")
+    return value
+
+
+def conversation_id(request: Request) -> str:
+    value = request.headers.get("x-corpus-conversation-id")
+    if value is None:
+        raise ValueError("X-Corpus-Conversation-ID is required.")
+    if not _PUBLIC_ID.fullmatch(value):
+        raise ValueError("X-Corpus-Conversation-ID is invalid.")
+    return value
 
 
 @dataclass(frozen=True)
 class CorpusSessionSelector:
     service: AuthService
-    settings: CorpusSessionCookieSettings
 
     async def selected_session_id(self, request: Request) -> str:
-        auth_token = request.cookies.get(self.settings.auth_name)
-        owner_handle = request.cookies.get(self.settings.owner_route_name)
-        guest_session = request.cookies.get(self.settings.guest_name)
-        if auth_token or owner_handle:
-            if not auth_token or not owner_handle:
-                raise _unavailable()
-            try:
-                current = await self.service.resolve_browser_session(
-                    auth_token=auth_token,
-                    owner_route_handle=owner_handle,
-                    require_route=True,
-                )
-            except SessionUnavailable as error:
-                raise _unavailable() from error
-            if current.route_session_id is None:
-                raise _unavailable()
-            return current.route_session_id
-        if not guest_session or await self.service.is_route_claimed(guest_session):
-            raise _unavailable()
-        return guest_session
+        try:
+            access_token = bearer_token(request)
+        except BearerCredentialError as error:
+            raise _authentication_required(str(error)) from error
+        try:
+            public_id = conversation_id(request)
+        except ValueError as error:
+            raise RouteDeckHttpProblem(
+                400,
+                "conversation_selection_required",
+                str(error),
+            ) from error
+        try:
+            selected = await self.service.resolve_conversation(
+                access_token=access_token,
+                conversation_id=public_id,
+                touch=True,
+            )
+        except SessionUnavailable as error:
+            raise _authentication_required(
+                "Authorization bearer credentials are invalid or expired."
+            ) from error
+        except ConversationUnavailable as error:
+            raise RouteDeckHttpProblem(
+                404,
+                "conversation_not_found",
+                "The selected conversation is unavailable.",
+            ) from error
+        return selected.route_session_id
 
     async def attach_created_session(
         self,
@@ -50,50 +88,38 @@ class CorpusSessionSelector:
         response: Response,
         session_id: str,
     ) -> None:
-        auth_token = request.cookies.get(self.settings.auth_name)
-        owner_handle = request.cookies.get(self.settings.owner_route_name)
-        if auth_token and owner_handle:
-            try:
-                await self.service.replace_browser_route(
-                    auth_token=auth_token,
-                    owner_route_handle=owner_handle,
-                    replacement_route_session_id=session_id,
-                )
-            except SessionUnavailable:
-                pass
-            else:
-                response.delete_cookie(
-                    self.settings.guest_name,
-                    path=self.settings.path,
-                    secure=self.settings.secure,
-                    httponly=True,
-                    samesite="lax",
-                )
-                return
-        for name in (self.settings.auth_name, self.settings.owner_route_name):
-            response.delete_cookie(
-                name,
-                path=self.settings.path,
-                secure=self.settings.secure,
-                httponly=True,
-                samesite="lax",
+        try:
+            access_token = bearer_token(request)
+            conversation = await self.service.reserve_conversation(
+                access_token=access_token,
+                route_session_id=session_id,
             )
-        response.set_cookie(
-            key=self.settings.guest_name,
-            value=session_id,
-            httponly=True,
-            secure=self.settings.secure,
-            samesite="lax",
-            path=self.settings.path,
-        )
+        except BearerCredentialError as error:
+            raise _authentication_required(str(error)) from error
+        except SessionUnavailable as error:
+            raise _authentication_required(
+                "Authorization bearer credentials are invalid or expired."
+            ) from error
+        except ConversationLimitReached as error:
+            raise RouteDeckHttpProblem(
+                409,
+                "conversation_limit_reached",
+                str(error),
+            ) from error
+        response.headers["X-Corpus-Conversation-ID"] = conversation.public_id
 
 
-def _unavailable() -> RouteDeckHttpProblem:
+def _authentication_required(message: str) -> RouteDeckHttpProblem:
     return RouteDeckHttpProblem(
-        404,
-        "session_not_found",
-        "The selected session is unavailable.",
+        401,
+        "authentication_required",
+        message,
     )
 
 
-__all__ = ["CorpusSessionCookieSettings", "CorpusSessionSelector"]
+__all__ = [
+    "BearerCredentialError",
+    "CorpusSessionSelector",
+    "bearer_token",
+    "conversation_id",
+]
