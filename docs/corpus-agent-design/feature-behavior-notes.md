@@ -10,6 +10,8 @@ For launch, Corpus should prove one minimal viable path through the product:
 
 Create an agent -> upload an API YAML file -> attach the source -> generate a RouteDeck-powered agent -> run a real sandbox interaction -> evaluate it -> deploy it to a hosted Web URL -> interact with it publicly -> inspect the interaction in Operations.
 
+SURFACE AND CHAT BOTH SHOULD ACCOMPLISH THE BASELINE INDIVIDUALLY AS WELL AS TOGETHER (MIXED). ONLY CREDENTIALS ARE EXCLUDED FROM CHATS.
+
 ## Corpus-wide AutomationBench validation goal
 
 AutomationBench is not a separate Corpus feature and is not part of the minimal launch pathway. It is an overall validation target for both:
@@ -24,6 +26,7 @@ AutomationBench gives Agent X a business task and access to its own `api_search`
 The benchmark does not provide its complete API catalog as one uploaded source. Corpus should therefore connect through a narrow benchmark adapter that exposes the benchmark-supplied discovery and execution tools without replacing or pre-importing its API catalog.
 
 This evaluates whether Corpus and Corpus-produced agents can discover operations, coordinate workflows, follow policies, and complete correct multi-application outcomes. It does not validate Corpus's normal API YAML upload pathway.
+
 
 ## 0. Lounge
 
@@ -69,6 +72,17 @@ Actions
 - archive agent
 - delete agent
 
+
+## 2.5
+
+separate node for operations of a specific agent
+[selected agent]
+- view in agent designer
+- view builds
+- try in sandbox
+- view evalsets
+
+
 ## 3. Source Hub
 
 Source Hub is where users add, view, and manage sources that can be attached to agents.
@@ -86,6 +100,7 @@ An API collection is the launch source type and is powered by ToolRouter.
 
 The user uploads an API YAML file and can see whether it was processed successfully and is ready to use. ToolRouter inputs, outputs, and generated artifacts remain isolated by Workspace and user.
 navigated ONLY from source hub.
+this also must show grouping of the api collections as identified by semantic graph
 
 actions:
 - upload API file.
@@ -98,13 +113,32 @@ Agent Designer is powered by RouteDeck. It uses the agent's goal and selected AP
 
 For the launch baseline, it only needs to produce a viable agent for the end-to-end API-backed pathway. Deeper design controls and planner/executor choices will be explored separately.
 
-- uses routedeck guidelines to propose a navgraph for the api collection based on the semantic graph developed.
+- miniature version of agent design studio as surfaces
+- based on semantic graph groups and api anlaysis, the agent design studio appears prepopulated with how the agent should be
+- navgraph is presented as well.
+
+actions:
+
+- user can add feature, describe behaviours, agent populates polices, capabilities and locks in the relevant api subcollections and tools based on that
+- user can approve/reject/customize suggestions.
+- once approved, the agent design is saved, linked with the agent selected.
+- build agent (takes to agent builder)
 
 ## 6. Agent Builder
+Why agent builder is separate from agent designer?  agent design is like schema saved but the agent doesn't actually run.
+Agent builder actually converts the agent design into a routedeck powered agent ready to be tested in sandbox and generate evalsets.
+The best way I can describe this in terms of product is this is like how a service or vps is provisioned in infra projects.
+using schema, the agent can be started/stopped/paused etc.
+agent builder automatically generates the evalsets too on a agent build
 
-Agent Builder does not need to appear as a separate user-facing feature. It can be the build step within Agent Designer.
+one important thing to note that is the built must be isolated [to explore]
 
-After the user accepts the design, this step produces the runnable agent version used by Sandbox, Evaluation, and Deployment.
+actions
+- generate build from an agent
+- run build
+- delete a build
+- stop a build
+- open in sandbox
 
 ## 7. Sandbox
 
@@ -116,6 +150,9 @@ API-schema-generated responses can support exploration, but they are clearly sho
 
 Each interaction records how the query was resolved, including the decisions and API activity involved. The detailed UI will be explored later.
 
+- chat with agent, user can view navgraph diagnostics here fully. [NAVGRAPH FEATURE ISN'T AVAILABLE TO END USERS OF THE AGENT, ONLY THE OWNER]
+- view sandbox operations traces in a separate surface
+
 ## 8. Evaluation
 
 Users can generate and configure evalsets with ToolRouter, as well as add, remove, or edit evaluation cases.
@@ -123,6 +160,10 @@ Users can generate and configure evalsets with ToolRouter, as well as add, remov
 For the baseline, an evalset runs against the exact draft agent version and produces a simple eligible or ineligible result for deployment, with basic metrics visible to the user.
 
 Users can also create an evaluation case from a real agent interaction recorded in Operations.
+evaluation's category, difficulty etc. all should be present
+powered by toolrouter evalset generator
+
+- simple list/table style surfaces allowing people to CRUD evaluations
 
 ## 9. Channels
 
@@ -130,9 +171,11 @@ Channels are the places where deployed agents interact with users, such as Web, 
 
 For launch, Corpus supports only a hosted Web channel on the Corpus platform. Other channels are deferred.
 
+the url must be uniquely generated and should be capable of linking with some other domain [to explore]
+
 ## 10. Deployment
 
-Deployment publishes an eligible agent version to its configured channel.
+Deployment publishes an eligible agent version to its configured channel. conceptually it exposes a built agent online.
 
 For the baseline, the user deploys the evaluated version to the hosted Web channel and can see which version is currently active and its public URL.
 
