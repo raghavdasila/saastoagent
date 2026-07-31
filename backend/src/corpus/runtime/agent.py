@@ -6,6 +6,7 @@ from langchain.agents import create_agent
 from langchain_core.language_models import BaseChatModel
 from routedeck_langgraph import (
     RouteDeckInvocationContext,
+    RouteDeckInvocationTraceRecorder,
     RouteDeckMiddleware,
     RouteDeckRunnerRuntime,
     RouteDeckToolWrapper,
@@ -18,9 +19,10 @@ def create_corpus_agent(
     *,
     model: BaseChatModel,
     runtime: RouteDeckRunnerRuntime,
+    invocation_traces: RouteDeckInvocationTraceRecorder,
 ) -> Any:
     wrapper = RouteDeckToolWrapper(runtime)
-    middleware = RouteDeckMiddleware(runtime)
+    middleware = RouteDeckMiddleware(runtime, invocation_traces)
     return create_agent(
         model=model,
         tools=wrapper.tools,
@@ -35,8 +37,9 @@ def create_corpus_entry_agent(
     *,
     model: BaseChatModel,
     runtime: RouteDeckRunnerRuntime,
+    invocation_traces: RouteDeckInvocationTraceRecorder,
 ) -> Any:
-    middleware = RouteDeckMiddleware(runtime)
+    middleware = RouteDeckMiddleware(runtime, invocation_traces)
     return create_agent(
         model=model,
         tools=(),

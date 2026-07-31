@@ -141,6 +141,7 @@ it("shows the exact current agent context, effective policy prompts, and system 
         limits: { recent_observations: 8 },
         intentional_exclusions: ["private_form_values"],
       },
+      invocation_traces: null,
     },
   });
 
