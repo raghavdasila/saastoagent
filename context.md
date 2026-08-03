@@ -31,6 +31,10 @@ Updated: 2026-08-03
   owners add a conversation and retain earlier mappings. The shell creates new
   conversation-scoped RouteDeck/chat/private-form clients, then disposes the
   previous client runtime. The action is disabled during active interaction.
+- Per-tab browser history is bound to its selected public conversation before
+  RouteDeck bootstrap. Corpus automatically resolves stale navigation,
+  resynchronization, and unavailable-conversation recovery; normal product UI
+  never exposes RouteDeck errors, state codes, or recovery choices.
 - `RouteDeckRuntime.provision_session(...)` is the single session-creation
   boundary used by both RouteDeck HTTP and Corpus conversation creation.
 - The frontend has a bearer-only authorized transport and a conversation

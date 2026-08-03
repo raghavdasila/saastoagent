@@ -143,7 +143,9 @@ export function Composer({
         ) : null}
       </div>
       {disabledReason === undefined ? null : <p data-composer-disabled-reason="">{disabledReason}</p>}
-      {error === null ? null : <p role="alert">{error.message}</p>}
+      {error === null ? null : (
+        <p role="alert">Corpus could not complete that request. Try again.</p>
+      )}
     </form>
   );
 }

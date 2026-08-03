@@ -102,7 +102,7 @@ export function AgentShell({
       )}
       {agent.error === null ? null : (
         <p role="alert" data-agent-chat-error={agent.error.code}>
-          {agent.error.message}
+          Corpus could not complete that request. Try again.
         </p>
       )}
       <div data-agent-input-dock="">

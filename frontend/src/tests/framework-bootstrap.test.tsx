@@ -8,7 +8,7 @@ import { expect, it, vi } from "vitest";
 
 import { ApplicationShell } from "../app/ApplicationShell";
 import { BootstrapLoadingShell } from "../app/BootstrapLoadingShell";
-import { BootstrapRecoveryShell } from "../app/BootstrapRecoveryShell";
+import { CorpusRecoveryCoordinator } from "../app/CorpusRecoveryCoordinator";
 import { loadRouteDeck } from "../app/loadRouteDeck";
 import {
   frameworkContractFixture,
@@ -76,12 +76,12 @@ it("opens application navigation from a mobile menu without moving the desktop n
 it("keeps the loading shell generic for reuse by a fresh project", () => {
   render(<BootstrapLoadingShell />);
 
-  expect(screen.getByRole("status")).toHaveTextContent("Preparing application");
+  expect(screen.getByRole("status")).toHaveTextContent("Preparing Corpus");
   expect(screen.queryByText("Corpus")).not.toBeInTheDocument();
 });
 
-it("returns an expired session to the Lounge without rendering expiry UI", async () => {
-  const startNewSession = vi.fn(async () => undefined);
+it("replaces an expired conversation without rendering framework recovery UI", async () => {
+  const replaceConversation = vi.fn(async () => undefined);
   const fetch = vi.fn(async () => ({
     ok: true,
     status: 204,
@@ -98,14 +98,19 @@ it("returns an expired session to the Lounge without rendering expiry UI", async
       code: "stream_session_expired",
       message: "The RouteDeck event session has expired.",
     },
-    actions: [{ kind: "start_new_session", run: startNewSession }],
+    actions: [{ kind: "start_new_session", run: vi.fn() }],
   };
 
-  render(<BootstrapRecoveryShell state={state} />);
+  render(
+    <CorpusRecoveryCoordinator
+      state={state}
+      replaceConversation={replaceConversation}
+    />,
+  );
 
-  expect(screen.getByRole("status")).toHaveTextContent("Preparing application");
+  expect(screen.getByRole("status")).toHaveTextContent("Preparing Corpus");
   expect(screen.queryByText("Application session expired")).not.toBeInTheDocument();
   expect(screen.queryByText("The RouteDeck event session has expired.")).not.toBeInTheDocument();
-  await waitFor(() => expect(startNewSession).toHaveBeenCalledOnce());
+  await waitFor(() => expect(replaceConversation).toHaveBeenCalledOnce());
   expect(fetch).not.toHaveBeenCalled();
 });

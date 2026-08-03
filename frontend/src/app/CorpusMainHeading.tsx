@@ -34,7 +34,7 @@ export function CorpusMainHeading() {
         {({ code }) => (
           <span className="workspace-ready" data-status={code}>
             <i aria-hidden="true" />
-            {code === "ready" ? "Ready" : code}
+            {code === "ready" ? "Ready" : "Working…"}
           </span>
         )}
       </RouteDeckStatus>

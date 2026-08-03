@@ -1,5 +1,4 @@
 import {
-  RouteDeckNavigationControls,
   RouteDeckStatus,
   useRouteDeckContract,
   useRouteDeckCurrentNode,
@@ -9,6 +8,7 @@ import { Bot, CircleUserRound, LogOut, MessageSquarePlus } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { CorpusNavigationControls } from "./CorpusNavigationControls";
 import { ownerAuthClient } from "../features/lounge/authClient";
 import { useOwnerSession } from "../features/lounge/OwnerSessionContext";
 
@@ -75,12 +75,12 @@ export function CorpusHeader({
             {conversationError}
           </span>
         )}
-        <RouteDeckNavigationControls />
+        <CorpusNavigationControls />
         <RouteDeckStatus>
           {({ code }) => (
             <span className="corpus-status" data-status={code}>
               <i aria-hidden="true" />
-              {code === "ready" ? "Ready" : code}
+              {code === "ready" ? "Ready" : "Working…"}
             </span>
           )}
         </RouteDeckStatus>

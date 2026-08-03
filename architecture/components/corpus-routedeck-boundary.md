@@ -9,6 +9,12 @@ RouteDeck owns generic legal interaction topology and state mechanics: active
 node, transitions, operation legality, session/runtime lifecycle, projections,
 conversation transport, identifiers, recovery, and diagnostics.
 
+RouteDeck may report technical state and legal recovery actions to Corpus.
+Corpus resolves state, navigation, link, and recovery mechanics internally.
+Users never receive RouteDeck errors, identifiers, state codes, or recovery
+choices. If automatic recovery cannot restore the product, Corpus shows only
+Corpus-owned availability language.
+
 Owner authentication is Corpus-host-owned. RouteDeck receives only an already
 authorized internal session ID from the Corpus selector. Lounge owns public
 account surfaces and typed continuation into Workspace, while bearer identity,
@@ -111,6 +117,14 @@ public conversations, persistence, revocation, and ownership claims stay in
   transport, RouteDeck store, private-form state, and chat history before it
   disposes the previous client runtime. Owner identity and bearer-only product
   clients remain mounted across that switch.
+- Browser history is bound per tab to the selected opaque Corpus conversation.
+  Before bootstrap, Corpus discards a RouteDeck history entry owned by another
+  conversation and aligns to the selected conversation's authoritative
+  projection. Same-conversation history and new-tab deep links remain intact.
+- Bootstrap navigation ambiguity resolves to the authoritative current
+  projection, resync conditions resynchronize automatically, and missing,
+  expired, or incompatible conversations use the Corpus conversation lifecycle.
+  The shell never exposes framework recovery controls or raw framework errors.
 - Corpus captures verification/reset URL fragments before RouteDeck bootstrap;
   RouteDeck remains responsible for route/history synchronization afterward.
 - `lounge.home` declares a generic RouteDeck entry turn. RouteDeck derives the

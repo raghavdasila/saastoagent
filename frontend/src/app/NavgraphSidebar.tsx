@@ -1,7 +1,6 @@
-import { useCallback, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { ChevronLeft, ChevronRight, Network } from "lucide-react";
 import {
-  RouteDeckError,
   RouteDeckInspector,
   RouteDeckStatus,
   useRouteDeckClientError,
@@ -26,7 +25,8 @@ export function NavgraphSidebar() {
   const mutationRecovery = useRouteDeckMutationRecovery();
   const [expanded, setExpanded] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState(false);
-  const [recoveryError, setRecoveryError] = useState<Error | null>(null);
+  const [recoveryFailed, setRecoveryFailed] = useState(false);
+  const attemptedMutation = useRef<unknown>(null);
   const [sidebarWidth, setSidebarWidth] = useState(420);
   const [resizing, setResizing] = useState(false);
 
@@ -70,60 +70,36 @@ export function NavgraphSidebar() {
     ));
   }, [clampSidebarWidth]);
 
-  const recover = useCallback(async (action: () => Promise<unknown>) => {
-    setRecoveryError(null);
-    try {
-      await action();
-    } catch (caught) {
-      setRecoveryError(
-        caught instanceof Error
-          ? caught
-          : new Error("The RouteDeck mutation recovery failed."),
-      );
+  useEffect(() => {
+    if (mutationRecovery.pending === null) {
+      attemptedMutation.current = null;
+      return;
     }
-  }, []);
+    if (
+      mutationRecovery.retrying ||
+      attemptedMutation.current === mutationRecovery.pending
+    ) return;
+    attemptedMutation.current = mutationRecovery.pending;
+    setRecoveryFailed(false);
+    void mutationRecovery.abandon().catch(() => setRecoveryFailed(true));
+  }, [mutationRecovery]);
 
   const renderNavgraphContent = () => (
     <>
       <RouteDeckStatus>
-        {({ code, message, syncStatus }) => (
+        {({ code }) => (
           <p data-navgraph-status="">
-            <span>{message ?? code}</span> <small>{syncStatus}</small>
+            <span>{code === "ready" ? "Ready" : "Working…"}</span>
           </p>
         )}
       </RouteDeckStatus>
-      <RouteDeckInspector className="corpus-navgraph-inspector" />
-      {projection?.failure === null || projection?.failure === undefined ? null : (
-        <RouteDeckError failure={projection.failure} />
+      {projection?.failure === null && clientError === null && !recoveryFailed ? (
+        <RouteDeckInspector className="corpus-navgraph-inspector" />
+      ) : (
+        <p role="alert">Corpus could not load diagnostics. Try again.</p>
       )}
-      {clientError === null ? null : (
-        <RouteDeckError code={clientError.code} message={clientError.message} />
-      )}
-      {mutationRecovery.pending === null ? null : (
-        <section role="alert">
-          <strong>Mutation outcome unknown</strong>
-          <Button
-            type="button"
-            disabled={mutationRecovery.retrying}
-            onClick={() => void recover(mutationRecovery.retry)}
-          >
-            Retry exact mutation
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={mutationRecovery.retrying}
-            onClick={() => void recover(mutationRecovery.abandon)}
-          >
-            Abandon and resync
-          </Button>
-        </section>
-      )}
-      {recoveryError === null ? null : (
-        <RouteDeckError
-          code="mutation_recovery_failed"
-          message={recoveryError.message}
-        />
+      {mutationRecovery.pending === null || recoveryFailed ? null : (
+        <p role="status">Corpus is restoring this view…</p>
       )}
     </>
   );

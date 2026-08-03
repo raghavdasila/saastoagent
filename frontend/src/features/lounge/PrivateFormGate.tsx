@@ -1,5 +1,4 @@
 import {
-  RouteDeckError,
   RouteDeckPrivateForm,
   type RouteDeckPrivateFormBinding,
 } from "@routedeck/react";
@@ -21,10 +20,9 @@ export function PrivateFormGate({
               Loading private form…
             </section>
           ) : (
-            <RouteDeckError
-              code="private_form_load_failed"
-              message={binding.error.message}
-            />
+            <section className="workspace-auth" role="alert">
+              Corpus could not load this form. Try again.
+            </section>
           );
         }
         return children(binding);

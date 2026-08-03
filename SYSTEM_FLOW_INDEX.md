@@ -82,6 +82,19 @@ RouteDeck owns each internal session after provisioning. Corpus owns the user
 action, public conversation authorization/mapping, and client switch. The Agent
 Design Studio is not involved because no agent behavior or topology changes.
 
+Browser and recovery ownership remain Corpus-internal:
+
+```text
+selected opaque Corpus conversation
+  -> compare per-tab history owner before RouteDeck bootstrap
+  -> stale other-conversation history: load authoritative projection and replace URL/state
+  -> matching history: preserve Back/Forward
+  -> new tab without RouteDeck history: preserve valid deep link
+  -> RouteDeck recovery contract reports legal actions internally
+  -> Corpus automatically abandons ambiguous navigation, resynchronizes, or replaces conversation
+  -> user sees Corpus or Corpus-owned availability copy, never RouteDeck recovery state
+```
+
 Ollama or persistence unavailability fails readiness and the user-visible chat
 path. There is no canned response or alternate-model execution branch.
 

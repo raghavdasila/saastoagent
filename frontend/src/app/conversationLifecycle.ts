@@ -6,7 +6,13 @@ import {
 } from "@routedeck/core";
 
 import type { AppRouteDeck } from "./createRouteDeck";
-import { rememberConversation, type ConversationSummary } from "./conversations";
+import type { ConversationSummary } from "./conversations";
+import {
+  commitConversationHandoff,
+  historyNeedsReconciliation,
+  projectionPath,
+  reconcileConversationHistory,
+} from "./conversationHistory";
 import { loadRouteDeck } from "./loadRouteDeck";
 import {
   createConversationTransport,
@@ -36,7 +42,7 @@ export class ConversationLifecycle {
   async mount(
     summary: ConversationSummary,
     existingTransport?: ConversationTransport,
-    alignRoute = false,
+    handoff = false,
   ): Promise<MountedConversation> {
     const transport = existingTransport ?? createConversationTransport(this.authorized);
     if (existingTransport === undefined) transport.selectConversation(summary.id);
@@ -50,9 +56,18 @@ export class ConversationLifecycle {
       fetch: transport.fetch,
     });
     const routeDeck = await loadRouteDeck(this.browser, routeDeckClient);
-    if (alignRoute) {
-      const path = routeDeck.routes.encode(summary.current_node_id, {});
-      this.browser.history.replaceState({}, "", path);
+    const mustLoadCanonicalPath =
+      handoff || historyNeedsReconciliation(this.browser, summary.id);
+    if (mustLoadCanonicalPath) {
+      const projection = await routeDeck.client.getSession();
+      const canonicalPath = projectionPath(routeDeck.routes, projection);
+      if (handoff) {
+        commitConversationHandoff(this.browser, summary, canonicalPath);
+      } else {
+        reconcileConversationHistory(this.browser, summary.id, canonicalPath);
+      }
+    } else {
+      reconcileConversationHistory(this.browser, summary.id, "");
     }
     try {
       const initialConversation = await chatClient.loadConversation();
@@ -71,7 +86,6 @@ export class ConversationLifecycle {
     const next = anonymous
       ? await this.conversations.replaceAnonymous(current.id)
       : await this.conversations.create();
-    rememberConversation(this.browser.sessionStorage, next);
     return await this.mount(next, undefined, true);
   }
 

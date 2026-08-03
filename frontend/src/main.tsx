@@ -1,11 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { RouteDeckBootstrapBoundary } from "@routedeck/react";
 
 import { ApplicationShell } from "./app/ApplicationShell";
 import { bootstrapCorpusConnection } from "./app/bootstrapConnection";
 import { BootstrapLoadingShell } from "./app/BootstrapLoadingShell";
-import { BootstrapRecoveryShell } from "./app/BootstrapRecoveryShell";
+import { CorpusRecoveryCoordinator } from "./app/CorpusRecoveryCoordinator";
 import { CorpusHeader } from "./app/CorpusHeader";
 import { CorpusMainHeading } from "./app/CorpusMainHeading";
 import {
@@ -62,6 +62,7 @@ async function start(): Promise<void> {
           initial={initial}
           lifecycle={lifecycle}
           registry={createCorpusSurfaceRegistry(sourceClient)}
+          isAnonymous={() => bootstrap.session.principal?.type === "anonymous"}
           onMounted={(mounted) => { current = mounted; }}
         />
       </React.StrictMode>,
@@ -69,7 +70,6 @@ async function start(): Promise<void> {
   } catch (error) {
     root.render(
       <FatalShell
-        error={error}
         fallback="Corpus could not establish an authenticated conversation."
       />,
     );
@@ -81,11 +81,13 @@ function CorpusApplication({
   lifecycle,
   registry,
   onMounted,
+  isAnonymous,
 }: {
   initial: MountedConversation;
   lifecycle: ConversationLifecycle;
   registry: ReturnType<typeof createCorpusSurfaceRegistry>;
   onMounted(mounted: MountedConversation): void;
+  isAnonymous(): boolean;
 }) {
   const [mounted, setMounted] = useState(initial);
   const previous = useRef<MountedConversation | null>(null);
@@ -98,12 +100,22 @@ function CorpusApplication({
     onMounted(mounted);
   }, [lifecycle, mounted, onMounted]);
 
+  const startNext = useCallback(async (anonymous: boolean) => {
+    const next = await lifecycle.createNext(mounted.summary, anonymous);
+    setMounted(next);
+  }, [lifecycle, mounted]);
+
   return (
     <RouteDeckBootstrapBoundary
       key={mounted.summary.id}
       store={mounted.routeDeck.store}
       loading={<BootstrapLoadingShell />}
-      recovery={(state) => <BootstrapRecoveryShell state={state} />}
+      recovery={(state) => (
+        <CorpusRecoveryCoordinator
+          state={state}
+          replaceConversation={() => startNext(isAnonymous())}
+        />
+      )}
     >
       <ApplicationShell
         routeDeck={mounted.routeDeck}
@@ -112,10 +124,7 @@ function CorpusApplication({
         initialConversation={mounted.initialConversation}
         header={(
           <CorpusHeader
-            onNewConversation={async (anonymous) => {
-              const next = await lifecycle.createNext(mounted.summary, anonymous);
-              setMounted(next);
-            }}
+            onNewConversation={startNext}
           />
         )}
         navigation={<FeatureNavigation />}
@@ -125,11 +134,11 @@ function CorpusApplication({
   );
 }
 
-function FatalShell({ error, fallback }: { error: unknown; fallback: string }) {
+function FatalShell({ fallback }: { fallback: string }) {
   return (
     <section className="bootstrap-error" role="alert">
       <h1>Corpus could not load</h1>
-      <p>{error instanceof Error ? error.message : fallback}</p>
+      <p>{fallback}</p>
       <button type="button" onClick={() => window.location.reload()}>
         Retry
       </button>

@@ -1,8 +1,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function BootstrapLoadingShell({
-  title = "Preparing application",
-  message = "Loading the RouteDeck contract and session.",
+  title = "Preparing Corpus",
+  message = "Loading Corpus…",
 }: {
   title?: string;
   message?: string;
