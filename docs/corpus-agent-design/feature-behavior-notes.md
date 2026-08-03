@@ -11,6 +11,7 @@ For launch, Corpus should prove one minimal viable path through the product:
 Create an agent -> upload an API YAML file -> attach the source -> generate a RouteDeck-powered agent -> run a real sandbox interaction -> evaluate it -> deploy it to a hosted Web URL -> interact with it publicly -> inspect the interaction in Operations.
 
 SURFACE AND CHAT BOTH SHOULD ACCOMPLISH THE BASELINE INDIVIDUALLY AS WELL AS TOGETHER (MIXED). ONLY CREDENTIALS ARE EXCLUDED FROM CHATS.
+when chat and surfaces are used together, they should continue the same task and show the same current state. switching between them should not restart the work or repeat an action.
 
 ## Corpus-wide AutomationBench validation goal
 
@@ -27,6 +28,9 @@ The benchmark does not provide its complete API catalog as one uploaded source. 
 
 This evaluates whether Corpus and Corpus-produced agents can discover operations, coordinate workflows, follow policies, and complete correct multi-application outcomes. It does not validate Corpus's normal API YAML upload pathway.
 
+## Shared Async Behaviour
+for API Source, Agent Builder, Evaluation, and Deployment
+one important thing is that processing/building/evaluation/deployment may take time. the user should be able to leave and come back and still see the actual status and results separately. failures must remain failures and retry should be explicit. 
 
 ## 0. Lounge
 
@@ -130,7 +134,7 @@ Agent builder actually converts the agent design into a routedeck powered agent 
 The best way I can describe this in terms of product is this is like how a service or vps is provisioned in infra projects.
 using schema, the agent can be started/stopped/paused etc.
 agent builder automatically generates the evalsets too on a agent build
-
+each built agent has its own execution runtime. its state, conversations and results remain separate from Corpus and from other agents. sandbox and deployed results are also viewed separately.
 one important thing to note that is the built must be isolated [to explore]
 
 actions
@@ -150,8 +154,11 @@ API-schema-generated responses can support exploration, but they are clearly sho
 
 Each interaction records how the query was resolved, including the decisions and API activity involved. The detailed UI will be explored later.
 
+one important thing to note is that the sandboxed agent has its own execution runtime. its conversations, state and results are kept separate and can be viewed separately from deployed agent activity.
+
 - chat with agent, user can view navgraph diagnostics here fully. [NAVGRAPH FEATURE ISN'T AVAILABLE TO END USERS OF THE AGENT, ONLY THE OWNER]
 - view sandbox operations traces in a separate surface
+
 
 ## 8. Evaluation
 
