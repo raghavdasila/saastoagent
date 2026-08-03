@@ -20,6 +20,22 @@ Agent Design Studio.
 ToolRouter is embedded in the Corpus backend. It is not a separate service.
 The backend reaches host Ollama through `host.docker.internal:11434`.
 
+## Capability Ownership
+
+Do not treat the API-related modules as interchangeable:
+
+| Capability | Current owner | Corpus feature powered | Current integration state |
+| --- | --- | --- | --- |
+| OpenAPI ingestion, semantic graph/grouping, GRAG routing candidates, reviewed evalset generation | ToolRouter snapshot behind the Corpus API Source connector | Source Hub, API Source, and the ToolRouter portion of Evaluation | Integrated in the Corpus backend |
+| One authorized, validated HTTP operation; concurrency/isolation; redacted execution trace | Standalone `D:\Dev\AI Projects\api-execution-runtime` | Future Agent Builder runtime used by Sandbox, deployed Channels, and Operations | Proven separately; not imported into Corpus |
+| Live-response drift review and immutable effective OpenAPI revisions | Contract Revision Studio in the standalone API runtime | Future API Source contract maintenance supporting safe Sandbox/deployed execution | Proven separately; not imported into Corpus |
+| Product behavior, RouteDeck configuration, policies, operations, and surfaces | RouteDeck Agent Design Studio | Agent Designer | Studio exists; compiled parity is a separate gate |
+
+The API execution runtime does not choose a tool and ToolRouter does not make
+the HTTP call. A future agent path must explicitly connect RouteDeck/agent
+selection to ToolRouter's operation identity and then to one capability-scoped
+API runtime request.
+
 ## Prerequisites
 
 - Run commands from `D:\Dev\AI Projects\saastoagent-v0.1` in PowerShell.
@@ -122,6 +138,75 @@ is `docs/corpus-agent-design/workbench/design-state.json`.
 Each started service should return `200`. Open Corpus at
 `http://127.0.0.1:5199/`, readiness at `http://127.0.0.1:8099/readyz`, and the
 Agent Design Studio at `http://127.0.0.1:8782/`.
+
+## Isolated Capability Proofs
+
+These checks are not additional required Corpus services. Run them when
+validating the module boundary they own.
+
+### API execution and contract revision
+
+Run from `D:\Dev\AI Projects\api-execution-runtime`. The exact standalone
+commands, Medusa prerequisites, and proof limits are owned by that repository's
+`README.md` and `test_index/README.md`.
+
+Core contracts:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+Contract Revision Studio smoke URL after starting its documented server:
+`http://127.0.0.1:8765/`. The target Medusa smoke URL is
+`http://127.0.0.1:9100/health`.
+
+This proves the execution boundary intended for Sandbox, deployed Web agents,
+and Operations traces. It does not prove that Corpus currently has an Agent
+Builder or an agent-to-runtime integration.
+
+### ToolRouter through the Corpus API Source connector
+
+Focused deterministic gates, run from the Corpus root:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest backend\tests\integrations\toolrouter -q
+.\.venv\Scripts\python.exe -m pytest backend\tests\sources -q
+```
+
+For real product evidence, keep Corpus and Ollama running, open
+`http://127.0.0.1:5199/sources` as a local owner, then:
+
+1. Upload a real OpenAPI JSON or YAML collection and build the graph.
+2. Confirm endpoint, graph-node, graph-edge, and card counts are shown.
+3. Run a natural-language retrieval and inspect the explicit decision, reason,
+   ranking, and trace.
+4. Generate a one-case evalset and confirm accepted/quarantined counts, exact
+   generator/reviewer identities, and token evidence.
+5. Reload and confirm the owner-scoped Source and artifacts remain available.
+
+This proves API Source ingestion, semantic graph/index construction, GRAG
+retrieval, and independently reviewed candidate generation. It does not prove
+real API execution, an agent choosing the operation, or human-gold quality.
+
+### RouteDeck Agent Design Studio
+
+The Studio is independently runnable at `http://127.0.0.1:8782/` and its local
+contract suite is:
+
+```powershell
+pnpm --dir docs/corpus-agent-design/workbench test
+```
+
+The separate compiled-design mapping gate is:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\check_agent_design_parity.py
+```
+
+Treat these as two claims. A green Studio suite proves its product-semantic
+editor state; only a green parity command proves that accepted design maps to
+the current RouteDeck contracts. If parity crashes or reports drift, Agent
+Designer integration is blocked even when the Studio UI itself works.
 
 ## Logs and Diagnosis
 

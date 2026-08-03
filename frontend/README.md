@@ -1,6 +1,6 @@
 # Corpus Frontend
 
-The frontend is the generic permanent chat shell plus Lounge account surfaces,
+The frontend serves the generic permanent chat shell, Lounge account surfaces,
 Workspace Home, and the authenticated Sources debug surface.
 
 ```text
@@ -45,4 +45,4 @@ pnpm --dir frontend build
 ```
 
 Vite proxies `/api`, `/healthz`, and `/readyz` to the local backend at port
-8099. The application is served at `http://127.0.0.1:5199/`.
+8099. The Corpus product is served at `http://127.0.0.1:5199/`.

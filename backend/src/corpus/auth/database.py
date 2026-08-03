@@ -85,7 +85,7 @@ class AuthDatabase:
             raise MigrationRevisionError(
                 "Corpus auth database has the expected revision label but not "
                 f"the current initial schema: {schema_error}. Provision it from "
-                "the current 0001_owner_auth migration."
+                "the current configured migration."
             )
 
     async def close(self) -> None:
