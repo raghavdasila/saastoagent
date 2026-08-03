@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   SELECTED_CONVERSATION_KEY,
+  createConversationClient,
   selectConversation,
   type ConversationSummary,
 } from "../app/conversations";
@@ -24,6 +25,18 @@ describe("conversation selection", () => {
       conversation("cv-old", "2026-07-30T10:00:00Z"),
     ]);
     expect(selected?.id).toBe("cv-old");
+  });
+
+  it("uses the explicit anonymous replacement endpoint", async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify(
+      conversation("cv-new", "2026-07-30T11:00:00Z"),
+    ), { status: 201, headers: { "Content-Type": "application/json" } }));
+    const replaced = await createConversationClient(fetcher).replaceAnonymous("cv-old");
+    expect(replaced.id).toBe("cv-new");
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/conversations/cv-old/replacement",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 
   it("replaces a stale selection with the most recently updated conversation", () => {

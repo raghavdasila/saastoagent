@@ -1,6 +1,6 @@
 # Corpus Current Context
 
-Updated: 2026-07-31
+Updated: 2026-08-03
 
 ## Repository Boundary
 
@@ -11,7 +11,8 @@ Updated: 2026-07-31
   server-owned-conversation work included explicit, plan-limited permission to
   change RouteDeck; that permission is exhausted. Obtain new explicit approval
   for any further upstream change.
-- No Git operation was performed during the 2026-07-30/31 session.
+- RouteDeck remains read-only; the current New conversation work is entirely
+  Corpus-owned.
 
 ## Live Product State
 
@@ -25,6 +26,11 @@ Updated: 2026-07-31
   public conversation IDs to internal RouteDeck session IDs. RouteDeck alone
   provisions and owns runtime sessions, active runs, durable interaction state,
   replay, and restart interruption.
+- The Corpus header now starts a fresh conversation without changing identity
+  or domain data. Anonymous callers use provision-first atomic replacement;
+  owners add a conversation and retain earlier mappings. The shell creates new
+  conversation-scoped RouteDeck/chat/private-form clients, then disposes the
+  previous client runtime. The action is disabled during active interaction.
 - `RouteDeckRuntime.provision_session(...)` is the single session-creation
   boundary used by both RouteDeck HTTP and Corpus conversation creation.
 - The frontend has a bearer-only authorized transport and a conversation

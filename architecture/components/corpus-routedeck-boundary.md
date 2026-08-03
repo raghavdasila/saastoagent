@@ -67,6 +67,12 @@ public conversations, persistence, revocation, and ownership claims stay in
   initialization, declared entry-run attachment, and the returned current
   snapshot. Corpus releases the reservation if provisioning fails; it does not
   duplicate that framework control flow.
+- `POST /api/conversations/{public_id}/replacement` is a Corpus-owned anonymous
+  lifecycle operation. Corpus verifies that the active mapping belongs to the
+  bearer, provisions a fresh RouteDeck session first, then atomically archives
+  the old public mapping and creates the replacement. Owners use the ordinary
+  create endpoint and retain all earlier conversations. Neither path exposes a
+  RouteDeck session ID or requires a RouteDeck or Design Studio contract.
 - Owner-only Source APIs are mounted at `/api/sources`. Source identity and
   retrieval/evalset contracts are generic; API upload transport is
   connector-owned, only the explicit API/ToolRouter bridge imports the public
@@ -100,6 +106,11 @@ public conversations, persistence, revocation, and ownership claims stay in
   background projection resync/reconnect. Corpus providers and initial
   conversation effects therefore retain their lifecycle instead of restarting
   on every canonical event.
+- The Corpus header disables New conversation while a RouteDeck interaction is
+  active. Once creation succeeds, the shell mounts a fresh conversation-scoped
+  transport, RouteDeck store, private-form state, and chat history before it
+  disposes the previous client runtime. Owner identity and bearer-only product
+  clients remain mounted across that switch.
 - Corpus captures verification/reset URL fragments before RouteDeck bootstrap;
   RouteDeck remains responsible for route/history synchronization afterward.
 - `lounge.home` declares a generic RouteDeck entry turn. RouteDeck derives the

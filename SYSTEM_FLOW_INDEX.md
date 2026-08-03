@@ -66,6 +66,22 @@ browser issues or refreshes an anonymous bearer identity
   -> RouteDeck commits the legal node transition and new surface projection
 ```
 
+New conversation is a Corpus shell lifecycle:
+
+```text
+header action (disabled during an active RouteDeck interaction)
+  -> anonymous: verify current public mapping, provision fresh RouteDeck session
+     -> atomically archive old mapping and bind replacement
+  -> owner: create an additional public conversation and retain earlier ones
+  -> select the new opaque public ID in tab storage
+  -> mount fresh RouteDeck/chat/private-form clients
+  -> dispose the previous client runtime
+```
+
+RouteDeck owns each internal session after provisioning. Corpus owns the user
+action, public conversation authorization/mapping, and client switch. The Agent
+Design Studio is not involved because no agent behavior or topology changes.
+
 Ollama or persistence unavailability fails readiness and the user-visible chat
 path. There is no canned response or alternate-model execution branch.
 

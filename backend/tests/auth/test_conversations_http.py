@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -129,5 +130,113 @@ def test_catalog_creates_real_runtime_session_without_exposing_internal_id(
             second = client.post("/api/conversations", headers=headers)
             assert second.status_code == 409
             assert second.json()["code"] == "conversation_limit_reached"
+    finally:
+        asyncio.run(database.close())
+
+
+def test_anonymous_replacement_archives_old_mapping_after_provisioning(
+    tmp_path: Path,
+) -> None:
+    database = AuthDatabase(
+        f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}"
+    )
+    asyncio.run(database.create_schema_for_tests())
+    service = AuthService(database)
+    runtime = _runtime()
+    app = FastAPI()
+    app.add_exception_handler(AuthHttpProblem, auth_problem_response)
+    app.include_router(
+        create_conversation_router(
+            service=service,
+            mutation_policy=SameOriginMutationPolicy(
+                trusted_origins=frozenset({"http://127.0.0.1:5199"})
+            ),
+            runtime_provider=lambda _request: runtime,
+        )
+    )
+    try:
+        anonymous = asyncio.run(service.issue_anonymous())
+        headers = {
+            "Authorization": f"Bearer {anonymous.access_token}",
+            "Origin": "http://127.0.0.1:5199",
+        }
+        with TestClient(app) as client:
+            original = client.post("/api/conversations", headers=headers).json()
+            response = client.post(
+                f"/api/conversations/{original['id']}/replacement",
+                headers=headers,
+            )
+            assert response.status_code == 201, response.text
+            replacement = response.json()
+            assert replacement["id"] != original["id"]
+            assert "route_session_id" not in response.text
+            assert client.get(
+                f"/api/conversations/{original['id']}",
+                headers={"Authorization": headers["Authorization"]},
+            ).status_code == 404
+            assert client.get(
+                "/api/conversations",
+                headers={"Authorization": headers["Authorization"]},
+            ).json() == {"conversations": [replacement]}
+
+            foreign = asyncio.run(service.issue_anonymous())
+            store = runtime.services.store
+            provision_count = len(store.creation_requests)
+            denied = client.post(
+                f"/api/conversations/{replacement['id']}/replacement",
+                headers={
+                    "Authorization": f"Bearer {foreign.access_token}",
+                    "Origin": "http://127.0.0.1:5199",
+                },
+            )
+            assert denied.status_code == 404
+            assert len(store.creation_requests) == provision_count
+    finally:
+        asyncio.run(database.close())
+
+
+def test_anonymous_replacement_keeps_old_mapping_when_provisioning_fails(
+    tmp_path: Path,
+) -> None:
+    database = AuthDatabase(
+        f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}"
+    )
+    asyncio.run(database.create_schema_for_tests())
+    service = AuthService(database)
+    runtime = _runtime()
+    app = FastAPI()
+    app.add_exception_handler(AuthHttpProblem, auth_problem_response)
+    app.include_router(
+        create_conversation_router(
+            service=service,
+            mutation_policy=SameOriginMutationPolicy(
+                trusted_origins=frozenset({"http://127.0.0.1:5199"})
+            ),
+            runtime_provider=lambda _request: runtime,
+        )
+    )
+    try:
+        anonymous = asyncio.run(service.issue_anonymous())
+        headers = {
+            "Authorization": f"Bearer {anonymous.access_token}",
+            "Origin": "http://127.0.0.1:5199",
+        }
+        with TestClient(app, raise_server_exceptions=False) as client:
+            original = client.post("/api/conversations", headers=headers).json()
+            object.__setattr__(
+                runtime,
+                "provision_session",
+                AsyncMock(side_effect=RuntimeError("offline")),
+            )
+            response = client.post(
+                f"/api/conversations/{original['id']}/replacement",
+                headers=headers,
+            )
+            assert response.status_code == 500
+            current = client.get(
+                f"/api/conversations/{original['id']}",
+                headers={"Authorization": headers["Authorization"]},
+            )
+            assert current.status_code == 200
     finally:
         asyncio.run(database.close())

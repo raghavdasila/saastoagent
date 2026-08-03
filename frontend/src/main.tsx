@@ -1,9 +1,5 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  createRouteDeckAgentClient,
-  createRouteDeckClient,
-} from "@routedeck/core";
 import { RouteDeckBootstrapBoundary } from "@routedeck/react";
 
 import { ApplicationShell } from "./app/ApplicationShell";
@@ -12,8 +8,11 @@ import { BootstrapLoadingShell } from "./app/BootstrapLoadingShell";
 import { BootstrapRecoveryShell } from "./app/BootstrapRecoveryShell";
 import { CorpusHeader } from "./app/CorpusHeader";
 import { CorpusMainHeading } from "./app/CorpusMainHeading";
+import {
+  ConversationLifecycle,
+  type MountedConversation,
+} from "./app/conversationLifecycle";
 import { FeatureNavigation } from "./app/FeatureNavigation";
-import { loadRouteDeck } from "./app/loadRouteDeck";
 import {
   configureOwnerAuthClient,
 } from "./features/lounge/authClient";
@@ -44,37 +43,27 @@ async function start(): Promise<void> {
       signOut: () => bootstrap.session.signOut(),
     });
     const sourceClient = new SourceClient(bootstrap.authorized);
-    const routeDeckClient = createRouteDeckClient({
-      baseUrl: "/api/routedeck",
-      fetch: bootstrap.conversationTransport.fetch,
-      credentials: "omit",
-    });
-    const chatClient = createRouteDeckAgentClient({
-      baseUrl: "/api/routedeck",
-      fetch: bootstrap.conversationTransport.fetch,
-    });
-    const routeDeck = await loadRouteDeck(window, routeDeckClient);
-    const initialConversation = await chatClient.loadConversation();
-    window.addEventListener("pagehide", () => routeDeck.store.dispose(), {
+    const lifecycle = new ConversationLifecycle(
+      window,
+      bootstrap.authorized,
+      bootstrap.conversations,
+    );
+    const initial = await lifecycle.mount(
+      bootstrap.conversation,
+      bootstrap.conversationTransport,
+    );
+    let current = initial;
+    window.addEventListener("pagehide", () => lifecycle.dispose(current), {
       once: true,
     });
     root.render(
       <React.StrictMode>
-        <RouteDeckBootstrapBoundary
-          store={routeDeck.store}
-          loading={<BootstrapLoadingShell />}
-          recovery={(state) => <BootstrapRecoveryShell state={state} />}
-        >
-          <ApplicationShell
-            routeDeck={routeDeck}
-            registry={createCorpusSurfaceRegistry(sourceClient)}
-            chatClient={chatClient}
-            initialConversation={initialConversation}
-            header={<CorpusHeader />}
-            navigation={<FeatureNavigation />}
-            mainHeader={<CorpusMainHeading />}
-          />
-        </RouteDeckBootstrapBoundary>
+        <CorpusApplication
+          initial={initial}
+          lifecycle={lifecycle}
+          registry={createCorpusSurfaceRegistry(sourceClient)}
+          onMounted={(mounted) => { current = mounted; }}
+        />
       </React.StrictMode>,
     );
   } catch (error) {
@@ -85,6 +74,55 @@ async function start(): Promise<void> {
       />,
     );
   }
+}
+
+function CorpusApplication({
+  initial,
+  lifecycle,
+  registry,
+  onMounted,
+}: {
+  initial: MountedConversation;
+  lifecycle: ConversationLifecycle;
+  registry: ReturnType<typeof createCorpusSurfaceRegistry>;
+  onMounted(mounted: MountedConversation): void;
+}) {
+  const [mounted, setMounted] = useState(initial);
+  const previous = useRef<MountedConversation | null>(null);
+
+  useEffect(() => {
+    if (previous.current !== null && previous.current !== mounted) {
+      lifecycle.dispose(previous.current);
+    }
+    previous.current = mounted;
+    onMounted(mounted);
+  }, [lifecycle, mounted, onMounted]);
+
+  return (
+    <RouteDeckBootstrapBoundary
+      key={mounted.summary.id}
+      store={mounted.routeDeck.store}
+      loading={<BootstrapLoadingShell />}
+      recovery={(state) => <BootstrapRecoveryShell state={state} />}
+    >
+      <ApplicationShell
+        routeDeck={mounted.routeDeck}
+        registry={registry}
+        chatClient={mounted.chatClient}
+        initialConversation={mounted.initialConversation}
+        header={(
+          <CorpusHeader
+            onNewConversation={async (anonymous) => {
+              const next = await lifecycle.createNext(mounted.summary, anonymous);
+              setMounted(next);
+            }}
+          />
+        )}
+        navigation={<FeatureNavigation />}
+        mainHeader={<CorpusMainHeading />}
+      />
+    </RouteDeckBootstrapBoundary>
+  );
 }
 
 function FatalShell({ error, fallback }: { error: unknown; fallback: string }) {

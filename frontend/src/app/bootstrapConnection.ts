@@ -21,6 +21,7 @@ export interface BootstrappedCorpusConnection {
   authorized: AuthorizedTransport;
   conversationTransport: ConversationTransport;
   conversation: ConversationSummary;
+  conversations: ReturnType<typeof createConversationClient>;
 }
 
 export async function bootstrapCorpusConnection(
@@ -46,5 +47,11 @@ export async function bootstrapCorpusConnection(
     throw new Error("Corpus did not return an available conversation.");
   }
   conversationTransport.selectConversation(selected.id);
-  return Object.freeze({ session, authorized, conversationTransport, conversation: selected });
+  return Object.freeze({
+    session,
+    authorized,
+    conversationTransport,
+    conversation: selected,
+    conversations,
+  });
 }

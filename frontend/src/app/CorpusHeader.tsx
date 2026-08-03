@@ -3,19 +3,27 @@ import {
   RouteDeckStatus,
   useRouteDeckContract,
   useRouteDeckCurrentNode,
+  useRouteDeckProjection,
 } from "@routedeck/react";
-import { Bot, CircleUserRound, LogOut } from "lucide-react";
+import { Bot, CircleUserRound, LogOut, MessageSquarePlus } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ownerAuthClient } from "../features/lounge/authClient";
 import { useOwnerSession } from "../features/lounge/OwnerSessionContext";
 
-export function CorpusHeader() {
+export function CorpusHeader({
+  onNewConversation,
+}: {
+  onNewConversation(anonymous: boolean): Promise<void>;
+}) {
   const contract = useRouteDeckContract();
   const currentNode = useRouteDeckCurrentNode();
+  const projection = useRouteDeckProjection();
   const { session, loading, setSession } = useOwnerSession();
   const [busy, setBusy] = useState(false);
+  const [conversationError, setConversationError] = useState<string | null>(null);
+  const interactionActive = projection?.interaction.phase === "active";
   const currentTitle =
     currentNode === null
       ? "Starting"
@@ -39,6 +47,34 @@ export function CorpusHeader() {
         </span>
       </div>
       <div className="corpus-header-controls">
+        <Button
+          type="button"
+          className="corpus-new-conversation"
+          variant="outline"
+          aria-label="New conversation"
+          disabled={busy || loading || interactionActive}
+          onClick={() => {
+            setBusy(true);
+            setConversationError(null);
+            void onNewConversation(session === null)
+              .catch((error: unknown) => {
+                setConversationError(
+                  error instanceof Error
+                    ? error.message
+                    : "Corpus could not start a new conversation.",
+                );
+              })
+              .finally(() => setBusy(false));
+          }}
+        >
+          <MessageSquarePlus />
+          New conversation
+        </Button>
+        {conversationError === null ? null : (
+          <span className="corpus-header-error" role="alert">
+            {conversationError}
+          </span>
+        )}
         <RouteDeckNavigationControls />
         <RouteDeckStatus>
           {({ code }) => (

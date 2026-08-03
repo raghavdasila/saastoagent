@@ -121,6 +121,44 @@ def create_conversation_router(
             ) from error
         return _response(summary)
 
+    @router.post("/{public_id}/replacement", status_code=201)
+    async def replace_anonymous_conversation(public_id: str, request: Request):
+        if not public_id or len(public_id) > 64:
+            raise _conversation_not_found()
+        _authorize_mutation(request, mutation_policy)
+        token = _required_bearer(request)
+        try:
+            current = await service.resolve_conversation(
+                access_token=token,
+                conversation_id=public_id,
+            )
+            if current.anonymous_session_id is None:
+                raise ConversationUnavailable(
+                    "Only anonymous conversations may be replaced."
+                )
+        except SessionUnavailable as error:
+            raise _unauthorized() from error
+        except ConversationUnavailable as error:
+            raise _conversation_not_found() from error
+
+        runtime = await _runtime(runtime_provider, request)
+        route_session_id = secrets.token_urlsafe(32)
+        await runtime.provision_session(
+            session_id=route_session_id,
+            request_id=secrets.token_urlsafe(24),
+        )
+        try:
+            replacement = await service.replace_anonymous_conversation(
+                access_token=token,
+                conversation_id=public_id,
+                route_session_id=route_session_id,
+            )
+        except SessionUnavailable as error:
+            raise _unauthorized() from error
+        except ConversationUnavailable as error:
+            raise _conversation_not_found() from error
+        return _response(await _summary(runtime, replacement), status_code=201)
+
     return router
 
 
@@ -211,6 +249,14 @@ def _unauthorized(
     message: str = "Authorization bearer credentials are invalid or expired.",
 ) -> AuthHttpProblem:
     return AuthHttpProblem(401, "authentication_required", message)
+
+
+def _conversation_not_found() -> AuthHttpProblem:
+    return AuthHttpProblem(
+        404,
+        "conversation_not_found",
+        "The requested conversation is unavailable.",
+    )
 
 
 def _response(value, *, status_code: int = 200) -> JSONResponse:

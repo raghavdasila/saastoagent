@@ -7,7 +7,9 @@ Updated: 2026-07-25
 ## Vision
 
 Corpus is a chat-first agentic app for assembling and operating deployed agents.
-An owner works through a permanent Corpus conversation and typed surfaces.
+An owner works through Corpus conversations and typed surfaces. A shell-level
+New conversation action starts a fresh working context without changing the
+owner's Workspace, memory, agents, sources, or other product data.
 RouteDeck supplies the legal topology and scopes the Corpus agent to the prompt,
 context, tools, operations, and surfaces available at the active node.
 
@@ -30,6 +32,11 @@ active RouteDeck node
 ```
 
 Features own product meaning. RouteDeck owns generic interaction state.
+
+**A user must never see a RouteDeck error. Anything related to state,
+navigation, or links must be handled internally by Corpus.** RouteDeck may
+report technical recovery state to the host, but Corpus owns automatic
+resolution and all user-visible availability language.
 
 ## Feature Set
 

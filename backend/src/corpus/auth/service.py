@@ -366,6 +366,53 @@ class AuthService:
                     )
                 )
 
+    async def replace_anonymous_conversation(
+        self,
+        *,
+        access_token: str,
+        conversation_id: str,
+        route_session_id: str,
+    ) -> CorpusConversation:
+        """Atomically archive an anonymous conversation and bind its replacement."""
+        now = datetime.now(UTC)
+        public_id = secrets.token_urlsafe(24)
+        async with self.database.session() as session:
+            async with session.begin():
+                principal = await self._resolve_access_in_session(
+                    session, access_token, now
+                )
+                if principal.kind != "anonymous":
+                    raise ConversationUnavailable(
+                        "Only anonymous conversations may be replaced."
+                    )
+                archived = await session.execute(
+                    update(CorpusConversation)
+                    .where(
+                        CorpusConversation.public_id == conversation_id,
+                        CorpusConversation.anonymous_session_id
+                        == principal.auth_session_id,
+                        CorpusConversation.archived_at.is_(None),
+                    )
+                    .values(archived_at=now, updated_at=now)
+                )
+                if archived.rowcount != 1:
+                    raise ConversationUnavailable(
+                        "The selected conversation is unavailable."
+                    )
+                await session.flush()
+                conversation = CorpusConversation(
+                    public_id=public_id,
+                    anonymous_session_id=principal.auth_session_id,
+                    owner_user_id=None,
+                    route_session_id=route_session_id,
+                    created_at=now,
+                    updated_at=now,
+                    archived_at=None,
+                )
+                session.add(conversation)
+                await session.flush()
+                return conversation
+
     async def list_conversations(
         self, access_token: str
     ) -> tuple[CorpusConversation, ...]:

@@ -45,6 +45,13 @@ export function selectConversation(
   return selected;
 }
 
+export function rememberConversation(
+  storage: ConversationStorage,
+  conversation: ConversationSummary,
+): void {
+  storage.setItem(SELECTED_CONVERSATION_KEY, conversation.id);
+}
+
 export function createConversationClient(fetcher: typeof fetch) {
   const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
     const response = await fetcher(path, init);
@@ -66,6 +73,16 @@ export function createConversationClient(fetcher: typeof fetch) {
         headers: { "Content-Type": "application/json" },
         body: "{}",
       });
+    },
+    replaceAnonymous(id: string): Promise<ConversationSummary> {
+      return request<ConversationSummary>(
+        `/api/conversations/${encodeURIComponent(id)}/replacement`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        },
+      );
     },
     load(id: string): Promise<ConversationSummary> {
       return request<ConversationSummary>(
