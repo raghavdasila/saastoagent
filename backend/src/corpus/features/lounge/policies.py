@@ -2,12 +2,18 @@ from __future__ import annotations
 
 from routedeck_core.contracts.agent import AgentPolicy
 
+from .prompt import LOUNGE_AGENT_PROMPT
+
 
 def policy(policy_id: str, instruction: str) -> AgentPolicy:
     return AgentPolicy(id=policy_id, instruction=instruction)
 
 
 # Feature-scoped policy is the only policy scope owned directly by the feature.
+FEATURE_PROMPT = policy(
+    "lounge.feature.prompt",
+    LOUNGE_AGENT_PROMPT,
+)
 PUBLIC_CONTEXT_ONLY = policy(
     "lounge.feature.public_context_only",
     "Keep unauthenticated help general and never expose private Workspace state.",

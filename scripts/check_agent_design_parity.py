@@ -208,17 +208,44 @@ def check_parity(
         compiled_feature = compiled_features[0]
         feature_label = f"Feature {design_name!r}"
 
+        prompt_policy_id = _required_string(
+            raw_feature_mapping, "featurePromptPolicy", owner
+        )
+        prompt_policy = compiled.agent_policies.get(prompt_policy_id)
+        active_feature_policy_ids = {ref.id for ref in compiled_feature.policy_refs}
+        if prompt_policy is None:
+            failures.append(
+                f"{feature_label} prompt: mapped AgentPolicy "
+                f"{prompt_policy_id!r} is missing"
+            )
+            prompt_instruction = None
+        elif prompt_policy_id not in active_feature_policy_ids:
+            failures.append(
+                f"{feature_label} prompt: mapped AgentPolicy "
+                f"{prompt_policy_id!r} is not active at Feature scope"
+            )
+            prompt_instruction = prompt_policy.instruction
+        else:
+            prompt_instruction = prompt_policy.instruction
+
         _compare_text(
             failures,
             f"{feature_label} prompt",
             _required_string(design_feature, "prompt", feature_label),
-            compiled_feature.agent_prompt,
+            prompt_instruction,
         )
         _compare_policies(
             failures,
             f"{feature_label} policies",
             _required_list(design_feature, "policies", feature_label),
-            _policy_instructions(compiled, compiled_feature.policy_refs),
+            _policy_instructions(
+                compiled,
+                (
+                    ref
+                    for ref in compiled_feature.policy_refs
+                    if ref.id != prompt_policy_id
+                ),
+            ),
         )
 
         design_behaviors = _named(

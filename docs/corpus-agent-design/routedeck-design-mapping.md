@@ -12,16 +12,21 @@ only in the implementation-owned manifest at
 
 | Design Studio path | RouteDeck destination | Corpus declaration |
 | --- | --- | --- |
-| `feature.prompt` | `Feature.agent_prompt` | `backend/src/corpus/features/<feature>/prompt.py`, referenced by that feature's `Feature(...)` declaration |
+| `feature.prompt` | A designated feature-scoped `AgentPolicy`, registered by `Feature.agent_policies` and activated by `Feature.policy_refs` | `backend/src/corpus/features/<feature>/prompt.py` supplies the instruction; `policies.py` declares the policy; the implementation manifest records its policy ID |
 
 The application-wide Corpus identity remains the LangChain base system prompt
 in `backend/src/corpus/runtime/prompt.py`. RouteDeck composes the model request
 in this order:
 
 1. application base prompt;
-2. prompt from the `Feature` that owns the current `Node`;
-3. resolved AgentPolicies;
-4. current RouteDeck JSON context.
+2. resolved AgentPolicies, including the designated prompt policy for the
+   `Feature` that owns the current `Node`;
+3. current RouteDeck JSON context.
+
+RouteDeck has no parallel `Feature.agent_prompt` field. The manifest's
+`featurePromptPolicy` mapping tells the parity checker which feature-scoped
+policy carries the Studio prompt; this keeps the technical policy ID out of
+Studio state and keeps the prompt distinct from `feature.policies[]`.
 
 ## AgentPolicies
 

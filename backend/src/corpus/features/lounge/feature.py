@@ -525,6 +525,7 @@ LOUNGE_FEATURE = Feature(
     ),
     agent_policies=policies.LOUNGE_AGENT_POLICIES,
     policy_refs=(
+        policies.FEATURE_PROMPT.ref,
         policies.PUBLIC_CONTEXT_ONLY.ref,
         policies.ACCOUNT_ACCESS_BOUNDARY.ref,
         policies.CURRENT_PRODUCT_TRUTH.ref,

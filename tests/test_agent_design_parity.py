@@ -29,6 +29,10 @@ def _compiled_app():
         )
         for scope in ("feature", "node", "capability", "surface", "operation")
     }
+    policies["prompt"] = AgentPolicy(
+        id="demo.feature_prompt",
+        instruction="You are in Demo.",
+    )
     operation = Operation(
         id="demo.run",
         title="Run",
@@ -81,9 +85,8 @@ def _compiled_app():
                 Feature(
                     namespace="demo",
                     nodes=(node,),
-                    agent_prompt="You are in Demo.",
                     agent_policies=tuple(policies.values()),
-                    policy_refs=(policies["feature"].ref,),
+                    policy_refs=(policies["prompt"].ref, policies["feature"].ref),
                 ),
             ),
         )
@@ -141,6 +144,7 @@ def _manifest():
             {
                 "designFeature": "Demo",
                 "routeDeckFeature": "demo",
+                "featurePromptPolicy": "demo.feature_prompt",
                 "behaviors": [
                     {
                         "designBehavior": "Use Demo",

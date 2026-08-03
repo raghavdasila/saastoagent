@@ -169,8 +169,15 @@ def test_lounge_policies_are_compiled_as_routedeck_agent_policies() -> None:
         "lounge.feature.account_access_boundary",
         "lounge.feature.current_product_truth",
         "lounge.feature.chrome_boundary",
+        "lounge.feature.prompt",
         "lounge.feature.user_facing_language",
     }
+    assert (
+        compiled.agent_policies["lounge.feature.prompt"].instruction
+        == "You are Corpus in the Lounge, the public starting point for people who are "
+        "not signed in. Help visitors understand Corpus and choose their next step. "
+        "Be concise, clear, and welcoming."
+    )
     assert len(compiled.agent_policies) >= 40
 
 

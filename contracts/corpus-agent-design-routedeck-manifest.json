@@ -4,6 +4,7 @@
     {
       "designFeature": "Lounge",
       "routeDeckFeature": "lounge",
+      "featurePromptPolicy": "lounge.feature.prompt",
       "behaviors": [
         {
           "designBehavior": "Arrive in the Lounge",
