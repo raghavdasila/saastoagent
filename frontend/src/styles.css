@@ -211,7 +211,9 @@ button, input, textarea { font: inherit; }
 [data-navgraph-view-switcher] { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .corpus-navgraph-inspector [data-navgraph-view-switcher] > button { min-height: 34px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--background); color: var(--foreground); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
 .corpus-navgraph-inspector [data-navgraph-view-switcher] > button[aria-pressed="true"] { border-color: var(--primary); background: var(--primary); color: var(--primary-foreground); }
-.corpus-navgraph-inspector [data-agent-context] > header > button, .corpus-navgraph-inspector [data-agent-context-state] > button { min-height: 32px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--background); padding: 0 10px; color: var(--foreground); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
+.corpus-navgraph-inspector [data-agent-context-actions] { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
+.corpus-navgraph-inspector [data-agent-context-actions] > button, .corpus-navgraph-inspector [data-agent-context-state] > button { display: inline-flex; min-height: 26px; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: calc(var(--radius) - 2px); background: var(--background); padding: 0 8px; color: var(--foreground); font: inherit; font-size: 10px; font-weight: 650; line-height: 1; cursor: pointer; }
+.corpus-navgraph-inspector [data-agent-context-actions] > button:hover:not(:disabled), .corpus-navgraph-inspector [data-agent-context-state] > button:hover:not(:disabled) { border-color: color-mix(in oklch, var(--primary) 35%, var(--border)); background: var(--accent); color: var(--primary); }
 [data-agent-context] { display: grid; min-width: 0; gap: 12px; }
 [data-agent-context] > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 [data-agent-context] > header > div { display: grid; min-width: 0; gap: 2px; }
