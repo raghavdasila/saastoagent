@@ -65,7 +65,7 @@ function designStatePlugin(): Plugin {
               return
             }
             const candidate = parsed as Record<string, unknown>
-            if (typeof candidate.version !== "number" || !Array.isArray(candidate.features) || candidate.features.length === 0) {
+            if (!Array.isArray(candidate.features) || candidate.features.length === 0) {
               sendJson(response, 400, { code: "invalid_design_state" })
               return
             }

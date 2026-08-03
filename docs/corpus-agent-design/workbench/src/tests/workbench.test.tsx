@@ -49,7 +49,7 @@ describe("RouteDeck Agent Design Studio", () => {
 
     await user.click(screen.getByRole("button", { name: "Feature policies" }))
     expect(screen.getByRole("heading", { name: "Feature AgentPolicies" })).toBeInTheDocument()
-    expect(screen.getAllByLabelText(/^Lounge Feature AgentPolicy /)).toHaveLength(5)
+    expect(screen.getAllByLabelText(/^Lounge Feature AgentPolicy /)).toHaveLength(7)
     expect(screen.queryByRole("heading", { name: "Capabilities" })).not.toBeInTheDocument()
     expect(screen.queryByRole("heading", { name: "Operations" })).not.toBeInTheDocument()
 
@@ -104,6 +104,10 @@ describe("RouteDeck Agent Design Studio", () => {
     expect(lounge.policies).toContain(
       "Describe Lounge choices in user-facing product language and never expose internal operation, tool, Node, AgentPolicy, or identifier names.",
     )
+    expect(lounge.policies).toContain(
+      "When a visitor starts describing work they want Corpus to perform, explain that work requires a private Workspace and ask them to sign in or sign up.",
+    )
+    expect(lounge.stories[1]?.suggestedActions.map((action) => action.label)).toEqual(["Sign in", "Sign up"])
     expect(lounge.stories[0]?.surfaces[0]?.policies).toContain(
       "Identify the active product location as Lounge and show only Lounge-scoped navigation; keep private Workspace and feature navigation hidden until authenticated entry succeeds.",
     )
@@ -120,7 +124,7 @@ describe("RouteDeck Agent Design Studio", () => {
     expect(screen.getByRole("button", { name: "API Source 9" })).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Ask Lounge for product help" }))
     expect((screen.getByLabelText("Expected behavior") as HTMLTextAreaElement).value).toContain(
-      "Corpus answers from current product knowledge",
+      "Corpus answers only about the product from current knowledge",
     )
   })
 
@@ -281,7 +285,7 @@ describe("RouteDeck Agent Design Studio", () => {
 
   it("blocks on an invalid design-state.json and can explicitly replace it with the seed", async () => {
     const user = userEvent.setup()
-    setDesignStateFile(JSON.stringify({ version: 20, features: [] }))
+    setDesignStateFile(JSON.stringify({ features: [] }))
     render(<App />)
 
     const alert = await screen.findByRole("alert")

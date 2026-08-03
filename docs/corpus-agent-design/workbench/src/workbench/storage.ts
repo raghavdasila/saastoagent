@@ -100,7 +100,6 @@ function hasValidFeatureData(value: unknown): boolean {
 
 function isWorkbenchState(value: unknown): value is WorkbenchState {
   return isRecord(value)
-    && value.version === 20
     && hasValidFeatureData(value.features)
 }
 

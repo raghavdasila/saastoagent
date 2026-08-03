@@ -28,8 +28,8 @@ const BEHAVIOR_POLICY_SEED: Record<string, PolicySeed[]> = {
   ],
   "lounge-product-help": [
     ["operation", "Return to Lounge", "Return to Lounge orientation without claiming that another product task completed."],
-    ["operation", "Open owner registration", "Offer account creation only when the visitor wants to begin private Workspace work."],
-    ["operation", "Open owner sign-in", "Offer sign-in only when the visitor wants to resume private Workspace work."],
+    ["operation", "Open owner registration", "Offer account creation when the visitor describes work they want Corpus to perform; do not continue planning or performing the task in Lounge."],
+    ["operation", "Open owner sign-in", "Offer sign-in when the visitor describes work they want Corpus to perform; do not continue planning or performing the task in Lounge."],
   ],
   "owner-auth-register": [
     ["surface", "Create owner account surface", "Keep password values private and masked; never repeat credentials in chat, confirmation text, or persisted design-visible state."],
@@ -264,10 +264,11 @@ const NODE_TEMPLATE_SEED: Record<string, NodeTemplate[]> = {
         },
         {
           name: "Product help",
-          purpose: "Answer unauthenticated questions about Corpus and explain available next steps.",
+          purpose: "Answer unauthenticated questions about Corpus and direct task requests to account access.",
           policies: [
             "Answer from current product knowledge and label planned, deferred, unknown, or unavailable behavior explicitly.",
-            "When a request requires private Workspace state, explain the boundary and offer an account path without inventing an answer.",
+            "Keep help about Corpus only; do not design, plan, troubleshoot, or perform the visitor's task in Lounge.",
+            "When a visitor starts describing work they want Corpus to perform, explain the private Workspace boundary and ask them to sign in or sign up.",
           ],
         },
       ],
@@ -670,6 +671,8 @@ const BEHAVIOR_NODE_TEMPLATE: Record<string, [featureId: string, nodeName: strin
 }
 
 const SUGGESTED_ACTION_OPERATION: Record<string, string> = {
+  "product-help-sign-in": "Open owner sign-in",
+  "product-help-sign-up": "Open owner registration",
   "register-submit": "Create owner account",
   "register-continue": "Continue to Workspace",
   "sign-in-submit": "Authenticate owner",
@@ -805,15 +808,16 @@ function policies(_scopeName: string, instructions: string[]): string[] {
 
 export function createSeedState(): WorkbenchState {
   return {
-    version: 20,
     features: [
       {
         id: "lounge",
         name: "Lounge",
-        prompt: "You are Corpus in the public Lounge, the entry feature for people who are not signed in. Help visitors understand what Corpus currently offers and choose an appropriate next step. Keep the conversation useful without implying access to a private Workspace. Guide account access through the available product surfaces rather than collecting credentials in chat. On an assistant-initiated Lounge turn, briefly establish that the visitor is in the Lounge, explain that you can answer questions about Corpus, and invite them to say what they want to understand or build.",
+        prompt: "You are Corpus in the public Lounge, an unauthenticated helpdesk about Corpus only. Answer questions about Corpus, its current features, and how the product works. Do not design, plan, troubleshoot, or perform the visitor's task in Lounge. When a visitor starts describing work they want Corpus to do, briefly explain that work happens in a private Workspace and ask them to sign in or sign up through the available product surfaces. Never collect credentials in chat. On an assistant-initiated Lounge turn, briefly establish that the visitor is in the Lounge, explain that you can answer questions about Corpus, and invite a question about the product.",
         policies: policies("Lounge", [
-          "Keep unauthenticated help general and never expose private Workspace state.",
-          "Offer product help and account access without implying that the visitor is authenticated.",
+          "Keep unauthenticated help strictly about Corpus and never expose private Workspace state.",
+          "Answer questions about Corpus, but do not design, plan, troubleshoot, or perform a visitor's task in Lounge.",
+          "When a visitor starts describing work they want Corpus to perform, explain that work requires a private Workspace and ask them to sign in or sign up.",
+          "Offer sign-in and sign-up through the available product surfaces without collecting credentials in chat or implying that the visitor is authenticated.",
           "Describe only currently available Corpus behavior as available; label planned, deferred, unknown, or unavailable behavior explicitly.",
           "While Lounge is active, identify the product location as Lounge and keep private Workspace and feature navigation hidden until authenticated entry succeeds.",
           "Describe Lounge choices in user-facing product language and never expose internal operation, tool, Node, AgentPolicy, or identifier names.",
@@ -832,11 +836,12 @@ export function createSeedState(): WorkbenchState {
           story(
             "lounge-product-help",
             "Ask Lounge for product help",
-            "Understand Corpus, its features, or how to get started.",
-            "Answer product questions truthfully and identify when the requested work requires a Workspace.",
-            "A visitor asks a general question about Corpus. Corpus answers from current product knowledge, can explain features and next steps, and clearly says when private Workspace access is required. Unknown or unavailable information remains explicit.",
-            "How does Corpus help me build an agent?",
-            "Corpus helps you connect sources, design behavior, test, evaluate, deploy, and operate an agent. You will need an account when you want to create private Workspace resources.",
+            "Understand Corpus, its features, or how the product works before signing in.",
+            "Answer Corpus product questions truthfully, keep Lounge out of task execution, and direct task requests to sign-in or sign-up.",
+            "A visitor asks about Corpus. Corpus answers only about the product from current knowledge. If the visitor starts describing work they want performed, Corpus does not continue the task; it explains that work requires a private Workspace and asks the visitor to sign in or sign up. Unknown or unavailable product information remains explicit.",
+            "I want to connect an agent to my ecommerce site.",
+            "That is work you can do in a private Corpus Workspace. Sign in if you already have an account, or sign up to get started.",
+            { suggestedActions: [{ id: "product-help-sign-in", label: "Sign in" }, { id: "product-help-sign-up", label: "Sign up" }] },
           ),
           story(
             "owner-auth-register",

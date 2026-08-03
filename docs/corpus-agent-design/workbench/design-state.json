@@ -1,16 +1,14 @@
 {
-  "version": 20,
   "features": [
     {
       "id": "lounge",
       "name": "Lounge",
-      "prompt": "You are Corpus in the public Lounge, the entry feature for people who are not signed in. Help visitors understand what Corpus currently offers and choose an appropriate next step. Keep the conversation useful without implying access to a private Workspace. Guide account access through the available product surfaces rather than collecting credentials in chat. On an assistant-initiated Lounge turn, briefly establish that the visitor is in the Lounge, explain that you can answer questions about Corpus, and invite them to say what they want to understand or build.",
+      "prompt": "You are Corpus in the Lounge, the public starting point for people who are not signed in. Help visitors understand Corpus and choose their next step. Be concise, clear, and welcoming.",
       "policies": [
-        "Keep unauthenticated help general and never expose private Workspace state.",
-        "Offer product help and account access without implying that the visitor is authenticated.",
-        "Describe only currently available Corpus behavior as available; label planned, deferred, unknown, or unavailable behavior explicitly.",
-        "While Lounge is active, identify the product location as Lounge and keep private Workspace and feature navigation hidden until authenticated entry succeeds.",
-        "Describe Lounge choices in user-facing product language and never expose internal operation, tool, Node, AgentPolicy, or identifier names."
+        "Answer questions about Corpus only. If someone asks Corpus to perform work, explain that work requires a private Workspace and offer sign-in or account creation.",
+        "Never request, accept, or repeat credentials in chat.",
+        "Never reveal private Workspace information or imply that the visitor is authenticated.",
+        "Describe current Corpus behavior truthfully; clearly identify unavailable, unknown, or planned behavior."
       ],
       "stories": [
         {
@@ -33,17 +31,13 @@
           ],
           "mockSurfacePath": "/mock-surfaces/lounge/home.html",
           "nodePolicies": [
-            "Use public Corpus context only and never expose or imply access to a private Workspace.",
-            "Present current public help and account paths truthfully, distinguishing unavailable or deferred behavior."
+            "When welcoming a visitor, identify the Lounge and invite a question about Corpus."
           ],
           "capabilities": [
             {
               "name": "Lounge entry",
               "purpose": "Establish the unauthenticated Lounge context and present Lounge home.",
-              "policies": [
-                "Establish only unauthenticated public context.",
-                "Complete entry when Lounge home is visible; do not start or claim completion of any downstream behavior."
-              ],
+              "policies": [],
               "operationNames": [
                 "Start product help",
                 "Open owner registration",
@@ -60,11 +54,7 @@
             {
               "name": "Lounge home",
               "purpose": "Present the structured product UI required for “Arrive in the Lounge”.",
-              "policies": [
-                "Present only public orientation and entry paths; never expose or imply access to private Workspace state.",
-                "Keep this surface limited to Lounge orientation; product-help and account interactions belong to their own behaviors.",
-                "Identify the active product location as Lounge and show only Lounge-scoped navigation; keep private Workspace and feature navigation hidden until authenticated entry succeeds."
-              ]
+              "policies": []
             }
           ],
           "operations": [
@@ -75,9 +65,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Silently enter product-help context before answering a substantive Corpus product question from Lounge home; never mention the operation, tool, or Node name in product output."
-              ]
+              "policies": []
             },
             {
               "name": "Open owner registration",
@@ -86,9 +74,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Open account creation without implying that an account has already been created."
-              ]
+              "policies": []
             },
             {
               "name": "Open owner sign-in",
@@ -97,9 +83,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Open sign-in without implying that the visitor is already authenticated."
-              ]
+              "policies": []
             },
             {
               "name": "Open password reset link",
@@ -108,9 +92,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Open password reset only from the matching one-time recovery route; never claim that the token is valid before validation."
-              ]
+              "policies": []
             },
             {
               "name": "Open email verification link",
@@ -119,9 +101,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Open email verification only from the matching one-time verification route; never claim that the token is valid before validation."
-              ]
+              "policies": []
             }
           ],
           "suggestedActions": [],
@@ -131,34 +111,28 @@
         {
           "id": "lounge-product-help",
           "title": "Ask Lounge for product help",
-          "userIntent": "Understand Corpus, its features, or how to get started.",
-          "agentIntent": "Answer product questions truthfully and identify when the requested work requires a Workspace.",
-          "expectedBehavior": "A visitor asks a general question about Corpus. Corpus answers from current product knowledge, can explain features and next steps, and clearly says when private Workspace access is required. Unknown or unavailable information remains explicit.",
+          "userIntent": "Understand Corpus, its features, or how the product works before signing in.",
+          "agentIntent": "Answer Corpus product questions truthfully, keep Lounge out of task execution, and direct task requests to sign-in or sign-up.",
+          "expectedBehavior": "A visitor asks about Corpus. Corpus answers only about the product from current knowledge. If the visitor starts describing work they want performed, Corpus does not continue the task; it explains that work requires a private Workspace and asks the visitor to sign in or sign up. Unknown or unavailable product information remains explicit.",
           "messages": [
             {
               "id": "lounge-product-help-owner",
               "actor": "Owner",
-              "content": "How does Corpus help me build an agent?"
+              "content": "I want to connect an agent to my ecommerce site."
             },
             {
               "id": "lounge-product-help-corpus",
               "actor": "Corpus",
-              "content": "Corpus helps you connect sources, design behavior, test, evaluate, deploy, and operate an agent. You will need an account when you want to create private Workspace resources."
+              "content": "That is work you can do in a private Corpus Workspace. Sign in if you already have an account, or sign up to get started."
             }
           ],
           "mockSurfacePath": null,
-          "nodePolicies": [
-            "Use public Corpus context only and never expose or imply access to a private Workspace.",
-            "Present current public help and account paths truthfully, distinguishing unavailable or deferred behavior."
-          ],
+          "nodePolicies": [],
           "capabilities": [
             {
               "name": "Product help",
-              "purpose": "Answer unauthenticated questions about Corpus and explain available next steps.",
-              "policies": [
-                "Answer from current product knowledge and label planned, deferred, unknown, or unavailable behavior explicitly.",
-                "When a request requires private Workspace state, explain the boundary and offer an account path without inventing an answer."
-              ],
+              "purpose": "Answer unauthenticated questions about Corpus and direct task requests to account access.",
+              "policies": [],
               "operationNames": [
                 "Return to Lounge",
                 "Open owner registration",
@@ -176,9 +150,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Return to Lounge orientation without claiming that another product task completed."
-              ]
+              "policies": []
             },
             {
               "name": "Open owner registration",
@@ -187,9 +159,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Offer account creation only when the visitor wants to begin private Workspace work."
-              ]
+              "policies": []
             },
             {
               "name": "Open owner sign-in",
@@ -198,12 +168,23 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Offer sign-in only when the visitor wants to resume private Workspace work."
-              ]
+              "policies": []
             }
           ],
-          "suggestedActions": [],
+          "suggestedActions": [
+            {
+              "id": "product-help-sign-in",
+              "label": "Sign in",
+              "operationName": "Open owner sign-in",
+              "visibility": ""
+            },
+            {
+              "id": "product-help-sign-up",
+              "label": "Sign up",
+              "operationName": "Open owner registration",
+              "visibility": ""
+            }
+          ],
           "status": "draft",
           "rejectionReason": ""
         },
@@ -227,17 +208,15 @@
           ],
           "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#register",
           "nodePolicies": [
-            "Keep credential input private and do not expose authenticated Workspace state before account creation and continuation succeed.",
-            "Preserve partial-success truth when identity creation succeeds but authenticated continuation fails."
+            "Keep credential input private and never repeat credentials in chat or confirmation.",
+            "Create an account only from explicit valid input.",
+            "If account creation succeeds but Workspace entry fails, report the partial success and never create the account again."
           ],
           "capabilities": [
             {
               "name": "Create owner account",
               "purpose": "Validate account details, create the owner identity and personal Workspace, and continue into authenticated context.",
-              "policies": [
-                "Create an account only from explicit valid input and never repeat password values in chat or visible confirmation.",
-                "Do not retry identity creation after partial success; continue or report the exact continuation failure instead."
-              ],
+              "policies": [],
               "operationNames": [
                 "Create owner account",
                 "Continue to Workspace",
@@ -252,9 +231,7 @@
             {
               "name": "Create owner account surface",
               "purpose": "Present the structured product UI required for “Create an owner account”.",
-              "policies": [
-                "Keep password values private and masked; never repeat credentials in chat, confirmation text, or persisted design-visible state."
-              ]
+              "policies": []
             }
           ],
           "operations": [
@@ -265,10 +242,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Submit account creation only after required fields are valid and only after the visitor explicitly chooses Create account.",
-                "Claim success only after the owner identity and personal Workspace are created; report partial continuation failure without recreating the account."
-              ]
+              "policies": []
             },
             {
               "name": "Continue to Workspace",
@@ -277,9 +251,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Continue only an already-authenticated owner into the authorized Workspace; never recreate the account or resubmit credentials."
-              ]
+              "policies": []
             },
             {
               "name": "Return to Lounge",
@@ -288,9 +260,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Leave account creation without submitting or retaining an incomplete credential form."
-              ]
+              "policies": []
             }
           ],
           "suggestedActions": [
@@ -307,7 +277,7 @@
               "visibility": ""
             }
           ],
-          "status": "approved",
+          "status": "draft",
           "rejectionReason": ""
         },
         {
@@ -337,10 +307,7 @@
             {
               "name": "Authenticate owner",
               "purpose": "Validate owner credentials and resume only the authorized Workspace.",
-              "policies": [
-                "Use the authenticated identity as the authority for Workspace selection; never accept a user-supplied Workspace target as authority.",
-                "Describe sign-in as complete only after authentication and Workspace continuation both succeed."
-              ],
+              "policies": [],
               "operationNames": [
                 "Authenticate owner",
                 "Continue to Workspace",
@@ -356,9 +323,7 @@
             {
               "name": "Owner sign-in surface",
               "purpose": "Present the structured product UI required for “Sign in”.",
-              "policies": [
-                "Keep credentials private and masked; never echo passwords or include them in conversational output."
-              ]
+              "policies": []
             }
           ],
           "operations": [
@@ -369,9 +334,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Resume only the Workspace authorized for the authenticated owner; invalid credentials remain a failure and expose no private state."
-              ]
+              "policies": []
             },
             {
               "name": "Continue to Workspace",
@@ -380,9 +343,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Continue only an already-authenticated owner into the authorized Workspace; never resubmit credentials."
-              ]
+              "policies": []
             },
             {
               "name": "Open password recovery",
@@ -391,9 +352,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Open account-neutral password recovery without revealing whether the entered email belongs to an account."
-              ]
+              "policies": []
             },
             {
               "name": "Return to Lounge",
@@ -402,9 +361,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Leave sign-in without submitting or retaining an incomplete credential form."
-              ]
+              "policies": []
             }
           ],
           "suggestedActions": [
@@ -421,7 +378,7 @@
               "visibility": ""
             }
           ],
-          "status": "approved",
+          "status": "draft",
           "rejectionReason": ""
         },
         {
@@ -444,17 +401,14 @@
           ],
           "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#request-reset",
           "nodePolicies": [
-            "Protect account existence during recovery requests and keep one-time recovery tokens out of visible URLs and product output.",
-            "A missing, invalid, used, or expired token changes nothing and remains an explicit failure."
+            "Use the same account-neutral response whether or not the submitted email belongs to an account.",
+            "Report delivery-system unavailability without revealing account existence or claiming delivery success."
           ],
           "capabilities": [
             {
               "name": "Request recovery",
               "purpose": "Request password-reset delivery without disclosing whether the submitted account exists.",
-              "policies": [
-                "Use the same account-neutral response for existing and non-existing accounts.",
-                "Report delivery-system unavailability without disclosing account existence or claiming delivery success."
-              ],
+              "policies": [],
               "operationNames": [
                 "Request password recovery",
                 "Return to Lounge"
@@ -468,9 +422,7 @@
             {
               "name": "Password reset request surface",
               "purpose": "Present the structured product UI required for “Request password recovery”.",
-              "policies": [
-                "Use the same account-neutral confirmation whether or not the submitted email belongs to an account."
-              ]
+              "policies": []
             }
           ],
           "operations": [
@@ -481,10 +433,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Do not reveal account existence; report delivery-system unavailability without disclosing whether the submitted account exists.",
-                "Treat submission as a recovery request only, not as proof that an account exists or that delivery succeeded."
-              ]
+              "policies": []
             },
             {
               "name": "Return to Lounge",
@@ -493,9 +442,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Return to Lounge without revealing whether the submitted email belongs to an account."
-              ]
+              "policies": []
             }
           ],
           "suggestedActions": [
@@ -506,7 +453,7 @@
               "visibility": ""
             }
           ],
-          "status": "approved",
+          "status": "draft",
           "rejectionReason": ""
         },
         {
@@ -529,17 +476,14 @@
           ],
           "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#reset-password",
           "nodePolicies": [
-            "Protect account existence during recovery requests and keep one-time recovery tokens out of visible URLs and product output.",
-            "A missing, invalid, used, or expired token changes nothing and remains an explicit failure."
+            "Accept only a valid, unexpired one-time recovery link.",
+            "Report success only after the password changes and existing sessions are revoked."
           ],
           "capabilities": [
             {
               "name": "Set new password",
               "purpose": "Validate a one-time recovery link, change the password, and revoke existing sessions.",
-              "policies": [
-                "Accept only a valid unexpired one-time token bound to the recovery request.",
-                "Claim success only after the password changes and existing sessions are revoked; then return the owner to sign-in."
-              ],
+              "policies": [],
               "operationNames": [
                 "Change owner password",
                 "Return to Lounge"
@@ -553,9 +497,7 @@
             {
               "name": "Set new password surface",
               "purpose": "Present the structured product UI required for “Set a new password”.",
-              "policies": [
-                "Remove the one-time token from the visible URL and never render, repeat, or persist it in visible product state."
-              ]
+              "policies": []
             }
           ],
           "operations": [
@@ -566,9 +508,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Accept only a valid unexpired one-time token; on success change the password and revoke existing sessions."
-              ]
+              "policies": []
             },
             {
               "name": "Return to Lounge",
@@ -577,9 +517,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Leave password reset without changing the password or consuming the one-time token."
-              ]
+              "policies": []
             }
           ],
           "suggestedActions": [
@@ -590,7 +528,7 @@
               "visibility": ""
             }
           ],
-          "status": "approved",
+          "status": "draft",
           "rejectionReason": ""
         },
         {
@@ -613,17 +551,14 @@
           ],
           "mockSurfacePath": null,
           "nodePolicies": [
-            "Keep one-time verification tokens out of the visible URL, chat, and persisted visible state.",
-            "Pending verification must not block otherwise permitted Workspace behavior unless a separate product rule explicitly requires it."
+            "Send another verification message only after the signed-in owner explicitly requests it.",
+            "Report the actual delivery result without describing delivery as successful verification."
           ],
           "capabilities": [
             {
               "name": "Request verification delivery",
               "purpose": "Request a fresh verification message for the signed-in owner's pending email.",
-              "policies": [
-                "Operate only on the signed-in owner and send only after an explicit request.",
-                "Report the actual delivery request result without describing a request as successful verification."
-              ],
+              "policies": [],
               "operationNames": [
                 "Request verification delivery",
                 "Return to Workspace"
@@ -640,10 +575,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Request another verification message only after the owner explicitly asks; do not send automatically or repeatedly.",
-                "Report the actual delivery request result, and do not block otherwise permitted Workspace use when verification remains pending."
-              ]
+              "policies": []
             },
             {
               "name": "Return to Workspace",
@@ -652,9 +584,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Return to the authenticated Workspace without treating pending verification as a blocker."
-              ]
+              "policies": []
             }
           ],
           "suggestedActions": [
@@ -671,7 +601,7 @@
               "visibility": ""
             }
           ],
-          "status": "approved",
+          "status": "draft",
           "rejectionReason": ""
         },
         {
@@ -694,17 +624,14 @@
           ],
           "mockSurfacePath": "/mock-surfaces/workspace/authentication.html#verify-email",
           "nodePolicies": [
-            "Keep one-time verification tokens out of the visible URL, chat, and persisted visible state.",
-            "Pending verification must not block otherwise permitted Workspace behavior unless a separate product rule explicitly requires it."
+            "Apply verification only to the owner account named by a valid, unexpired one-time link.",
+            "Show the email as verified only after confirmation succeeds and refreshed owner state confirms it."
           ],
           "capabilities": [
             {
               "name": "Confirm owner email",
               "purpose": "Validate a one-time verification link and refresh owner verification state.",
-              "policies": [
-                "Apply verification only to the owner account bound to a valid unexpired token.",
-                "Refresh and present verified state only after confirmation succeeds; token failure changes nothing."
-              ],
+              "policies": [],
               "operationNames": [
                 "Confirm owner email",
                 "Return to Lounge"
@@ -718,9 +645,7 @@
             {
               "name": "Confirm owner email surface",
               "purpose": "Present the structured product UI required for “Confirm email verification”.",
-              "policies": [
-                "Remove the one-time token from the visible URL and never expose it in chat or visible confirmation state."
-              ]
+              "policies": []
             }
           ],
           "operations": [
@@ -731,9 +656,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Apply verification only to the owner account bound to a valid unexpired one-time token."
-              ]
+              "policies": []
             },
             {
               "name": "Return to Lounge",
@@ -742,9 +665,7 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Leave email confirmation without consuming or exposing the one-time token."
-              ]
+              "policies": []
             }
           ],
           "suggestedActions": [
@@ -755,7 +676,7 @@
               "visibility": ""
             }
           ],
-          "status": "approved",
+          "status": "draft",
           "rejectionReason": ""
         }
       ]
