@@ -158,6 +158,38 @@ it("shows the exact current agent context, effective policy prompts, and system 
   harness.dispose();
 });
 
+it("lays out and renders the invocation trace view as a first-class inspector tab", async () => {
+  const harness = await renderRouteDeckComponent(<NavgraphSidebar />, {
+    contract: frameworkContractFixture(),
+    projection: frameworkProjectionFixture(),
+    inspection: {
+      current_node: "test.home",
+      reachable_nodes: [],
+      legal_operations: [],
+      blocked_operations: [],
+      guard_explanations: [],
+      capabilities: [],
+      surfaces: {},
+      route_traces: [],
+      diagnostics: {},
+      agent_context: null,
+      invocation_traces: { traces: [] },
+    },
+  });
+
+  fireEvent.click(screen.getByRole("button", { name: "Open docked Navgraph" }));
+  const switcher = screen.getByLabelText("Navgraph view");
+  expect(within(switcher).getAllByRole("button")).toHaveLength(3);
+  fireEvent.click(within(switcher).getByRole("button", { name: "Invocation trace" }));
+
+  const traces = await screen.findByRole("region", { name: "Invocation traces" });
+  expect(within(traces).getByText("Sanitized RouteDeck-to-model evidence")).toBeVisible();
+  expect(within(traces).getByRole("button", { name: "Refresh" })).toBeVisible();
+  expect(within(traces).getByText("No model invocation has occurred in this session.")).toBeVisible();
+
+  harness.dispose();
+});
+
 it("docks the projected surface immediately above the composer outside chat history", async () => {
   const harness = await renderRouteDeckComponent(
     <AgentShell registry={testRegistry} client={idleChatClient} />,

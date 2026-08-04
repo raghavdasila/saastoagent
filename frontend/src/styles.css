@@ -208,12 +208,12 @@ button, input, textarea { font: inherit; }
 [data-navgraph-status] small { flex: 0 0 auto; color: var(--muted-foreground); font-size: 11px; text-transform: capitalize; }
 [data-navgraph-map] { min-width: 0; }
 [data-navgraph-map] [data-routedeck-navgraph-canvas] { height: min(440px, calc(100dvh - 270px)) !important; min-height: 340px !important; }
-[data-navgraph-view-switcher] { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+[data-navgraph-view-switcher] { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .corpus-navgraph-inspector [data-navgraph-view-switcher] > button { min-height: 34px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--background); color: var(--foreground); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
 .corpus-navgraph-inspector [data-navgraph-view-switcher] > button[aria-pressed="true"] { border-color: var(--primary); background: var(--primary); color: var(--primary-foreground); }
 .corpus-navgraph-inspector [data-agent-context-actions] { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
-.corpus-navgraph-inspector [data-agent-context-actions] > button, .corpus-navgraph-inspector [data-agent-context-state] > button { display: inline-flex; min-height: 26px; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: calc(var(--radius) - 2px); background: var(--background); padding: 0 8px; color: var(--foreground); font: inherit; font-size: 10px; font-weight: 650; line-height: 1; cursor: pointer; }
-.corpus-navgraph-inspector [data-agent-context-actions] > button:hover:not(:disabled), .corpus-navgraph-inspector [data-agent-context-state] > button:hover:not(:disabled) { border-color: color-mix(in oklch, var(--primary) 35%, var(--border)); background: var(--accent); color: var(--primary); }
+.corpus-navgraph-inspector [data-agent-context-actions] > button, .corpus-navgraph-inspector [data-agent-context-state] > button, .corpus-navgraph-inspector [data-invocation-traces] > header button, .corpus-navgraph-inspector [data-invocation-trace-state] > button { display: inline-flex; min-height: 26px; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: calc(var(--radius) - 2px); background: var(--background); padding: 0 8px; color: var(--foreground); font: inherit; font-size: 10px; font-weight: 650; line-height: 1; cursor: pointer; }
+.corpus-navgraph-inspector [data-agent-context-actions] > button:hover:not(:disabled), .corpus-navgraph-inspector [data-agent-context-state] > button:hover:not(:disabled), .corpus-navgraph-inspector [data-invocation-traces] > header button:hover:not(:disabled), .corpus-navgraph-inspector [data-invocation-trace-state] > button:hover:not(:disabled) { border-color: color-mix(in oklch, var(--primary) 35%, var(--border)); background: var(--accent); color: var(--primary); }
 [data-agent-context] { display: grid; min-width: 0; gap: 12px; }
 [data-agent-context] > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 [data-agent-context] > header > div { display: grid; min-width: 0; gap: 2px; }
@@ -231,6 +231,17 @@ button, input, textarea { font: inherit; }
 [data-agent-context-prompt] > pre { max-height: 520px; padding: 10px; border-radius: calc(var(--radius) - 2px); background: var(--muted); }
 [data-agent-context-state] { display: grid; gap: 8px; margin: 0; padding: 12px; font-size: 12px; }
 [data-agent-context-state] p { margin: 0; color: var(--muted-foreground); }
+[data-invocation-traces] { display: grid; min-width: 0; gap: 12px; }
+[data-invocation-traces] > header { display: flex; min-width: 0; align-items: flex-start; justify-content: space-between; gap: 10px; }
+[data-invocation-traces] > header > div { display: grid; min-width: 0; gap: 2px; }
+[data-invocation-traces] > header strong { font-size: 13px; line-height: 1.35; }
+[data-invocation-traces] > header small { color: var(--muted-foreground); font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
+[data-invocation-traces] > p { margin: 0; color: var(--muted-foreground); font-size: 11px; line-height: 1.5; }
+[data-invocation-trace] { display: grid; min-width: 0; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
+[data-invocation-trace] > h3 { margin: 0; font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
+[data-invocation-trace-state] { display: grid; min-width: 0; gap: 8px; margin: 0; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); font-size: 12px; }
+[data-invocation-trace-state] > strong, [data-invocation-trace-state] > span, [data-invocation-trace-state] > p { min-width: 0; overflow-wrap: anywhere; }
+[data-invocation-trace-state] > span, [data-invocation-trace-state] > p { margin: 0; color: var(--muted-foreground); line-height: 1.5; }
 [data-navgraph-mobile] { display: none; height: 100%; }
 .react-flow { min-height: 430px; border: 1px solid var(--border); border-radius: var(--radius); }
 [data-navgraph-content] [role="alert"] { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); }
