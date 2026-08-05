@@ -13,6 +13,7 @@ function emptyExpectations(story: DesignStory): DeterministicExpectations {
   return {
     startingBehavior: story.title,
     finalBehavior: story.title,
+    allowedFinalBehaviors: [],
     authentication: "unchanged",
     requiredOperations: [],
     allowedOperations: [],
@@ -84,7 +85,7 @@ export function BehaviorEvalEditor({ story, disabled, onChange }: {
                 <span className="studio-eval-name">{evalCase.title || `Eval case ${index + 1}`}<small>{evalCase.blocking ? "Blocking" : "Optional"}</small></span>
                 <span className="studio-eval-coverage">{evalCase.coverage.map((tag) => tag[0].toUpperCase() + tag.slice(1)).join(" · ") || "No coverage"}</span>
                 <span className={issues.length === 0 ? "studio-contract-ready" : "studio-contract-incomplete"}>{issues.length === 0 ? <CheckCircle2 /> : <CircleAlert />}{issues.length === 0 ? "Complete" : `${issues.length} issues`}</span>
-                <EvaluationStatus compact />
+                <EvaluationStatus compact evaluationId={evalCase.id} />
               </button>
             )
           })}
@@ -104,7 +105,7 @@ export function BehaviorEvalEditor({ story, disabled, onChange }: {
             <div className="studio-toggle-row">
               <label><input type="checkbox" checked={activeCase.enabled} disabled={disabled} onChange={(event) => updateCase(activeIndex, { enabled: event.target.checked })} /> Enabled</label>
               <label><input type="checkbox" checked={activeCase.blocking} disabled={disabled} onChange={(event) => updateCase(activeIndex, { blocking: event.target.checked })} /> Blocks implementation readiness</label>
-              <EvaluationStatus compact />
+              <EvaluationStatus compact evaluationId={activeCase.id} />
             </div>
             <fieldset><legend className="text-xs font-medium">Coverage</legend><div className="studio-association-list">{EVAL_COVERAGE.map((category) => { const active = activeCase.coverage.includes(category.id); return <button key={category.id} type="button" aria-pressed={active} disabled={disabled} onClick={() => updateCase(activeIndex, { coverage: active ? activeCase.coverage.filter((item) => item !== category.id) : [...activeCase.coverage, category.id] })}>{active && <Check />}{category.label}</button> })}</div></fieldset>
             <Field><FieldLabel htmlFor={`eval-input-${activeIndex}`}>User input</FieldLabel><Textarea id={`eval-input-${activeIndex}`} className="min-h-24" value={activeCase.input} disabled={disabled} onChange={(event) => updateCase(activeIndex, { input: event.target.value })} /></Field>

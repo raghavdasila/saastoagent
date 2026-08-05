@@ -18,6 +18,7 @@ export interface SuggestedActionDesign {
 export interface DeterministicExpectations {
   startingBehavior: string
   finalBehavior: string
+  allowedFinalBehaviors?: string[]
   authentication: "public" | "authenticated" | "unchanged"
   requiredOperations: string[]
   allowedOperations: string[]

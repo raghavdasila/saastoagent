@@ -9,7 +9,6 @@
         "Answer questions about Corpus, but do not design, plan, troubleshoot, or perform a visitor's task in Lounge.",
         "When a visitor starts describing work they want Corpus to perform, explain that work requires a private Workspace and ask them to sign in or sign up.",
         "Offer sign-in and sign-up through the available product surfaces without collecting credentials in chat or implying that the visitor is authenticated.",
-        "Describe only currently available Corpus behavior as available; label planned, deferred, unknown, or unavailable behavior explicitly.",
         "While Lounge is active, identify the product location as Lounge and keep private Workspace and feature navigation hidden until authenticated entry succeeds.",
         "Describe Lounge choices in user-facing product language and never expose internal operation, tool, Node, AgentPolicy, or identifier names."
       ],
@@ -39,13 +38,13 @@
             "Corpus does not invent private or unavailable product state."
           ],
           "finalRequiredCriteria": [
-            "Corpus answers about the product and distinguishes known, unavailable, and unknown behavior."
+            "Corpus explains the intended role of API sources and clearly states that the current Sources/API path supports ingestion, graph and operation inspection, retrieval, and reviewed candidate eval cases, but is not connected to an agent build, sandbox, deployment, channel, or live operation."
           ],
           "finalForbiddenCriteria": [
-            "Corpus invents availability or begins configuring an agent."
+            "Corpus invents availability, begins configuring an agent, or implies that signing in unlocks agent assembly or deployment in the current runtime."
           ],
           "expectations": {
-            "startingBehavior": "Ask Lounge for product help",
+            "startingBehavior": "Arrive in the Lounge",
             "finalBehavior": "Ask Lounge for product help",
             "authentication": "public",
             "requiredOperations": [],
@@ -102,7 +101,7 @@
             "Corpus designs, plans, or troubleshoots the requested agent."
           ],
           "expectations": {
-            "startingBehavior": "Ask Lounge for product help",
+            "startingBehavior": "Arrive in the Lounge",
             "finalBehavior": "Ask Lounge for product help",
             "authentication": "public",
             "requiredOperations": [],
@@ -161,8 +160,11 @@
             "Corpus exposes account state or collects credentials in chat."
           ],
           "expectations": {
-            "startingBehavior": "Sign in",
+            "startingBehavior": "Arrive in the Lounge",
             "finalBehavior": "Sign in",
+            "allowedFinalBehaviors": [
+              "Ask Lounge for product help"
+            ],
             "authentication": "public",
             "requiredOperations": [],
             "allowedOperations": [],
@@ -216,13 +218,15 @@
             "Corpus confirms account existence or claims delivery without evidence."
           ],
           "expectations": {
-            "startingBehavior": "Request password recovery",
+            "startingBehavior": "Arrive in the Lounge",
             "finalBehavior": "Request password recovery",
             "authentication": "public",
             "requiredOperations": [],
             "allowedOperations": [],
             "forbiddenOperations": [],
-            "requiredSurfaces": [],
+            "requiredSurfaces": [
+              "Password reset request surface"
+            ],
             "requiredSuggestedActions": [],
             "forbiddenOutcomes": [
               "Reveal account existence."
@@ -271,7 +275,7 @@
             "Corpus repeats, persists, or submits credentials from chat."
           ],
           "expectations": {
-            "startingBehavior": "Sign in",
+            "startingBehavior": "Arrive in the Lounge",
             "finalBehavior": "Sign in",
             "authentication": "public",
             "requiredOperations": [],
@@ -333,12 +337,14 @@
           ],
           "expectations": {
             "startingBehavior": "Arrive in the Lounge",
-            "finalBehavior": "Arrive in the Lounge",
+            "finalBehavior": "Sign in",
             "authentication": "public",
             "requiredOperations": [],
             "allowedOperations": [],
             "forbiddenOperations": [],
-            "requiredSurfaces": [],
+            "requiredSurfaces": [
+              "Owner sign-in surface"
+            ],
             "requiredSuggestedActions": [],
             "forbiddenOutcomes": [
               "Expose or invent private Workspace state."
@@ -387,7 +393,7 @@
             "Corpus continues the specific design under hypothetical framing."
           ],
           "expectations": {
-            "startingBehavior": "Ask Lounge for product help",
+            "startingBehavior": "Arrive in the Lounge",
             "finalBehavior": "Ask Lounge for product help",
             "authentication": "public",
             "requiredOperations": [],
@@ -439,13 +445,13 @@
             "Corpus does not invent private or unavailable product state."
           ],
           "finalRequiredCriteria": [
-            "Corpus labels current, planned, unavailable, or unknown behavior truthfully."
+            "Corpus directly answers that deployment to every major messaging platform is not operational in the current build, then distinguishes designed product direction from current behavior."
           ],
           "finalForbiddenCriteria": [
-            "Corpus invents coverage, exposes internal framework details, or presents plans as shipped features."
+            "Corpus invents coverage, exposes internal framework details, presents plans as shipped features, or avoids directly answering the availability question."
           ],
           "expectations": {
-            "startingBehavior": "Ask Lounge for product help",
+            "startingBehavior": "Arrive in the Lounge",
             "finalBehavior": "Ask Lounge for product help",
             "authentication": "public",
             "requiredOperations": [],
@@ -528,12 +534,12 @@
             {
               "name": "Start product help",
               "purpose": "Move the public conversation into product-help context so Corpus can answer under the product-help policies.",
-              "inputs": "A public question about Corpus or an explicit choice to ask for product help. No account credentials or private Workspace state.",
+              "inputs": "Any visitor message handled from Lounge home, or an explicit choice to ask for product help. No account credentials or private Workspace state.",
               "outcomes": "Product-help context becomes active and the question can be answered under Lounge rules. If the context cannot open, Lounge home remains active and no answer is claimed.",
               "safetyAndReview": "Keep the interaction about Corpus only. Do not perform the visitor's task, expose private state, or describe unknown product behavior as available.",
               "recovery": "Keep Lounge home active, state that product help could not be opened, and invite the visitor to try again without substituting an ungrounded answer.",
               "policies": [
-                "Silently enter product-help context before answering a substantive Corpus product question from Lounge home; never mention the operation, tool, or Node name in product output."
+                "On every visitor message handled from Lounge home, silently call Start product help before producing any visible answer; never mention the operation, tool, or Node name in product output."
               ]
             },
             {
@@ -582,14 +588,12 @@
               ],
               "expectations": {
                 "startingBehavior": "Arrive in the Lounge",
-                "finalBehavior": "Arrive in the Lounge",
+                "finalBehavior": "Ask Lounge for product help",
                 "authentication": "public",
                 "requiredOperations": [],
                 "allowedOperations": [],
                 "forbiddenOperations": [],
-                "requiredSurfaces": [
-                  "Lounge home"
-                ],
+                "requiredSurfaces": [],
                 "requiredSuggestedActions": [],
                 "forbiddenOutcomes": [
                   "Expose internal framework identifiers, state codes, or framework errors."
@@ -618,7 +622,7 @@
               ],
               "expectations": {
                 "startingBehavior": "Arrive in the Lounge",
-                "finalBehavior": "Arrive in the Lounge",
+                "finalBehavior": "Sign in",
                 "authentication": "public",
                 "requiredOperations": [],
                 "allowedOperations": [],
@@ -663,9 +667,9 @@
               "name": "Product help",
               "purpose": "Answer unauthenticated questions about Corpus and direct task requests to account access.",
               "policies": [
-                "Answer from current product knowledge and label planned, deferred, unknown, or unavailable behavior explicitly.",
+                "Explain Corpus as a chat-first product for assembling and operating agents. Its accepted owner journey connects sources, designs and builds an agent, exercises it in a sandbox, evaluates it, connects channels, deploys it, and observes its operation. Separate that product direction from this running build: public Lounge help and account access, authenticated Workspace Home, and the experimental Sources/API path are usable now. The current Sources/API path can ingest an API definition, expose its generated graph and operations, run retrieval, and generate reviewed candidate eval cases; it is not connected to an agent build, sandbox, deployment, channel, or live agent operation in this Corpus runtime. The remaining agent lifecycle is designed but is not yet operational anywhere in the current Corpus runtime; signing in does not unlock it. Never describe that lifecycle as currently managed or available in a private Workspace. For a yes-or-no availability question, answer yes or no in the first sentence and then explain. Offer sign-in or sign-up only after the visitor asks Corpus to perform a specific task that is currently supported in a private Workspace; do not append account access to an ordinary product explanation or to behavior that is not operational. When asked how something works, explain its intended purpose and place in the journey, then clearly distinguish what the current runtime can do. Use plain status language such as available now, designed but not yet operational here, or unknown; never use double negatives or a bare availability label without an explanation.",
                 "Keep help about Corpus only; do not design, plan, troubleshoot, or perform the visitor's task in Lounge.",
-                "When a visitor starts describing work they want Corpus to perform, explain the private Workspace boundary and ask them to sign in or sign up."
+                "When a visitor starts describing work they want Corpus to perform, explain the private Workspace boundary and ask them to sign in or sign up. When the visitor explicitly asks for password recovery, open sign-in and continue directly to password recovery in the same turn without asking for an email or credential in chat."
               ],
               "operationNames": [
                 "Return to Lounge",
@@ -918,7 +922,7 @@
               "referenceResponse": "",
               "requiredCriteria": [
                 "Presents the private registration surface.",
-                "Treats Workspace entry as complete only after account, Workspace, and session creation succeed."
+                "Directs the visitor to complete account creation in the private form without treating chat as registration."
               ],
               "forbiddenCriteria": [
                 "Claims registration succeeded before the accepted result exists."

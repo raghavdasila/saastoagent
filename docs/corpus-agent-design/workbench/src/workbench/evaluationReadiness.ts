@@ -108,8 +108,20 @@ export function getConversationScenarioIssues(feature: DesignFeature, scenario: 
   if (scenario.finalRequiredCriteria.every(blank) && scenario.finalForbiddenCriteria.every(blank)) issues.push({ id: `${prefix}-criteria`, message: `${scenario.title || `Scenario ${index + 1}`} needs final required or forbidden criteria.`, targetId })
   if (scenario.stoppingConditions.length === 0 || scenario.stoppingConditions.every(blank)) issues.push({ id: `${prefix}-stopping`, message: `${scenario.title || `Scenario ${index + 1}`} needs a stopping condition.`, targetId })
   if (!Number.isInteger(scenario.maxTurns) || scenario.maxTurns < 2 || scenario.maxTurns > 20) issues.push({ id: `${prefix}-max-turns`, message: `${scenario.title || `Scenario ${index + 1}`} must allow 2 to 20 turns.`, targetId })
-  const representativeStory = feature.stories.find((story) => story.title === scenario.expectations.startingBehavior) ?? feature.stories[0]
-  if (representativeStory) issues.push(...expectationIssues(representativeStory, scenario, prefix, targetId))
+  const behaviorNames = new Set(feature.stories.map((story) => story.title))
+  const referencedBehaviors = [scenario.expectations.startingBehavior, scenario.expectations.finalBehavior, ...(scenario.expectations.allowedFinalBehaviors ?? [])]
+  referencedBehaviors.forEach((behavior, behaviorIndex) => {
+    if (!behaviorNames.has(behavior)) issues.push({ id: `${prefix}-behavior-${behaviorIndex}`, message: `Runtime expectation references missing behavior â€œ${behavior}â€.`, targetId })
+  })
+  const representativeStory = feature.stories[0]
+  if (representativeStory) {
+    issues.push(...expectationIssues({
+      ...representativeStory,
+      operations: feature.stories.flatMap((story) => story.operations),
+      surfaces: feature.stories.flatMap((story) => story.surfaces),
+      suggestedActions: feature.stories.flatMap((story) => story.suggestedActions),
+    }, scenario, prefix, targetId))
+  }
   return issues
 }
 

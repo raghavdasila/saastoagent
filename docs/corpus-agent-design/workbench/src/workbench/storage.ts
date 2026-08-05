@@ -68,6 +68,7 @@ function hasValidExpectations(value: unknown): boolean {
   return isRecord(value)
     && typeof value.startingBehavior === "string"
     && typeof value.finalBehavior === "string"
+    && (value.allowedFinalBehaviors === undefined || (Array.isArray(value.allowedFinalBehaviors) && value.allowedFinalBehaviors.every((item) => typeof item === "string")))
     && (value.authentication === "public" || value.authentication === "authenticated" || value.authentication === "unchanged")
     && ["requiredOperations", "allowedOperations", "forbiddenOperations", "requiredSurfaces", "requiredSuggestedActions", "forbiddenOutcomes"].every((field) => Array.isArray(value[field]) && value[field].every((item) => typeof item === "string"))
 }

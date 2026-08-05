@@ -31,9 +31,7 @@ from corpus.features.workspace.declarations import (
 from . import policies
 from .declarations import (
     ARRIVAL_OPEN_REGISTRATION,
-    ARRIVAL_OPEN_RESET_PASSWORD,
     ARRIVAL_OPEN_SIGN_IN,
-    ARRIVAL_OPEN_VERIFY_EMAIL,
     AUTHENTICATE_OWNER,
     CHANGE_OWNER_PASSWORD,
     CHANGE_PASSWORD_RETURN_TO_LOUNGE,
@@ -235,8 +233,6 @@ LOUNGE_ENTRY = Capability(
         OPEN_PRODUCT_HELP.ref,
         ARRIVAL_OPEN_REGISTRATION.ref,
         ARRIVAL_OPEN_SIGN_IN.ref,
-        ARRIVAL_OPEN_RESET_PASSWORD.ref,
-        ARRIVAL_OPEN_VERIFY_EMAIL.ref,
     ),
     surfaces=(LOUNGE_SURFACE.ref,),
     policy_refs=(
@@ -256,6 +252,7 @@ PRODUCT_HELP = Capability(
     policy_refs=(
         policies.HELP_PRODUCT_TRUTH.ref,
         policies.HELP_PRIVATE_BOUNDARY.ref,
+        policies.HELP_TASK_REDIRECTION.ref,
     ),
 )
 REGISTER = Capability(
@@ -339,15 +336,11 @@ LOUNGE_NODE = Node(
         OPEN_PRODUCT_HELP,
         ARRIVAL_OPEN_REGISTRATION,
         ARRIVAL_OPEN_SIGN_IN,
-        ARRIVAL_OPEN_RESET_PASSWORD,
-        ARRIVAL_OPEN_VERIFY_EMAIL,
     ),
     outgoing=(
         Transition(operation=OPEN_PRODUCT_HELP.ref, outcome="opened", target=PRODUCT_HELP_REF),
         Transition(operation=ARRIVAL_OPEN_REGISTRATION.ref, outcome="opened", target=REGISTER_REF),
         Transition(operation=ARRIVAL_OPEN_SIGN_IN.ref, outcome="opened", target=SIGN_IN_REF),
-        Transition(operation=ARRIVAL_OPEN_RESET_PASSWORD.ref, outcome="opened", target=RESET_PASSWORD_REF),
-        Transition(operation=ARRIVAL_OPEN_VERIFY_EMAIL.ref, outcome="opened", target=VERIFY_EMAIL_REF),
     ),
     capabilities=(LOUNGE_ENTRY,),
     surfaces=SurfaceSlots(active=LOUNGE_SURFACE),
@@ -367,6 +360,18 @@ PRODUCT_HELP_NODE = Node(
     ),
     capabilities=(PRODUCT_HELP,),
     surfaces=SurfaceSlots(),
+    suggested_actions=(
+        SuggestedAction(
+            id="lounge.product_help.sign_in",
+            operation_id=HELP_OPEN_SIGN_IN.id,
+            label="Sign in",
+        ),
+        SuggestedAction(
+            id="lounge.product_help.sign_up",
+            operation_id=HELP_OPEN_REGISTRATION.id,
+            label="Sign up",
+        ),
+    ),
     policy_refs=(policies.PUBLIC_NODE_CONTEXT.ref, policies.PUBLIC_NODE_PATHS.ref),
 )
 REGISTER_NODE = Node(
@@ -527,8 +532,9 @@ LOUNGE_FEATURE = Feature(
     policy_refs=(
         policies.FEATURE_PROMPT.ref,
         policies.PUBLIC_CONTEXT_ONLY.ref,
+        policies.LOUNGE_TASK_BOUNDARY.ref,
+        policies.LOUNGE_TASK_REDIRECTION.ref,
         policies.ACCOUNT_ACCESS_BOUNDARY.ref,
-        policies.CURRENT_PRODUCT_TRUTH.ref,
         policies.LOUNGE_CHROME_BOUNDARY.ref,
         policies.USER_FACING_LANGUAGE.ref,
     ),

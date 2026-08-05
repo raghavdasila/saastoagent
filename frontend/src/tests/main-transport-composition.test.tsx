@@ -51,9 +51,11 @@ vi.mock("../routedeck/surfaces", () => ({
 afterEach(() => {
   vi.resetModules();
   document.body.replaceChildren();
+  window.history.replaceState({}, "", "/");
 });
 
 it("composes bearer auth and Sources with conversation-scoped RouteDeck clients", async () => {
+  window.history.replaceState({}, "", "/");
   document.body.innerHTML = '<div id="root"></div>';
   state.bootstrap.mockResolvedValue({
     authorized: state.authorized,

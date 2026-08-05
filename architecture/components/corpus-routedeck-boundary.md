@@ -25,7 +25,7 @@ public conversations, persistence, revocation, and ownership claims stay in
 
 - `backend/src/corpus/app/**` - RouteDeck host plus concrete application
   composition roots
-- `backend/src/corpus/runtime/**` - persistence and Ollama-backed agent drivers
+- `backend/src/corpus/runtime/**` - persistence and explicitly selected Ollama- or OpenAI-backed agent drivers
 - `backend/src/corpus/features/lounge/**` - public Lounge, account journeys,
   bindings, and scoped AgentPolicies
 - `backend/src/corpus/features/workspace/**` - Workspace declarations/bindings
@@ -228,7 +228,9 @@ service.
   Radix-Nova registry and remain generic; Lounge and Workspace styling stays
   inside the product feature packages.
 - Ollama execution uses `langchain-ollama==1.1.0`; readiness uses the official
-  `ollama==0.6.2` SDK. Neither adapter switches provider on failure.
+  `ollama==0.6.2` SDK. OpenAI execution uses `langchain-openai==1.3.5` with
+  the Responses API, and readiness verifies the exact model through OpenAI's
+  models endpoint. No adapter switches provider on failure.
 
 ## Tests And Evidence
 

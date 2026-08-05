@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import timedelta
 
+import httpx
 from ollama import AsyncClient, RequestError, ResponseError
 from routedeck_core import RouteDeckRuntime, RouteDeckRuntimeServices
 from routedeck_core.ports import SessionStoreError, SessionStoreErrorCode
@@ -24,7 +25,7 @@ from corpus.session import create_guest_session, initialize_guest_session
 
 from .agent import create_corpus_agent, create_corpus_entry_agent
 from .config import CorpusRuntimeSettings
-from .model import create_ollama_chat_model
+from .model import create_chat_model
 from .prompt import CORPUS_AGENT_PROMPT
 
 
@@ -54,6 +55,29 @@ class CorpusReadiness:
         return True
 
     async def _model_ready(self) -> bool:
+        if self.settings.model_provider == "openai":
+            assert self.settings.openai_api_key is not None
+            assert self.settings.openai_model is not None
+            try:
+                async with httpx.AsyncClient(
+                    base_url="https://api.openai.com/v1",
+                    headers={
+                        "Authorization": (
+                            "Bearer "
+                            f"{self.settings.openai_api_key.get_secret_value()}"
+                        )
+                    },
+                    timeout=5.0,
+                ) as client:
+                    response = await client.get(
+                        f"/models/{self.settings.openai_model}"
+                    )
+            except httpx.HTTPError:
+                return False
+            return response.status_code == 200
+
+        assert self.settings.ollama_base_url is not None
+        assert self.settings.ollama_model is not None
         try:
             async with AsyncClient(
                 host=str(self.settings.ollama_base_url).rstrip("/"),
@@ -132,20 +156,20 @@ def _create_graphs(
 ) -> RouteDeckLangGraphGraphs:
     return RouteDeckLangGraphGraphs(
         user_message=create_corpus_agent(
-            model=create_ollama_chat_model(settings),
+            model=create_chat_model(settings),
             runtime=services,
             invocation_traces=invocation_traces,
         ),
         assistant_initiated=create_corpus_entry_agent(
-            model=create_ollama_chat_model(settings),
+            model=create_chat_model(settings),
             runtime=services,
             invocation_traces=invocation_traces,
         ),
         ignored_event_tags=frozenset(),
         system_prompt=CORPUS_AGENT_PROMPT,
         model_configuration={
-            "provider": "ollama",
-            "name": settings.ollama_model,
+            "provider": settings.model_provider,
+            "name": settings.selected_model_name,
             "streaming": True,
             "tool_calling": True,
         },

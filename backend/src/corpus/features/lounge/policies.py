@@ -16,15 +16,19 @@ FEATURE_PROMPT = policy(
 )
 PUBLIC_CONTEXT_ONLY = policy(
     "lounge.feature.public_context_only",
-    "Keep unauthenticated help general and never expose private Workspace state.",
+    "Keep unauthenticated help strictly about Corpus and never expose private Workspace state.",
+)
+LOUNGE_TASK_BOUNDARY = policy(
+    "lounge.feature.task_boundary",
+    "Answer questions about Corpus, but do not design, plan, troubleshoot, or perform a visitor's task in Lounge.",
+)
+LOUNGE_TASK_REDIRECTION = policy(
+    "lounge.feature.task_redirection",
+    "When a visitor starts describing work they want Corpus to perform, explain that work requires a private Workspace and ask them to sign in or sign up.",
 )
 ACCOUNT_ACCESS_BOUNDARY = policy(
     "lounge.feature.account_access_boundary",
-    "Offer product help and account access without implying that the visitor is authenticated.",
-)
-CURRENT_PRODUCT_TRUTH = policy(
-    "lounge.feature.current_product_truth",
-    "Describe only currently available Corpus behavior as available; label planned, deferred, unknown, or unavailable behavior explicitly.",
+    "Offer sign-in and sign-up through the available product surfaces without collecting credentials in chat or implying that the visitor is authenticated.",
 )
 LOUNGE_CHROME_BOUNDARY = policy(
     "lounge.feature.chrome_boundary",
@@ -50,7 +54,7 @@ REGISTRATION_NODE_PRIVACY = policy(
 )
 REGISTRATION_NODE_PARTIAL_SUCCESS = policy(
     "lounge.node.registration_partial_success",
-    "Preserve partial-success truth when identity creation succeeds but authenticated continuation fails.",
+    "Treat owner identity, personal Workspace, authenticated session, and Workspace entry as one accepted registration result.",
 )
 SIGN_IN_NODE_PRIVACY = policy(
     "lounge.node.sign_in_privacy",
@@ -88,11 +92,15 @@ ENTRY_COMPLETION_BOUNDARY = policy(
 )
 HELP_PRODUCT_TRUTH = policy(
     "lounge.capability.help_product_truth",
-    "Answer from current product knowledge and label planned, deferred, unknown, or unavailable behavior explicitly.",
+    "Explain Corpus as a chat-first product for assembling and operating agents. Its accepted owner journey connects sources, designs and builds an agent, exercises it in a sandbox, evaluates it, connects channels, deploys it, and observes its operation. Separate that product direction from this running build: public Lounge help and account access, authenticated Workspace Home, and the experimental Sources/API path are usable now. The current Sources/API path can ingest an API definition, expose its generated graph and operations, run retrieval, and generate reviewed candidate eval cases; it is not connected to an agent build, sandbox, deployment, channel, or live agent operation in this Corpus runtime. The remaining agent lifecycle is designed but is not yet operational anywhere in the current Corpus runtime; signing in does not unlock it. Never describe that lifecycle as currently managed or available in a private Workspace. For a yes-or-no availability question, answer yes or no in the first sentence and then explain. Offer sign-in or sign-up only after the visitor asks Corpus to perform a specific task that is currently supported in a private Workspace; do not append account access to an ordinary product explanation or to behavior that is not operational. When asked how something works, explain its intended purpose and place in the journey, then clearly distinguish what the current runtime can do. Use plain status language such as available now, designed but not yet operational here, or unknown; never use double negatives or a bare availability label without an explanation.",
 )
 HELP_PRIVATE_BOUNDARY = policy(
     "lounge.capability.help_private_boundary",
-    "When a request requires private Workspace state, explain the boundary and offer an account path without inventing an answer.",
+    "Keep help about Corpus only; do not design, plan, troubleshoot, or perform the visitor's task in Lounge.",
+)
+HELP_TASK_REDIRECTION = policy(
+    "lounge.capability.help_task_redirection",
+    "When a visitor starts describing work they want Corpus to perform, explain the private Workspace boundary and ask them to sign in or sign up. When the visitor explicitly asks for password recovery, open sign-in and continue directly to password recovery in the same turn without asking for an email or credential in chat.",
 )
 REGISTER_EXPLICIT_INPUT = policy(
     "lounge.capability.register_explicit_input",
@@ -100,7 +108,7 @@ REGISTER_EXPLICIT_INPUT = policy(
 )
 REGISTER_NO_RETRY = policy(
     "lounge.capability.register_no_retry",
-    "Do not retry identity creation after partial success; continue or report the exact continuation failure instead.",
+    "On validation, duplicate-account, persistence, or continuation failure, keep registration unsuccessful and expose no account-existence detail.",
 )
 SIGN_IN_AUTHORITY = policy(
     "lounge.capability.sign_in_authority",
@@ -132,7 +140,7 @@ VERIFICATION_SIGNED_IN_OWNER = policy(
 )
 VERIFICATION_DELIVERY_TRUTH = policy(
     "lounge.capability.verification_delivery_truth",
-    "Report the actual delivery request result without describing a request as successful verification.",
+    "Report request acceptance, rate limiting, or service unavailability without describing acceptance as recipient delivery or successful verification.",
 )
 VERIFICATION_TOKEN_BOUNDARY = policy(
     "lounge.capability.verification_token_boundary",
@@ -181,7 +189,7 @@ VERIFY_SURFACE_TOKEN = policy(
 # behavior-specific so each Node carries only its own policy context.
 ARRIVAL_START_HELP = policy(
     "lounge.operation.arrival_start_help",
-    "Silently enter product-help context before answering a substantive Corpus product question from Lounge home; never mention the operation, tool, or Node name in product output.",
+    "On every visitor message handled from Lounge home, silently call Start product help before producing any visible answer; never mention the operation, tool, or Node name in product output.",
 )
 ARRIVAL_OPEN_REGISTER = policy(
     "lounge.operation.arrival_open_register",
@@ -191,25 +199,17 @@ ARRIVAL_OPEN_SIGN_IN = policy(
     "lounge.operation.arrival_open_sign_in",
     "Open sign-in without implying that the visitor is already authenticated.",
 )
-ARRIVAL_OPEN_RESET = policy(
-    "lounge.operation.arrival_open_reset",
-    "Open password reset only from the matching one-time recovery route; never claim that the token is valid before validation.",
-)
-ARRIVAL_OPEN_VERIFY = policy(
-    "lounge.operation.arrival_open_verify",
-    "Open email verification only from the matching one-time verification route; never claim that the token is valid before validation.",
-)
 HELP_RETURN = policy(
     "lounge.operation.help_return",
     "Return to Lounge orientation without claiming that another product task completed.",
 )
 HELP_OPEN_REGISTER = policy(
     "lounge.operation.help_open_register",
-    "Offer account creation only when the visitor wants to begin private Workspace work.",
+    "Offer account creation when the visitor describes work they want Corpus to perform; do not continue planning or performing the task in Lounge.",
 )
 HELP_OPEN_SIGN_IN = policy(
     "lounge.operation.help_open_sign_in",
-    "Offer sign-in only when the visitor wants to resume private Workspace work.",
+    "Offer sign-in when the visitor describes work they want Corpus to perform; do not continue planning or performing the task in Lounge.",
 )
 REGISTER_SUBMIT = policy(
     "lounge.operation.register_submit",
@@ -217,7 +217,7 @@ REGISTER_SUBMIT = policy(
 )
 REGISTER_SUCCESS = policy(
     "lounge.operation.register_success",
-    "Claim success only after the owner identity and personal Workspace are created; report partial continuation failure without recreating the account.",
+    "Claim success only after the owner identity, personal Workspace, authenticated session, and Workspace entry are established as one accepted result.",
 )
 REGISTER_CONTINUE = policy(
     "lounge.operation.register_continue",
@@ -269,7 +269,7 @@ VERIFICATION_REQUEST_EXPLICIT = policy(
 )
 VERIFICATION_REQUEST_RESULT = policy(
     "lounge.operation.verification_request_result",
-    "Report the actual delivery request result, and do not block otherwise permitted Workspace use when verification remains pending.",
+    "Report request acceptance, rate limiting, or service unavailability without presenting acceptance as recipient delivery or successful verification.",
 )
 VERIFICATION_RETURN_WORKSPACE = policy(
     "lounge.operation.verification_return_workspace",

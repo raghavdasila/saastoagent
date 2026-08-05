@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs"
 import type { IncomingMessage, ServerResponse } from "node:http"
+import { createHash } from "node:crypto"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -9,6 +10,7 @@ import { defineConfig, type Plugin } from "vite"
 
 const directory = path.dirname(fileURLToPath(import.meta.url))
 const designStatePath = path.resolve(directory, "design-state.json")
+const evaluationResultsPath = path.resolve(directory, "../../../.runtime/evaluations/latest.json")
 
 function sendJson(response: ServerResponse, status: number, value: unknown): void {
   response.statusCode = status
@@ -35,6 +37,31 @@ function designStatePlugin(): Plugin {
     configureServer(server) {
       server.middlewares.use(async (request, response, next) => {
         const requestUrl = new URL(request.url ?? "/", "http://127.0.0.1")
+        if (requestUrl.pathname === "/__design-studio/evaluation-results") {
+          if (request.method !== "GET") {
+            response.setHeader("Allow", "GET")
+            sendJson(response, 405, { code: "method_not_allowed" })
+            return
+          }
+          try {
+            const [contents, designContents] = await Promise.all([
+              fs.readFile(evaluationResultsPath, "utf8"),
+              fs.readFile(designStatePath),
+            ])
+            const parsed = JSON.parse(contents) as Record<string, unknown>
+            sendJson(response, 200, {
+              ...parsed,
+              currentDesignSha256: createHash("sha256").update(designContents).digest("hex"),
+            })
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+              sendJson(response, 404, { code: "evaluation_results_not_found" })
+              return
+            }
+            sendJson(response, 500, { code: "evaluation_results_read_failed" })
+          }
+          return
+        }
         if (requestUrl.pathname !== "/__design-studio/state") {
           next()
           return

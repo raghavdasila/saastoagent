@@ -37,9 +37,7 @@
       "operation_ids": [
         "lounge.open_product_help",
         "lounge.arrival.open_registration",
-        "lounge.arrival.open_sign_in",
-        "lounge.arrival.open_reset_password",
-        "lounge.arrival.open_verify_email"
+        "lounge.arrival.open_sign_in"
       ],
       "route_template": "/",
       "surfaces": {
@@ -548,18 +546,6 @@
       "outcome": "opened",
       "source": "lounge.home",
       "target": "lounge.sign_in"
-    },
-    {
-      "operation_id": "lounge.arrival.open_reset_password",
-      "outcome": "opened",
-      "source": "lounge.home",
-      "target": "lounge.reset_password"
-    },
-    {
-      "operation_id": "lounge.arrival.open_verify_email",
-      "outcome": "opened",
-      "source": "lounge.home",
-      "target": "lounge.verify_email"
     },
     {
       "operation_id": "lounge.product_help.return_to_lounge",

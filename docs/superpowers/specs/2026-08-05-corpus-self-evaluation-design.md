@@ -127,6 +127,7 @@ Each scenario contains:
 - per-turn semantic and runtime checkpoints where required;
 - final required and forbidden criteria;
 - product-semantic runtime expectations;
+- one primary terminal behavior plus explicitly authored acceptable alternatives when the product intentionally permits multiple routes;
 - success, failure, and stopping conditions;
 - maximum turn count.
 

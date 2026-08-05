@@ -18,9 +18,7 @@
           "operations": {
             "Start product help": "lounge.open_product_help",
             "Open owner registration": "lounge.arrival.open_registration",
-            "Open owner sign-in": "lounge.arrival.open_sign_in",
-            "Open password reset link": "lounge.arrival.open_reset_password",
-            "Open email verification link": "lounge.arrival.open_verify_email"
+            "Open owner sign-in": "lounge.arrival.open_sign_in"
           }
         },
         {

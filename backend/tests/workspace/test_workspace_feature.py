@@ -95,8 +95,6 @@ def test_lounge_and_workspace_own_their_operations_transitions_and_surfaces() ->
         "lounge.open_product_help",
         "lounge.arrival.open_sign_in",
         "lounge.arrival.open_registration",
-        "lounge.arrival.open_reset_password",
-        "lounge.arrival.open_verify_email",
     }
     assert contract.nodes["lounge.home"].surfaces.active == "lounge.home"
     assert contract.nodes["lounge.sign_in"].surfaces.active == "lounge.sign_in"
@@ -135,8 +133,6 @@ def test_lounge_and_workspace_own_their_operations_transitions_and_surfaces() ->
         ("lounge.sign_in", "lounge.sign_in.open_password_recovery", "lounge.forgot_password"),
         ("lounge.sign_in", "lounge.authenticate_owner_account", "workspace.home"),
         ("lounge.register", "lounge.create_owner_account", "workspace.home"),
-        ("lounge.home", "lounge.arrival.open_reset_password", "lounge.reset_password"),
-        ("lounge.home", "lounge.arrival.open_verify_email", "lounge.verify_email"),
         ("lounge.forgot_password", "lounge.request_password_reset.return_to_lounge", "lounge.home"),
         ("lounge.reset_password", "lounge.change_password.return_to_lounge", "lounge.home"),
         ("lounge.verify_email", "lounge.confirm_email.return_to_lounge", "lounge.home"),
@@ -153,6 +149,48 @@ def test_lounge_and_workspace_own_their_operations_transitions_and_surfaces() ->
     )
 
 
+def test_operations_allow_only_the_designed_invocation_sources() -> None:
+    compiled = compile_corpus_app()
+    agent_and_surface = frozenset(
+        {OperationSource.AGENT, OperationSource.SURFACE}
+    )
+    agent_only = frozenset({OperationSource.AGENT})
+    surface_only = frozenset({OperationSource.SURFACE})
+
+    expected = {
+        "lounge.open_product_help": agent_and_surface,
+        "lounge.arrival.open_registration": agent_and_surface,
+        "lounge.arrival.open_sign_in": agent_and_surface,
+        "lounge.product_help.return_to_lounge": agent_only,
+        "lounge.product_help.open_registration": agent_and_surface,
+        "lounge.product_help.open_sign_in": agent_and_surface,
+        "lounge.create_owner_account": surface_only,
+        "lounge.registration.continue_to_workspace": surface_only,
+        "lounge.registration.return_to_lounge": surface_only,
+        "lounge.authenticate_owner_account": surface_only,
+        "lounge.sign_in.continue_to_workspace": surface_only,
+        "lounge.sign_in.open_password_recovery": agent_and_surface,
+        "lounge.sign_in.return_to_lounge": surface_only,
+        "lounge.request_password_reset": surface_only,
+        "lounge.request_password_reset.return_to_lounge": surface_only,
+        "lounge.change_owner_password": surface_only,
+        "lounge.change_password.return_to_lounge": surface_only,
+        "lounge.request_verification_delivery": surface_only,
+        "lounge.verification_delivery.return_to_workspace": surface_only,
+        "lounge.confirm_owner_email": surface_only,
+        "lounge.confirm_email.return_to_lounge": surface_only,
+        "workspace.open_sources": surface_only,
+        "workspace.open_verification": surface_only,
+        "sources.return_to_home": surface_only,
+    }
+
+    assert set(compiled.operations) == set(expected)
+    assert {
+        operation_id: operation.allowed_sources
+        for operation_id, operation in compiled.operations.items()
+    } == expected
+
+
 def test_lounge_policies_are_compiled_as_routedeck_agent_policies() -> None:
     compiled = compile_corpus_app()
 
@@ -167,16 +205,23 @@ def test_lounge_policies_are_compiled_as_routedeck_agent_policies() -> None:
     assert {ref.id for ref in lounge.policy_refs} == {
         "lounge.feature.public_context_only",
         "lounge.feature.account_access_boundary",
-        "lounge.feature.current_product_truth",
         "lounge.feature.chrome_boundary",
         "lounge.feature.prompt",
+        "lounge.feature.task_boundary",
+        "lounge.feature.task_redirection",
         "lounge.feature.user_facing_language",
     }
     assert (
         compiled.agent_policies["lounge.feature.prompt"].instruction
-        == "You are Corpus in the Lounge, the public starting point for people who are "
-        "not signed in. Help visitors understand Corpus and choose their next step. "
-        "Be concise, clear, and welcoming."
+        == "You are Corpus in the public Lounge, an unauthenticated helpdesk about "
+        "Corpus only. Answer questions about Corpus, its current features, and how "
+        "the product works. Do not design, plan, troubleshoot, or perform the "
+        "visitor's task in Lounge. When a visitor starts describing work they want "
+        "Corpus to do, briefly explain that work happens in a private Workspace and "
+        "ask them to sign in or sign up through the available product surfaces. "
+        "Never collect credentials in chat. On an assistant-initiated Lounge turn, "
+        "briefly establish that the visitor is in the Lounge, explain that you can "
+        "answer questions about Corpus, and invite a question about the product."
     )
     assert len(compiled.agent_policies) >= 40
 

@@ -70,11 +70,19 @@ covering product help, task redirection, authentication routing, account
 enumeration, credentials, Workspace privacy, indirect bypasses, and unsupported
 product claims.
 
-Evaluation definitions are design inputs, not passing evidence. The Studio
-shows **Not run** until an external Corpus runner executes the real compiled
-product and publishes identity-complete results. Results do not enter
-`design-state.json`; level-3 backend-state product benchmarks also remain
-explicitly deferred.
+Evaluation definitions are design inputs, not passing evidence. Run the Lounge
+conversation pack against the live local Corpus backend with:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_lounge_evaluations.py
+```
+
+The Corpus-owned runner uses real HTTP conversations, a separately invoked
+adaptive tester and structured judge, and deterministic product-state checks.
+It writes immutable artifacts below `.runtime/evaluations/`. The Studio reads
+the external latest-result index and shows **Passed**, **Failed**, **Stale**, or
+**Not run** without copying evidence into `design-state.json`. Level-3
+backend-state product benchmarks remain explicitly deferred.
 
 Use **Add behavior** in the selected feature's behavior list to create and immediately
 select a blank behavior. Draft behaviors can be deleted through an inline confirmation;

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from routedeck_core.contracts.navigation import NodeRef
-from routedeck_core.contracts.operations import Operation, SafetyClass
+from routedeck_core.contracts.operations import Operation, OperationSource, SafetyClass
 from routedeck_core.contracts.projection import FrozenJsonObject
 
 from corpus.features.workspace.declarations import (
@@ -19,6 +19,7 @@ def operation(
     description: str,
     outcome: str,
     *policy_values,
+    allowed_sources: frozenset[OperationSource],
     safety_class: SafetyClass = SafetyClass.NAVIGATION,
     authenticated: bool = False,
 ) -> Operation:
@@ -28,6 +29,7 @@ def operation(
         description=description,
         input_schema=FrozenJsonObject(EMPTY_OBJECT_SCHEMA),
         safety_class=safety_class,
+        allowed_sources=allowed_sources,
         outcomes=(outcome,),
         outcome_schemas=FrozenJsonObject({outcome: EMPTY_OBJECT_SCHEMA}),
         provider_refs=(OWNER_CONTEXT_PROVIDER.ref,) if authenticated else (),
@@ -41,6 +43,7 @@ OPEN_PRODUCT_HELP = operation(
     "Move the public conversation into product-help context.",
     "opened",
     policies.ARRIVAL_START_HELP,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
 )
 ARRIVAL_OPEN_REGISTRATION = operation(
     "lounge.arrival.open_registration",
@@ -48,6 +51,7 @@ ARRIVAL_OPEN_REGISTRATION = operation(
     "Open owner registration from Lounge home.",
     "opened",
     policies.ARRIVAL_OPEN_REGISTER,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
 )
 ARRIVAL_OPEN_SIGN_IN = operation(
     "lounge.arrival.open_sign_in",
@@ -55,20 +59,7 @@ ARRIVAL_OPEN_SIGN_IN = operation(
     "Open owner sign-in from Lounge home.",
     "opened",
     policies.ARRIVAL_OPEN_SIGN_IN,
-)
-ARRIVAL_OPEN_RESET_PASSWORD = operation(
-    "lounge.arrival.open_reset_password",
-    "Open password reset link",
-    "Open the password-reset location captured from a recovery link.",
-    "opened",
-    policies.ARRIVAL_OPEN_RESET,
-)
-ARRIVAL_OPEN_VERIFY_EMAIL = operation(
-    "lounge.arrival.open_verify_email",
-    "Open email verification link",
-    "Open the email-verification location captured from a verification link.",
-    "opened",
-    policies.ARRIVAL_OPEN_VERIFY,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
 )
 
 HELP_RETURN_TO_LOUNGE = operation(
@@ -77,6 +68,7 @@ HELP_RETURN_TO_LOUNGE = operation(
     "Return from product help to Lounge orientation.",
     "opened",
     policies.HELP_RETURN,
+    allowed_sources=frozenset({OperationSource.AGENT}),
 )
 HELP_OPEN_REGISTRATION = operation(
     "lounge.product_help.open_registration",
@@ -84,6 +76,7 @@ HELP_OPEN_REGISTRATION = operation(
     "Open registration when product help reaches private Workspace work.",
     "opened",
     policies.HELP_OPEN_REGISTER,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
 )
 HELP_OPEN_SIGN_IN = operation(
     "lounge.product_help.open_sign_in",
@@ -91,6 +84,7 @@ HELP_OPEN_SIGN_IN = operation(
     "Open sign-in when product help reaches private Workspace work.",
     "opened",
     policies.HELP_OPEN_SIGN_IN,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
 )
 
 CREATE_OWNER_ACCOUNT = operation(
@@ -100,6 +94,7 @@ CREATE_OWNER_ACCOUNT = operation(
     "created",
     policies.REGISTER_SUBMIT,
     policies.REGISTER_SUCCESS,
+    allowed_sources=frozenset({OperationSource.SURFACE}),
     safety_class=SafetyClass.CREDENTIAL,
 )
 REGISTRATION_CONTINUE_TO_WORKSPACE = operation(
@@ -108,6 +103,7 @@ REGISTRATION_CONTINUE_TO_WORKSPACE = operation(
     "Continue an authenticated owner into the authorized Workspace.",
     "opened",
     policies.REGISTER_CONTINUE,
+    allowed_sources=frozenset({OperationSource.SURFACE}),
     authenticated=True,
 )
 REGISTRATION_RETURN_TO_LOUNGE = operation(
@@ -116,6 +112,7 @@ REGISTRATION_RETURN_TO_LOUNGE = operation(
     "Leave registration and return to Lounge.",
     "opened",
     policies.REGISTER_RETURN,
+    allowed_sources=frozenset({OperationSource.SURFACE}),
 )
 
 AUTHENTICATE_OWNER = operation(
@@ -124,6 +121,7 @@ AUTHENTICATE_OWNER = operation(
     "Authenticate the owner from the private sign-in form.",
     "authenticated",
     policies.SIGN_IN_SUBMIT,
+    allowed_sources=frozenset({OperationSource.SURFACE}),
     safety_class=SafetyClass.CREDENTIAL,
 )
 SIGN_IN_CONTINUE_TO_WORKSPACE = operation(
@@ -132,6 +130,7 @@ SIGN_IN_CONTINUE_TO_WORKSPACE = operation(
     "Continue an authenticated owner into the authorized Workspace.",
     "opened",
     policies.SIGN_IN_CONTINUE,
+    allowed_sources=frozenset({OperationSource.SURFACE}),
     authenticated=True,
 )
 SIGN_IN_OPEN_PASSWORD_RECOVERY = operation(
@@ -140,6 +139,7 @@ SIGN_IN_OPEN_PASSWORD_RECOVERY = operation(
     "Open account-neutral password recovery.",
     "opened",
     policies.SIGN_IN_OPEN_RECOVERY,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
 )
 SIGN_IN_RETURN_TO_LOUNGE = operation(
     "lounge.sign_in.return_to_lounge",
@@ -147,6 +147,7 @@ SIGN_IN_RETURN_TO_LOUNGE = operation(
     "Leave sign-in and return to Lounge.",
     "opened",
     policies.SIGN_IN_RETURN,
+    allowed_sources=frozenset({OperationSource.SURFACE}),
 )
 
 REQUEST_PASSWORD_RESET = operation(
@@ -156,6 +157,7 @@ REQUEST_PASSWORD_RESET = operation(
     "requested",
     policies.RESET_REQUEST_SUBMIT_NEUTRAL,
     policies.RESET_REQUEST_NOT_PROOF,
+    allowed_sources=frozenset({OperationSource.SURFACE}),
     safety_class=SafetyClass.CREDENTIAL,
 )
 REQUEST_RESET_RETURN_TO_LOUNGE = operation(
@@ -164,6 +166,7 @@ REQUEST_RESET_RETURN_TO_LOUNGE = operation(
     "Leave password recovery and return to Lounge.",
     "opened",
     policies.RESET_REQUEST_RETURN,
+    allowed_sources=frozenset({OperationSource.SURFACE}),
 )
 
 CHANGE_OWNER_PASSWORD = operation(
@@ -172,6 +175,7 @@ CHANGE_OWNER_PASSWORD = operation(
     "Change the password from the private one-time-token form.",
     "changed",
     policies.PASSWORD_CHANGE_TOKEN,
+    allowed_sources=frozenset({OperationSource.SURFACE}),
     safety_class=SafetyClass.CREDENTIAL,
 )
 CHANGE_PASSWORD_RETURN_TO_LOUNGE = operation(
@@ -180,6 +184,7 @@ CHANGE_PASSWORD_RETURN_TO_LOUNGE = operation(
     "Leave password reset and return to Lounge.",
     "opened",
     policies.PASSWORD_CHANGE_RETURN,
+    allowed_sources=frozenset({OperationSource.SURFACE}),
 )
 
 REQUEST_VERIFICATION_DELIVERY = operation(
@@ -189,6 +194,7 @@ REQUEST_VERIFICATION_DELIVERY = operation(
     "requested",
     policies.VERIFICATION_REQUEST_EXPLICIT,
     policies.VERIFICATION_REQUEST_RESULT,
+    allowed_sources=frozenset({OperationSource.SURFACE}),
     safety_class=SafetyClass.CREDENTIAL,
     authenticated=True,
 )
@@ -198,6 +204,7 @@ VERIFICATION_RETURN_TO_WORKSPACE = operation(
     "Return to the authenticated Workspace without changing verification state.",
     "opened",
     policies.VERIFICATION_RETURN_WORKSPACE,
+    allowed_sources=frozenset({OperationSource.SURFACE}),
     authenticated=True,
 )
 
@@ -207,6 +214,7 @@ CONFIRM_OWNER_EMAIL = operation(
     "Confirm the owner email from the private one-time-token form.",
     "confirmed",
     policies.VERIFY_CONFIRM_OWNER,
+    allowed_sources=frozenset({OperationSource.SURFACE}),
     safety_class=SafetyClass.CREDENTIAL,
 )
 CONFIRM_EMAIL_RETURN_TO_LOUNGE = operation(
@@ -215,6 +223,7 @@ CONFIRM_EMAIL_RETURN_TO_LOUNGE = operation(
     "Leave email confirmation and return to Lounge.",
     "opened",
     policies.VERIFY_RETURN,
+    allowed_sources=frozenset({OperationSource.SURFACE}),
 )
 
 
@@ -236,9 +245,7 @@ VERIFY_EMAIL_FORM_ID = "lounge-email-verification"
 
 __all__ = [
     "ARRIVAL_OPEN_REGISTRATION",
-    "ARRIVAL_OPEN_RESET_PASSWORD",
     "ARRIVAL_OPEN_SIGN_IN",
-    "ARRIVAL_OPEN_VERIFY_EMAIL",
     "AUTHENTICATE_OWNER",
     "CHANGE_OWNER_PASSWORD",
     "CHANGE_PASSWORD_RETURN_TO_LOUNGE",

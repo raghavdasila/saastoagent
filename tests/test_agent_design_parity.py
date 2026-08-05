@@ -10,7 +10,7 @@ from routedeck_core.contracts.navigation import (
     Route,
     Transition,
 )
-from routedeck_core.contracts.operations import Operation, SafetyClass
+from routedeck_core.contracts.operations import Operation, OperationSource, SafetyClass
 from routedeck_core.contracts.suggestions import SuggestedAction
 from routedeck_core.contracts.surfaces import Surface, SurfaceSlots
 
@@ -38,6 +38,9 @@ def _compiled_app():
         title="Run",
         description="Run the designed action.",
         safety_class=SafetyClass.READ_EXTERNAL,
+        allowed_sources=frozenset(
+            {OperationSource.AGENT, OperationSource.SURFACE}
+        ),
         outcomes=("completed",),
         policy_refs=(policies["operation"].ref,),
     )

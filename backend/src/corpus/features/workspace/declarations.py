@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 from routedeck_core.contracts.navigation import NodeRef
-from routedeck_core.contracts.operations import ContextProvider, Operation, SafetyClass
+from routedeck_core.contracts.operations import (
+    ContextProvider,
+    Operation,
+    OperationSource,
+    SafetyClass,
+)
 from routedeck_core.contracts.projection import FrozenJsonObject
 
 
@@ -41,6 +46,7 @@ OPEN_SOURCES = Operation(
     description="Open the authenticated owner's Sources workspace.",
     input_schema=FrozenJsonObject(EMPTY_OBJECT_SCHEMA),
     safety_class=SafetyClass.NAVIGATION,
+    allowed_sources=frozenset({OperationSource.SURFACE}),
     outcomes=("opened",),
     outcome_schemas=NAVIGATION_OUTCOME_SCHEMAS,
     provider_refs=(OWNER_CONTEXT_PROVIDER.ref,),
@@ -51,6 +57,7 @@ OPEN_VERIFICATION = Operation(
     description="Open verification delivery for the signed-in owner.",
     input_schema=FrozenJsonObject(EMPTY_OBJECT_SCHEMA),
     safety_class=SafetyClass.NAVIGATION,
+    allowed_sources=frozenset({OperationSource.SURFACE}),
     outcomes=("opened",),
     outcome_schemas=NAVIGATION_OUTCOME_SCHEMAS,
     provider_refs=(OWNER_CONTEXT_PROVIDER.ref,),
