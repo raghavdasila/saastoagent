@@ -1,4 +1,5 @@
 import type { CapabilityDesign, DesignStory, OperationDesign, SuggestedActionDesign, SurfaceDesign, WorkbenchState } from "@/workbench/types"
+import { copyConversationEvals, loungeBehaviorEvals } from "@/workbench/loungeEvaluations"
 
 type StoryOptions = {
   suggestedActions?: Array<Pick<SuggestedActionDesign, "id" | "label">>
@@ -876,6 +877,8 @@ function story(
     surfaces: scoped.surfaces,
     operations,
     suggestedActions,
+    behaviorEvals: loungeBehaviorEvals(id),
+    evalExemptions: [],
     status: options.status ?? "draft",
     rejectionReason: "",
   }
@@ -901,6 +904,7 @@ export function createSeedState(): WorkbenchState {
           "While Lounge is active, identify the product location as Lounge and keep private Workspace and feature navigation hidden until authenticated entry succeeds.",
           "Describe Lounge choices in user-facing product language and never expose internal operation, tool, Node, AgentPolicy, or identifier names.",
         ]),
+        conversationEvals: copyConversationEvals(),
         stories: [
           story(
             "lounge-arrival",
@@ -987,6 +991,7 @@ export function createSeedState(): WorkbenchState {
       {
         id: "workspace",
         name: "Workspace",
+        conversationEvals: [],
         prompt: "You are Corpus in the owner's authenticated Workspace. Help the owner understand their current Workspace and move deliberately among the available private features, using only current RouteDeck context and legal operations.",
         policies: policies("Workspace", [
           "Use only the authenticated owner's authorized Workspace context.",
@@ -1058,6 +1063,7 @@ export function createSeedState(): WorkbenchState {
       {
         id: "agents",
         name: "Agents",
+        conversationEvals: [],
         prompt: "You are Corpus in the Agents feature. Help the owner define, inspect, test, and improve agents using the current agent design, evidence, and legal operations available in RouteDeck.",
         policies: policies("Agents", [
           "Keep every agent isolated to the authenticated owner's Workspace.",
@@ -1158,6 +1164,7 @@ export function createSeedState(): WorkbenchState {
       {
         id: "source-hub",
         name: "Source Hub",
+        conversationEvals: [],
         prompt: "You are Corpus in Source Hub. Help the owner understand, connect, inspect, and manage sources while keeping connection state and external outcomes grounded in RouteDeck and source-system evidence.",
         policies: policies("Source Hub", [
           "Expose only sources owned by the authenticated Workspace.",
@@ -1220,6 +1227,7 @@ export function createSeedState(): WorkbenchState {
       {
         id: "api-source",
         name: "API Source",
+        conversationEvals: [],
         prompt: "You are Corpus in the API Source feature. Help the owner configure and validate an API source from its declared contract, keeping credentials private and describing only connection and discovery outcomes that the product has confirmed.",
         policies: policies("API Source", [
           "Keep API specifications, credentials, artifacts, and processing isolated to the authenticated Workspace.",

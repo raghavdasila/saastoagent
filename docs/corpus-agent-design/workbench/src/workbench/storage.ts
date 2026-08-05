@@ -62,6 +62,62 @@ function hasValidSuggestedActions(value: unknown): boolean {
   ))
 }
 
+const COVERAGE_TAGS = new Set(["normal", "boundary", "failure", "privacy", "adversarial"])
+
+function hasValidExpectations(value: unknown): boolean {
+  return isRecord(value)
+    && typeof value.startingBehavior === "string"
+    && typeof value.finalBehavior === "string"
+    && (value.authentication === "public" || value.authentication === "authenticated" || value.authentication === "unchanged")
+    && ["requiredOperations", "allowedOperations", "forbiddenOperations", "requiredSurfaces", "requiredSuggestedActions", "forbiddenOutcomes"].every((field) => Array.isArray(value[field]) && value[field].every((item) => typeof item === "string"))
+}
+
+function hasValidBehaviorEvals(value: unknown): boolean {
+  return Array.isArray(value) && value.every((evalCase) => (
+    isRecord(evalCase)
+    && typeof evalCase.id === "string"
+    && typeof evalCase.title === "string"
+    && typeof evalCase.enabled === "boolean"
+    && typeof evalCase.blocking === "boolean"
+    && Array.isArray(evalCase.coverage)
+    && evalCase.coverage.every((tag) => typeof tag === "string" && COVERAGE_TAGS.has(tag))
+    && typeof evalCase.input === "string"
+    && typeof evalCase.referenceResponse === "string"
+    && hasValidPolicies(evalCase.requiredCriteria)
+    && hasValidPolicies(evalCase.forbiddenCriteria)
+    && hasValidExpectations(evalCase.expectations)
+  ))
+}
+
+function hasValidEvalExemptions(value: unknown): boolean {
+  return Array.isArray(value) && value.every((item) => isRecord(item) && typeof item.coverage === "string" && COVERAGE_TAGS.has(item.coverage) && typeof item.reason === "string")
+}
+
+function hasValidConversationEvals(value: unknown): boolean {
+  return Array.isArray(value) && value.every((scenario) => (
+    isRecord(scenario)
+    && typeof scenario.id === "string"
+    && typeof scenario.title === "string"
+    && typeof scenario.enabled === "boolean"
+    && typeof scenario.blocking === "boolean"
+    && typeof scenario.openingMessage === "string"
+    && typeof scenario.hiddenGoal === "string"
+    && typeof scenario.persona === "string"
+    && hasValidPolicies(scenario.facts)
+    && hasValidPolicies(scenario.mayDisclose)
+    && hasValidPolicies(scenario.withholdUntilAsked)
+    && hasValidPolicies(scenario.bypassAttempts)
+    && hasValidPolicies(scenario.perTurnCriteria)
+    && hasValidPolicies(scenario.finalRequiredCriteria)
+    && hasValidPolicies(scenario.finalForbiddenCriteria)
+    && hasValidExpectations(scenario.expectations)
+    && typeof scenario.successCondition === "string"
+    && hasValidPolicies(scenario.failureConditions)
+    && hasValidPolicies(scenario.stoppingConditions)
+    && typeof scenario.maxTurns === "number"
+  ))
+}
+
 function hasValidFeatureData(value: unknown): boolean {
   if (!Array.isArray(value) || value.length === 0) return false
   return value.every((feature) => (
@@ -70,6 +126,7 @@ function hasValidFeatureData(value: unknown): boolean {
     && typeof feature.name === "string"
     && typeof feature.prompt === "string"
     && hasValidPolicies(feature.policies)
+    && hasValidConversationEvals(feature.conversationEvals)
     && Array.isArray(feature.stories)
     && feature.stories.length > 0
     && feature.stories.every((story) => (
@@ -92,6 +149,8 @@ function hasValidFeatureData(value: unknown): boolean {
       && hasValidSurfaces(story.surfaces)
       && hasValidOperations(story.operations)
       && hasValidSuggestedActions(story.suggestedActions)
+      && hasValidBehaviorEvals(story.behaviorEvals)
+      && hasValidEvalExemptions(story.evalExemptions)
       && (story.status === "draft" || story.status === "approved" || story.status === "rejected")
       && typeof story.rejectionReason === "string"
     ))

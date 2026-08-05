@@ -2,6 +2,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Circle,
+  FlaskConical,
   MessageSquareText,
   Plus,
   ShieldCheck,
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { STUDIO_CONFIG } from "@/workbench/studioConfig"
 import { getStoryReadiness } from "@/workbench/readiness"
+import { getFeatureConversationEvalReadiness } from "@/workbench/evaluationReadiness"
 import type { DesignFeature, ReviewStatus } from "@/workbench/types"
 
 const statusIcon: Record<ReviewStatus, typeof Circle> = {
@@ -25,12 +27,13 @@ interface FeatureRailProps {
   features: DesignFeature[]
   selectedFeatureId: string
   selectedStoryId: string
-  selectedView: "behavior" | "feature-prompt" | "feature-policy"
+  selectedView: "behavior" | "feature-prompt" | "feature-policy" | "conversation-evals"
   mobileOpen: boolean
   onSelectFeature: (featureId: string) => void
   onSelectStory: (storyId: string) => void
   onSelectFeaturePrompt: () => void
   onSelectFeaturePolicy: () => void
+  onSelectConversationEvals: () => void
   onAddStory: () => void
   onCloseMobile: () => void
 }
@@ -45,11 +48,13 @@ export function FeatureRail({
   onSelectStory,
   onSelectFeaturePrompt,
   onSelectFeaturePolicy,
+  onSelectConversationEvals,
   onAddStory,
   onCloseMobile,
 }: FeatureRailProps) {
   const selectedFeature = features.find((feature) => feature.id === selectedFeatureId) ?? features[0]
   const featurePolicyCount = selectedFeature.policies.length
+  const conversationReadiness = getFeatureConversationEvalReadiness(selectedFeature)
 
   function selectFeature(featureId: string) {
     onSelectFeature(featureId)
@@ -68,6 +73,11 @@ export function FeatureRail({
 
   function selectPrompt() {
     onSelectFeaturePrompt()
+    onCloseMobile()
+  }
+
+  function selectConversationEvals() {
+    onSelectConversationEvals()
     onCloseMobile()
   }
 
@@ -124,6 +134,19 @@ export function FeatureRail({
           >
             <MessageSquareText data-icon="inline-start" className={cn("size-3.5", selectedView === "feature-prompt" ? "text-primary" : "text-muted-foreground")} strokeWidth={1.8} />
             {STUDIO_CONFIG.featurePromptLabel}
+          </Button>
+          <Button
+            aria-label="Conversation evals"
+            variant="ghost"
+            className={cn(
+              "h-9 w-full justify-start border border-transparent px-2.5 !text-[13px] font-normal focus-visible:ring-2",
+              selectedView === "conversation-evals" && "border-primary/15 bg-primary/10 font-medium text-foreground",
+            )}
+            onClick={selectConversationEvals}
+          >
+            <FlaskConical data-icon="inline-start" className={cn("size-3.5", selectedView === "conversation-evals" ? "text-primary" : "text-muted-foreground")} strokeWidth={1.8} />
+            Conversation evals
+            <span className={cn("ml-auto text-[11px] font-normal tabular-nums", conversationReadiness.isReady ? "text-muted-foreground" : "text-[var(--studio-warning)]")}>{conversationReadiness.isReady ? selectedFeature.conversationEvals.length : conversationReadiness.issues.length}</span>
           </Button>
           <Button
             aria-label={STUDIO_CONFIG.featurePolicyLabel}

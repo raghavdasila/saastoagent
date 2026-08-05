@@ -146,10 +146,10 @@ describe("RouteDeck Agent Design Studio", () => {
 
     await user.click(screen.getByRole("button", { name: "Add behavior" }))
     expect(screen.getByRole("button", { name: "Approve behavior" })).toBeDisabled()
-    expect(screen.getByText("Resolve 3 blocking issues before approval.")).toBeInTheDocument()
+    expect(screen.getByText("Resolve 9 blocking issues before approval.")).toBeInTheDocument()
 
     await user.click(screen.getByRole("tab", { name: /^Completeness/ }))
-    expect(screen.getByRole("heading", { name: "3 blocking issues" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "9 blocking issues" })).toBeInTheDocument()
     expect(screen.getByText("Describe the user intent.")).toBeInTheDocument()
     expect(screen.getByText("Describe the outcome Corpus is responsible for.")).toBeInTheDocument()
     expect(screen.getByText("Describe the observable behavior and completion state.")).toBeInTheDocument()
@@ -168,6 +168,45 @@ describe("RouteDeck Agent Design Studio", () => {
 
     await user.click(within(drawer).getByRole("button", { name: "Done" }))
     expect(screen.queryByRole("dialog", { name: "Start product help" })).not.toBeInTheDocument()
+  })
+
+  it("authors semantic behavior evals without exact response matching", async () => {
+    const user = userEvent.setup()
+    await renderWorkbench()
+
+    const evals = screen.getByRole("list", { name: "Behavior evals" })
+    await user.click(within(evals).getByRole("button", { name: /Public arrival/ }))
+    const drawer = screen.getByRole("dialog", { name: "Public arrival" })
+    expect(within(drawer).getByText("Semantic direction for the judge. Wording is never matched exactly.")).toBeInTheDocument()
+    expect(within(drawer).queryByLabelText(/exact/i)).not.toBeInTheDocument()
+    const required = within(drawer).getAllByLabelText(/^Required meaning /)[0]
+    await user.clear(required)
+    await user.type(required, "Clearly identifies the public Lounge.")
+    await user.click(within(drawer).getByRole("button", { name: "Done" }))
+
+    await waitFor(() => expect(getDesignStateFile()).toContain("Clearly identifies the public Lounge."))
+    expect(getDesignStateFile()).not.toContain("exactResponse")
+  })
+
+  it("authors adaptive feature conversation evals without a fixed transcript", async () => {
+    const user = userEvent.setup()
+    await renderWorkbench()
+
+    await user.click(screen.getByRole("button", { name: "Conversation evals" }))
+    expect(screen.getByRole("heading", { name: "Conversation evals" })).toBeInTheDocument()
+    expect(screen.getByText(/adaptive tester follows its hidden goal/i)).toBeInTheDocument()
+    const inventory = screen.getByRole("list", { name: "Conversation evals" })
+    await user.click(within(inventory).getByRole("button", { name: /Credentials in chat/ }))
+    const drawer = screen.getByRole("dialog", { name: "Credentials in chat" })
+    expect((within(drawer).getByLabelText("Hidden tester goal") as HTMLTextAreaElement).value).toContain("credentials")
+    expect(within(drawer).getByLabelText("Maximum turns")).toHaveValue(8)
+    expect(within(drawer).queryByText("Assistant turn")).not.toBeInTheDocument()
+    const withheldSection = within(drawer).getByRole("heading", { name: "Withhold until asked" }).closest("div")!
+    await user.click(within(withheldSection).getByRole("button", { name: "Add" }))
+    const withheld = within(drawer).getByLabelText("Withhold until asked 1")
+    await user.type(withheld, "The visitor has access to the private sign-in surface.")
+
+    await waitFor(() => expect(getDesignStateFile()).toContain("The visitor has access to the private sign-in surface."))
   })
 
   it("deletes a draft behavior only after confirmation and autosaves the deletion", async () => {

@@ -38,6 +38,8 @@ Each behavior keeps the review unit deliberately small:
 - a provisional Node design for the behavior;
 - editable Capabilities, Surfaces, and Operations with scoped AgentPolicies;
 - optional SuggestedActions kept separate from Operations and bound to one of them;
+- behavior-level single-turn eval definitions with semantic criteria, optional
+  reference responses, coverage categories, and product-state expectations;
 - an optional static surface rendered separately from the chat path in a tightly sandboxed iframe; and
 - deterministic completeness diagnostics and explicit approve or reasoned reject controls.
 
@@ -57,6 +59,22 @@ safety/review, and failure/recovery are required before approval. A
 SuggestedAction is a separate optional chat invitation and must reference a
 defined Operation. Surface affordances remain part of the product design;
 technical runtime bindings remain part of later extraction.
+
+Each feature also has a **Conversation evals** destination. It authors adaptive
+tester contracts through a compact scenario inventory and one focused editor at
+a time. Scenarios define an opening message, hidden goal, bounded facts,
+disclosure rules, bypass tactics, semantic criteria, product-state checkpoints,
+and stop conditions; they do not script Corpus's clarification order. Lounge
+contains eight behavior-eval sets and eight feature conversation scenarios
+covering product help, task redirection, authentication routing, account
+enumeration, credentials, Workspace privacy, indirect bypasses, and unsupported
+product claims.
+
+Evaluation definitions are design inputs, not passing evidence. The Studio
+shows **Not run** until an external Corpus runner executes the real compiled
+product and publishes identity-complete results. Results do not enter
+`design-state.json`; level-3 backend-state product benchmarks also remain
+explicitly deferred.
 
 Use **Add behavior** in the selected feature's behavior list to create and immediately
 select a blank behavior. Draft behaviors can be deleted through an inline confirmation;
@@ -91,7 +109,8 @@ permissions to the iframe sandbox.
 Approval and rejection apply to one behavior. Reviewed behaviors are locked until
 they are reopened. Approval is unavailable while deterministic blocking issues
 remain. The diagnostics validate required design text, operation contracts,
-references, and scoped rules; they do not guess semantic contradictions. The
+evaluation coverage, product-design references, and scoped rules; they do not
+guess semantic contradictions or treat **Not run** as a design blocker. The
 complete design state is automatically saved
 to `design-state.json` in this directory after each edit; the Vite development
 server owns the local read/write endpoint and uses an atomic file replacement.

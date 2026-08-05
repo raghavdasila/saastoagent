@@ -121,6 +121,15 @@ Detailed evidence: `logs/20260731_server_owned_conversations.md` and
 
 ## Known Risks And Next Step
 
+- Corpus self-evaluation now has an approved three-level design. Behavior-level
+  single-turn definitions and feature-level adaptive conversation definitions
+  are authored in the Agent Design Studio, with the Lounge V1 pack present and
+  truthfully marked `Not run`. Compiled-runtime execution, external result
+  artifacts, and implementation readiness remain pending. Stateful product
+  outcome benchmarks are explicitly deferred until real end-to-end Corpus
+  pathways exist; do not substitute fixtures or synthetic backend success. The
+  written design is
+  `docs/superpowers/specs/2026-08-05-corpus-self-evaluation-design.md`.
 - The normal `.runtime/routedeck.sqlite` may contain internal RouteDeck sessions
   created by pre-isolation restart probes. They were not directly deleted
   because no safe public RouteDeck deletion contract exists. New restart proofs

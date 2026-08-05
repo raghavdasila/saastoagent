@@ -5,6 +5,7 @@ import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { AgentPolicyList } from "@/workbench/AgentPolicyList"
+import { BehaviorEvalEditor } from "@/workbench/BehaviorEvalEditor"
 import { OperationInventory } from "@/workbench/OperationInventory"
 import { StudioSection } from "@/workbench/StudioSection"
 import type { CapabilityDesign, DesignStory, SuggestedActionDesign, SurfaceDesign } from "@/workbench/types"
@@ -141,6 +142,10 @@ export function BehaviorDesignEditor({ story, disabled, onChange }: {
             ))}
           </div>
         )}
+      </StudioSection>
+
+      <StudioSection id="behavior-evals-heading" title="Evals" description="Prove this behavior semantically and through product-state expectations. Runtime results remain external to design state.">
+        <BehaviorEvalEditor story={story} disabled={disabled} onChange={onChange} />
       </StudioSection>
     </div>
   )

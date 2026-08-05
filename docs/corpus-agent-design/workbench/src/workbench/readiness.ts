@@ -1,6 +1,7 @@
 import type { DesignStory } from "@/workbench/types"
+import { getBehaviorEvalReadiness } from "@/workbench/evaluationReadiness"
 
-export type ReadinessSection = "behavior" | "capabilities" | "surfaces" | "operations" | "suggested-actions" | "rules" | "preview"
+export type ReadinessSection = "behavior" | "capabilities" | "surfaces" | "operations" | "suggested-actions" | "rules" | "preview" | "evals"
 export type ReadinessSeverity = "blocking" | "warning"
 
 export interface ReadinessIssue {
@@ -108,6 +109,10 @@ export function getStoryReadiness(story: DesignStory): StoryReadiness {
   })
   if (story.messages.length === 0 && story.mockSurfacePath === null) {
     warn("preview-missing", "preview", "No interaction preview is defined. This is valid when a preview would not improve review.", "interaction-preview")
+  }
+
+  for (const issue of getBehaviorEvalReadiness(story).issues) {
+    block(`eval-${issue.id}`, "evals", issue.message, issue.targetId)
   }
 
   const blockers = issues.filter((issue) => issue.severity === "blocking")

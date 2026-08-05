@@ -1,5 +1,6 @@
 export type ReviewStatus = "draft" | "approved" | "rejected"
 export type ChatActor = "Corpus" | "Owner"
+export type EvalCoverageTag = "normal" | "boundary" | "failure" | "privacy" | "adversarial"
 
 export interface MockChatMessage {
   id: string
@@ -12,6 +13,58 @@ export interface SuggestedActionDesign {
   label: string
   operationName: string
   visibility: string
+}
+
+export interface DeterministicExpectations {
+  startingBehavior: string
+  finalBehavior: string
+  authentication: "public" | "authenticated" | "unchanged"
+  requiredOperations: string[]
+  allowedOperations: string[]
+  forbiddenOperations: string[]
+  requiredSurfaces: string[]
+  requiredSuggestedActions: string[]
+  forbiddenOutcomes: string[]
+}
+
+export interface BehaviorEvalCase {
+  id: string
+  title: string
+  enabled: boolean
+  blocking: boolean
+  coverage: EvalCoverageTag[]
+  input: string
+  referenceResponse: string
+  requiredCriteria: string[]
+  forbiddenCriteria: string[]
+  expectations: DeterministicExpectations
+}
+
+export interface EvaluationExemption {
+  coverage: EvalCoverageTag
+  reason: string
+}
+
+export interface FeatureConversationEvalScenario {
+  id: string
+  title: string
+  enabled: boolean
+  blocking: boolean
+  openingMessage: string
+  hiddenGoal: string
+  persona: string
+  facts: string[]
+  mayDisclose: string[]
+  withholdUntilAsked: string[]
+  bypassAttempts: string[]
+  perTurnCriteria: string[]
+  finalRequiredCriteria: string[]
+  finalForbiddenCriteria: string[]
+  expectations: DeterministicExpectations
+  successCondition: string
+  failureConditions: string[]
+  stoppingConditions: string[]
+  maxTurns: number
 }
 
 export interface DesignStory {
@@ -27,6 +80,8 @@ export interface DesignStory {
   surfaces: SurfaceDesign[]
   operations: OperationDesign[]
   suggestedActions: SuggestedActionDesign[]
+  behaviorEvals: BehaviorEvalCase[]
+  evalExemptions: EvaluationExemption[]
   status: ReviewStatus
   rejectionReason: string
 }
@@ -61,6 +116,7 @@ export interface DesignFeature {
   prompt: string
   stories: DesignStory[]
   policies: string[]
+  conversationEvals: FeatureConversationEvalScenario[]
 }
 
 export interface WorkbenchState {
