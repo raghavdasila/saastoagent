@@ -34,11 +34,12 @@ only after authenticated owner context exists.
 
 Define the owner workspace, agent creation and management journey, and how an agent connects to its configuration, sources, versions, and deployed URL.
 
-The workbench preserves the six currently implemented account-entry and
-recovery behaviors under Lounge and sign-out under Workspace as an approved,
-implementation-backed baseline. This does not approve the remaining Lounge,
-Workspace, or Agents design, and it does not introduce deployed-agent user
-authentication into Slice 1.
+The workbench preserves the implementation-backed account-entry and recovery
+paths under Lounge and sign-out under Workspace. Lounge was reopened as draft
+after its operation contracts were made explicit; Studio approval now requires
+complete inputs, outcomes, safety/review, and recovery semantics. This does not
+approve Workspace or Agents design, and it does not introduce deployed-agent
+user authentication into Slice 1.
 
 ### Slice 2: Source, API, and Evaluation
 

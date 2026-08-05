@@ -18,15 +18,16 @@ corrects, and explicitly approves or rejects each behavior. The preview presents
 the same task as two separate interaction paths: structured surface and chat.
 
 **Lounge** is the unauthenticated product home for general product help and
-account entry or recovery. Its six implementation-backed authentication stories
-are approved. **Workspace** is the authenticated owner home; its sign-out story
+account entry or recovery. Its eight behaviors now carry complete, explicit
+operation contracts and are drafts awaiting renewed review after that design
+change. **Workspace** is the authenticated owner home; its sign-out story
 is also implementation-backed and approved. **Agents** owns agent identity,
 configuration overview, source handoffs, and lifecycle actions without a
 product-level draft-agent concept. **Source Hub** owns source inventory and the
 only launch entry into **API Source**, which owns OpenAPI intake, connection
 configuration, ToolRouter processing, graph inspection and replay, operation
-curation, and explicit recovery. These approved stories lock current-product
-behavior only; **Reopen draft** remains the explicit way to reconsider one.
+curation, and explicit recovery. Approved stories lock current-product behavior
+only; **Reopen draft** remains the explicit way to reconsider one.
 
 Each behavior keeps the review unit deliberately small:
 
@@ -38,30 +39,33 @@ Each behavior keeps the review unit deliberately small:
 - editable Capabilities, Surfaces, and Operations with scoped AgentPolicies;
 - optional SuggestedActions kept separate from Operations and bound to one of them;
 - an optional static surface rendered separately from the chat path in a tightly sandboxed iframe; and
-- explicit approve or reasoned reject controls.
+- deterministic completeness diagnostics and explicit approve or reasoned reject controls.
 
-The dedicated **Feature policies** destination contains feature-scoped
-`AgentPolicy` instructions only. Every behavior is the human-readable design
+The dedicated **Feature guidance** and **Feature rules** destinations separate
+product framing from feature-scoped `AgentPolicy` instructions. Every behavior is the human-readable design
 unit for one provisional feature Node and owns its Node, Capability, Surface,
 and Operation AgentPolicies. The studio neither asks for nor displays RouteDeck
 declaration IDs, and it does not claim to compute effective runtime policy.
 Declaration references and resolution belong to complete RouteDeck extraction.
 
-Operations are first-class design objects with a name and intended effect. The
+Operations are first-class design objects with a name and intended effect. A
+compact inventory exposes contract status and opens one focused editor at a time. The
 effect states the product result, state transition, navigation outcome, or
 observed response produced by the Operation; it does not restate the
-SuggestedAction that exposes it. Inputs, outcomes, safety/review, and recovery are expandable details. A
+SuggestedAction that exposes it. Inputs and prerequisites, observable outcomes,
+safety/review, and failure/recovery are required before approval. A
 SuggestedAction is a separate optional chat invitation and must reference a
-defined Operation. Surface affordances and complete runtime contracts remain
-part of later extraction.
+defined Operation. Surface affordances remain part of the product design;
+technical runtime bindings remain part of later extraction.
 
 Use **Add behavior** in the selected feature's behavior list to create and immediately
 select a blank behavior. Draft behaviors can be deleted through an inline confirmation;
 reviewed behaviors must be reopened before they can be deleted. Desktop uses a
-three-region studio shell: project navigation, the Node editor, and the behavior
-preview. The preview keeps Surface path above Chat path. Mobile collapses the
-project navigator into an overlay rail and keeps the working region free of
-document-level horizontal overflow.
+review-first studio shell: project navigation, a structured behavior document,
+and a tabbed review pane for Surface, Chat, Completeness, and scoped Rules.
+Narrow layouts switch between **Design** and **Preview & review** instead of
+compressing both panes. Mobile also collapses the project navigator into an
+overlay rail and keeps the working region free of document-level horizontal overflow.
 
 The shell, navigation, editor sections, controls, and state presentation are
 modular. Product/project copy lives in `src/workbench/studioConfig.ts`; the
@@ -85,7 +89,10 @@ same choice through their own `prefers-color-scheme` styles; this does not add
 permissions to the iframe sandbox.
 
 Approval and rejection apply to one behavior. Reviewed behaviors are locked until
-they are reopened. The complete design state is automatically saved
+they are reopened. Approval is unavailable while deterministic blocking issues
+remain. The diagnostics validate required design text, operation contracts,
+references, and scoped rules; they do not guess semantic contradictions. The
+complete design state is automatically saved
 to `design-state.json` in this directory after each edit; the Vite development
 server owns the local read/write endpoint and uses an atomic file replacement.
 **Export JSON** downloads a formatted snapshot of the current in-memory design

@@ -18,6 +18,8 @@
   --studio-accent-soft: oklch(0.94 0.035 253);
   --studio-success: oklch(0.57 0.14 165);
   --studio-success-soft: oklch(0.95 0.035 165);
+  --studio-warning: oklch(0.68 0.15 72);
+  --studio-warning-soft: oklch(0.96 0.045 84);
   --studio-danger: oklch(0.58 0.21 27);
   --studio-danger-soft: oklch(0.96 0.035 27);
 
@@ -90,6 +92,8 @@
   --studio-accent-soft: #143814;
   --studio-success: oklch(0.72 0.14 165);
   --studio-success-soft: oklch(0.27 0.05 165);
+  --studio-warning: oklch(0.8 0.14 84);
+  --studio-warning-soft: oklch(0.25 0.045 84);
   --studio-danger: oklch(0.7 0.17 27);
   --studio-danger-soft: oklch(0.27 0.055 27);
   --studio-shadow-panel: 0 1px 2px oklch(0.04 0 0 / 0.35);

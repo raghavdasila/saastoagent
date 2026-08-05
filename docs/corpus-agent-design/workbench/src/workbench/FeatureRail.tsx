@@ -1,4 +1,5 @@
 import {
+  AlertCircle,
   CheckCircle2,
   Circle,
   MessageSquareText,
@@ -11,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { STUDIO_CONFIG } from "@/workbench/studioConfig"
+import { getStoryReadiness } from "@/workbench/readiness"
 import type { DesignFeature, ReviewStatus } from "@/workbench/types"
 
 const statusIcon: Record<ReviewStatus, typeof Circle> = {
@@ -147,11 +149,14 @@ export function FeatureRail({
           </div>
           <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
             {selectedFeature.stories.map((story) => {
+              const readiness = getStoryReadiness(story)
               const StatusIcon = statusIcon[story.status]
               const selected = selectedView === "behavior" && story.id === selectedStoryId
+              const stateLabel = readiness.isReady ? story.status : `${readiness.blockers.length} blocking issues`
               return (
                 <Button
                   key={story.id}
+                  aria-label={`${story.title} · ${stateLabel}`}
                   variant="ghost"
                   className={cn(
                     "h-auto min-h-9 w-full justify-start border border-transparent px-2.5 py-1.5 text-left !text-[13px] !leading-4 whitespace-normal focus-visible:ring-2",
@@ -159,7 +164,7 @@ export function FeatureRail({
                   )}
                   onClick={() => selectStory(story.id)}
                 >
-                  <StatusIcon
+                  {readiness.isReady ? <StatusIcon
                     data-icon="inline-start"
                     className={cn(
                       "size-3.5",
@@ -168,8 +173,9 @@ export function FeatureRail({
                       story.status === "rejected" && "text-destructive",
                     )}
                     strokeWidth={1.8}
-                  />
-                  <span>{story.title}</span>
+                  /> : <AlertCircle data-icon="inline-start" className="size-3.5 text-[var(--studio-warning)]" strokeWidth={1.8} />}
+                  <span className="min-w-0 flex-1">{story.title}</span>
+                  {!readiness.isReady && <span className="studio-rail-issue-count" aria-hidden="true">{readiness.blockers.length}</span>}
                 </Button>
               )
             })}

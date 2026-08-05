@@ -5,15 +5,17 @@ import { Button } from "@/components/ui/button"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Textarea } from "@/components/ui/textarea"
 import type { DesignStory } from "@/workbench/types"
+import type { StoryReadiness } from "@/workbench/readiness"
 
 interface ReviewControlsProps {
   story: DesignStory
+  readiness: StoryReadiness
   canDelete: boolean
   onChange: (patch: Partial<DesignStory>, reopen?: boolean) => void
   onDelete: () => void
 }
 
-export function ReviewControls({ story, canDelete, onChange, onDelete }: ReviewControlsProps) {
+export function ReviewControls({ story, readiness, canDelete, onChange, onDelete }: ReviewControlsProps) {
   const [validationError, setValidationError] = useState("")
   const [isRejecting, setIsRejecting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -60,6 +62,11 @@ export function ReviewControls({ story, canDelete, onChange, onDelete }: ReviewC
 
   return (
     <div className="flex flex-col gap-3">
+      {!readiness.isReady && (
+        <p id="approval-readiness-message" className="text-xs text-[var(--studio-warning)]">
+          Resolve {readiness.blockers.length} blocking {readiness.blockers.length === 1 ? "issue" : "issues"} before approval.
+        </p>
+      )}
       {isRejecting && (
         <Field data-invalid={Boolean(validationError)}>
           <FieldLabel htmlFor="rejection-reason">Why reject this behavior?</FieldLabel>
@@ -94,7 +101,7 @@ export function ReviewControls({ story, canDelete, onChange, onDelete }: ReviewC
             <Button variant="destructive" onClick={() => setIsRejecting(true)}>
               <X data-icon="inline-start" /> Reject behavior
             </Button>
-            <Button onClick={() => onChange({ status: "approved", rejectionReason: "" }, true)}>
+            <Button disabled={!readiness.isReady} aria-describedby={!readiness.isReady ? "approval-readiness-message" : undefined} onClick={() => onChange({ status: "approved", rejectionReason: "" }, true)}>
               <Check data-icon="inline-start" /> Approve behavior
             </Button>
           </>

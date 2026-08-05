@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { MessageSquareText, ShieldCheck } from "lucide-react"
+import { FileText, MessageSquareText, ScanSearch, ShieldCheck } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -7,9 +7,10 @@ import { AgentPolicyList } from "@/workbench/AgentPolicyList"
 import { BehaviorDesignEditor } from "@/workbench/BehaviorDesignEditor"
 import { FeatureRail } from "@/workbench/FeatureRail"
 import { ReviewControls } from "@/workbench/ReviewControls"
+import { ReviewPanel } from "@/workbench/ReviewPanel"
 import { StoryEditor } from "@/workbench/StoryEditor"
 import { StudioHeader, type SaveStatus } from "@/workbench/StudioHeader"
-import { SurfacePreview } from "@/workbench/SurfacePreview"
+import { getStoryReadiness } from "@/workbench/readiness"
 import {
   exportWorkbenchState,
   loadWorkbenchState,
@@ -29,6 +30,7 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saving")
   const [theme, setTheme] = useState<Theme>(loadTheme)
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false)
+  const [workspacePanel, setWorkspacePanel] = useState<"design" | "review">("design")
 
   useEffect(() => {
     applyTheme(theme)
@@ -109,6 +111,7 @@ export default function App() {
   const state = loaded.state
   const selectedFeature = state.features.find((feature) => feature.id === selectedFeatureId) ?? state.features[0]
   const selectedStory = selectedFeature.stories.find((story) => story.id === selectedStoryId) ?? selectedFeature.stories[0]
+  const selectedReadiness = getStoryReadiness(selectedStory)
 
   function commit(nextState: WorkbenchState) {
     setLoaded({ ok: true, state: nextState, source: "saved" })
@@ -139,11 +142,13 @@ export default function App() {
     setSelectedFeatureId(feature.id)
     setSelectedStoryId(feature.stories[0]?.id ?? "")
     setSelectedView("behavior")
+    setWorkspacePanel("design")
   }
 
   function selectStory(storyId: string) {
     setSelectedStoryId(storyId)
     setSelectedView("behavior")
+    setWorkspacePanel("design")
   }
 
   function addStory() {
@@ -198,6 +203,11 @@ export default function App() {
     } catch { /* Theme is a browser preference, not design state. */ }
   }
 
+  function navigateToDesignTarget(targetId: string) {
+    setWorkspacePanel("design")
+    window.requestAnimationFrame(() => document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "center" }))
+  }
+
   return (
     <div className="studio-shell">
       <StudioHeader
@@ -237,7 +247,7 @@ export default function App() {
                 </div>
               </div>
               <div className="studio-object-card bg-card p-4 sm:p-5">
-                <label className="text-xs font-medium" htmlFor="feature-agent-prompt">{selectedFeature.name} Feature prompt</label>
+                <label className="text-xs font-medium" htmlFor="feature-agent-prompt">{selectedFeature.name} feature guidance</label>
                 <Textarea
                   id="feature-agent-prompt"
                   className="mt-2 min-h-56"
@@ -264,7 +274,7 @@ export default function App() {
               <div className="studio-object-card bg-card p-4 sm:p-5">
                 <AgentPolicyList
                   policies={selectedFeature.policies}
-                  label={`${selectedFeature.name} Feature AgentPolicy`}
+                  label={`${selectedFeature.name} feature rule`}
                   onChange={(policies) => updateFeature({ policies })}
                 />
               </div>
@@ -272,9 +282,13 @@ export default function App() {
           </main>
         ) : (
           <main className="studio-main">
-            <div className="studio-design-grid">
-              <div data-editor-pane className="studio-editor-pane">
-                <div data-editor-scroll className="studio-editor-scroll px-4 py-5 sm:px-5">
+            <div className="studio-workspace-switcher" role="tablist" aria-label="Behavior workspace">
+              <button type="button" role="tab" aria-selected={workspacePanel === "design"} onClick={() => setWorkspacePanel("design")}><FileText aria-hidden="true" /> Design</button>
+              <button type="button" role="tab" aria-selected={workspacePanel === "review"} onClick={() => setWorkspacePanel("review")}><ScanSearch aria-hidden="true" /> Preview & review {selectedReadiness.blockers.length > 0 && <span>{selectedReadiness.blockers.length}</span>}</button>
+            </div>
+            <div className="studio-design-grid" data-workspace-panel={workspacePanel}>
+              <div data-editor-pane className="studio-editor-pane" data-active={workspacePanel === "design"}>
+                <div data-editor-scroll className="studio-editor-scroll studio-behavior-document px-4 py-5 sm:px-5">
                   <StoryEditor story={selectedStory} disabled={selectedStory.status !== "draft"} onChange={updateStory} />
                   <BehaviorDesignEditor story={selectedStory} disabled={selectedStory.status !== "draft"} onChange={updateStory} />
                 </div>
@@ -282,14 +296,15 @@ export default function App() {
                   <ReviewControls
                     key={selectedStory.id}
                     story={selectedStory}
+                    readiness={selectedReadiness}
                     canDelete={selectedFeature.stories.length > 1}
                     onChange={updateStory}
                     onDelete={deleteSelectedStory}
                   />
                 </div>
               </div>
-              <div data-surface-pane className="studio-preview-pane">
-                <SurfacePreview story={selectedStory} theme={theme} />
+              <div data-surface-pane className="studio-preview-pane" data-active={workspacePanel === "review"}>
+                <ReviewPanel story={selectedStory} readiness={selectedReadiness} theme={theme} onNavigate={navigateToDesignTarget} />
               </div>
             </div>
           </main>

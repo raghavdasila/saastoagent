@@ -23,8 +23,6 @@ const BEHAVIOR_POLICY_SEED: Record<string, PolicySeed[]> = {
     ["operation", "Start product help", "Silently enter product-help context before answering a substantive Corpus product question from Lounge home; never mention the operation, tool, or Node name in product output."],
     ["operation", "Open owner registration", "Open account creation without implying that an account has already been created."],
     ["operation", "Open owner sign-in", "Open sign-in without implying that the visitor is already authenticated."],
-    ["operation", "Open password reset link", "Open password reset only from the matching one-time recovery route; never claim that the token is valid before validation."],
-    ["operation", "Open email verification link", "Open email verification only from the matching one-time verification route; never claim that the token is valid before validation."],
   ],
   "lounge-product-help": [
     ["operation", "Return to Lounge", "Return to Lounge orientation without claiming that another product task completed."],
@@ -34,7 +32,7 @@ const BEHAVIOR_POLICY_SEED: Record<string, PolicySeed[]> = {
   "owner-auth-register": [
     ["surface", "Create owner account surface", "Keep password values private and masked; never repeat credentials in chat, confirmation text, or persisted design-visible state."],
     ["operation", "Create owner account", "Submit account creation only after required fields are valid and only after the visitor explicitly chooses Create account."],
-    ["operation", "Create owner account", "Claim success only after the owner identity and personal Workspace are created; report partial continuation failure without recreating the account."],
+    ["operation", "Create owner account", "Claim success only after the owner identity, personal Workspace, authenticated session, and Workspace entry are established as one accepted result."],
     ["operation", "Continue to Workspace", "Continue only an already-authenticated owner into the authorized Workspace; never recreate the account or resubmit credentials."],
     ["operation", "Return to Lounge", "Leave account creation without submitting or retaining an incomplete credential form."],
   ],
@@ -58,7 +56,7 @@ const BEHAVIOR_POLICY_SEED: Record<string, PolicySeed[]> = {
   ],
   "owner-auth-request-verification": [
     ["operation", "Request verification delivery", "Request another verification message only after the owner explicitly asks; do not send automatically or repeatedly."],
-    ["operation", "Request verification delivery", "Report the actual delivery request result, and do not block otherwise permitted Workspace use when verification remains pending."],
+    ["operation", "Request verification delivery", "Report request acceptance, rate limiting, or service unavailability without presenting acceptance as recipient delivery or successful verification."],
     ["operation", "Return to Workspace", "Return to the authenticated Workspace without treating pending verification as a blocker."],
   ],
   "owner-auth-confirm-verification": [
@@ -207,7 +205,7 @@ const OPERATION_INTENDED_EFFECTS: Record<string, string> = {
   "Authenticate owner": "Validate the submitted credentials, establish the owner session, and resume only the Workspace authorized for that owner.",
   "Request password recovery": "Create an account-neutral recovery request and request delivery of a one-time recovery link when an eligible account exists.",
   "Change owner password": "Replace the password using a valid one-time recovery token, revoke existing sessions, and return the owner to sign-in.",
-  "Request verification delivery": "Request delivery of a fresh one-time verification link for the signed-in owner and return the actual delivery result.",
+  "Request verification delivery": "Request a fresh one-time verification link for the signed-in owner and report the observed request result without claiming recipient delivery.",
   "Confirm owner email": "Validate the one-time verification token, mark the bound owner email as verified, and refresh owner state.",
   "Navigate from Workspace overview": "Open the selected owning feature while preserving the authenticated Workspace and conversation context.",
   "Open relevant product feature": "Open the feature relevant to the product question while preserving the authenticated Workspace context.",
@@ -236,6 +234,93 @@ const OPERATION_INTENDED_EFFECTS: Record<string, string> = {
   "Control graph replay": "Change the playback position of the persisted construction trace without rerunning processing or mutating the graph.",
   "Save operation curation": "Persist the owner's exact included and excluded discovered operations for the selected API revision.",
   "Retry API processing": "Start a new attempt for the failed processing step using the corrected input while retaining the original failure evidence.",
+}
+
+type OperationContract = Pick<OperationDesign, "inputs" | "outcomes" | "safetyAndReview" | "recovery">
+
+const OPERATION_CONTRACTS: Record<string, OperationContract> = {
+  "Start product help": {
+    inputs: "A public question about Corpus or an explicit choice to ask for product help. No account credentials or private Workspace state.",
+    outcomes: "Product-help context becomes active and the question can be answered under Lounge rules. If the context cannot open, Lounge home remains active and no answer is claimed.",
+    safetyAndReview: "Keep the interaction about Corpus only. Do not perform the visitor's task, expose private state, or describe unknown product behavior as available.",
+    recovery: "Keep Lounge home active, state that product help could not be opened, and invite the visitor to try again without substituting an ungrounded answer.",
+  },
+  "Open owner registration": {
+    inputs: "The visitor explicitly chooses account creation. No account or credential submission occurs during navigation.",
+    outcomes: "The owner-registration surface becomes visible while the public conversation remains available. Navigation failure leaves the current Lounge behavior unchanged.",
+    safetyAndReview: "Do not imply that an account exists or has been created. Credentials remain outside chat and are collected only by the private registration surface.",
+    recovery: "Remain in the current Lounge behavior, report that registration could not be opened, and allow another explicit attempt.",
+  },
+  "Open owner sign-in": {
+    inputs: "The visitor explicitly chooses sign-in. No credential validation occurs during navigation.",
+    outcomes: "The owner sign-in surface becomes visible while the public conversation remains available. Navigation failure leaves the current Lounge behavior unchanged.",
+    safetyAndReview: "Do not imply that the visitor is authenticated. Credentials remain outside chat and are collected only by the private sign-in surface.",
+    recovery: "Remain in the current Lounge behavior, report that sign-in could not be opened, and allow another explicit attempt.",
+  },
+  "Return to Lounge": {
+    inputs: "The visitor explicitly cancels or chooses to return. No pending form is submitted.",
+    outcomes: "Public Lounge orientation becomes active without claiming that the behavior being left completed. If navigation fails, the current behavior remains visible.",
+    safetyAndReview: "Do not submit credentials, consume one-time tokens, or retain incomplete private-form values as part of returning.",
+    recovery: "Keep the current behavior visible, report that Lounge could not be opened, and allow the visitor to retry or remain safely in place.",
+  },
+  "Create owner account": {
+    inputs: "Valid private registration fields and the visitor's explicit Create account submission.",
+    outcomes: "The owner identity, personal Workspace, authenticated session, and Workspace entry succeed as one accepted result. Validation, duplicate-account, persistence, or continuation failure produces no successful registration claim.",
+    safetyAndReview: "Keep credentials private, do not reveal whether a submitted email is already registered, and claim completion only from the authenticated Workspace result.",
+    recovery: "Keep the failure visible and allow the visitor to correct or resubmit the private form. Never retry automatically or claim a partially completed account flow.",
+  },
+  "Continue to Workspace": {
+    inputs: "A valid authenticated owner session already established by the current browser context.",
+    outcomes: "The Workspace authorized for that owner becomes active. Missing or invalid authenticated context remains a visible continuation failure.",
+    safetyAndReview: "Never create an account, resubmit credentials, or accept a user-supplied Workspace identity while continuing.",
+    recovery: "Remain on the current account surface, preserve the known authentication truth, and offer sign-in or another valid account path when authorization is unavailable.",
+  },
+  "Authenticate owner": {
+    inputs: "Private email and password fields plus the visitor's explicit Sign in submission.",
+    outcomes: "Valid credentials establish the owner session and open only the authorized Workspace. Every invalid, unavailable, or rejected attempt returns a generic sign-in failure and exposes no private state.",
+    safetyAndReview: "Keep credentials outside chat, apply authentication limits, and do not distinguish unknown email, wrong password, disabled account, or other account-specific causes in public output.",
+    recovery: "Keep the generic failure visible and allow an explicit retry or password-recovery choice. Never retry credentials automatically.",
+  },
+  "Open password recovery": {
+    inputs: "The visitor explicitly chooses password recovery from sign-in. No account-existence check is exposed during navigation.",
+    outcomes: "The account-neutral password-recovery request surface becomes visible. Navigation failure leaves sign-in unchanged.",
+    safetyAndReview: "Do not reveal whether the entered or remembered email belongs to an account and do not transfer credentials from sign-in.",
+    recovery: "Remain on sign-in, report that recovery could not be opened, and allow another explicit attempt or return to Lounge.",
+  },
+  "Request password recovery": {
+    inputs: "A privately entered email address and the visitor's explicit recovery request.",
+    outcomes: "Corpus accepts the request with the same generic confirmation regardless of account existence. Independently known delivery-service unavailability remains explicit; acceptance is not proof of delivery.",
+    safetyAndReview: "Never reveal account existence, recipient-specific delivery status, a reset token, or the submitted email in chat. Apply request limits before accepting another request.",
+    recovery: "Keep a delivery-system failure visible without identifying account existence. Allow a later explicit retry; never silently retry or substitute a success confirmation.",
+  },
+  "Change owner password": {
+    inputs: "A captured valid one-time recovery token, valid private new-password fields, and explicit submission.",
+    outcomes: "A valid request changes the password, revokes existing sessions, removes the token from visible state, and returns to sign-in. Missing, invalid, expired, or rejected requests leave the password unchanged.",
+    safetyAndReview: "Never expose the token or passwords in chat or visible persisted state. Do not claim success until the password change and session revocation both complete.",
+    recovery: "Show an explicit invalid, expired, or unavailable result and offer a new recovery request or return to Lounge. Never reuse or silently replace the token.",
+  },
+  "Request verification delivery": {
+    inputs: "A signed-in owner with pending email verification and an explicit request for another verification message.",
+    outcomes: "The request is accepted, rate-limited, or unavailable as observed. Acceptance is not proof of recipient delivery or successful verification, and permitted Workspace use remains available.",
+    safetyAndReview: "Authorize the signed-in owner and enforce resend limits before requesting delivery. Do not expose tokens or recipient-specific mail-system details.",
+    recovery: "Keep rate-limit or delivery-service failure visible and allow return to Workspace. Never resend automatically or present a failed request as accepted.",
+  },
+  "Return to Workspace": {
+    inputs: "The signed-in owner explicitly chooses to return. No verification request or token confirmation is performed.",
+    outcomes: "The authenticated Workspace becomes active without changing or overstating email-verification state.",
+    safetyAndReview: "Do not treat pending verification as a blocker unless a separately designed product rule requires it.",
+    recovery: "Keep the verification behavior visible, report that Workspace could not be opened, and preserve the actual verification state.",
+  },
+  "Confirm owner email": {
+    inputs: "A captured one-time verification token from the matching verification route and the owner's explicit confirmation action.",
+    outcomes: "A valid token updates the bound email and refreshed owner state confirms it as verified. Missing, invalid, expired, or rejected tokens remain explicit failures with no verified claim.",
+    safetyAndReview: "Keep the token out of the visible URL, chat, and persisted visible state. Never claim verification from token acceptance alone; require refreshed owner-state evidence.",
+    recovery: "Show the exact valid user-facing failure category, preserve the unverified state, and offer a new verification request or safe return without silently retrying.",
+  },
+}
+
+function operationContract(operationName: string): OperationContract {
+  return OPERATION_CONTRACTS[operationName] ?? { inputs: "", outcomes: "", safetyAndReview: "", recovery: "" }
 }
 
 function operationIntendedEffect(operationName: string): string {
@@ -278,7 +363,7 @@ const NODE_TEMPLATE_SEED: Record<string, NodeTemplate[]> = {
       context: "Public account-creation location where a visitor supplies the information needed to become a Corpus owner.",
       policies: [
         "Keep credential input private and do not expose authenticated Workspace state before account creation and continuation succeed.",
-        "Preserve partial-success truth when identity creation succeeds but authenticated continuation fails.",
+        "Treat owner identity, personal Workspace, authenticated session, and Workspace entry as one accepted registration result.",
       ],
       capabilities: [
         {
@@ -286,7 +371,7 @@ const NODE_TEMPLATE_SEED: Record<string, NodeTemplate[]> = {
           purpose: "Validate account details, create the owner identity and personal Workspace, and continue into authenticated context.",
           policies: [
             "Create an account only from explicit valid input and never repeat password values in chat or visible confirmation.",
-            "Do not retry identity creation after partial success; continue or report the exact continuation failure instead.",
+            "On validation, duplicate-account, persistence, or continuation failure, keep registration unsuccessful and expose no account-existence detail.",
           ],
         },
       ],
@@ -348,7 +433,7 @@ const NODE_TEMPLATE_SEED: Record<string, NodeTemplate[]> = {
           purpose: "Request a fresh verification message for the signed-in owner's pending email.",
           policies: [
             "Operate only on the signed-in owner and send only after an explicit request.",
-            "Report the actual delivery request result without describing a request as successful verification.",
+            "Report request acceptance, rate limiting, or service unavailability without describing acceptance as recipient delivery or successful verification.",
           ],
         },
         {
@@ -745,10 +830,7 @@ function scopedDesign(id: string, title: string): { surfaces: SurfaceDesign[]; o
     operations: [...groupedOperations].map(([name, policies]) => ({
       name,
       purpose: operationIntendedEffect(name),
-      inputs: "",
-      outcomes: "",
-      safetyAndReview: "",
-      recovery: "",
+      ...operationContract(name),
       policies,
     })),
   }
@@ -772,10 +854,7 @@ function story(
       operations.push({
         name: operationName,
         purpose: operationIntendedEffect(operationName),
-        inputs: "",
-        outcomes: "",
-        safetyAndReview: "",
-        recovery: "",
+        ...operationContract(operationName),
         policies: [],
       })
     }
@@ -847,11 +926,11 @@ export function createSeedState(): WorkbenchState {
             "owner-auth-register",
             "Create an owner account",
             "Create an account and enter my private Workspace.",
-            "Create the owner identity and continue into the owner's Workspace without overstating partial success.",
-            "A Lounge visitor signs up with the required account details. Corpus creates the owner account and personal Workspace, signs the owner in, and enters Workspace. If account creation succeeds but continuation fails, Corpus keeps the authenticated state valid and reports the continuation failure.",
+            "Create the owner identity, personal Workspace, authenticated session, and Workspace entry as one accepted registration result.",
+            "A Lounge visitor signs up with valid private account details. Corpus completes owner identity, personal Workspace, authenticated session, and Workspace entry before claiming success. Validation, duplicate-account, persistence, or continuation failure remains an unsuccessful registration result and does not reveal whether the email is already registered.",
             "I want to create an account.",
             "Sign up here. When account creation completes, I will take you into your Workspace.",
-            { suggestedActions: [{ id: "register-submit", label: "Sign up" }, { id: "register-continue", label: "Continue to Workspace" }], surface: "/mock-surfaces/workspace/authentication.html#register", status: "approved" },
+            { suggestedActions: [{ id: "register-submit", label: "Sign up" }, { id: "register-continue", label: "Continue to Workspace" }], surface: "/mock-surfaces/workspace/authentication.html#register" },
           ),
           story(
             "owner-auth-sign-in",
@@ -861,7 +940,7 @@ export function createSeedState(): WorkbenchState {
             "An existing owner signs in from Lounge with email and password. Corpus resumes only that owner's Workspace. Invalid credentials remain a visible failure and do not open private state.",
             "I already have a Corpus account.",
             "Sign in to resume the Workspace associated with your account.",
-            { suggestedActions: [{ id: "sign-in-submit", label: "Sign in" }, { id: "sign-in-continue", label: "Continue to Workspace" }], surface: "/mock-surfaces/workspace/authentication.html#sign-in", status: "approved" },
+            { suggestedActions: [{ id: "sign-in-submit", label: "Sign in" }, { id: "sign-in-continue", label: "Continue to Workspace" }], surface: "/mock-surfaces/workspace/authentication.html#sign-in" },
           ),
           story(
             "owner-auth-request-reset",
@@ -871,7 +950,7 @@ export function createSeedState(): WorkbenchState {
             "A visitor submits an email for password recovery. Corpus shows the same generic confirmation whether or not the account exists. A delivery-service outage may be reported only when it is known independently of the submitted account; recipient-specific delivery results never reveal account existence.",
             "I forgot my password.",
             "Enter your email to request recovery. The confirmation will not reveal whether an account exists.",
-            { suggestedActions: [{ id: "request-reset-submit", label: "Send recovery link" }], surface: "/mock-surfaces/workspace/authentication.html#request-reset", status: "approved" },
+            { suggestedActions: [{ id: "request-reset-submit", label: "Send recovery link" }], surface: "/mock-surfaces/workspace/authentication.html#request-reset" },
           ),
           story(
             "owner-auth-confirm-reset",
@@ -881,17 +960,17 @@ export function createSeedState(): WorkbenchState {
             "An owner opens a one-time reset link and chooses a new password. Corpus removes the token from the visible URL, changes the password, revokes existing sessions, and returns to sign-in. Missing, invalid, or expired links remain explicit failures.",
             "Use this recovery link and change my password.",
             "Choose a new password. Completing this will sign out existing sessions and return you to sign-in.",
-            { suggestedActions: [{ id: "confirm-reset-submit", label: "Set new password" }], surface: "/mock-surfaces/workspace/authentication.html#reset-password", status: "approved" },
+            { suggestedActions: [{ id: "confirm-reset-submit", label: "Set new password" }], surface: "/mock-surfaces/workspace/authentication.html#reset-password" },
           ),
           story(
             "owner-auth-request-verification",
             "Resend email verification",
             "Receive a fresh verification email for my signed-in account.",
-            "Request a new verification message and report whether delivery succeeded or is unavailable.",
-            "A signed-in owner whose email is pending verification asks for another verification message. Corpus requests delivery and reports the actual result without blocking permitted Workspace use.",
+            "Request a new verification message and distinguish request acceptance, rate limiting, and service unavailability without claiming recipient delivery.",
+            "A signed-in owner whose email is pending verification asks for another verification message. Corpus reports whether the request was accepted, rate-limited, or unavailable; acceptance is not presented as recipient delivery or successful verification, and permitted Workspace use remains available.",
             "Send the verification email again.",
-            "I will request a fresh verification message and report whether delivery succeeds.",
-            { suggestedActions: [{ id: "resend-verification", label: "Resend verification" }, { id: "verification-return", label: "Return to Workspace" }], status: "approved" },
+            "I will request a fresh verification message and report whether the request is accepted, limited, or unavailable.",
+            { suggestedActions: [{ id: "resend-verification", label: "Resend verification" }, { id: "verification-return", label: "Return to Workspace" }] },
           ),
           story(
             "owner-auth-confirm-verification",
@@ -901,7 +980,7 @@ export function createSeedState(): WorkbenchState {
             "An owner opens a one-time verification link. Corpus removes its token from the visible URL, verifies the address, refreshes owner state, and shows the result. Missing, invalid, or expired links remain explicit failures.",
             "Verify this email address.",
             "I will validate the one-time link and show the verification result.",
-            { suggestedActions: [{ id: "confirm-verification", label: "Verify email" }], surface: "/mock-surfaces/workspace/authentication.html#verify-email", status: "approved" },
+            { suggestedActions: [{ id: "confirm-verification", label: "Verify email" }], surface: "/mock-surfaces/workspace/authentication.html#verify-email" },
           ),
         ],
       },

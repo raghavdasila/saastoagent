@@ -4,20 +4,20 @@ export const STUDIO_CONFIG = {
   exportLabel: "Export JSON",
   exportFilename: "corpus-agent-design.json",
   behaviorCollectionLabel: "Behaviors",
-  featurePromptLabel: "Feature prompt",
-  featurePolicyLabel: "Feature policies",
+  featurePromptLabel: "Feature guidance",
+  featurePolicyLabel: "Feature rules",
   views: {
     behavior: {
       label: "Behavior",
-      objectType: "Node",
+      objectType: "Product behavior",
     },
     featurePrompt: {
-      label: "Feature prompt",
-      description: "Product-authored instructions active whenever RouteDeck resolves this feature from the current Node.",
+      label: "Feature guidance",
+      description: "Product-authored role, purpose, vocabulary, and interaction posture active throughout this feature.",
     },
     featurePolicy: {
-      label: "Feature AgentPolicies",
-      description: "Guidance active throughout the feature. Narrower AgentPolicies remain inside the behavior Node.",
+      label: "Feature rules",
+      description: "Constraints active throughout the feature. Behavior, Capability, Surface, and Operation rules remain with their owning design.",
     },
   },
 } as const

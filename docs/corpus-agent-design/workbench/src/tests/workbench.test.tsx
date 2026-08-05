@@ -37,23 +37,23 @@ describe("RouteDeck Agent Design Studio", () => {
     expect(screen.getByLabelText("Expected behavior")).toBeInTheDocument()
   })
 
-  it("keeps only feature AgentPolicies in the sidebar destination and all narrower design inside the behavior Node", async () => {
+  it("keeps feature rules separate from narrower behavior design", async () => {
     const user = userEvent.setup()
     await renderWorkbench()
 
-    expect(screen.getByRole("heading", { name: "Node design" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Behavior rules" })).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "Capabilities" })).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "Surfaces" })).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "Operations" })).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "Suggested actions" })).toBeInTheDocument()
 
-    await user.click(screen.getByRole("button", { name: "Feature policies" }))
-    expect(screen.getByRole("heading", { name: "Feature AgentPolicies" })).toBeInTheDocument()
-    expect(screen.getAllByLabelText(/^Lounge Feature AgentPolicy /)).toHaveLength(7)
+    await user.click(screen.getByRole("button", { name: "Feature rules" }))
+    expect(screen.getByRole("heading", { name: "Feature rules" })).toBeInTheDocument()
+    expect(screen.getAllByLabelText(/^Lounge feature rule /)).toHaveLength(7)
     expect(screen.queryByRole("heading", { name: "Capabilities" })).not.toBeInTheDocument()
     expect(screen.queryByRole("heading", { name: "Operations" })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole("button", { name: "Arrive in the Lounge" }))
+    await user.click(screen.getByRole("button", { name: /^Arrive in the Lounge/ }))
     const operations = screen.getByRole("heading", { name: "Operations" }).closest("section")!
     await user.click(within(operations).getByRole("button", { name: "Add operation" }))
     const operationNames = within(operations).getAllByLabelText("Operation name")
@@ -67,13 +67,13 @@ describe("RouteDeck Agent Design Studio", () => {
     expect(getDesignStateFile()).not.toContain('"policyNodes"')
   })
 
-  it("authors and autosaves the active RouteDeck Feature prompt separately from policies", async () => {
+  it("authors and autosaves feature guidance separately from rules", async () => {
     const user = userEvent.setup()
     await renderWorkbench()
 
-    await user.click(screen.getByRole("button", { name: "Feature prompt" }))
-    expect(screen.getByRole("heading", { name: "Feature prompt" })).toBeInTheDocument()
-    const prompt = screen.getByLabelText("Lounge Feature prompt")
+    await user.click(screen.getByRole("button", { name: "Feature guidance" }))
+    expect(screen.getByRole("heading", { name: "Feature guidance" })).toBeInTheDocument()
+    const prompt = screen.getByLabelText("Lounge feature guidance")
     expect((prompt as HTMLTextAreaElement).value).toContain("public Lounge")
 
     await user.clear(prompt)
@@ -97,7 +97,7 @@ describe("RouteDeck Agent Design Studio", () => {
       "owner-auth-confirm-verification",
     ])
     expect(lounge.stories.slice(0, 2).every((story) => story.status === "draft")).toBe(true)
-    expect(lounge.stories.slice(2).every((story) => story.status === "approved")).toBe(true)
+    expect(lounge.stories.every((story) => story.status === "draft")).toBe(true)
     expect(lounge.policies).toContain(
       "While Lounge is active, identify the product location as Lounge and keep private Workspace and feature navigation hidden until authenticated entry succeeds.",
     )
@@ -122,7 +122,7 @@ describe("RouteDeck Agent Design Studio", () => {
     expect(screen.getByRole("button", { name: "Agents 9" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Source Hub 5" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "API Source 9" })).toBeInTheDocument()
-    await user.click(screen.getByRole("button", { name: "Ask Lounge for product help" }))
+    await user.click(screen.getByRole("button", { name: /^Ask Lounge for product help/ }))
     expect((screen.getByLabelText("Expected behavior") as HTMLTextAreaElement).value).toContain(
       "Corpus answers only about the product from current knowledge",
     )
@@ -138,6 +138,36 @@ describe("RouteDeck Agent Design Studio", () => {
     expect(screen.getByRole("button", { name: "Lounge 9" })).toBeInTheDocument()
     await waitFor(() => expect(getDesignStateFile()).toContain("New behavior"))
     expect(screen.getByRole("status", { name: "Saved" })).toBeInTheDocument()
+  })
+
+  it("blocks approval and explains completeness issues for an unfinished behavior", async () => {
+    const user = userEvent.setup()
+    await renderWorkbench()
+
+    await user.click(screen.getByRole("button", { name: "Add behavior" }))
+    expect(screen.getByRole("button", { name: "Approve behavior" })).toBeDisabled()
+    expect(screen.getByText("Resolve 3 blocking issues before approval.")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("tab", { name: /^Completeness/ }))
+    expect(screen.getByRole("heading", { name: "3 blocking issues" })).toBeInTheDocument()
+    expect(screen.getByText("Describe the user intent.")).toBeInTheDocument()
+    expect(screen.getByText("Describe the outcome Corpus is responsible for.")).toBeInTheDocument()
+    expect(screen.getByText("Describe the observable behavior and completion state.")).toBeInTheDocument()
+  })
+
+  it("opens one focused Operation contract from the compact inventory", async () => {
+    const user = userEvent.setup()
+    await renderWorkbench()
+
+    await user.click(within(screen.getByRole("list", { name: "Operations" })).getByRole("button", { name: /Start product help/ }))
+    const drawer = screen.getByRole("dialog", { name: "Start product help" })
+    expect(within(drawer).getByLabelText("Inputs and prerequisites")).not.toHaveValue("")
+    expect(within(drawer).getByLabelText("Observable outcomes")).not.toHaveValue("")
+    expect(within(drawer).getByLabelText("Safety and review")).not.toHaveValue("")
+    expect(within(drawer).getByLabelText("Failure and recovery")).not.toHaveValue("")
+
+    await user.click(within(drawer).getByRole("button", { name: "Done" }))
+    expect(screen.queryByRole("dialog", { name: "Start product help" })).not.toBeInTheDocument()
   })
 
   it("deletes a draft behavior only after confirmation and autosaves the deletion", async () => {
@@ -156,6 +186,7 @@ describe("RouteDeck Agent Design Studio", () => {
     const user = userEvent.setup()
     await renderWorkbench()
 
+    expect(screen.getByRole("button", { name: "Approve behavior" })).toBeEnabled()
     await user.click(screen.getByRole("button", { name: "Approve behavior" }))
     await user.click(screen.getByRole("button", { name: "Reopen draft" }))
     await user.clear(screen.getByLabelText("Expected behavior"))
@@ -178,15 +209,18 @@ describe("RouteDeck Agent Design Studio", () => {
   })
 
   it("keeps Lounge arrival limited to public entry operations and its surface", async () => {
+    const user = userEvent.setup()
     await renderWorkbench()
 
-    expect(screen.getByRole("heading", { name: "Surface path" })).toBeInTheDocument()
-    expect(screen.getByRole("heading", { name: "Chat path" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Surface preview" })).toBeInTheDocument()
     expect(screen.getByTitle("Mock surface: Arrive in the Lounge")).toHaveAttribute("src", "/mock-surfaces/lounge/home.html")
-    expect(screen.getByDisplayValue("Start product help")).toBeInTheDocument()
-    expect(screen.getByDisplayValue("Open owner registration")).toBeInTheDocument()
-    expect(screen.getByDisplayValue("Open owner sign-in")).toBeInTheDocument()
-    const chatPath = screen.getByRole("heading", { name: "Chat path" }).closest("section")!
+    expect(screen.getByRole("list", { name: "Operations" })).toHaveTextContent("Start product help")
+    expect(screen.getByRole("list", { name: "Operations" })).toHaveTextContent("Open owner registration")
+    expect(screen.getByRole("list", { name: "Operations" })).toHaveTextContent("Open owner sign-in")
+    expect(screen.getByRole("list", { name: "Operations" })).not.toHaveTextContent("Open password reset link")
+    expect(screen.getByRole("list", { name: "Operations" })).not.toHaveTextContent("Open email verification link")
+    await user.click(screen.getByRole("tab", { name: "Chat" }))
+    const chatPath = screen.getByRole("heading", { name: "Chat preview" }).closest("section")!
     expect(within(chatPath).queryByLabelText("Suggested actions")).not.toBeInTheDocument()
   })
 
@@ -209,7 +243,7 @@ describe("RouteDeck Agent Design Studio", () => {
     const user = userEvent.setup()
     await renderWorkbench()
 
-    await user.click(screen.getByRole("button", { name: "Create an owner account" }))
+    await user.click(screen.getByRole("button", { name: /^Create an owner account/ }))
     const frame = screen.getByTitle("Mock surface: Create an owner account")
     expect(frame).toHaveAttribute("src", "/mock-surfaces/workspace/authentication.html#register")
     expect(frame).toHaveAttribute("sandbox", "allow-scripts")
@@ -220,13 +254,13 @@ describe("RouteDeck Agent Design Studio", () => {
     expect(resolveInlineSurfaceHeight(900, 640)).toBe(320)
   })
 
-  it("places proven entry authentication in Lounge and sign-out in Workspace", async () => {
+  it("keeps materially revised Lounge authentication in draft review and sign-out in Workspace", async () => {
     const lounge = createSeedState().features.find((feature) => feature.id === "lounge")!
     const workspace = createSeedState().features.find((feature) => feature.id === "workspace")!
     const loungeAuthentication = lounge.stories.filter((story) => story.id.startsWith("owner-auth-"))
 
     expect(loungeAuthentication).toHaveLength(6)
-    expect(loungeAuthentication.every((story) => story.status === "approved")).toBe(true)
+    expect(loungeAuthentication.every((story) => story.status === "draft")).toBe(true)
     expect(workspace.stories.find((story) => story.id === "owner-auth-sign-out")?.status).toBe("approved")
 
     await renderWorkbench()
