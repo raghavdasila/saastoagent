@@ -34,6 +34,9 @@ testing = [
     "pytest==9.0.3",
     "pytest-asyncio==1.4.0",
 ]
+evaluation = [
+    "playwright==1.62.0",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/corpus"]

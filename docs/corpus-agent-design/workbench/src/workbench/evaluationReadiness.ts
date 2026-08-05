@@ -4,6 +4,7 @@ import type {
   DesignStory,
   EvalCoverageTag,
   FeatureConversationEvalScenario,
+  ProductJourneyEval,
 } from "@/workbench/types"
 
 export const EVAL_COVERAGE: Array<{ id: EvalCoverageTag; label: string }> = [
@@ -132,5 +133,36 @@ export function getFeatureConversationEvalReadiness(feature: DesignFeature): Eva
     if (duplicates.has(scenario.id.trim())) issues.push({ id: `conversation-eval-${index}-duplicate-id`, message: `Conversation eval ID “${scenario.id}” is duplicated.`, targetId: `conversation-eval-${index}` })
   })
   if (!feature.conversationEvals.some((item) => item.enabled)) issues.push({ id: "conversation-eval-required", message: "Add at least one enabled feature conversation eval.", targetId: "conversation-evals-heading" })
+  return { issues, isReady: issues.length === 0 }
+}
+
+export function getProductJourneyIssues(feature: DesignFeature, journey: ProductJourneyEval, index = 0): EvaluationIssue[] {
+  const prefix = `product-journey-${index}`
+  const targetId = prefix
+  const issues: EvaluationIssue[] = []
+  const requireText = (value: string, field: string, label: string) => { if (blank(value)) issues.push({ id: `${prefix}-${field}`, message: `${journey.title || `Journey ${index + 1}`} needs ${label}.`, targetId }) }
+  requireText(journey.id, "id", "a stable ID")
+  requireText(journey.title, "title", "a title")
+  requireText(journey.goal, "goal", "a product goal")
+  requireText(journey.startingBehavior, "starting", "a starting behavior")
+  requireText(journey.finalBehavior, "final", "a final behavior")
+  if (journey.requiredOutcomes.length === 0 || journey.requiredOutcomes.every(blank)) issues.push({ id: `${prefix}-outcomes`, message: `${journey.title || `Journey ${index + 1}`} needs a required product outcome.`, targetId })
+  if (journey.stateAssertions.length === 0 || journey.stateAssertions.every(blank)) issues.push({ id: `${prefix}-state`, message: `${journey.title || `Journey ${index + 1}`} needs a product-state assertion.`, targetId })
+  if (journey.interaction !== "surface") requireText(journey.openingMessage, "opening", "an opening message")
+  if (journey.interaction === "adaptive-conversation") {
+    requireText(journey.testerPersona, "persona", "a tester persona")
+    if (!Number.isInteger(journey.maxTurns) || journey.maxTurns < 2 || journey.maxTurns > 20) issues.push({ id: `${prefix}-turns`, message: `${journey.title || `Journey ${index + 1}`} must allow 2 to 20 turns.`, targetId })
+  }
+  const behaviorNames = new Set(feature.stories.map((story) => story.title))
+  if (!behaviorNames.has(journey.startingBehavior)) issues.push({ id: `${prefix}-starting-missing`, message: `Starting behavior references a missing design item.`, targetId })
+  return issues
+}
+
+export function getFeatureProductJourneyReadiness(feature: DesignFeature): EvaluationReadiness {
+  const issues = feature.productJourneyEvals.flatMap((journey, index) => getProductJourneyIssues(feature, journey, index))
+  const duplicates = duplicateIds(feature.productJourneyEvals.map((item) => item.id))
+  feature.productJourneyEvals.forEach((journey, index) => {
+    if (duplicates.has(journey.id.trim())) issues.push({ id: `product-journey-${index}-duplicate-id`, message: `Product journey ID “${journey.id}” is duplicated.`, targetId: `product-journey-${index}` })
+  })
   return { issues, isReady: issues.length === 0 }
 }

@@ -1,6 +1,7 @@
 export type ReviewStatus = "draft" | "approved" | "rejected"
 export type ChatActor = "Corpus" | "Owner"
 export type EvalCoverageTag = "normal" | "boundary" | "failure" | "privacy" | "adversarial"
+export type ProductJourneyInteraction = "surface" | "single-message" | "adaptive-conversation"
 
 export interface MockChatMessage {
   id: string
@@ -68,6 +69,28 @@ export interface FeatureConversationEvalScenario {
   maxTurns: number
 }
 
+export interface ProductJourneyEval {
+  id: string
+  title: string
+  enabled: boolean
+  blocking: boolean
+  interaction: ProductJourneyInteraction
+  startingBehavior: string
+  startingAuthentication: "public" | "authenticated"
+  goal: string
+  preconditions: string[]
+  openingMessage: string
+  testerPersona: string
+  testerFacts: string[]
+  withholdUntilAsked: string[]
+  requiredOutcomes: string[]
+  forbiddenOutcomes: string[]
+  finalBehavior: string
+  finalAuthentication: "public" | "authenticated" | "unchanged"
+  stateAssertions: string[]
+  maxTurns: number
+}
+
 export interface DesignStory {
   id: string
   title: string
@@ -103,6 +126,7 @@ export interface SurfaceDesign {
 
 export interface OperationDesign {
   name: string
+  availableThrough: "chat" | "product-surface" | "both" | "not-decided"
   purpose: string
   inputs: string
   outcomes: string
@@ -118,6 +142,7 @@ export interface DesignFeature {
   stories: DesignStory[]
   policies: string[]
   conversationEvals: FeatureConversationEvalScenario[]
+  productJourneyEvals: ProductJourneyEval[]
 }
 
 export interface WorkbenchState {

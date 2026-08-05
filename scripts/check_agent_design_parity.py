@@ -177,13 +177,22 @@ def check_parity(
     )
     manifest_features = _required_list(manifest, "features", "manifest")
     mapped_namespaces: set[str] = set()
+    mapped_design_features: set[str] = set()
 
     for feature_index, raw_feature_mapping in enumerate(manifest_features):
         owner = f"manifest.features[{feature_index}]"
         if not isinstance(raw_feature_mapping, dict):
             raise ParityInputError(f"{owner} must be an object")
         design_name = _required_string(raw_feature_mapping, "designFeature", owner)
+        mapped_design_features.add(design_name)
         namespace = _required_string(raw_feature_mapping, "routeDeckFeature", owner)
+        implementation_status = _required_string(
+            raw_feature_mapping, "implementationStatus", owner
+        )
+        if implementation_status not in {"complete", "partial"}:
+            raise ParityInputError(
+                f"{owner}.implementationStatus must be 'complete' or 'partial'"
+            )
         if namespace in mapped_namespaces:
             raise ParityInputError(
                 f"Manifest maps RouteDeck feature {namespace!r} more than once"
@@ -207,6 +216,52 @@ def check_parity(
             continue
         compiled_feature = compiled_features[0]
         feature_label = f"Feature {design_name!r}"
+
+        if implementation_status == "partial":
+            design_behavior_names = set(
+                _named(
+                    _required_list(design_feature, "stories", feature_label),
+                    "title",
+                    f"{feature_label} behaviors",
+                )
+            )
+            behavior_mappings = _required_list(
+                raw_feature_mapping, "behaviors", owner
+            )
+            mapped_behavior_names = {
+                _required_string(item, "designBehavior", f"{owner}.behaviors")
+                for item in behavior_mappings
+                if isinstance(item, dict)
+            }
+            declared_unmapped = set(
+                _required_list(
+                    raw_feature_mapping, "unmappedDesignBehaviors", owner
+                )
+            )
+            expected_unmapped = design_behavior_names - mapped_behavior_names
+            if declared_unmapped != expected_unmapped:
+                failures.append(
+                    f"{feature_label}: partial mapping must explicitly list unmapped "
+                    f"Studio behaviors {sorted(expected_unmapped)!r}"
+                )
+            mapped_nodes = {
+                _required_string(item, "node", f"{owner}.behaviors")
+                for item in behavior_mappings
+                if isinstance(item, dict)
+            }
+            expected_unmapped_nodes = {
+                node.id for node in compiled_feature.nodes
+            } - mapped_nodes
+            declared_unmapped_nodes = set(
+                _required_list(raw_feature_mapping, "unmappedCompiledNodes", owner)
+            )
+            if declared_unmapped_nodes != expected_unmapped_nodes:
+                failures.append(
+                    f"{feature_label}: partial mapping must explicitly list unmapped "
+                    f"compiled Nodes {sorted(expected_unmapped_nodes)!r}"
+                )
+            if not behavior_mappings:
+                continue
 
         prompt_policy_id = _required_string(
             raw_feature_mapping, "featurePromptPolicy", owner
@@ -458,6 +513,25 @@ def check_parity(
                     operation_label = (
                         f"{behavior_label} / Operation {design_operation_name!r}"
                     )
+                    designed_source = _required_string(
+                        design_operation, "availableThrough", operation_label
+                    )
+                    runtime_sources = {source.value for source in operation.allowed_sources}
+                    runtime_source = (
+                        "both"
+                        if runtime_sources == {"agent", "surface"}
+                        else "chat"
+                        if runtime_sources == {"agent"}
+                        else "product-surface"
+                        if runtime_sources == {"surface"}
+                        else "invalid"
+                    )
+                    if designed_source != runtime_source:
+                        failures.append(
+                            f"{operation_label}: Studio invocation path "
+                            f"{designed_source!r} does not match RouteDeck "
+                            f"allowed_sources {sorted(runtime_sources)!r}"
+                        )
                     _compare_policies(
                         failures,
                         f"{operation_label} policies",
@@ -513,6 +587,15 @@ def check_parity(
         failures.append(
             "Implementation manifest maps uncompiled RouteDeck features: "
             + ", ".join(unknown_feature_mappings)
+        )
+    declared_unimplemented = set(
+        _required_list(manifest, "unimplementedDesignFeatures", "manifest")
+    )
+    expected_unimplemented = set(design_features) - mapped_design_features
+    if declared_unimplemented != expected_unimplemented:
+        failures.append(
+            "Manifest must explicitly list unimplemented Design Studio features: "
+            + ", ".join(sorted(expected_unimplemented))
         )
     return failures
 

@@ -267,7 +267,7 @@
 
 .studio-operation-drawer-header,
 .studio-operation-drawer-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--studio-space-3); border-bottom: 1px solid var(--studio-line); padding: var(--studio-space-4) var(--studio-space-5); }
-.studio-operation-drawer-content { display: grid; gap: var(--studio-space-5); overflow-y: auto; padding: var(--studio-space-5); }
+.studio-operation-drawer-content { display: grid; grid-auto-rows: max-content; align-content: start; gap: var(--studio-space-5); overflow-y: auto; padding: var(--studio-space-5); }
 .studio-operation-drawer-footer { border-top: 1px solid var(--studio-line); border-bottom: 0; }
 
 .studio-review-panel { display: grid; min-height: 0; height: 100%; grid-template-rows: auto auto minmax(0, 1fr); }

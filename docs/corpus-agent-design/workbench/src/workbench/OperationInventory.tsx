@@ -97,6 +97,16 @@ export function OperationInventory({ story, disabled, onChange }: {
               <FieldLabel htmlFor={`operation-name-${selectedIndex}`}>Operation name</FieldLabel>
               <Input id={`operation-name-${selectedIndex}`} value={selectedOperation.name} disabled={disabled} onChange={(event) => updateOperation(selectedIndex, { name: event.target.value })} />
             </Field>
+            <Field>
+              <FieldLabel htmlFor={`operation-source-${selectedIndex}`}>Available through</FieldLabel>
+              <select id={`operation-source-${selectedIndex}`} className="h-9 w-full rounded-md border border-input bg-[var(--studio-field)] px-2.5 text-[13px]" value={selectedOperation.availableThrough} disabled={disabled} onChange={(event) => updateOperation(selectedIndex, { availableThrough: event.target.value as OperationDesign["availableThrough"] })}>
+                <option value="not-decided">Not decided</option>
+                <option value="chat">Chat</option>
+                <option value="product-surface">Product surface</option>
+                <option value="both">Chat and product surface</option>
+              </select>
+              <FieldDescription className="text-xs">Product-facing invocation intent. The implementation manifest maps this to RouteDeck source legality.</FieldDescription>
+            </Field>
             <DetailField id={`operation-purpose-${selectedIndex}`} label="Intended effect" description="The authoritative product result, state change, navigation outcome, or observed response." value={selectedOperation.purpose} disabled={disabled} onChange={(purpose) => updateOperation(selectedIndex, { purpose })} />
             <DetailField id={`operation-inputs-${selectedIndex}`} label="Inputs and prerequisites" description="State what Corpus needs, or explicitly say that no input is required." value={selectedOperation.inputs} disabled={disabled} onChange={(inputs) => updateOperation(selectedIndex, { inputs })} />
             <DetailField id={`operation-outcomes-${selectedIndex}`} label="Observable outcomes" description="Identify success and material failure outcomes without claiming unavailable evidence." value={selectedOperation.outcomes} disabled={disabled} onChange={(outcomes) => updateOperation(selectedIndex, { outcomes })} />
@@ -132,5 +142,5 @@ function DetailField({ id, label, description, value, disabled, onChange }: {
 }
 
 function blankOperation(): OperationDesign {
-  return { name: "New operation", purpose: "", inputs: "", outcomes: "", safetyAndReview: "", recovery: "", policies: [] }
+  return { name: "New operation", availableThrough: "not-decided", purpose: "", inputs: "", outcomes: "", safetyAndReview: "", recovery: "", policies: [] }
 }

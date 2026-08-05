@@ -43,6 +43,7 @@ function hasValidOperations(value: unknown): boolean {
   return Array.isArray(value) && value.every((operation) => (
     isRecord(operation)
     && typeof operation.name === "string"
+    && ["chat", "product-surface", "both", "not-decided"].includes(String(operation.availableThrough))
     && typeof operation.purpose === "string"
     && typeof operation.inputs === "string"
     && typeof operation.outcomes === "string"
@@ -119,6 +120,31 @@ function hasValidConversationEvals(value: unknown): boolean {
   ))
 }
 
+function hasValidProductJourneyEvals(value: unknown): boolean {
+  return Array.isArray(value) && value.every((journey) => (
+    isRecord(journey)
+    && typeof journey.id === "string"
+    && typeof journey.title === "string"
+    && typeof journey.enabled === "boolean"
+    && typeof journey.blocking === "boolean"
+    && (journey.interaction === "surface" || journey.interaction === "single-message" || journey.interaction === "adaptive-conversation")
+    && typeof journey.startingBehavior === "string"
+    && (journey.startingAuthentication === "public" || journey.startingAuthentication === "authenticated")
+    && typeof journey.goal === "string"
+    && hasValidPolicies(journey.preconditions)
+    && typeof journey.openingMessage === "string"
+    && typeof journey.testerPersona === "string"
+    && hasValidPolicies(journey.testerFacts)
+    && hasValidPolicies(journey.withholdUntilAsked)
+    && hasValidPolicies(journey.requiredOutcomes)
+    && hasValidPolicies(journey.forbiddenOutcomes)
+    && typeof journey.finalBehavior === "string"
+    && (journey.finalAuthentication === "public" || journey.finalAuthentication === "authenticated" || journey.finalAuthentication === "unchanged")
+    && hasValidPolicies(journey.stateAssertions)
+    && typeof journey.maxTurns === "number"
+  ))
+}
+
 function hasValidFeatureData(value: unknown): boolean {
   if (!Array.isArray(value) || value.length === 0) return false
   return value.every((feature) => (
@@ -128,6 +154,7 @@ function hasValidFeatureData(value: unknown): boolean {
     && typeof feature.prompt === "string"
     && hasValidPolicies(feature.policies)
     && hasValidConversationEvals(feature.conversationEvals)
+    && hasValidProductJourneyEvals(feature.productJourneyEvals)
     && Array.isArray(feature.stories)
     && feature.stories.length > 0
     && feature.stories.every((story) => (

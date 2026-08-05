@@ -3,7 +3,8 @@ from __future__ import annotations
 import asyncio
 import smtplib
 import ssl
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from email.utils import format_datetime, make_msgid
@@ -16,8 +17,30 @@ class MailDeliveryUnavailable(RuntimeError):
     pass
 
 
+class MailRecipientRejected(RuntimeError):
+    pass
+
+
+@dataclass
+class MailServiceAvailability:
+    unavailable_until: float = 0.0
+
+    @property
+    def known_unavailable(self) -> bool:
+        return time.monotonic() < self.unavailable_until
+
+    def mark_available(self) -> None:
+        self.unavailable_until = 0.0
+
+    def mark_unavailable(self, retry_after_seconds: float = 30.0) -> None:
+        self.unavailable_until = time.monotonic() + retry_after_seconds
+
+
 @runtime_checkable
 class OwnerMailDelivery(Protocol):
+    @property
+    def known_unavailable(self) -> bool: ...
+
     async def send_verification(self, recipient: str, link: str) -> None: ...
 
     async def send_password_reset(self, recipient: str, link: str) -> None: ...
@@ -25,6 +48,10 @@ class OwnerMailDelivery(Protocol):
 
 class UnconfiguredMailDelivery:
     """Explicit failure used when the Gmail credential is not configured."""
+
+    @property
+    def known_unavailable(self) -> bool:
+        return True
 
     async def send_verification(self, recipient: str, link: str) -> None:
         del recipient, link
@@ -43,6 +70,15 @@ class GmailSmtpMailDelivery:
     from_address: str
     app_password: str
     timeout_seconds: float
+    availability: MailServiceAvailability = field(
+        default_factory=MailServiceAvailability,
+        compare=False,
+        repr=False,
+    )
+
+    @property
+    def known_unavailable(self) -> bool:
+        return self.availability.known_unavailable
 
     @classmethod
     def from_settings(cls, settings: AuthSettings) -> GmailSmtpMailDelivery:
@@ -94,8 +130,12 @@ class GmailSmtpMailDelivery:
                 subject,
                 body,
             )
+        except smtplib.SMTPRecipientsRefused as error:
+            raise MailRecipientRejected("The recipient rejected the message.") from error
         except (OSError, TimeoutError, smtplib.SMTPException) as error:
+            self.availability.mark_unavailable()
             raise MailDeliveryUnavailable("Gmail SMTP delivery failed.") from error
+        self.availability.mark_available()
 
     def _deliver_sync(self, recipient: str, subject: str, body: str) -> None:
         message = EmailMessage()
@@ -138,6 +178,8 @@ def create_mail_delivery(settings: AuthSettings) -> OwnerMailDelivery:
 __all__ = [
     "GmailSmtpMailDelivery",
     "MailDeliveryUnavailable",
+    "MailRecipientRejected",
+    "MailServiceAvailability",
     "OwnerMailDelivery",
     "UnconfiguredMailDelivery",
     "create_mail_delivery",

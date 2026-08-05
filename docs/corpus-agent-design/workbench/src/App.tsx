@@ -7,6 +7,7 @@ import { AgentPolicyList } from "@/workbench/AgentPolicyList"
 import { BehaviorDesignEditor } from "@/workbench/BehaviorDesignEditor"
 import { ConversationEvalEditor } from "@/workbench/ConversationEvalEditor"
 import { FeatureRail } from "@/workbench/FeatureRail"
+import { ProductJourneyEditor } from "@/workbench/ProductJourneyEditor"
 import { ReviewControls } from "@/workbench/ReviewControls"
 import { ReviewPanel } from "@/workbench/ReviewPanel"
 import { StoryEditor } from "@/workbench/StoryEditor"
@@ -27,7 +28,7 @@ export default function App() {
   const [loaded, setLoaded] = useState<LoadResult | null>(null)
   const [selectedFeatureId, setSelectedFeatureId] = useState("")
   const [selectedStoryId, setSelectedStoryId] = useState("")
-  const [selectedView, setSelectedView] = useState<"behavior" | "feature-prompt" | "feature-policy" | "conversation-evals">("behavior")
+  const [selectedView, setSelectedView] = useState<"behavior" | "feature-prompt" | "feature-policy" | "conversation-evals" | "product-journeys">("behavior")
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saving")
   const [theme, setTheme] = useState<Theme>(loadTheme)
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false)
@@ -233,11 +234,16 @@ export default function App() {
           onSelectFeaturePrompt={() => setSelectedView("feature-prompt")}
           onSelectFeaturePolicy={() => setSelectedView("feature-policy")}
           onSelectConversationEvals={() => setSelectedView("conversation-evals")}
+          onSelectProductJourneys={() => setSelectedView("product-journeys")}
           onAddStory={addStory}
           onCloseMobile={() => setMobileNavigationOpen(false)}
         />
 
-        {selectedView === "conversation-evals" ? (
+        {selectedView === "product-journeys" ? (
+          <main className="studio-main overflow-y-auto">
+            <ProductJourneyEditor feature={selectedFeature} onChange={updateFeature} />
+          </main>
+        ) : selectedView === "conversation-evals" ? (
           <main className="studio-main overflow-y-auto">
             <ConversationEvalEditor feature={selectedFeature} onChange={updateFeature} />
           </main>

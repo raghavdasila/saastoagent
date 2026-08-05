@@ -88,6 +88,12 @@ class EmailToken:
 
 
 @dataclass(frozen=True)
+class VerificationDeliveryContext:
+    recipient: str
+    already_verified: bool
+
+
+@dataclass(frozen=True)
 class OwnerRouteContext:
     display_name: str | None
     organization_name: str
@@ -545,6 +551,27 @@ class AuthService:
                     raise RuntimeError("Verification token generation failed.")
                 return EmailToken(user.email, manager.generated_verification_token)
 
+    async def verification_delivery_context_for_route(
+        self,
+        route_session_id: str,
+    ) -> VerificationDeliveryContext:
+        async with self.database.session() as session:
+            conversation = await session.scalar(
+                select(CorpusConversation).where(
+                    CorpusConversation.route_session_id == route_session_id,
+                    CorpusConversation.owner_user_id.is_not(None),
+                )
+            )
+            if conversation is None or conversation.owner_user_id is None:
+                raise SessionUnavailable("The owner context is unavailable.")
+            user = await session.get(User, conversation.owner_user_id)
+            if user is None:
+                raise SessionUnavailable("The owner context is unavailable.")
+            return VerificationDeliveryContext(
+                recipient=user.email,
+                already_verified=user.is_verified,
+            )
+
     async def verify(self, token: str) -> None:
         from fastapi_users.exceptions import InvalidVerifyToken, UserAlreadyVerified
 
@@ -916,4 +943,5 @@ __all__ = [
     "IssuedOwnerSession",
     "OwnerRouteContext",
     "SessionUnavailable",
+    "VerificationDeliveryContext",
 ]

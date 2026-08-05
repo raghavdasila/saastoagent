@@ -1,5 +1,6 @@
 import type { CapabilityDesign, DesignStory, OperationDesign, SuggestedActionDesign, SurfaceDesign, WorkbenchState } from "@/workbench/types"
 import { copyConversationEvals, loungeBehaviorEvals } from "@/workbench/loungeEvaluations"
+import { copyProductJourneyEvals } from "@/workbench/loungeProductJourneys"
 
 type StoryOptions = {
   suggestedActions?: Array<Pick<SuggestedActionDesign, "id" | "label">>
@@ -238,6 +239,30 @@ const OPERATION_INTENDED_EFFECTS: Record<string, string> = {
 }
 
 type OperationContract = Pick<OperationDesign, "inputs" | "outcomes" | "safetyAndReview" | "recovery">
+
+const LOUNGE_OPERATION_AVAILABILITY: Record<string, OperationDesign["availableThrough"]> = {
+  "Arrive in the Lounge::Start product help": "both",
+  "Arrive in the Lounge::Open owner registration": "both",
+  "Arrive in the Lounge::Open owner sign-in": "both",
+  "Ask Lounge for product help::Return to Lounge": "chat",
+  "Ask Lounge for product help::Open owner registration": "both",
+  "Ask Lounge for product help::Open owner sign-in": "both",
+  "Create an owner account::Create owner account": "product-surface",
+  "Create an owner account::Continue to Workspace": "product-surface",
+  "Create an owner account::Return to Lounge": "product-surface",
+  "Sign in::Authenticate owner": "product-surface",
+  "Sign in::Continue to Workspace": "product-surface",
+  "Sign in::Open password recovery": "both",
+  "Sign in::Return to Lounge": "product-surface",
+  "Request password recovery::Request password recovery": "product-surface",
+  "Request password recovery::Return to Lounge": "product-surface",
+  "Set a new password::Change owner password": "product-surface",
+  "Set a new password::Return to Lounge": "product-surface",
+  "Resend email verification::Request verification delivery": "product-surface",
+  "Resend email verification::Return to Workspace": "product-surface",
+  "Confirm email verification::Confirm owner email": "product-surface",
+  "Confirm email verification::Return to Lounge": "product-surface",
+}
 
 const OPERATION_CONTRACTS: Record<string, OperationContract> = {
   "Start product help": {
@@ -830,6 +855,7 @@ function scopedDesign(id: string, title: string): { surfaces: SurfaceDesign[]; o
     })),
     operations: [...groupedOperations].map(([name, policies]) => ({
       name,
+      availableThrough: LOUNGE_OPERATION_AVAILABILITY[`${title}::${name}`] ?? "not-decided",
       purpose: operationIntendedEffect(name),
       ...operationContract(name),
       policies,
@@ -854,6 +880,7 @@ function story(
     if (!operations.some((operation) => operation.name === operationName)) {
       operations.push({
         name: operationName,
+        availableThrough: LOUNGE_OPERATION_AVAILABILITY[`${title}::${operationName}`] ?? "not-decided",
         purpose: operationIntendedEffect(operationName),
         ...operationContract(operationName),
         policies: [],
@@ -905,6 +932,7 @@ export function createSeedState(): WorkbenchState {
           "Describe Lounge choices in user-facing product language and never expose internal operation, tool, Node, AgentPolicy, or identifier names.",
         ]),
         conversationEvals: copyConversationEvals(),
+        productJourneyEvals: copyProductJourneyEvals(),
         stories: [
           story(
             "lounge-arrival",
@@ -992,6 +1020,7 @@ export function createSeedState(): WorkbenchState {
         id: "workspace",
         name: "Workspace",
         conversationEvals: [],
+        productJourneyEvals: [],
         prompt: "You are Corpus in the owner's authenticated Workspace. Help the owner understand their current Workspace and move deliberately among the available private features, using only current RouteDeck context and legal operations.",
         policies: policies("Workspace", [
           "Use only the authenticated owner's authorized Workspace context.",
@@ -1064,6 +1093,7 @@ export function createSeedState(): WorkbenchState {
         id: "agents",
         name: "Agents",
         conversationEvals: [],
+        productJourneyEvals: [],
         prompt: "You are Corpus in the Agents feature. Help the owner define, inspect, test, and improve agents using the current agent design, evidence, and legal operations available in RouteDeck.",
         policies: policies("Agents", [
           "Keep every agent isolated to the authenticated owner's Workspace.",
@@ -1165,6 +1195,7 @@ export function createSeedState(): WorkbenchState {
         id: "source-hub",
         name: "Source Hub",
         conversationEvals: [],
+        productJourneyEvals: [],
         prompt: "You are Corpus in Source Hub. Help the owner understand, connect, inspect, and manage sources while keeping connection state and external outcomes grounded in RouteDeck and source-system evidence.",
         policies: policies("Source Hub", [
           "Expose only sources owned by the authenticated Workspace.",
@@ -1228,6 +1259,7 @@ export function createSeedState(): WorkbenchState {
         id: "api-source",
         name: "API Source",
         conversationEvals: [],
+        productJourneyEvals: [],
         prompt: "You are Corpus in the API Source feature. Help the owner configure and validate an API source from its declared contract, keeping credentials private and describing only connection and discovery outcomes that the product has confirmed.",
         policies: policies("API Source", [
           "Keep API specifications, credentials, artifacts, and processing isolated to the authenticated Workspace.",

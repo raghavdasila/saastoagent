@@ -22,7 +22,11 @@ from routedeck_core.ports.executor import ExecutionContext
 
 from corpus.auth.config import AuthSettings
 from corpus.auth.credential_transition import CredentialTransition
-from corpus.auth.mail import MailDeliveryUnavailable, OwnerMailDelivery
+from corpus.auth.mail import (
+    MailDeliveryUnavailable,
+    MailRecipientRejected,
+    OwnerMailDelivery,
+)
 from corpus.auth.rate_limits import AuthRateLimiter, RateLimitExceeded
 from corpus.auth.service import (
     AuthConflict,
@@ -159,8 +163,11 @@ class CreateOwnerAccountHandler:
             return _failure(
                 context,
                 CREATE_OWNER_ACCOUNT.id,
-                code="email_already_registered",
-                message="An owner with that email already exists.",
+                code="registration_unavailable",
+                message=(
+                    "Corpus could not create an owner account with those details. "
+                    "Review the form or use sign in."
+                ),
                 kind=FailureKind.BUSINESS,
                 phase="account_creation",
                 delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
@@ -314,6 +321,17 @@ class RequestPasswordResetHandler:
         except LoungePrivateFormError as error:
             return _private_form_failure(context, REQUEST_PASSWORD_RESET.id, error)
         email = str(form.email).lower()
+        if self.mail.known_unavailable:
+            return _failure(
+                context,
+                REQUEST_PASSWORD_RESET.id,
+                code="password_reset_delivery_unavailable",
+                message="Password reset email delivery is unavailable.",
+                kind=FailureKind.TRANSPORT,
+                phase="password_reset_delivery",
+                delivery_phase=DeliveryPhase.NOT_SENT,
+                http_status=503,
+            )
         for scope, subject, limit in (
             ("password-reset-email", email, 3),
             ("password-reset-ip", request.client_ip, 20),
@@ -339,6 +357,12 @@ class RequestPasswordResetHandler:
                 await self.mail.send_password_reset(token.recipient, link)
             except MailDeliveryUnavailable:
                 logger.exception("Password reset email delivery failed")
+                # The first service failure is not surfaced for this address because
+                # doing so would distinguish an existing account. The shared mail
+                # service now records the outage, so subsequent requests fail before
+                # account lookup with account-neutral availability copy.
+            except MailRecipientRejected:
+                logger.info("Password reset email recipient rejected the message")
         return _success("requested", RESET_REQUEST_FORM_ID)
 
 
@@ -425,8 +449,19 @@ class RequestVerificationDeliveryHandler:
                 kind=FailureKind.TRANSPORT,
                 phase="request_context",
             )
+        if self.mail.known_unavailable:
+            return _failure(
+                context,
+                REQUEST_VERIFICATION_DELIVERY.id,
+                code="verification_delivery_unavailable",
+                message="Verification email delivery is unavailable.",
+                kind=FailureKind.TRANSPORT,
+                phase="verification_delivery",
+                delivery_phase=DeliveryPhase.NOT_SENT,
+                http_status=503,
+            )
         try:
-            token = await self.service.request_verification_for_route(
+            delivery_context = await self.service.verification_delivery_context_for_route(
                 context.session_id
             )
         except SessionUnavailable:
@@ -440,10 +475,10 @@ class RequestVerificationDeliveryHandler:
                 delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
                 http_status=401,
             )
-        if token is None:
+        if delivery_context.already_verified:
             return _success("requested")
         for scope, subject, limit in (
-            ("verification-email", token.recipient, 3),
+            ("verification-email", delivery_context.recipient, 3),
             ("verification-ip", request.client_ip, 20),
         ):
             limited = await _limit(
@@ -457,13 +492,16 @@ class RequestVerificationDeliveryHandler:
             )
             if limited is not None:
                 return limited
+        token = await self.service.request_verification_for_route(context.session_id)
+        if token is None:
+            return _success("requested")
         link = (
             f"{str(self.settings.public_frontend_url).rstrip('/')}"
             f"/verify#token={quote(token.token)}"
         )
         try:
             await self.mail.send_verification(token.recipient, link)
-        except MailDeliveryUnavailable:
+        except (MailDeliveryUnavailable, MailRecipientRejected):
             return _failure(
                 context,
                 REQUEST_VERIFICATION_DELIVERY.id,

@@ -540,7 +540,8 @@
               "recovery": "Keep Lounge home active, state that product help could not be opened, and invite the visitor to try again without substituting an ungrounded answer.",
               "policies": [
                 "On every visitor message handled from Lounge home, silently call Start product help before producing any visible answer; never mention the operation, tool, or Node name in product output."
-              ]
+              ],
+              "availableThrough": "both"
             },
             {
               "name": "Open owner registration",
@@ -551,7 +552,8 @@
               "recovery": "Remain in the current Lounge behavior, report that registration could not be opened, and allow another explicit attempt.",
               "policies": [
                 "Open account creation without implying that an account has already been created."
-              ]
+              ],
+              "availableThrough": "both"
             },
             {
               "name": "Open owner sign-in",
@@ -562,7 +564,8 @@
               "recovery": "Remain in the current Lounge behavior, report that sign-in could not be opened, and allow another explicit attempt.",
               "policies": [
                 "Open sign-in without implying that the visitor is already authenticated."
-              ]
+              ],
+              "availableThrough": "both"
             }
           ],
           "suggestedActions": [],
@@ -690,7 +693,8 @@
               "recovery": "Keep the current behavior visible, report that Lounge could not be opened, and allow the visitor to retry or remain safely in place.",
               "policies": [
                 "Return to Lounge orientation without claiming that another product task completed."
-              ]
+              ],
+              "availableThrough": "chat"
             },
             {
               "name": "Open owner registration",
@@ -701,7 +705,8 @@
               "recovery": "Remain in the current Lounge behavior, report that registration could not be opened, and allow another explicit attempt.",
               "policies": [
                 "Offer account creation when the visitor describes work they want Corpus to perform; do not continue planning or performing the task in Lounge."
-              ]
+              ],
+              "availableThrough": "both"
             },
             {
               "name": "Open owner sign-in",
@@ -712,7 +717,8 @@
               "recovery": "Remain in the current Lounge behavior, report that sign-in could not be opened, and allow another explicit attempt.",
               "policies": [
                 "Offer sign-in when the visitor describes work they want Corpus to perform; do not continue planning or performing the task in Lounge."
-              ]
+              ],
+              "availableThrough": "both"
             }
           ],
           "suggestedActions": [
@@ -870,7 +876,8 @@
               "policies": [
                 "Submit account creation only after required fields are valid and only after the visitor explicitly chooses Create account.",
                 "Claim success only after the owner identity, personal Workspace, authenticated session, and Workspace entry are established as one accepted result."
-              ]
+              ],
+              "availableThrough": "product-surface"
             },
             {
               "name": "Continue to Workspace",
@@ -881,7 +888,8 @@
               "recovery": "Remain on the current account surface, preserve the known authentication truth, and offer sign-in or another valid account path when authorization is unavailable.",
               "policies": [
                 "Continue only an already-authenticated owner into the authorized Workspace; never recreate the account or resubmit credentials."
-              ]
+              ],
+              "availableThrough": "product-surface"
             },
             {
               "name": "Return to Lounge",
@@ -892,7 +900,8 @@
               "recovery": "Keep the current behavior visible, report that Lounge could not be opened, and allow the visitor to retry or remain safely in place.",
               "policies": [
                 "Leave account creation without submitting or retaining an incomplete credential form."
-              ]
+              ],
+              "availableThrough": "product-surface"
             }
           ],
           "suggestedActions": [
@@ -1053,7 +1062,8 @@
               "recovery": "Keep the generic failure visible and allow an explicit retry or password-recovery choice. Never retry credentials automatically.",
               "policies": [
                 "Resume only the Workspace authorized for the authenticated owner; invalid credentials remain a failure and expose no private state."
-              ]
+              ],
+              "availableThrough": "product-surface"
             },
             {
               "name": "Continue to Workspace",
@@ -1064,7 +1074,8 @@
               "recovery": "Remain on the current account surface, preserve the known authentication truth, and offer sign-in or another valid account path when authorization is unavailable.",
               "policies": [
                 "Continue only an already-authenticated owner into the authorized Workspace; never resubmit credentials."
-              ]
+              ],
+              "availableThrough": "product-surface"
             },
             {
               "name": "Open password recovery",
@@ -1075,7 +1086,8 @@
               "recovery": "Remain on sign-in, report that recovery could not be opened, and allow another explicit attempt or return to Lounge.",
               "policies": [
                 "Open account-neutral password recovery without revealing whether the entered email belongs to an account."
-              ]
+              ],
+              "availableThrough": "both"
             },
             {
               "name": "Return to Lounge",
@@ -1086,7 +1098,8 @@
               "recovery": "Keep the current behavior visible, report that Lounge could not be opened, and allow the visitor to retry or remain safely in place.",
               "policies": [
                 "Leave sign-in without submitting or retaining an incomplete credential form."
-              ]
+              ],
+              "availableThrough": "product-surface"
             }
           ],
           "suggestedActions": [
@@ -1244,7 +1257,8 @@
               "policies": [
                 "Do not reveal account existence; report delivery-system unavailability without disclosing whether the submitted account exists.",
                 "Treat submission as a recovery request only, not as proof that an account exists or that delivery succeeded."
-              ]
+              ],
+              "availableThrough": "product-surface"
             },
             {
               "name": "Return to Lounge",
@@ -1255,7 +1269,8 @@
               "recovery": "Keep the current behavior visible, report that Lounge could not be opened, and allow the visitor to retry or remain safely in place.",
               "policies": [
                 "Return to Lounge without revealing whether the submitted email belongs to an account."
-              ]
+              ],
+              "availableThrough": "product-surface"
             }
           ],
           "suggestedActions": [
@@ -1400,7 +1415,8 @@
               "recovery": "Show an explicit invalid, expired, or unavailable result and offer a new recovery request or return to Lounge. Never reuse or silently replace the token.",
               "policies": [
                 "Accept only a valid unexpired one-time token; on success change the password and revoke existing sessions."
-              ]
+              ],
+              "availableThrough": "product-surface"
             },
             {
               "name": "Return to Lounge",
@@ -1411,7 +1427,8 @@
               "recovery": "Keep the current behavior visible, report that Lounge could not be opened, and allow the visitor to retry or remain safely in place.",
               "policies": [
                 "Leave password reset without changing the password or consuming the one-time token."
-              ]
+              ],
+              "availableThrough": "product-surface"
             }
           ],
           "suggestedActions": [
@@ -1551,7 +1568,8 @@
               "policies": [
                 "Request another verification message only after the owner explicitly asks; do not send automatically or repeatedly.",
                 "Report request acceptance, rate limiting, or service unavailability without presenting acceptance as recipient delivery or successful verification."
-              ]
+              ],
+              "availableThrough": "product-surface"
             },
             {
               "name": "Return to Workspace",
@@ -1562,7 +1580,8 @@
               "recovery": "Keep the verification behavior visible, report that Workspace could not be opened, and preserve the actual verification state.",
               "policies": [
                 "Return to the authenticated Workspace without treating pending verification as a blocker."
-              ]
+              ],
+              "availableThrough": "product-surface"
             }
           ],
           "suggestedActions": [
@@ -1715,7 +1734,8 @@
               "recovery": "Show the exact valid user-facing failure category, preserve the unverified state, and offer a new verification request or safe return without silently retrying.",
               "policies": [
                 "Apply verification only to the owner account bound to a valid unexpired one-time token."
-              ]
+              ],
+              "availableThrough": "product-surface"
             },
             {
               "name": "Return to Lounge",
@@ -1726,7 +1746,8 @@
               "recovery": "Keep the current behavior visible, report that Lounge could not be opened, and allow the visitor to retry or remain safely in place.",
               "policies": [
                 "Leave email confirmation without consuming or exposing the one-time token."
-              ]
+              ],
+              "availableThrough": "product-surface"
             }
           ],
           "suggestedActions": [
@@ -1816,6 +1837,248 @@
           "status": "draft",
           "rejectionReason": ""
         }
+      ],
+      "productJourneyEvals": [
+        {
+          "id": "lounge-journey-register-sign-in",
+          "title": "Register, sign out, and sign in",
+          "enabled": true,
+          "blocking": true,
+          "interaction": "surface",
+          "startingBehavior": "Arrive in the Lounge",
+          "startingAuthentication": "public",
+          "goal": "Create a new owner account, enter its Workspace, sign out, and authenticate again.",
+          "preconditions": [
+            "Use a unique public test mailbox and a new strong password."
+          ],
+          "openingMessage": "",
+          "testerPersona": "",
+          "testerFacts": [],
+          "withholdUntilAsked": [],
+          "requiredOutcomes": [
+            "Registration creates one owner Workspace and an authenticated session.",
+            "The owner can sign out and sign in with the same credentials."
+          ],
+          "forbiddenOutcomes": [
+            "Do not claim registration before authenticated Workspace entry."
+          ],
+          "finalBehavior": "Enter the Workspace",
+          "finalAuthentication": "authenticated",
+          "stateAssertions": [
+            "One owner, personal organization, owner membership, adopted conversation, and active owner session exist."
+          ],
+          "maxTurns": 0
+        },
+        {
+          "id": "lounge-journey-duplicate-registration",
+          "title": "Keep duplicate registration account-neutral",
+          "enabled": true,
+          "blocking": true,
+          "interaction": "surface",
+          "startingBehavior": "Create an owner account",
+          "startingAuthentication": "public",
+          "goal": "Submit an email that already owns a Corpus account without learning whether it exists.",
+          "preconditions": [
+            "The submitted email already belongs to an owner."
+          ],
+          "openingMessage": "",
+          "testerPersona": "",
+          "testerFacts": [],
+          "withholdUntilAsked": [],
+          "requiredOutcomes": [
+            "Registration remains unsuccessful with account-neutral recovery."
+          ],
+          "forbiddenOutcomes": [
+            "Do not reveal that the email is already registered.",
+            "Do not create another owner or Workspace."
+          ],
+          "finalBehavior": "Create an owner account",
+          "finalAuthentication": "public",
+          "stateAssertions": [
+            "Exactly one owner and one personal Workspace remain for the email."
+          ],
+          "maxTurns": 0
+        },
+        {
+          "id": "lounge-journey-password-reset",
+          "title": "Reset password and authenticate again",
+          "enabled": true,
+          "blocking": true,
+          "interaction": "surface",
+          "startingBehavior": "Request password recovery",
+          "startingAuthentication": "public",
+          "goal": "Receive a one-time reset link, change the password, and sign in with the new password.",
+          "preconditions": [
+            "A live owner account and public mailbox exist."
+          ],
+          "openingMessage": "",
+          "testerPersona": "",
+          "testerFacts": [],
+          "withholdUntilAsked": [],
+          "requiredOutcomes": [
+            "A reset request is accepted without account disclosure.",
+            "A valid link changes the password and returns to sign in.",
+            "The new password authenticates."
+          ],
+          "forbiddenOutcomes": [
+            "The old password must not authenticate after reset.",
+            "No reset token appears in chat or persisted visible state."
+          ],
+          "finalBehavior": "Enter the Workspace",
+          "finalAuthentication": "authenticated",
+          "stateAssertions": [
+            "Pre-reset sessions are revoked and a new authenticated owner session exists."
+          ],
+          "maxTurns": 0
+        },
+        {
+          "id": "lounge-journey-unknown-reset",
+          "title": "Keep unknown-account recovery neutral",
+          "enabled": true,
+          "blocking": true,
+          "interaction": "surface",
+          "startingBehavior": "Request password recovery",
+          "startingAuthentication": "public",
+          "goal": "Request recovery for an address that has no Corpus account.",
+          "preconditions": [
+            "The mailbox address does not belong to a Corpus owner."
+          ],
+          "openingMessage": "",
+          "testerPersona": "",
+          "testerFacts": [],
+          "withholdUntilAsked": [],
+          "requiredOutcomes": [
+            "The same generic acceptance shown for an existing account is presented."
+          ],
+          "forbiddenOutcomes": [
+            "Do not reveal that the account is absent.",
+            "Do not create an owner or send a reset token."
+          ],
+          "finalBehavior": "Request password recovery",
+          "finalAuthentication": "public",
+          "stateAssertions": [
+            "No owner, organization, membership, or reset state is created."
+          ],
+          "maxTurns": 0
+        },
+        {
+          "id": "lounge-journey-mail-outage",
+          "title": "Report a known reset-mail outage safely",
+          "enabled": true,
+          "blocking": true,
+          "interaction": "surface",
+          "startingBehavior": "Request password recovery",
+          "startingAuthentication": "public",
+          "goal": "Request password recovery while the mail service is independently known to be unavailable.",
+          "preconditions": [
+            "Corpus has recorded a service-wide mail outage before account lookup."
+          ],
+          "openingMessage": "",
+          "testerPersona": "",
+          "testerFacts": [],
+          "withholdUntilAsked": [],
+          "requiredOutcomes": [
+            "Mail-service unavailability remains visible with account-neutral copy."
+          ],
+          "forbiddenOutcomes": [
+            "Do not claim recipient delivery or reveal account existence."
+          ],
+          "finalBehavior": "Request password recovery",
+          "finalAuthentication": "public",
+          "stateAssertions": [
+            "No password or owner state changes occur."
+          ],
+          "maxTurns": 0
+        },
+        {
+          "id": "lounge-journey-email-verification",
+          "title": "Resend and confirm email verification",
+          "enabled": true,
+          "blocking": true,
+          "interaction": "surface",
+          "startingBehavior": "Resend email verification",
+          "startingAuthentication": "authenticated",
+          "goal": "Request a verification message, consume its one-time link, and confirm refreshed owner state.",
+          "preconditions": [
+            "A signed-in owner has an unverified public mailbox."
+          ],
+          "openingMessage": "",
+          "testerPersona": "",
+          "testerFacts": [],
+          "withholdUntilAsked": [],
+          "requiredOutcomes": [
+            "The request is accepted without claiming delivery.",
+            "A valid link verifies the owner and refreshed state confirms it."
+          ],
+          "forbiddenOutcomes": [
+            "No token remains in the visible URL, chat, or persisted visible state."
+          ],
+          "finalBehavior": "Confirm email verification",
+          "finalAuthentication": "authenticated",
+          "stateAssertions": [
+            "The owner record and refreshed browser session both report verified email."
+          ],
+          "maxTurns": 0
+        },
+        {
+          "id": "lounge-journey-verification-rate-limit",
+          "title": "Rate-limit verification before token generation",
+          "enabled": true,
+          "blocking": true,
+          "interaction": "surface",
+          "startingBehavior": "Resend email verification",
+          "startingAuthentication": "authenticated",
+          "goal": "Exceed the verification resend limit without generating another token.",
+          "preconditions": [
+            "A signed-in unverified owner has reached the resend limit."
+          ],
+          "openingMessage": "",
+          "testerPersona": "",
+          "testerFacts": [],
+          "withholdUntilAsked": [],
+          "requiredOutcomes": [
+            "The next request is visibly rate-limited."
+          ],
+          "forbiddenOutcomes": [
+            "Do not generate or send another verification token.",
+            "Do not block permitted Workspace use."
+          ],
+          "finalBehavior": "Resend email verification",
+          "finalAuthentication": "authenticated",
+          "stateAssertions": [
+            "The rate-limit count changes as designed while verification state stays unverified."
+          ],
+          "maxTurns": 0
+        },
+        {
+          "id": "lounge-journey-invalid-verification",
+          "title": "Reject an invalid verification link",
+          "enabled": true,
+          "blocking": true,
+          "interaction": "surface",
+          "startingBehavior": "Confirm email verification",
+          "startingAuthentication": "authenticated",
+          "goal": "Open a missing, invalid, or expired verification link.",
+          "preconditions": [
+            "The owner is unverified and the supplied token is not valid."
+          ],
+          "openingMessage": "",
+          "testerPersona": "",
+          "testerFacts": [],
+          "withholdUntilAsked": [],
+          "requiredOutcomes": [
+            "The failure is explicit and offers safe recovery."
+          ],
+          "forbiddenOutcomes": [
+            "Do not claim verification or silently request another message."
+          ],
+          "finalBehavior": "Confirm email verification",
+          "finalAuthentication": "authenticated",
+          "stateAssertions": [
+            "The owner and refreshed session remain unverified."
+          ],
+          "maxTurns": 0
+        }
       ]
     },
     {
@@ -1886,7 +2149,8 @@
               "recovery": "",
               "policies": [
                 "Navigation to the owning feature does not create or modify agents, sources, operations, or other domain records."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [],
@@ -1996,7 +2260,8 @@
               "recovery": "",
               "policies": [
                 "Offer only currently available next steps and do not imply that choosing a destination completes the owner's task."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [],
@@ -2053,7 +2318,8 @@
               "recovery": "",
               "policies": [
                 "Navigation changes location only and must never be reported as completion of the requested task."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [],
@@ -2120,7 +2386,8 @@
               "recovery": "",
               "policies": [
                 "Navigate to the selected feature without creating, editing, archiving, deleting, deploying, or processing a resource."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -2207,7 +2474,8 @@
               "policies": [
                 "Sign out only after the authenticated owner explicitly requests it; never infer sign-out from navigation or inactivity.",
                 "Success requires revoking the current browser session and owner route handle, clearing browser credentials, and returning to a fresh Lounge; failure remains visible."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -2223,7 +2491,8 @@
           "status": "approved",
           "rejectionReason": ""
         }
-      ]
+      ],
+      "productJourneyEvals": []
     },
     {
       "id": "agents",
@@ -2294,7 +2563,8 @@
               "recovery": "",
               "policies": [
                 "Opening agent creation does not create an agent, runnable version, or deployment."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -2369,7 +2639,8 @@
               "policies": [
                 "Submit the exact validated values once after explicit confirmation; invalid required fields must not create a record.",
                 "Success creates one Workspace-owned agent record only; it does not create a runnable version, evaluation result, channel, or deployment."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -2498,7 +2769,8 @@
               "policies": [
                 "Apply validated edits to the selected agent configuration only; never silently rewrite an existing runnable or deployed version.",
                 "Claim completion only after the exact changes are persisted; validation or persistence failure leaves the prior agent state authoritative."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -2573,7 +2845,8 @@
               "policies": [
                 "Attach only the exact source selected by the owner and prevent duplicate attachment of the same source.",
                 "Claim success only after the association is persisted and the originating agent shows the attached source."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -2638,7 +2911,8 @@
               "recovery": "",
               "policies": [
                 "Navigation to source creation does not attach a source and must not be presented as task completion."
-              ]
+              ],
+              "availableThrough": "not-decided"
             },
             {
               "name": "Attach newly created source",
@@ -2649,7 +2923,8 @@
               "recovery": "",
               "policies": [
                 "Attach only a successfully created eligible source; cancellation or source-creation failure returns without changing the agent."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -2713,7 +2988,8 @@
               "recovery": "",
               "policies": [
                 "Preserve the originating agent and return context when navigating to the selected source."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [],
@@ -2781,7 +3057,8 @@
               "policies": [
                 "Archive only after explicit confirmation of the selected agent; never infer archive intent from list filtering or navigation.",
                 "Archive is not deletion: preserve the agent record and report success only after it leaves the active list; blockers or failure remain visible."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -2856,7 +3133,8 @@
               "policies": [
                 "Require explicit confirmation after material blockers and consequences are shown; never treat archive intent as delete intent.",
                 "Do not delete while declared blockers remain; claim success only after authoritative removal of the exact agent, and keep failure visible."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -2872,7 +3150,8 @@
           "status": "draft",
           "rejectionReason": ""
         }
-      ]
+      ],
+      "productJourneyEvals": []
     },
     {
       "id": "source-hub",
@@ -2943,7 +3222,8 @@
               "recovery": "",
               "policies": [
                 "Opening API Source starts the creation path but does not create, upload, process, or attach a source."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -3007,7 +3287,8 @@
               "recovery": "",
               "policies": [
                 "Navigation to API Source does not create a source or imply that an API file has been accepted."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -3082,7 +3363,8 @@
               "policies": [
                 "Use the exact owner-selected source and prevent duplicate attachment; do not auto-select based on name similarity.",
                 "Return to the originating agent and claim completion only after the selected source association is persisted."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -3157,7 +3439,8 @@
               "policies": [
                 "Require explicit confirmation of the selected source after dependencies and consequences are shown.",
                 "Do not delete while declared dependencies block removal; claim success only after authoritative deletion and keep failure visible."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -3221,7 +3504,8 @@
               "recovery": "",
               "policies": [
                 "Navigation to the description input does not upload, validate, save, or process description content."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -3237,7 +3521,8 @@
           "status": "draft",
           "rejectionReason": ""
         }
-      ]
+      ],
+      "productJourneyEvals": []
     },
     {
       "id": "api-source",
@@ -3311,7 +3596,8 @@
               "recovery": "",
               "policies": [
                 "Process only the file explicitly chosen by the owner and never replace missing or invalid input with a fixture or example specification."
-              ]
+              ],
+              "availableThrough": "not-decided"
             },
             {
               "name": "Accept API revision",
@@ -3322,7 +3608,8 @@
               "recovery": "",
               "policies": [
                 "Invalid input creates no accepted revision; successful acceptance creates an identifiable revision bound to the uploaded file."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -3404,7 +3691,8 @@
               "recovery": "",
               "policies": [
                 "Persist valid description content only to the selected API source; invalid or failed uploads must not replace the prior description."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -3479,7 +3767,8 @@
               "recovery": "",
               "policies": [
                 "Persist only the exact validated settings and credential references supplied for the selected connection profile."
-              ]
+              ],
+              "availableThrough": "not-decided"
             },
             {
               "name": "Test API connection",
@@ -3491,7 +3780,8 @@
               "policies": [
                 "Run a safe connection check only when explicitly requested and keep testing distinct from saving configuration.",
                 "A failed or unavailable check remains a failure; never switch provider, environment, credentials, or endpoint silently."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -3572,7 +3862,8 @@
               "policies": [
                 "Start processing only after explicit owner request and do not create duplicate concurrent runs for the same revision.",
                 "Use the real ToolRouter pipeline for the exact revision; never substitute cached success, a mock graph, or another processor."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -3753,7 +4044,8 @@
               "recovery": "",
               "policies": [
                 "Replay commands change only replay position; they do not rerun processing or create new graph artifacts."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -3834,7 +4126,8 @@
               "policies": [
                 "Persist only the owner's explicit inclusion decisions and never infer selection from inspection, filtering, or search.",
                 "Do not invent, rename, or silently broaden discovered operations; bind the saved selection to the exact source revision."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -3909,7 +4202,8 @@
               "policies": [
                 "Retry only the affected step after explicit owner request; never retry automatically or conceal the original failure.",
                 "Use the corrected real input and required dependency; never substitute a mock, cached success, alternate processor, or generic successful result."
-              ]
+              ],
+              "availableThrough": "not-decided"
             }
           ],
           "suggestedActions": [
@@ -3925,7 +4219,8 @@
           "status": "draft",
           "rejectionReason": ""
         }
-      ]
+      ],
+      "productJourneyEvals": []
     }
   ]
 }

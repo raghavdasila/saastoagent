@@ -84,6 +84,7 @@ export function getStoryReadiness(story: DesignStory): StoryReadiness {
     const label = operation.name.trim() || `Operation ${index + 1}`
     const targetId = `operation-${index}`
     if (missing(operation.name)) block(`operation-${index}-name`, "operations", `Operation ${index + 1} needs a name.`, targetId)
+    if (operation.availableThrough === "not-decided") block(`operation-${index}-source`, "operations", `${label} needs an invocation path: chat, product surface, or both.`, targetId)
     if (duplicateOperations.has(operation.name.trim().toLocaleLowerCase())) block(`operation-${index}-duplicate`, "operations", `Operation name “${operation.name.trim()}” is duplicated.`, targetId)
     if (missing(operation.purpose)) block(`operation-${index}-purpose`, "operations", `${label} needs an intended effect.`, targetId)
     if (missing(operation.inputs)) block(`operation-${index}-inputs`, "operations", `${label} needs inputs or an explicit “No input required” statement.`, targetId)

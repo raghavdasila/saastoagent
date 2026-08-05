@@ -34,7 +34,10 @@ function VerifyEmailForm({ privateForm, token, dispatchAffordance }: RouteDeckSu
       await store.resync();
       await dispatchAffordance("confirm_owner_email", {});
       clearCapturedTokenFragment("verification");
-      await refresh();
+      const refreshed = await refresh();
+      if (refreshed?.owner.is_verified !== true) {
+        throw new Error("Email verification could not be confirmed from the refreshed owner state.");
+      }
       setMessage("Email verified.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Email verification failed.");

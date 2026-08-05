@@ -179,3 +179,46 @@ def test_evaluation_evidence_preserves_ordinary_password_guidance() -> None:
     value = "Do not send your password or other credentials in chat."
 
     assert _redact_visible_text(value) == value
+
+
+def test_deterministic_assertions_use_durable_operation_and_auth_evidence() -> None:
+    scenario = {
+        "expectations": {
+            "startingBehavior": "Arrive in the Lounge",
+            "finalBehavior": "Create an owner account",
+            "authentication": "public",
+            "requiredOperations": ["Open owner registration"],
+            "allowedOperations": ["Open owner registration"],
+            "forbiddenOperations": ["Create owner account"],
+            "requiredSurfaces": [],
+            "requiredSuggestedActions": [],
+            "forbiddenOutcomes": [],
+        }
+    }
+    results = _deterministic_assertions(
+        scenario,
+        {
+            "Arrive in the Lounge": "lounge.home",
+            "Create an owner account": "lounge.register",
+        },
+        {"current": {"node_id": "lounge.register"}, "suggested_actions": []},
+        [{"role": "assistant", "content": "Use the private registration form."}],
+        starting_projection={"current": {"node_id": "lounge.home"}},
+        operation_ids={
+            "Open owner registration": {"lounge.arrival.open_registration"},
+            "Create owner account": {"lounge.create_owner_account"},
+        },
+        events=[
+            {
+                "event_type": "operation_changed",
+                "payload": {"operation_id": "lounge.arrival.open_registration"},
+            }
+        ],
+        starting_authentication="public",
+        final_authentication="public",
+    )
+
+    assert next(item for item in results if item["name"] == "required operations")["passed"] is True
+    assert next(item for item in results if item["name"] == "allowed operations")["passed"] is True
+    assert next(item for item in results if item["name"] == "forbidden operations")["passed"] is True
+    assert next(item for item in results if item["name"] == "authentication")["passed"] is True

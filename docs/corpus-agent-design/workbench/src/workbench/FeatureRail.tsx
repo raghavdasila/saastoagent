@@ -4,6 +4,7 @@ import {
   Circle,
   FlaskConical,
   MessageSquareText,
+  Route,
   Plus,
   ShieldCheck,
   X,
@@ -14,7 +15,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { STUDIO_CONFIG } from "@/workbench/studioConfig"
 import { getStoryReadiness } from "@/workbench/readiness"
-import { getFeatureConversationEvalReadiness } from "@/workbench/evaluationReadiness"
+import { getFeatureConversationEvalReadiness, getFeatureProductJourneyReadiness } from "@/workbench/evaluationReadiness"
 import type { DesignFeature, ReviewStatus } from "@/workbench/types"
 
 const statusIcon: Record<ReviewStatus, typeof Circle> = {
@@ -27,13 +28,14 @@ interface FeatureRailProps {
   features: DesignFeature[]
   selectedFeatureId: string
   selectedStoryId: string
-  selectedView: "behavior" | "feature-prompt" | "feature-policy" | "conversation-evals"
+  selectedView: "behavior" | "feature-prompt" | "feature-policy" | "conversation-evals" | "product-journeys"
   mobileOpen: boolean
   onSelectFeature: (featureId: string) => void
   onSelectStory: (storyId: string) => void
   onSelectFeaturePrompt: () => void
   onSelectFeaturePolicy: () => void
   onSelectConversationEvals: () => void
+  onSelectProductJourneys: () => void
   onAddStory: () => void
   onCloseMobile: () => void
 }
@@ -49,12 +51,14 @@ export function FeatureRail({
   onSelectFeaturePrompt,
   onSelectFeaturePolicy,
   onSelectConversationEvals,
+  onSelectProductJourneys,
   onAddStory,
   onCloseMobile,
 }: FeatureRailProps) {
   const selectedFeature = features.find((feature) => feature.id === selectedFeatureId) ?? features[0]
   const featurePolicyCount = selectedFeature.policies.length
   const conversationReadiness = getFeatureConversationEvalReadiness(selectedFeature)
+  const productJourneyReadiness = getFeatureProductJourneyReadiness(selectedFeature)
 
   function selectFeature(featureId: string) {
     onSelectFeature(featureId)
@@ -78,6 +82,11 @@ export function FeatureRail({
 
   function selectConversationEvals() {
     onSelectConversationEvals()
+    onCloseMobile()
+  }
+
+  function selectProductJourneys() {
+    onSelectProductJourneys()
     onCloseMobile()
   }
 
@@ -134,6 +143,19 @@ export function FeatureRail({
           >
             <MessageSquareText data-icon="inline-start" className={cn("size-3.5", selectedView === "feature-prompt" ? "text-primary" : "text-muted-foreground")} strokeWidth={1.8} />
             {STUDIO_CONFIG.featurePromptLabel}
+          </Button>
+          <Button
+            aria-label="Product journeys"
+            variant="ghost"
+            className={cn(
+              "h-9 w-full justify-start border border-transparent px-2.5 !text-[13px] font-normal focus-visible:ring-2",
+              selectedView === "product-journeys" && "border-primary/15 bg-primary/10 font-medium text-foreground",
+            )}
+            onClick={selectProductJourneys}
+          >
+            <Route data-icon="inline-start" className={cn("size-3.5", selectedView === "product-journeys" ? "text-primary" : "text-muted-foreground")} strokeWidth={1.8} />
+            Product journeys
+            <span className={cn("ml-auto text-[11px] font-normal tabular-nums", productJourneyReadiness.isReady ? "text-muted-foreground" : "text-[var(--studio-warning)]")}>{productJourneyReadiness.isReady ? selectedFeature.productJourneyEvals.length : productJourneyReadiness.issues.length}</span>
           </Button>
           <Button
             aria-label="Conversation evals"

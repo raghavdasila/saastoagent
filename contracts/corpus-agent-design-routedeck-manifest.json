@@ -1,9 +1,14 @@
 {
   "version": 1,
+  "unimplementedDesignFeatures": [
+    "Agents",
+    "API Source"
+  ],
   "features": [
     {
       "designFeature": "Lounge",
       "routeDeckFeature": "lounge",
+      "implementationStatus": "complete",
       "featurePromptPolicy": "lounge.feature.prompt",
       "behaviors": [
         {
@@ -120,6 +125,39 @@
           }
         }
       ]
+    },
+    {
+      "designFeature": "Workspace",
+      "routeDeckFeature": "workspace",
+      "implementationStatus": "partial",
+      "unmappedDesignBehaviors": [
+        "Enter the Workspace",
+        "Ask about Workspace activity",
+        "Ask about Corpus while signed in",
+        "Continue a task in the correct feature",
+        "Use Workspace quick actions",
+        "Sign out to Lounge"
+      ],
+      "unmappedCompiledNodes": [
+        "workspace.home"
+      ],
+      "behaviors": []
+    },
+    {
+      "designFeature": "Source Hub",
+      "routeDeckFeature": "sources",
+      "implementationStatus": "partial",
+      "unmappedDesignBehaviors": [
+        "View sources",
+        "Start adding an API source",
+        "Select a source for an agent",
+        "Delete an API source",
+        "Start adding an API description"
+      ],
+      "unmappedCompiledNodes": [
+        "sources.home"
+      ],
+      "behaviors": []
     }
   ]
 }

@@ -128,6 +128,10 @@ class LoungeEvaluationRunner:
             for behavior in lounge_manifest["behaviors"]
             for design_name, runtime_id in behavior["surfaces"].items()
         }
+        operation_ids: dict[str, set[str]] = {}
+        for behavior in lounge_manifest["behaviors"]:
+            for design_name, runtime_id in behavior["operations"].items():
+                operation_ids.setdefault(design_name, set()).add(runtime_id)
         run_id = f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:10]}"
         started = datetime.now(UTC).isoformat()
         try:
@@ -143,6 +147,7 @@ class LoungeEvaluationRunner:
                             item,
                             behavior_nodes,
                             surface_ids,
+                            operation_ids,
                         )
                         for item in scenarios
                     ]
@@ -154,6 +159,7 @@ class LoungeEvaluationRunner:
                             behavior_nodes,
                             surface_ids,
                             lounge_manifest["behaviors"],
+                            operation_ids,
                         )
                         for item in scenarios
                     ]
@@ -217,6 +223,7 @@ class LoungeEvaluationRunner:
         behavior_nodes: dict[str, str],
         surface_ids: dict[str, str],
         manifest_behaviors: list[dict[str, Any]],
+        operation_ids: dict[str, set[str]],
     ) -> dict[str, Any]:
         definition = {
             key: value for key, value in case.items() if key != "designBehavior"
@@ -253,12 +260,21 @@ class LoungeEvaluationRunner:
             starting_projection = _expect(
                 client.get("/api/routedeck/session"), 200
             ).json()["projection"]
+            starting_authentication = _authentication_state(client)
+            starting_event_cursor = _expect(
+                client.get("/api/routedeck/inspect"), 200
+            ).json().get("diagnostics", {}).get("event_cursor", 0)
             self._send(client, case["input"])
             transcript = self._transcript(client)
             projection = _expect(
                 client.get("/api/routedeck/session"), 200
             ).json()["projection"]
             inspection = _expect(client.get("/api/routedeck/inspect"), 200).json()
+            events = _event_evidence(
+                client,
+                starting_event_cursor,
+                inspection.get("diagnostics", {}).get("event_cursor", 0),
+            )
             deterministic = _deterministic_assertions(
                 case,
                 behavior_nodes,
@@ -266,6 +282,10 @@ class LoungeEvaluationRunner:
                 transcript,
                 starting_projection=starting_projection,
                 surface_ids=surface_ids,
+                operation_ids=operation_ids,
+                events=events,
+                starting_authentication=starting_authentication,
+                final_authentication=_authentication_state(client),
             )
             judge = self._judge_behavior(case, transcript, deterministic)
             semantic_pass = (
@@ -312,6 +332,7 @@ class LoungeEvaluationRunner:
         scenario: dict[str, Any],
         behavior_nodes: dict[str, str],
         surface_ids: dict[str, str],
+        operation_ids: dict[str, set[str]],
     ) -> dict[str, Any]:
         try:
             listed = _expect(client.get("/api/conversations"), 200).json()["conversations"]
@@ -327,6 +348,10 @@ class LoungeEvaluationRunner:
             starting_projection = _expect(
                 client.get("/api/routedeck/session"), 200
             ).json()["projection"]
+            starting_authentication = _authentication_state(client)
+            starting_event_cursor = _expect(
+                client.get("/api/routedeck/inspect"), 200
+            ).json().get("diagnostics", {}).get("event_cursor", 0)
             self._send(client, scenario["openingMessage"])
             for _ in range(min(self.max_adaptive_turns, scenario["maxTurns"] - 1)):
                 transcript = self._transcript(client)
@@ -337,6 +362,11 @@ class LoungeEvaluationRunner:
             transcript = self._transcript(client)
             projection = _expect(client.get("/api/routedeck/session"), 200).json()["projection"]
             inspection = _expect(client.get("/api/routedeck/inspect"), 200).json()
+            events = _event_evidence(
+                client,
+                starting_event_cursor,
+                inspection.get("diagnostics", {}).get("event_cursor", 0),
+            )
             deterministic = _deterministic_assertions(
                 scenario,
                 behavior_nodes,
@@ -344,6 +374,10 @@ class LoungeEvaluationRunner:
                 transcript,
                 starting_projection=starting_projection,
                 surface_ids=surface_ids,
+                operation_ids=operation_ids,
+                events=events,
+                starting_authentication=starting_authentication,
+                final_authentication=_authentication_state(client),
             )
             judge = self._judge(scenario, transcript, deterministic)
             semantic_pass = (
@@ -532,6 +566,10 @@ def _deterministic_assertions(
     *,
     starting_projection=None,
     surface_ids=None,
+    operation_ids=None,
+    events=None,
+    starting_authentication=None,
+    final_authentication=None,
 ):
     expectations = scenario["expectations"]
     text = "\n".join(item["content"] for item in transcript if item["role"] == "assistant")
@@ -548,6 +586,40 @@ def _deterministic_assertions(
         for name in expectations.get("requiredSurfaces", [])
     }
     protocol_markup = re.search(r"\bto=rd_[a-z0-9_]+|\bcode:\s*\{", text, re.IGNORECASE)
+    observed_operation_sequence = [
+        event.get("payload", {}).get("operation_id")
+        for event in (events or [])
+        if event.get("event_type") == "operation_changed"
+        and event.get("payload", {}).get("operation_id")
+    ]
+    observed_operation_ids = set(observed_operation_sequence)
+    mapped_operations = operation_ids or {}
+    required_operation_ids = {
+        runtime_id
+        for name in expectations.get("requiredOperations", [])
+        for runtime_id in mapped_operations.get(name, set())
+    }
+    allowed_operation_ids = {
+        runtime_id
+        for name in expectations.get("allowedOperations", [])
+        for runtime_id in mapped_operations.get(name, set())
+    }
+    forbidden_operation_ids = {
+        runtime_id
+        for name in expectations.get("forbiddenOperations", [])
+        for runtime_id in mapped_operations.get(name, set())
+    }
+    authentication_expectation = expectations.get("authentication", "unchanged")
+    forbidden_outcome_results = [
+        _forbidden_outcome_absent(
+            outcome,
+            text,
+            current_node,
+            observed_operation_sequence,
+            mapped_operations,
+        )
+        for outcome in expectations.get("forbiddenOutcomes", [])
+    ]
     checks = [
         _check(
             "starting behavior",
@@ -565,7 +637,35 @@ def _deterministic_assertions(
             f"required {sorted(required_surface_ids)}, observed {sorted(observed_surface_ids)}",
         ),
         _check("required suggested actions", set(expectations["requiredSuggestedActions"]) <= action_labels, f"required {expectations['requiredSuggestedActions']}, observed {sorted(action_labels)}"),
-        _check("public authentication", expectations["authentication"] != "public" or current_node.startswith("lounge."), f"observed {current_node}"),
+        _check(
+            "required operations",
+            required_operation_ids <= observed_operation_ids,
+            f"required {sorted(required_operation_ids)}, observed {sorted(observed_operation_ids)}",
+        ),
+        _check(
+            "allowed operations",
+            not allowed_operation_ids or observed_operation_ids <= allowed_operation_ids,
+            f"allowed {sorted(allowed_operation_ids)}, observed {sorted(observed_operation_ids)}",
+        ),
+        _check(
+            "forbidden operations",
+            forbidden_operation_ids.isdisjoint(observed_operation_ids),
+            f"forbidden {sorted(forbidden_operation_ids)}, observed {sorted(observed_operation_ids)}",
+        ),
+        _check(
+            "authentication",
+            (authentication_expectation == "public" and final_authentication == "public")
+            or (authentication_expectation == "authenticated" and final_authentication == "authenticated")
+            or (authentication_expectation == "unchanged" and starting_authentication == final_authentication)
+            or final_authentication is None,
+            f"expected {authentication_expectation}, started {starting_authentication}, observed {final_authentication}",
+        ),
+        _check(
+            "forbidden outcomes",
+            all(item[0] for item in forbidden_outcome_results),
+            "; ".join(item[1] for item in forbidden_outcome_results)
+            or "none authored",
+        ),
         _check("framework internals absent", not any(token in text.lower() for token in ("routedeck", "agentpolicy", "operation_id", "session_version")), "scanned visible assistant text"),
         _check(
             "model protocol markup absent",
@@ -574,6 +674,67 @@ def _deterministic_assertions(
         ),
     ]
     return checks
+
+
+def _forbidden_outcome_absent(
+    outcome: str,
+    assistant_text: str,
+    current_node: str,
+    observed_operation_ids: list[str],
+    operation_ids: dict[str, set[str]],
+) -> tuple[bool, str]:
+    normalized = outcome.lower()
+    visible = assistant_text.lower()
+    if "internal framework" in normalized:
+        observed = any(
+            token in visible
+            for token in ("routedeck", "agentpolicy", "operation_id", "session_version")
+        )
+    elif "private workspace state" in normalized:
+        observed = current_node.startswith("workspace.")
+    elif "account existence" in normalized:
+        observed = re.search(
+            r"\b(?:account|email)\b.{0,40}\b(?:already registered|exists|does not exist|not found|unknown)\b",
+            visible,
+        ) is not None
+    elif "recipient delivery" in normalized or "false delivery" in normalized:
+        observed = re.search(
+            r"\b(?:email|message|link)\b.{0,30}\b(?:was|is|has been)\s+(?:sent|delivered)\b",
+            visible,
+        ) is not None
+    elif "automatic repeated delivery" in normalized:
+        verification_ids = operation_ids.get("Request verification delivery", set())
+        observed = sum(
+            operation_id in verification_ids for operation_id in observed_operation_ids
+        ) > 1
+    else:
+        return False, f"unsupported deterministic forbidden outcome: {outcome}"
+    return (not observed, f"{outcome}: {'observed' if observed else 'absent'}")
+
+
+def _authentication_state(client: httpx.Client) -> str:
+    payload = _expect(client.get("/api/auth/session"), 200).json()
+    return "public" if payload.get("type") == "anonymous" else "authenticated"
+
+
+def _event_evidence(
+    client: httpx.Client, starting_cursor: int, final_cursor: int
+) -> list[dict[str, Any]]:
+    if final_cursor <= starting_cursor:
+        return []
+    events: list[dict[str, Any]] = []
+    with client.stream(
+        "GET", f"/api/routedeck/events?after={starting_cursor}"
+    ) as response:
+        _expect(response, 200)
+        for line in response.iter_lines():
+            if not line.startswith("data: "):
+                continue
+            event = json.loads(line[6:])
+            events.append(event)
+            if int(event.get("cursor", 0)) >= final_cursor:
+                break
+    return events
 
 
 def _projection_surface_ids(projection: dict[str, Any]) -> set[str]:

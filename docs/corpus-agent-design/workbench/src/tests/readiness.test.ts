@@ -25,6 +25,7 @@ function completeStory(): DesignStory {
     surfaces: [{ name: "Result", purpose: "Show the reviewable result.", policies: [] }],
     operations: [{
       name: "Present result",
+      availableThrough: "product-surface",
       purpose: "Present the exact result selected for review.",
       inputs: "The selected result.",
       outcomes: "The exact result is visible; unavailable results remain unavailable.",
