@@ -2,86 +2,68 @@
 
 Updated: 2026-08-06
 
-## Repository Boundary
+## Current State
 
-- Authoritative checkout: `D:\Dev\AI Projects\saastoagent-v0.1`.
-- RouteDeck remains a separate repository. The user authorized only the
-  completed reliability changes in `packages/core/src/client/http.ts` and
-  `packages/core/src/client/reliability.test.ts`; no other RouteDeck change is
-  authorized.
-- `docs/corpus-agent-design/feature-behavior-notes.md` remains untouched and
-  user-owned. Source Hub/API Source internals were excluded from this slice.
+Corpus is the authoritative checkout. Lounge, Workspace, and core Agents use
+the documented modular-monolith feature pattern: feature-owned domain and
+application layers, RouteDeck controllers, central composition/persistence,
+global owner identity, and frontend domain stores that do not copy RouteDeck
+interaction state.
 
-## Implemented State
+The generic evaluator executes real setup and RouteDeck Operations, then checks
+bound outcomes, node transitions, domain state, and projection state. The
+public Lounge recorder also proves the combined chat -> Sign in -> Back to
+Lounge path. The linked RouteDeck Surface host keeps projected controls inert
+whenever its canonical store is not `live`.
 
-- Corpus now follows the documented modular-monolith feature pattern for
-  Lounge, Workspace, and Agents: feature-owned models/schemas/ports/services,
-  RouteDeck controllers, HTTP reads where needed, frontend domain clients and
-  stores, central adapters/composition, global auth, and central persistence.
-- RouteDeck owns nodes, transitions, legal Operations, projection/session
-  state, review, and recovery. Feature stores do not copy that state.
-- Workspace reports the real Agent count and explicitly marks unavailable
-  Source/recent-activity summaries instead of inventing data.
-- Core Agents supports owner-scoped identity, immutable configuration versions,
-  authenticated reads, supervised create/edit, duplicate-name conflict, and
-  optimistic version conflict.
-- The generic evaluator executes Studio action plans through real setup and
-  RouteDeck dispatch, then checks bound outcomes, node transitions, domain
-  state, and projection state. Semantic judging is reserved for conversation
-  plans.
-- Architecture drift is mechanically checked for Lounge, Workspace, Agents,
-  global frontend auth, and shared backend code.
-- Architecture visual: `docs/assets/corpus-architecture-boundaries.png`.
+Source Hub/API Source internals remain outside this completed slice.
+`docs/corpus-agent-design/feature-behavior-notes.md` remains untouched and
+user-owned. `mockruns/` remains local reference-only material.
 
-## Fresh Evidence
+## Current Evidence
 
-- Full Lounge aggregate: 8/8 passed,
-  `.runtime/evaluations/20260806T062952Z-fac606911c/result.json`.
-- Workspace quick action passed:
-  `.runtime/evaluations/20260806T060822Z-81f55dd99d/result.json`.
-- Agent create passed:
-  `.runtime/evaluations/20260806T060253Z-3925a7c131/result.json`.
-- Agent edit passed:
-  `.runtime/evaluations/20260806T060610Z-97d5395b7c/result.json`.
-- Rendered Workspace/Agents journey passed:
-  `.runtime/evaluations/20260806T061531Z-bf0bc49c7c/result.json` with desktop,
-  mobile, trace, one Agent, two immutable versions, and current version 2.
-- Backend: 100 passed. Root: 49 passed. Frontend: 58 passed plus typecheck and
-  production build. Design Studio: 34 passed plus typecheck/build.
-- Architecture boundary, Studio parity, and generated frontend-contract gates
-  passed. The frontend build retains only Vite's non-failing chunk-size
-  advisory; backend retains one upstream TestClient deprecation warning.
-- Authorized RouteDeck core: 89 passed plus typecheck/build.
+- Lounge aggregate: 8/8, run `20260806T062952Z-fac606911c`.
+- Workspace quick action and Agent create/edit action-state evaluations passed.
+- Rendered Workspace/Agents journey passed with one Agent, two immutable
+  versions, desktop/mobile proof, trace, and persisted current version 2:
+  `.runtime/evaluations/20260806T061531Z-bf0bc49c7c/result.json`.
+- Public privacy plus post-chat return passed 2/2 with zero HTTP, console, or
+  page errors:
+  `.runtime/evaluations/20260806T173245Z-898d846f57/result.json`.
+- Backend: 100 tests. Repository: 49 tests. Frontend: 58 tests plus strict
+  typecheck/build. Design Studio: 35 tests plus strict typecheck/build.
+- Architecture boundaries, Studio parity, generated frontend contracts, and
+  documentation ownership gates pass.
+- Linked RouteDeck React: 23 tests plus strict typecheck/build.
+
+Exact commands, runtime ports, diagnostics, and changed-file ownership are in
+`logs/20260806_2350_post_chat_lifecycle_closeout.md`.
 
 ## Runtime
 
-- Normal local runtime: `docker compose up --build -d backend frontend`.
-- Frontend smoke URL: `http://127.0.0.1:5199/`.
+- Normal local stack: `docker compose up --build -d backend frontend`.
+- Corpus: `http://127.0.0.1:5199/`.
 - Backend readiness: `http://127.0.0.1:8099/readyz`.
-- Evidence runs used isolated local ports recorded in each result artifact and
-  disposable SQLite databases.
+- Design Studio: `http://127.0.0.1:8782/`.
+- The post-chat acceptance run used isolated local ports `5339`/`8239` and
+  disposable SQLite state.
 
-## Git Boundary
+## Remaining Product Work
 
-- Earlier authorized Corpus foundation changes were committed as `181651d`.
-- The implementation and closeout changes after that commit are not staged or
-  committed by this session. Do not infer push permission.
-- RouteDeck changes were not staged or committed.
+The architecture audit still has three product-governance items: Studio
+blocking completeness/readiness, stale Lounge availability guidance, and
+Studio current-result selection. Resolve those before claiming the broader
+Agents lifecycle release-ready. Agent archive/delete, Source attachment,
+Designer, Sandbox, deployment, and execution runtime remain outside this core
+slice.
 
-## Next Product Slice
+## Restart Owners
 
-Use the same feature architecture for the next horizontally scoped Corpus
-feature. Keep Source internals excluded until their separate lane is explicitly
-reconciled. Agent archive/delete, Source attachment, Designer, Sandbox,
-deployment, and execution runtime remain outside this completed core slice.
-
-## Documentation Owners
-
-- Closeout checkpoint:
-  `context_checkpoints/2026-08-06-feature-architecture-evaluator-workspace-agents.md`
-- Closeout log:
-  `logs/20260806_feature_architecture_evaluator_workspace_agents.md`
+- Checkpoint: `context_checkpoints/2026-08-06-post-chat-lifecycle-closeout.md`
+- Session log: `logs/20260806_2350_post_chat_lifecycle_closeout.md`
 - Architecture: `architecture/components/corpus-feature-architecture.md`
+- Corpus/RouteDeck boundary: `architecture/components/corpus-routedeck-boundary.md`
 - Source ownership: `architecture/code-map.md`
 - Runtime flows: `SYSTEM_FLOW_INDEX.md`
 - Validation meaning: `test_index/README.md`
+- Audit: `audits/2026-08-06-implemented-feature-architecture-report.md`

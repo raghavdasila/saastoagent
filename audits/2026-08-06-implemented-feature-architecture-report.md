@@ -172,11 +172,15 @@ The Lounge product-help guidance in the Studio seed, saved design, and generated
 
 Required follow-up: correct the product-owned Studio guidance first, then regenerate/update the mapped backend policy and rerun Lounge grounding evaluations.
 
-### A3 - Medium: one post-chat return navigation hit a RouteDeck bootstrap lifecycle race
+### A3 - Resolved: post-chat return is gated through RouteDeck resynchronization
 
-An earlier retained recording run hit `RouteDeck dispatch requires a live bootstrapped store` when immediately using Back to Lounge after the public chat opened Sign in. The isolated public-only and owner-only acceptance runs both pass, but the combined same-page transition is not proven reliable.
+The retained failed trace proved that the Sign-in Surface remained interactive during `syncStatus="resyncing"`: the chat interaction had ended, the projection was reconciling, and Back to Lounge could dispatch into a correctly non-live store. `RouteDeckSurfaceHost` now treats every non-`live` synchronization state as busy and inert, in addition to existing chat and mutation gating.
 
-Required follow-up: reproduce that exact post-chat Back-to-Lounge sequence and diagnose the store disposal/bootstrap ordering. Do not treat the separate passing lanes as proof that this race is fixed.
+Run `20260806T173245Z-898d846f57` executes the exact public chat -> Sign in -> Back to Lounge path against an isolated real stack. Both privacy routing and return navigation passed with zero HTTP >=400 responses, console errors/warnings, or page errors. The RouteDeck regression test protects the non-live Surface invariant.
+
+- result: `.runtime/evaluations/20260806T173245Z-898d846f57/result.json`
+- trace: `.runtime/evaluations/20260806T173245Z-898d846f57/browser-trace.zip`
+- video: `.runtime/evaluations/20260806T173245Z-898d846f57/public-lounge-boundary.webm`
 
 ### A4 - Medium: Studio current-result presentation is stale despite fresh passing artifacts
 
@@ -193,4 +197,4 @@ Required follow-up: generate one aggregate result containing the implemented Wor
 
 ## Conclusion
 
-The implemented runtime architecture is correctly separated and the core owner/Workspace/Agents product path is proven. The remaining risk is architecture governance drift around Studio readiness/current-evidence status, stale Lounge product truth, and the one combined-page RouteDeck bootstrap race. These should be resolved before declaring the broader Agents lifecycle release-ready.
+The implemented runtime architecture is correctly separated and the core owner/Workspace/Agents product path is proven. The combined-page RouteDeck bootstrap race is resolved with framework and product-path regression coverage. The remaining risk is architecture governance drift around Studio readiness/current-evidence status and stale Lounge product truth. These should be resolved before declaring the broader Agents lifecycle release-ready.

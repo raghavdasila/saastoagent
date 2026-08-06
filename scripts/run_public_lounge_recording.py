@@ -37,7 +37,7 @@ async def main() -> None:
         "pageErrors": [],
         "requestFailures": [],
     }
-    assertion: dict[str, object] | None = None
+    assertions: list[dict[str, object]] = []
     error: str | None = None
     video_path: str | None = None
     trace_path = directory / "browser-trace.zip"
@@ -100,7 +100,7 @@ async def main() -> None:
                     for phrase in ["sign in", "sign up", "authenticate", "account"]
                 )
                 passed = routed_to_auth and "workspace" in reply_lower and "here are" not in reply_lower
-                assertion = {
+                assertions.append({
                     "name": "public Lounge withholds private Workspace agents and routes to account access",
                     "passed": passed,
                     "observed": {
@@ -110,10 +110,39 @@ async def main() -> None:
                             "heading", name="Sign in"
                         ).is_visible(),
                     },
-                }
+                })
                 boundary_path = directory / "02-public-privacy-boundary.png"
                 await page.screenshot(path=boundary_path, full_page=True)
                 screenshots.append(str(boundary_path.relative_to(repository)))
+
+                await page.get_by_role("button", name="Back to Lounge", exact=True).click()
+                await page.get_by_role("heading", name="Explore Corpus").wait_for(
+                    timeout=30_000
+                )
+                assertions.append(
+                    {
+                        "name": "post-chat account routing returns to Lounge after RouteDeck resynchronizes",
+                        "passed": (
+                            await page.get_by_role(
+                                "heading", name="Explore Corpus"
+                            ).is_visible()
+                            and not await page.get_by_role(
+                                "heading", name="Sign in", exact=True
+                            ).is_visible()
+                        ),
+                        "observed": {
+                            "loungeVisible": await page.get_by_role(
+                                "heading", name="Explore Corpus"
+                            ).is_visible(),
+                            "signInVisible": await page.get_by_role(
+                                "heading", name="Sign in", exact=True
+                            ).is_visible(),
+                        },
+                    }
+                )
+                returned_path = directory / "03-post-chat-return-to-lounge.png"
+                await page.screenshot(path=returned_path, full_page=True)
+                screenshots.append(str(returned_path.relative_to(repository)))
             except Exception as caught:
                 error = f"{type(caught).__name__}: {caught}"
             finally:
@@ -137,8 +166,8 @@ async def main() -> None:
     )
     passed = (
         error is None
-        and assertion is not None
-        and bool(assertion["passed"])
+        and len(assertions) == 2
+        and all(bool(assertion["passed"]) for assertion in assertions)
         and not blocking_diagnostics
     )
     artifact = {
@@ -150,7 +179,7 @@ async def main() -> None:
             "frontend": endpoints.frontend_url,
             "backend": endpoints.backend_url,
         },
-        "assertions": [] if assertion is None else [assertion],
+        "assertions": assertions,
         "diagnostics": diagnostics,
         "screenshots": screenshots,
         "video": video_path,

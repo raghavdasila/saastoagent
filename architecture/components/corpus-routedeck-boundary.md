@@ -112,6 +112,9 @@ public conversations, persistence, revocation, and ownership claims stay in
   background projection resync/reconnect. Corpus providers and initial
   conversation effects therefore retain their lifecycle instead of restarting
   on every canonical event.
+- While RouteDeck is bootstrapping, navigating, reconnecting, or resynchronizing,
+  projected product Surfaces remain rendered but busy and inert. Corpus does not
+  dispatch stale Surface controls or recreate that synchronization gate.
 - The Corpus header disables New conversation while a RouteDeck interaction is
   active. Once creation succeeds, the shell mounts a fresh conversation-scoped
   transport, RouteDeck store, private-form state, and chat history before it
@@ -291,6 +294,10 @@ service.
   transcripts, deterministic backend assertions, screenshots, traces, and
   failures under `.runtime/evaluations/**`; normal development databases are
   not selected.
+- `scripts/run_public_lounge_recording.py` protects the combined public chat ->
+  Sign in -> Back to Lounge lifecycle. It records both the public-data boundary
+  and the first post-resynchronization Surface dispatch, plus screenshot, video,
+  trace, HTTP, console, page-error, and aborted-request diagnostics.
 
 The 2026-08-05 product-journey run passed registration/sign-in,
 unknown-account recovery neutrality, email verification, and invalid-token

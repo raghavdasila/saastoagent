@@ -231,6 +231,14 @@ Studio-owned product journey
   -> pass or retained product failure artifact
 ```
 
+The public Lounge boundary recorder additionally exercises the combined
+conversation-to-Surface lifecycle on one page: public privacy response -> Sign
+in -> immediate Back to Lounge. RouteDeck keeps the projected Surface inert
+while its store is not `live`, then accepts the operation after authoritative
+resynchronization. The artifact retains browser errors and aborted transport
+requests separately so navigation/teardown cancellation cannot masquerade as a
+successful application response.
+
 The product runner owns isolated ports and databases and removes its runtime
 after execution. It does not mutate normal development databases, invent mail
 delivery, or turn a failed user-visible outcome into success.
