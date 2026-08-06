@@ -39,6 +39,14 @@ user-owned. `mockruns/` remains local reference-only material.
 Exact commands, runtime ports, diagnostics, and changed-file ownership are in
 `logs/20260806_2350_post_chat_lifecycle_closeout.md`.
 
+## Git Publication
+
+- Corpus implementation and closeout commit `755b4b9` is published on
+  `origin/main`.
+- RouteDeck Surface synchronization commit `54b687e` is published on the
+  sibling repository's `origin/main`.
+- Only reference-only `mockruns/` remains untracked locally.
+
 ## Runtime
 
 - Normal local stack: `docker compose up --build -d backend frontend`.

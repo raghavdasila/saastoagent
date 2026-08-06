@@ -178,6 +178,8 @@ The retained failed trace proved that the Sign-in Surface remained interactive d
 
 Run `20260806T173245Z-898d846f57` executes the exact public chat -> Sign in -> Back to Lounge path against an isolated real stack. Both privacy routing and return navigation passed with zero HTTP >=400 responses, console errors/warnings, or page errors. The RouteDeck regression test protects the non-live Surface invariant.
 
+The framework fix is published in RouteDeck commit `54b687e`; the Corpus acceptance coverage and reconciled audit are published in commit `755b4b9`.
+
 - result: `.runtime/evaluations/20260806T173245Z-898d846f57/result.json`
 - trace: `.runtime/evaluations/20260806T173245Z-898d846f57/browser-trace.zip`
 - video: `.runtime/evaluations/20260806T173245Z-898d846f57/public-lounge-boundary.webm`

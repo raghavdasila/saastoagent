@@ -71,3 +71,11 @@ note, or Source subsystem contract changed. `mockruns/` was excluded.
 Audit findings for Studio readiness/completeness, stale Lounge availability
 guidance, and current-result selection remain open. They are product-governance
 work and were not broadened into this lifecycle closeout.
+
+## Git Publication
+
+- Corpus: `755b4b9` (`fix(corpus): cover post-chat surface lifecycle`) pushed
+  to `origin/main`.
+- RouteDeck: `54b687e` (`fix(react): gate surfaces during synchronization`)
+  pushed to its `origin/main`.
+- `mockruns/` and RouteDeck historical untracked artifacts were excluded.

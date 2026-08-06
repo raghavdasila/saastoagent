@@ -18,6 +18,10 @@ The code map, consumer boundary, flow index, validation index, architecture
 audit, archived context, live context, and session log are reconciled. The
 user-owned behavior notes and Source internals remain unchanged.
 
+Corpus commit `755b4b9` and RouteDeck commit `54b687e` are published on their
+respective `origin/main` branches. Unrelated untracked reference/artifact trees
+remain local.
+
 ## Owning Files
 
 - Product acceptance: `scripts/run_public_lounge_recording.py`
