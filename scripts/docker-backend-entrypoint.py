@@ -69,7 +69,7 @@ def main(arguments: list[str]) -> None:
     print(f"Using persistent Docker development secrets from {secret_path}.")
     print("Running Corpus owner-auth migrations.")
     subprocess.run(
-        [sys.executable, "-m", "corpus.auth.migrations"],
+        [sys.executable, "-m", "corpus.persistence.migrations"],
         check=True,
         env=os.environ,
     )
@@ -79,4 +79,3 @@ def main(arguments: list[str]) -> None:
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-

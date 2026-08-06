@@ -1,4 +1,6 @@
-import type { AuthorizedTransport } from "@/app/transports";
+export interface AuthTransport {
+  fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
+}
 
 export interface OwnerSessionView {
   type?: "owner";
@@ -26,11 +28,11 @@ export class AuthProblemError extends Error {
   }
 }
 
-let authTransport: AuthorizedTransport | null = null;
+let authTransport: AuthTransport | null = null;
 let revokeClientCredentials: (() => Promise<void>) | null = null;
 
 export function configureOwnerAuthClient(options: {
-  transport: AuthorizedTransport;
+  transport: AuthTransport;
   signOut: () => Promise<void>;
 }): void {
   authTransport = options.transport;

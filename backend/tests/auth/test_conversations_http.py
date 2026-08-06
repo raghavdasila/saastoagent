@@ -13,7 +13,7 @@ from routedeck_core.contracts.session import SessionSnapshot
 from routedeck_fastapi import SameOriginMutationPolicy
 
 from corpus.auth.conversations import create_conversation_router
-from corpus.auth.database import AuthDatabase
+from corpus.persistence import CorpusDatabase
 from corpus.auth.http import AuthHttpProblem, auth_problem_response
 from corpus.auth.service import AuthService
 from corpus.composition import compile_corpus_app
@@ -74,7 +74,7 @@ def _runtime() -> RouteDeckRuntime:
 def test_catalog_creates_real_runtime_session_without_exposing_internal_id(
     tmp_path: Path,
 ) -> None:
-    database = AuthDatabase(
+    database = CorpusDatabase(
         f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}"
     )
     asyncio.run(database.create_schema_for_tests())
@@ -137,7 +137,7 @@ def test_catalog_creates_real_runtime_session_without_exposing_internal_id(
 def test_anonymous_replacement_archives_old_mapping_after_provisioning(
     tmp_path: Path,
 ) -> None:
-    database = AuthDatabase(
+    database = CorpusDatabase(
         f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}"
     )
     asyncio.run(database.create_schema_for_tests())
@@ -198,7 +198,7 @@ def test_anonymous_replacement_archives_old_mapping_after_provisioning(
 def test_anonymous_replacement_keeps_old_mapping_when_provisioning_fails(
     tmp_path: Path,
 ) -> None:
-    database = AuthDatabase(
+    database = CorpusDatabase(
         f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}"
     )
     asyncio.run(database.create_schema_for_tests())

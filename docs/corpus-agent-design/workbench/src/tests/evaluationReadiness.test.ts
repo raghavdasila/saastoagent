@@ -67,4 +67,21 @@ describe("evaluation definition readiness", () => {
     expect(messages).toContain("Grounded product help must allow 2 to 20 turns.")
     expect(messages).toContain("Grounded product help needs a stopping condition.")
   })
+
+  it("requires authored product actions and deterministic state checkpoints", () => {
+    const lounge = createSeedState().features.find((feature) => feature.id === "lounge")!
+    const registration = lounge.stories.find((story) => story.id === "owner-auth-register")!.behaviorEvals.find((evalCase) => evalCase.id === "register-normal")!
+
+    expect(registration.actionPlan.steps.map((step) => step.kind)).toEqual(["message", "surface-submit", "checkpoint"])
+    const checkpoint = registration.actionPlan.steps.at(-1)
+    expect(checkpoint?.kind).toBe("checkpoint")
+    if (checkpoint?.kind === "checkpoint") expect(checkpoint.stateAssertions).toHaveLength(2)
+
+    registration.actionPlan.steps[2] = { id: "broken-action", kind: "suggested-action", behavior: "Sign in", action: "Continue to Workspace" }
+    registration.actionPlan.steps[3] = { id: "empty-state", kind: "checkpoint", label: "", stateAssertions: [] }
+    const messages = getBehaviorEvalReadiness(lounge.stories.find((story) => story.id === "owner-auth-register")!).issues.map((issue) => issue.message)
+    expect(messages).toContain("Action step references missing SuggestedAction “Sign in / Continue to Workspace”.")
+    expect(messages).toContain("Checkpoint needs a label.")
+    expect(messages).toContain("Checkpoint needs at least one product-state assertion.")
+  })
 })

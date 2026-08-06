@@ -2,6 +2,57 @@
   "entry_node_id": "lounge.home",
   "name": "corpus",
   "nodes": {
+    "agents.create": {
+      "conversation_input": {
+        "disabled_message": null,
+        "enabled": true
+      },
+      "deep_link_policy": "session_bound",
+      "id": "agents.create",
+      "operation_ids": [
+        "agents.create_agent",
+        "agents.cancel_create"
+      ],
+      "route_template": "/agents/new",
+      "surfaces": {
+        "active": "agents.create",
+        "detail": [],
+        "diagnostic": [],
+        "error": [],
+        "form": [],
+        "frame": [],
+        "peer": [],
+        "review": [],
+        "status": []
+      },
+      "title": "Create agent"
+    },
+    "agents.home": {
+      "conversation_input": {
+        "disabled_message": null,
+        "enabled": true
+      },
+      "deep_link_policy": "session_bound",
+      "id": "agents.home",
+      "operation_ids": [
+        "agents.open_create",
+        "agents.save_changes",
+        "agents.return_to_workspace"
+      ],
+      "route_template": "/agents",
+      "surfaces": {
+        "active": "agents.home",
+        "detail": [],
+        "diagnostic": [],
+        "error": [],
+        "form": [],
+        "frame": [],
+        "peer": [],
+        "review": [],
+        "status": []
+      },
+      "title": "Agents"
+    },
     "lounge.forgot_password": {
       "conversation_input": {
         "disabled_message": "Chat is disabled while entering private account information.",
@@ -239,6 +290,7 @@
       "deep_link_policy": "session_bound",
       "id": "workspace.home",
       "operation_ids": [
+        "workspace.open_agents",
         "workspace.open_sources",
         "workspace.open_verification"
       ],
@@ -258,6 +310,65 @@
     }
   },
   "surfaces": {
+    "agents.create": {
+      "affordances": [
+        {
+          "event": "submit",
+          "id": "create_agent",
+          "operation": {
+            "id": "agents.create_agent"
+          }
+        },
+        {
+          "event": "open",
+          "id": "cancel_create",
+          "operation": {
+            "id": "agents.cancel_create"
+          }
+        }
+      ],
+      "component": "agents.create",
+      "id": "agents.create",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
+    },
+    "agents.home": {
+      "affordances": [
+        {
+          "event": "open",
+          "id": "open_create",
+          "operation": {
+            "id": "agents.open_create"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "save_changes",
+          "operation": {
+            "id": "agents.save_changes"
+          }
+        },
+        {
+          "event": "open",
+          "id": "return_to_workspace",
+          "operation": {
+            "id": "agents.return_to_workspace"
+          }
+        }
+      ],
+      "component": "agents.home",
+      "id": "agents.home",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
+    },
     "lounge.forgot_password": {
       "affordances": [
         {
@@ -505,6 +616,13 @@
       "affordances": [
         {
           "event": "open",
+          "id": "open_agents",
+          "operation": {
+            "id": "workspace.open_agents"
+          }
+        },
+        {
+          "event": "open",
           "id": "open_sources",
           "operation": {
             "id": "workspace.open_sources"
@@ -656,6 +774,12 @@
       "target": "lounge.home"
     },
     {
+      "operation_id": "workspace.open_agents",
+      "outcome": "opened",
+      "source": "workspace.home",
+      "target": "agents.home"
+    },
+    {
       "operation_id": "workspace.open_sources",
       "outcome": "opened",
       "source": "workspace.home",
@@ -666,6 +790,36 @@
       "outcome": "opened",
       "source": "workspace.home",
       "target": "lounge.verification_pending"
+    },
+    {
+      "operation_id": "agents.open_create",
+      "outcome": "opened",
+      "source": "agents.home",
+      "target": "agents.create"
+    },
+    {
+      "operation_id": "agents.save_changes",
+      "outcome": "saved",
+      "source": "agents.home",
+      "target": "agents.home"
+    },
+    {
+      "operation_id": "agents.return_to_workspace",
+      "outcome": "opened",
+      "source": "agents.home",
+      "target": "workspace.home"
+    },
+    {
+      "operation_id": "agents.create_agent",
+      "outcome": "created",
+      "source": "agents.create",
+      "target": "agents.home"
+    },
+    {
+      "operation_id": "agents.cancel_create",
+      "outcome": "opened",
+      "source": "agents.create",
+      "target": "agents.home"
     },
     {
       "operation_id": "sources.return_to_home",

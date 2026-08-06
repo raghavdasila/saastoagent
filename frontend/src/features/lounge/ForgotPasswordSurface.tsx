@@ -11,6 +11,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { PrivateFormGate, requireFormHandle } from "./PrivateFormGate";
 import { useInitialFieldFocus } from "./useInitialFieldFocus";
+import { publicOperationFailureMessage, requireCompletedOperation } from "./operationResult";
 
 export function ForgotPasswordSurface(props: RouteDeckSurfaceComponentProps) {
   return (
@@ -26,6 +27,7 @@ function ForgotPasswordForm({ privateForm, dispatchAffordance }: RouteDeckSurfac
   const firstFieldRef = useInitialFieldFocus();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,13 +35,18 @@ function ForgotPasswordForm({ privateForm, dispatchAffordance }: RouteDeckSurfac
     const email = String(new FormData(event.currentTarget).get("email") ?? "").trim().toLowerCase();
     setBusy(true);
     setMessage(null);
+    setFailed(false);
     try {
       await privateForm.save({ email }, { complete: true });
       await store.resync();
-      await dispatchAffordance("request_password_recovery", {});
+      requireCompletedOperation(
+        await dispatchAffordance("request_password_recovery", {}),
+        "Password reset could not be requested.",
+      );
       setMessage("If that account exists, a password-reset email has been requested.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Password reset could not be requested.");
+      setFailed(true);
+      setMessage(publicOperationFailureMessage(error, "Password reset could not be requested."));
     } finally {
       setBusy(false);
     }
@@ -55,7 +62,7 @@ function ForgotPasswordForm({ privateForm, dispatchAffordance }: RouteDeckSurfac
           <Button type="button" size="lg" variant="outline" disabled={busy} onClick={() => void dispatchAffordance("return_to_lounge", {})}><ArrowLeft data-icon="inline-start" />Back to Lounge</Button>
         </div>
       </form>
-      {message === null ? null : <p role="status">{message}</p>}
+      {message === null ? null : <p role={failed ? "alert" : "status"}>{message}</p>}
     </section>
   );
 }

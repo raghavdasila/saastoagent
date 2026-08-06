@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from corpus.auth.config import AuthSettings
+from corpus.persistence import CorpusDatabaseSettings
 
 
 def test_auth_settings_load_explicit_bearer_lifetimes(tmp_path: Path) -> None:
@@ -10,8 +11,8 @@ def test_auth_settings_load_explicit_bearer_lifetimes(tmp_path: Path) -> None:
     env.write_text(
         "\n".join(
             (
-                "CORPUS_AUTH_DATABASE_URL=sqlite+aiosqlite:///./auth.sqlite3",
-                "CORPUS_AUTH_MIGRATION_REVISION=0001_owner_auth",
+                "CORPUS_DATABASE_URL=sqlite+aiosqlite:///./corpus.sqlite3",
+                "CORPUS_MIGRATION_REVISION=0002_agents",
                 "CORPUS_RESET_SECRET=r" * 1 + "r" * 39,
                 "CORPUS_VERIFICATION_SECRET=v" * 1 + "v" * 39,
                 "CORPUS_AUTH_ACCESS_TOKEN_MINUTES=15",
@@ -23,8 +24,10 @@ def test_auth_settings_load_explicit_bearer_lifetimes(tmp_path: Path) -> None:
     )
 
     settings = AuthSettings.from_env(env)
+    database = CorpusDatabaseSettings.from_env(env)
 
-    assert settings.database_url.endswith("auth.sqlite3")
+    assert database.url.endswith("corpus.sqlite3")
+    assert database.migration_revision == "0002_agents"
     assert settings.access_token_minutes == 15
     assert settings.idle_session_days == 7
     assert settings.absolute_session_days == 30

@@ -18,7 +18,7 @@ import httpx
 from cryptography.fernet import Fernet
 
 from corpus.auth.config import AuthSettings
-from corpus.auth.migrations import upgrade_database
+from corpus.persistence.migrations import upgrade_database
 from scripts.smoke_restart_recovery import _prepare, _verify
 
 
@@ -29,7 +29,8 @@ _LOOPBACK_HOST = "127.0.0.1"
 @dataclass(frozen=True)
 class IsolatedRuntime:
     directory: Path
-    auth_database_url: str
+    database_url: str
+    migration_revision: str
     routedeck_database_url: str
     state_file: Path
     log_file: Path
@@ -42,7 +43,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
             "Prove Corpus restart recovery in a disposable local runtime that "
-            "owns both the Corpus auth and RouteDeck databases."
+            "owns both the Corpus domain and RouteDeck runtime databases."
         )
     )
     parser.add_argument(
@@ -56,10 +57,8 @@ def main() -> None:
     process: subprocess.Popen[bytes] | None = None
     succeeded = False
     try:
-        asyncio.run(upgrade_database(runtime.auth_database_url))
-        settings = AuthSettings.from_env().model_copy(
-            update={"database_url": runtime.auth_database_url}
-        )
+        asyncio.run(upgrade_database(runtime.database_url))
+        settings = AuthSettings.from_env()
 
         process = start_backend(runtime)
         wait_until_ready(runtime, process)
@@ -68,7 +67,8 @@ def main() -> None:
             runtime.origin,
             runtime.state_file,
             settings=settings,
-            database_url=runtime.auth_database_url,
+            database_url=runtime.database_url,
+            migration_revision=runtime.migration_revision,
         )
 
         stop_backend(process)
@@ -79,7 +79,8 @@ def main() -> None:
             runtime.origin,
             runtime.state_file,
             settings=settings,
-            database_url=runtime.auth_database_url,
+            database_url=runtime.database_url,
+            migration_revision=runtime.migration_revision,
         )
         succeeded = True
     finally:
@@ -97,7 +98,7 @@ def main() -> None:
 
     print("Isolated Corpus restart recovery smoke passed.")
     print(
-        "runtime=disposable auth_database=removed "
+        "runtime=disposable corpus_database=removed "
         "routedeck_database=removed normal_runtime=untouched"
     )
 
@@ -109,7 +110,7 @@ def create_isolated_runtime(*, port: int = 0) -> IsolatedRuntime:
         raise ValueError("The isolated runtime port must be between 1 and 65535.")
 
     directory = Path(tempfile.mkdtemp(prefix="corpus-restart-smoke-"))
-    auth_path = directory / "corpus-auth.sqlite3"
+    database_path = directory / "corpus.sqlite3"
     routedeck_path = directory / "routedeck.sqlite"
     source_path = directory / "sources"
     origin = f"http://{_LOOPBACK_HOST}:{port + 1 if port < 65535 else port - 1}"
@@ -129,7 +130,8 @@ def create_isolated_runtime(*, port: int = 0) -> IsolatedRuntime:
             "ROUTEDECK_INSTANCE_ID": f"restart-smoke-{uuid4().hex}",
             "ROUTEDECK_BROWSER_ORIGINS": origin,
             "ROUTEDECK_WORKER_COUNT": "1",
-            "CORPUS_AUTH_DATABASE_URL": _sqlite_url(auth_path, driver="aiosqlite"),
+            "CORPUS_DATABASE_URL": _sqlite_url(database_path, driver="aiosqlite"),
+            "CORPUS_MIGRATION_REVISION": "0002_agents",
             "CORPUS_RESET_SECRET": Fernet.generate_key().decode("ascii"),
             "CORPUS_VERIFICATION_SECRET": Fernet.generate_key().decode("ascii"),
             "CORPUS_PUBLIC_FRONTEND_URL": origin,
@@ -138,7 +140,8 @@ def create_isolated_runtime(*, port: int = 0) -> IsolatedRuntime:
     )
     return IsolatedRuntime(
         directory=directory,
-        auth_database_url=environment["CORPUS_AUTH_DATABASE_URL"],
+        database_url=environment["CORPUS_DATABASE_URL"],
+        migration_revision=environment["CORPUS_MIGRATION_REVISION"],
         routedeck_database_url=environment["ROUTEDECK_DATABASE_URL"],
         state_file=directory / "restart-state.json",
         log_file=directory / "backend.log",

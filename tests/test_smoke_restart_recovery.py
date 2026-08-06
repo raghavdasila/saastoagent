@@ -12,8 +12,8 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import delete, func, select
 
-from corpus.auth.database import AuthDatabase
-from corpus.auth.migrations import upgrade_database
+from corpus.persistence import CorpusDatabase
+from corpus.persistence.migrations import upgrade_database
 from corpus.auth.models import (
     CorpusConversation,
     Membership,
@@ -42,7 +42,7 @@ from scripts.smoke_restart_recovery_isolated import (
 )
 
 
-_REVISION = "0001_owner_auth"
+_REVISION = "0002_agents"
 
 
 def _owner() -> TemporaryOwner:
@@ -134,8 +134,8 @@ def test_restart_owner_setup_rejects_nonlocal_or_nonconfigured_shapes(
 
 
 def test_restart_owner_setup_accepts_absolute_local_file_sqlite() -> None:
-    path = _require_local_database("sqlite+aiosqlite:///D:/tmp/corpus-auth.sqlite3")
-    assert path == Path("D:/tmp/corpus-auth.sqlite3")
+    path = _require_local_database("sqlite+aiosqlite:///D:/tmp/corpus.sqlite3")
+    assert path == Path("D:/tmp/corpus.sqlite3")
 
 
 @pytest.mark.parametrize(
@@ -175,21 +175,21 @@ def test_direct_restart_smoke_execution_is_disabled() -> None:
 def test_isolated_runtime_owns_both_databases_and_does_not_mutate_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    original_auth = "sqlite+aiosqlite:///D:/normal/corpus-auth.sqlite3"
+    original_corpus = "sqlite+aiosqlite:///D:/normal/corpus.sqlite3"
     original_routedeck = "sqlite+pysqlite:///D:/normal/routedeck.sqlite"
-    monkeypatch.setenv("CORPUS_AUTH_DATABASE_URL", original_auth)
+    monkeypatch.setenv("CORPUS_DATABASE_URL", original_corpus)
     monkeypatch.setenv("ROUTEDECK_DATABASE_URL", original_routedeck)
 
     runtime = create_isolated_runtime()
     try:
         assert runtime.directory.parent == Path(tempfile.gettempdir()).resolve()
-        assert str(runtime.directory).replace("\\", "/") in runtime.auth_database_url
+        assert str(runtime.directory).replace("\\", "/") in runtime.database_url
         assert (
             str(runtime.directory).replace("\\", "/") in runtime.routedeck_database_url
         )
-        assert runtime.environment["CORPUS_AUTH_DATABASE_URL"] != original_auth
+        assert runtime.environment["CORPUS_DATABASE_URL"] != original_corpus
         assert runtime.environment["ROUTEDECK_DATABASE_URL"] != original_routedeck
-        assert os.environ["CORPUS_AUTH_DATABASE_URL"] == original_auth
+        assert os.environ["CORPUS_DATABASE_URL"] == original_corpus
         assert os.environ["ROUTEDECK_DATABASE_URL"] == original_routedeck
     finally:
         remove_isolated_runtime(runtime)
@@ -242,7 +242,7 @@ async def _create_owner_and_conversation(
         access_lifetime=timedelta(minutes=15),
         absolute_lifetime=timedelta(days=30),
     )
-    database = AuthDatabase(database_url)
+    database = CorpusDatabase(database_url)
     service = AuthService(database)
     try:
         conversation = await service.reserve_conversation(
@@ -264,7 +264,7 @@ async def test_exact_cleanup_preserves_decoy_user_org_and_conversation(
     tmp_path: Path,
 ) -> None:
     database_url = (
-        f"sqlite+aiosqlite:///{(tmp_path / 'corpus-auth.sqlite3').as_posix()}"
+        f"sqlite+aiosqlite:///{(tmp_path / 'corpus.sqlite3').as_posix()}"
     )
     await upgrade_database(database_url)
     decoy_owner, decoy_conversation = await _create_owner_and_conversation(
@@ -283,7 +283,7 @@ async def test_exact_cleanup_preserves_decoy_user_org_and_conversation(
         conversation=target_conversation,
     )
 
-    database = AuthDatabase(database_url)
+    database = CorpusDatabase(database_url)
     service = AuthService(database)
     try:
         principal = await service.resolve_access_token(decoy_owner.access_token)
@@ -313,7 +313,7 @@ async def test_crafted_state_and_shared_membership_fail_without_deleting_anythin
     tmp_path: Path,
 ) -> None:
     database_url = (
-        f"sqlite+aiosqlite:///{(tmp_path / 'corpus-auth.sqlite3').as_posix()}"
+        f"sqlite+aiosqlite:///{(tmp_path / 'corpus.sqlite3').as_posix()}"
     )
     await upgrade_database(database_url)
     target_owner, target_conversation = await _create_owner_and_conversation(
@@ -337,7 +337,7 @@ async def test_crafted_state_and_shared_membership_fail_without_deleting_anythin
         )
     assert state_file.exists()
 
-    database = AuthDatabase(database_url)
+    database = CorpusDatabase(database_url)
     try:
         async with database.session() as session:
             async with session.begin():
@@ -361,7 +361,7 @@ async def test_crafted_state_and_shared_membership_fail_without_deleting_anythin
             conversation=target_conversation,
         )
 
-    database = AuthDatabase(database_url)
+    database = CorpusDatabase(database_url)
     try:
         async with database.session() as session:
             assert await session.get(User, target_owner.owner_user_id) is not None
@@ -401,7 +401,7 @@ async def test_temporary_owner_cleanup_without_conversation_is_exact(
     tmp_path: Path,
 ) -> None:
     database_url = (
-        f"sqlite+aiosqlite:///{(tmp_path / 'corpus-auth.sqlite3').as_posix()}"
+        f"sqlite+aiosqlite:///{(tmp_path / 'corpus.sqlite3').as_posix()}"
     )
     await upgrade_database(database_url)
     owner = await _create_temporary_owner(
@@ -418,7 +418,7 @@ async def test_temporary_owner_cleanup_without_conversation_is_exact(
         conversation=None,
     )
 
-    database = AuthDatabase(database_url)
+    database = CorpusDatabase(database_url)
     service = AuthService(database)
     try:
         with pytest.raises(SessionUnavailable):

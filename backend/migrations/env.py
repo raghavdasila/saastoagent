@@ -7,13 +7,14 @@ from sqlalchemy import engine_from_config, pool
 from sqlalchemy.sql.sqltypes import CHAR
 from fastapi_users_db_sqlalchemy import GUID
 
-from corpus.auth.config import AuthSettings
-from corpus.auth.models import Base
+from corpus.auth import models as _auth_models
+from corpus.features.agents import models as _agent_models
+from corpus.persistence import Base, CorpusDatabaseSettings
 
 
 config = context.config
 if not config.get_main_option("sqlalchemy.url"):
-    database_url = AuthSettings.from_env().database_url
+    database_url = CorpusDatabaseSettings.from_env().url
     config.set_main_option(
         "sqlalchemy.url",
         database_url.replace("sqlite+aiosqlite://", "sqlite://", 1),

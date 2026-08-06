@@ -1,9 +1,10 @@
-import { fireEvent, screen, within } from "@testing-library/react";
-import type { AgentChatClient } from "@routedeck/core";
+import { act, fireEvent, screen, within } from "@testing-library/react";
+import type { AgentChatClient, RouteDeckDispatchResult } from "@routedeck/core";
 import { defineRouteDeckSurfaceRegistry } from "@routedeck/react";
 import { expect, it } from "vitest";
 
 import { AgentShell } from "../app/AgentShell";
+import { CorpusSuggestedActions } from "../app/CorpusSuggestedActions";
 import { NavgraphSidebar } from "../app/NavgraphSidebar";
 import {
   frameworkContractFixture,
@@ -84,6 +85,31 @@ it("renders the permanent chat, projected surface, and Navgraph slot", async () 
   expect(navgraph.querySelector(".corpus-navgraph-inspector")).toBeInTheDocument();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
+  harness.dispose();
+});
+
+it("renders a Corpus-owned terminal failure for a failed suggested action", async () => {
+  const projection = frameworkProjectionFixture();
+  projection.suggested_actions = [{
+    action_id: "verification-resend",
+    operation_id: "lounge.request_verification_delivery",
+    label: "Resend verification",
+    arguments: {},
+  }];
+  const harness = await renderRouteDeckComponent(
+    <CorpusSuggestedActions />,
+    {
+      contract: frameworkContractFixture(),
+      projection,
+      dispatchResult: failedOperation("Verification requests are temporarily limited. Try again later."),
+    },
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Resend verification" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Verification requests are temporarily limited. Try again later.",
+  );
   harness.dispose();
 });
 
@@ -215,6 +241,73 @@ it("docks the projected surface immediately above the composer outside chat hist
 
   harness.dispose();
 });
+
+it("resets the surface dock scroll position when the current node changes", async () => {
+  const projection = frameworkProjectionFixture();
+  const harness = await renderRouteDeckComponent(
+    <AgentShell registry={testRegistry} client={idleChatClient} />,
+    {
+      contract: frameworkContractFixture(),
+      projection,
+    },
+  );
+  const surfaceDock = document.querySelector<HTMLElement>("[data-agent-surface-dock]");
+  expect(surfaceDock).not.toBeNull();
+  if (surfaceDock === null) {
+    throw new Error("Expected the surface dock to render.");
+  }
+  surfaceDock.scrollTop = 180;
+
+  const detailProjection = frameworkProjectionFixture();
+  detailProjection.current = { node_id: "test.detail", route_params: [] };
+  detailProjection.navigation.current = detailProjection.current;
+  detailProjection.surfaces.active = {
+    surface_id: "test.detail",
+    component: "test.detail",
+    props: [],
+  };
+  detailProjection.session_version = 2;
+  detailProjection.projection_version = 2;
+  harness.client.setProjection(detailProjection);
+
+  await act(async () => {
+    await harness.store.resync();
+  });
+
+  expect(surfaceDock.scrollTop).toBe(0);
+  expect(surfaceDock).toHaveTextContent("Framework detail surface");
+  harness.dispose();
+});
+
+function failedOperation(publicMessage: string): RouteDeckDispatchResult {
+  return {
+    disposition: "failed",
+    request_id: "request-failed",
+    operation_id: "lounge.request_verification_delivery",
+    session_version: 1,
+    projection_version: 1,
+    evidence: {
+      source: "surface",
+      phases: [],
+      attempt_id: "attempt-failed",
+      request_fingerprint: "fingerprint-failed",
+      delivery_phase: "not_sent",
+    },
+    outcome: null,
+    review: null,
+    failure: {
+      kind: "business",
+      code: "verification_rate_limited",
+      phase: "tool_failed",
+      correlation_id: "correlation-failed",
+      operation_id: "lounge.request_verification_delivery",
+      request_id: "request-failed",
+      public_message: publicMessage,
+      recovery_directive: null,
+      safe_details: {},
+    },
+  };
+}
 
 it("applies the compiled node conversation-input policy without product node IDs", async () => {
   const contract = frameworkContractFixture();

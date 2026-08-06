@@ -8,7 +8,8 @@ from fastapi.testclient import TestClient
 
 from corpus.app.config import RouteDeckHostSettings
 from corpus.auth.config import AuthSettings
-from corpus.auth.migrations import upgrade_database
+from corpus.persistence.migrations import upgrade_database
+from corpus.persistence import CorpusDatabaseSettings
 from corpus.features.sources.config import SourceSettings
 from corpus.main import create_live_app
 from corpus.runtime.config import CorpusRuntimeSettings
@@ -22,8 +23,8 @@ from routedeck_langgraph.prompt import (
 def test_live_http_app_serves_a_bearer_selected_conversation(
     tmp_path: Path,
 ) -> None:
-    auth_database_url = f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}"
-    asyncio.run(upgrade_database(auth_database_url))
+    database_url = f"sqlite+aiosqlite:///{(tmp_path / 'corpus-domain.sqlite3').as_posix()}"
+    asyncio.run(upgrade_database(database_url))
     settings = CorpusRuntimeSettings(
         host=RouteDeckHostSettings(
             routedeck_database_url=(
@@ -36,9 +37,11 @@ def test_live_http_app_serves_a_bearer_selected_conversation(
             routedeck_worker_count=1,
             routedeck_browser_origins=("http://127.0.0.1:5199",),
         ),
+        database=CorpusDatabaseSettings(
+            url=database_url,
+            migration_revision="0002_agents",
+        ),
         auth=AuthSettings(
-            database_url=auth_database_url,
-            migration_revision="0001_owner_auth",
             reset_secret="r" * 40,
             verification_secret="v" * 40,
             public_frontend_url="http://127.0.0.1:5199",

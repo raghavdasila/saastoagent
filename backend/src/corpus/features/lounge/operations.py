@@ -20,23 +20,6 @@ from routedeck_core.contracts.operations import (
 )
 from routedeck_core.ports.executor import ExecutionContext
 
-from corpus.auth.config import AuthSettings
-from corpus.auth.credential_transition import CredentialTransition
-from corpus.auth.mail import (
-    MailDeliveryUnavailable,
-    MailRecipientRejected,
-    OwnerMailDelivery,
-)
-from corpus.auth.rate_limits import AuthRateLimiter, RateLimitExceeded
-from corpus.auth.service import (
-    AuthConflict,
-    AuthService,
-    ConversationUnavailable,
-    InvalidAuthToken,
-    InvalidCredentials,
-    SessionUnavailable,
-)
-
 from .declarations import (
     AUTHENTICATE_OWNER,
     CHANGE_OWNER_PASSWORD,
@@ -49,6 +32,20 @@ from .declarations import (
     RESET_REQUEST_FORM_ID,
     SIGN_IN_FORM_ID,
     VERIFY_EMAIL_FORM_ID,
+)
+from .ports import (
+    LoungeAccountConflict,
+    LoungeAccountGateway,
+    LoungeConversationUnavailable,
+    LoungeCredentialTransition,
+    LoungeInvalidAuthToken,
+    LoungeInvalidCredentials,
+    LoungeMailDelivery,
+    LoungeMailDeliveryUnavailable,
+    LoungeMailRecipientRejected,
+    LoungeRateLimitExceeded,
+    LoungeRateLimiter,
+    LoungeSessionUnavailable,
 )
 from .private_forms import (
     EncryptedLoungePrivateFormReader,
@@ -68,7 +65,7 @@ def _require_surface(
     arguments: Mapping[str, Any],
     context: ExecutionContext,
     operation_id: str,
-    credential_transition: CredentialTransition,
+    credential_transition: LoungeCredentialTransition,
 ) -> OperationOutcome | None:
     if arguments:
         return _failure(
@@ -102,10 +99,10 @@ def _require_surface(
 
 @dataclass(frozen=True)
 class CreateOwnerAccountHandler:
-    service: AuthService
-    limiter: AuthRateLimiter
+    account: LoungeAccountGateway
+    limiter: LoungeRateLimiter
     private_forms: EncryptedLoungePrivateFormReader
-    credential_transition: CredentialTransition
+    credential_transition: LoungeCredentialTransition
 
     async def __call__(
         self,
@@ -149,7 +146,7 @@ class CreateOwnerAccountHandler:
                 REGISTER_FORM_ID,
                 RegisterPrivateForm,
             )
-            issued = await self.service.register(
+            issued = await self.account.register(
                 email=str(form.email),
                 password=form.password,
                 display_name=form.display_name,
@@ -159,7 +156,7 @@ class CreateOwnerAccountHandler:
             )
         except LoungePrivateFormError as error:
             return _private_form_failure(context, CREATE_OWNER_ACCOUNT.id, error)
-        except AuthConflict:
+        except LoungeAccountConflict:
             return _failure(
                 context,
                 CREATE_OWNER_ACCOUNT.id,
@@ -173,7 +170,7 @@ class CreateOwnerAccountHandler:
                 delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
                 http_status=409,
             )
-        except (ConversationUnavailable, SessionUnavailable):
+        except (LoungeConversationUnavailable, LoungeSessionUnavailable):
             return _failure(
                 context,
                 CREATE_OWNER_ACCOUNT.id,
@@ -195,16 +192,18 @@ class CreateOwnerAccountHandler:
                 delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
                 http_status=400,
             )
-        self.credential_transition.publish_issued_tokens(issued.tokens)
+        self.credential_transition.publish_issued_credentials(
+            issued.credential_payload
+        )
         return _success("created", REGISTER_FORM_ID)
 
 
 @dataclass(frozen=True)
 class AuthenticateOwnerHandler:
-    service: AuthService
-    limiter: AuthRateLimiter
+    account: LoungeAccountGateway
+    limiter: LoungeRateLimiter
     private_forms: EncryptedLoungePrivateFormReader
-    credential_transition: CredentialTransition
+    credential_transition: LoungeCredentialTransition
 
     async def __call__(
         self,
@@ -255,14 +254,14 @@ class AuthenticateOwnerHandler:
             if limited is not None:
                 return limited
         try:
-            issued = await self.service.sign_in(
+            issued = await self.account.sign_in(
                 email=str(form.email),
                 password=form.password,
                 anonymous_access_token=request.current_access_token,
                 conversation_id=request.selected_conversation_id,
                 route_session_id=context.session_id,
             )
-        except InvalidCredentials:
+        except LoungeInvalidCredentials:
             return _failure(
                 context,
                 AUTHENTICATE_OWNER.id,
@@ -273,7 +272,7 @@ class AuthenticateOwnerHandler:
                 delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
                 http_status=401,
             )
-        except (ConversationUnavailable, SessionUnavailable):
+        except (LoungeConversationUnavailable, LoungeSessionUnavailable):
             return _failure(
                 context,
                 AUTHENTICATE_OWNER.id,
@@ -284,18 +283,20 @@ class AuthenticateOwnerHandler:
                 delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
                 http_status=409,
             )
-        self.credential_transition.publish_issued_tokens(issued.tokens)
+        self.credential_transition.publish_issued_credentials(
+            issued.credential_payload
+        )
         return _success("authenticated", SIGN_IN_FORM_ID)
 
 
 @dataclass(frozen=True)
 class RequestPasswordResetHandler:
-    service: AuthService
-    limiter: AuthRateLimiter
-    mail: OwnerMailDelivery
-    settings: AuthSettings
+    account: LoungeAccountGateway
+    limiter: LoungeRateLimiter
+    mail: LoungeMailDelivery
+    public_frontend_url: str
     private_forms: EncryptedLoungePrivateFormReader
-    credential_transition: CredentialTransition
+    credential_transition: LoungeCredentialTransition
 
     async def __call__(
         self,
@@ -347,30 +348,30 @@ class RequestPasswordResetHandler:
             )
             if limited is not None:
                 return limited
-        token = await self.service.request_password_reset(email)
+        token = await self.account.request_password_reset(email)
         if token is not None:
             link = (
-                f"{str(self.settings.public_frontend_url).rstrip('/')}"
+                f"{self.public_frontend_url.rstrip('/')}"
                 f"/reset-password#token={quote(token.token)}"
             )
             try:
                 await self.mail.send_password_reset(token.recipient, link)
-            except MailDeliveryUnavailable:
+            except LoungeMailDeliveryUnavailable:
                 logger.exception("Password reset email delivery failed")
                 # The first service failure is not surfaced for this address because
                 # doing so would distinguish an existing account. The shared mail
                 # service now records the outage, so subsequent requests fail before
                 # account lookup with account-neutral availability copy.
-            except MailRecipientRejected:
+            except LoungeMailRecipientRejected:
                 logger.info("Password reset email recipient rejected the message")
         return _success("requested", RESET_REQUEST_FORM_ID)
 
 
 @dataclass(frozen=True)
 class ChangeOwnerPasswordHandler:
-    service: AuthService
+    account: LoungeAccountGateway
     private_forms: EncryptedLoungePrivateFormReader
-    credential_transition: CredentialTransition
+    credential_transition: LoungeCredentialTransition
 
     async def __call__(
         self,
@@ -388,10 +389,10 @@ class ChangeOwnerPasswordHandler:
                 RESET_CONFIRM_FORM_ID,
                 PasswordResetConfirmPrivateForm,
             )
-            await self.service.confirm_password_reset(form.token, form.new_password)
+            await self.account.confirm_password_reset(form.token, form.new_password)
         except LoungePrivateFormError as error:
             return _private_form_failure(context, CHANGE_OWNER_PASSWORD.id, error)
-        except InvalidAuthToken:
+        except LoungeInvalidAuthToken:
             return _failure(
                 context,
                 CHANGE_OWNER_PASSWORD.id,
@@ -419,11 +420,11 @@ class ChangeOwnerPasswordHandler:
 
 @dataclass(frozen=True)
 class RequestVerificationDeliveryHandler:
-    service: AuthService
-    limiter: AuthRateLimiter
-    mail: OwnerMailDelivery
-    settings: AuthSettings
-    credential_transition: CredentialTransition
+    account: LoungeAccountGateway
+    limiter: LoungeRateLimiter
+    mail: LoungeMailDelivery
+    public_frontend_url: str
+    credential_transition: LoungeCredentialTransition
 
     async def __call__(
         self,
@@ -461,10 +462,10 @@ class RequestVerificationDeliveryHandler:
                 http_status=503,
             )
         try:
-            delivery_context = await self.service.verification_delivery_context_for_route(
+            delivery_context = await self.account.verification_delivery_context_for_route(
                 context.session_id
             )
-        except SessionUnavailable:
+        except LoungeSessionUnavailable:
             return _failure(
                 context,
                 REQUEST_VERIFICATION_DELIVERY.id,
@@ -492,16 +493,16 @@ class RequestVerificationDeliveryHandler:
             )
             if limited is not None:
                 return limited
-        token = await self.service.request_verification_for_route(context.session_id)
+        token = await self.account.request_verification_for_route(context.session_id)
         if token is None:
             return _success("requested")
         link = (
-            f"{str(self.settings.public_frontend_url).rstrip('/')}"
+            f"{self.public_frontend_url.rstrip('/')}"
             f"/verify#token={quote(token.token)}"
         )
         try:
             await self.mail.send_verification(token.recipient, link)
-        except (MailDeliveryUnavailable, MailRecipientRejected):
+        except (LoungeMailDeliveryUnavailable, LoungeMailRecipientRejected):
             return _failure(
                 context,
                 REQUEST_VERIFICATION_DELIVERY.id,
@@ -517,9 +518,9 @@ class RequestVerificationDeliveryHandler:
 
 @dataclass(frozen=True)
 class ConfirmOwnerEmailHandler:
-    service: AuthService
+    account: LoungeAccountGateway
     private_forms: EncryptedLoungePrivateFormReader
-    credential_transition: CredentialTransition
+    credential_transition: LoungeCredentialTransition
 
     async def __call__(
         self,
@@ -537,10 +538,10 @@ class ConfirmOwnerEmailHandler:
                 VERIFY_EMAIL_FORM_ID,
                 VerifyEmailPrivateForm,
             )
-            await self.service.verify(form.token)
+            await self.account.verify(form.token)
         except LoungePrivateFormError as error:
             return _private_form_failure(context, CONFIRM_OWNER_EMAIL.id, error)
-        except InvalidAuthToken:
+        except LoungeInvalidAuthToken:
             return _failure(
                 context,
                 CONFIRM_OWNER_EMAIL.id,
@@ -597,7 +598,7 @@ async def _limit(
 ) -> OperationOutcome | None:
     try:
         await limiter.consume(**values)
-    except RateLimitExceeded:
+    except LoungeRateLimitExceeded:
         return _failure(
             context,
             operation_id,

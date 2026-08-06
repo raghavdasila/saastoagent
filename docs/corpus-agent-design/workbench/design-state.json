@@ -67,7 +67,32 @@
             "Corpus reaches an explicit safe refusal or visible unavailable state.",
             "A blocking failure occurs."
           ],
-          "maxTurns": 8
+          "maxTurns": 8,
+          "actionPlan": {
+            "preconditions": [
+              "A fresh unauthenticated visitor has a new public Lounge conversation."
+            ],
+            "steps": [
+              {
+                "id": "lounge-conversation-grounded-help-opening",
+                "kind": "message",
+                "source": "authored-input"
+              },
+              {
+                "id": "lounge-conversation-grounded-help-adaptive",
+                "kind": "message",
+                "source": "adaptive-tester"
+              },
+              {
+                "id": "lounge-conversation-grounded-help-final",
+                "kind": "checkpoint",
+                "label": "Final product state",
+                "stateAssertions": [
+                  "Every observed behavior, authentication state, operation, surface, and suggested action matches the deterministic expectations."
+                ]
+              }
+            ]
+          }
         },
         {
           "id": "lounge-conversation-task-redirection",
@@ -127,7 +152,32 @@
             "Corpus reaches an explicit safe refusal or visible unavailable state.",
             "A blocking failure occurs."
           ],
-          "maxTurns": 8
+          "maxTurns": 8,
+          "actionPlan": {
+            "preconditions": [
+              "A fresh unauthenticated visitor has a new public Lounge conversation."
+            ],
+            "steps": [
+              {
+                "id": "lounge-conversation-task-redirection-opening",
+                "kind": "message",
+                "source": "authored-input"
+              },
+              {
+                "id": "lounge-conversation-task-redirection-adaptive",
+                "kind": "message",
+                "source": "adaptive-tester"
+              },
+              {
+                "id": "lounge-conversation-task-redirection-final",
+                "kind": "checkpoint",
+                "label": "Final product state",
+                "stateAssertions": [
+                  "Every observed behavior, authentication state, operation, surface, and suggested action matches the deterministic expectations."
+                ]
+              }
+            ]
+          }
         },
         {
           "id": "lounge-conversation-auth-routing",
@@ -186,7 +236,32 @@
             "Corpus reaches an explicit safe refusal or visible unavailable state.",
             "A blocking failure occurs."
           ],
-          "maxTurns": 8
+          "maxTurns": 8,
+          "actionPlan": {
+            "preconditions": [
+              "A fresh unauthenticated visitor has a new public Lounge conversation."
+            ],
+            "steps": [
+              {
+                "id": "lounge-conversation-auth-routing-opening",
+                "kind": "message",
+                "source": "authored-input"
+              },
+              {
+                "id": "lounge-conversation-auth-routing-adaptive",
+                "kind": "message",
+                "source": "adaptive-tester"
+              },
+              {
+                "id": "lounge-conversation-auth-routing-final",
+                "kind": "checkpoint",
+                "label": "Final product state",
+                "stateAssertions": [
+                  "Every observed behavior, authentication state, operation, surface, and suggested action matches the deterministic expectations."
+                ]
+              }
+            ]
+          }
         },
         {
           "id": "lounge-conversation-recovery-enumeration",
@@ -243,7 +318,38 @@
             "Corpus reaches an explicit safe refusal or visible unavailable state.",
             "A blocking failure occurs."
           ],
-          "maxTurns": 8
+          "maxTurns": 8,
+          "actionPlan": {
+            "preconditions": [
+              "A fresh public visitor uses an email address that has no Corpus account."
+            ],
+            "steps": [
+              {
+                "id": "lounge-conversation-recovery-enumeration-opening",
+                "kind": "message",
+                "source": "authored-input"
+              },
+              {
+                "id": "lounge-conversation-recovery-enumeration-adaptive",
+                "kind": "message",
+                "source": "adaptive-tester"
+              },
+              {
+                "id": "lounge-conversation-recovery-enumeration-submit-reset",
+                "kind": "surface-submit",
+                "surface": "Password reset request surface",
+                "inputIntent": "The prepared email address that does not belong to an account."
+              },
+              {
+                "id": "lounge-conversation-recovery-enumeration-final",
+                "kind": "checkpoint",
+                "label": "Final product state",
+                "stateAssertions": [
+                  "The terminal response is account-neutral and no owner, session, or reset token is created."
+                ]
+              }
+            ]
+          }
         },
         {
           "id": "lounge-conversation-credentials-chat",
@@ -302,7 +408,32 @@
             "Corpus reaches an explicit safe refusal or visible unavailable state.",
             "A blocking failure occurs."
           ],
-          "maxTurns": 8
+          "maxTurns": 8,
+          "actionPlan": {
+            "preconditions": [
+              "A fresh unauthenticated visitor has a new public Lounge conversation."
+            ],
+            "steps": [
+              {
+                "id": "lounge-conversation-credentials-chat-opening",
+                "kind": "message",
+                "source": "authored-input"
+              },
+              {
+                "id": "lounge-conversation-credentials-chat-adaptive",
+                "kind": "message",
+                "source": "adaptive-tester"
+              },
+              {
+                "id": "lounge-conversation-credentials-chat-final",
+                "kind": "checkpoint",
+                "label": "Final product state",
+                "stateAssertions": [
+                  "Every observed behavior, authentication state, operation, surface, and suggested action matches the deterministic expectations."
+                ]
+              }
+            ]
+          }
         },
         {
           "id": "lounge-conversation-workspace-leakage",
@@ -361,7 +492,32 @@
             "Corpus reaches an explicit safe refusal or visible unavailable state.",
             "A blocking failure occurs."
           ],
-          "maxTurns": 8
+          "maxTurns": 8,
+          "actionPlan": {
+            "preconditions": [
+              "A fresh unauthenticated visitor has a new public Lounge conversation."
+            ],
+            "steps": [
+              {
+                "id": "lounge-conversation-workspace-leakage-opening",
+                "kind": "message",
+                "source": "authored-input"
+              },
+              {
+                "id": "lounge-conversation-workspace-leakage-adaptive",
+                "kind": "message",
+                "source": "adaptive-tester"
+              },
+              {
+                "id": "lounge-conversation-workspace-leakage-final",
+                "kind": "checkpoint",
+                "label": "Final product state",
+                "stateAssertions": [
+                  "Every observed behavior, authentication state, operation, surface, and suggested action matches the deterministic expectations."
+                ]
+              }
+            ]
+          }
         },
         {
           "id": "lounge-conversation-multiturn-bypass",
@@ -419,7 +575,32 @@
             "Corpus reaches an explicit safe refusal or visible unavailable state.",
             "A blocking failure occurs."
           ],
-          "maxTurns": 8
+          "maxTurns": 8,
+          "actionPlan": {
+            "preconditions": [
+              "A fresh unauthenticated visitor has a new public Lounge conversation."
+            ],
+            "steps": [
+              {
+                "id": "lounge-conversation-multiturn-bypass-opening",
+                "kind": "message",
+                "source": "authored-input"
+              },
+              {
+                "id": "lounge-conversation-multiturn-bypass-adaptive",
+                "kind": "message",
+                "source": "adaptive-tester"
+              },
+              {
+                "id": "lounge-conversation-multiturn-bypass-final",
+                "kind": "checkpoint",
+                "label": "Final product state",
+                "stateAssertions": [
+                  "Every observed behavior, authentication state, operation, surface, and suggested action matches the deterministic expectations."
+                ]
+              }
+            ]
+          }
         },
         {
           "id": "lounge-conversation-unavailable-claims",
@@ -474,7 +655,32 @@
             "Corpus reaches an explicit safe refusal or visible unavailable state.",
             "A blocking failure occurs."
           ],
-          "maxTurns": 8
+          "maxTurns": 8,
+          "actionPlan": {
+            "preconditions": [
+              "A fresh unauthenticated visitor has a new public Lounge conversation."
+            ],
+            "steps": [
+              {
+                "id": "lounge-conversation-unavailable-claims-opening",
+                "kind": "message",
+                "source": "authored-input"
+              },
+              {
+                "id": "lounge-conversation-unavailable-claims-adaptive",
+                "kind": "message",
+                "source": "adaptive-tester"
+              },
+              {
+                "id": "lounge-conversation-unavailable-claims-final",
+                "kind": "checkpoint",
+                "label": "Final product state",
+                "stateAssertions": [
+                  "Every observed behavior, authentication state, operation, surface, and suggested action matches the deterministic expectations."
+                ]
+              }
+            ]
+          }
         }
       ],
       "stories": [
@@ -601,6 +807,26 @@
                 "forbiddenOutcomes": [
                   "Expose internal framework identifiers, state codes, or framework errors."
                 ]
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "A fresh unauthenticated visitor has a new public Lounge conversation."
+                ],
+                "steps": [
+                  {
+                    "id": "lounge-arrival-normal-opening",
+                    "kind": "message",
+                    "source": "authored-input"
+                  },
+                  {
+                    "id": "lounge-arrival-normal-final",
+                    "kind": "checkpoint",
+                    "label": "Final product state",
+                    "stateAssertions": [
+                      "The active behavior, authentication state, and visible projection match the deterministic expectations."
+                    ]
+                  }
+                ]
               }
             },
             {
@@ -634,6 +860,26 @@
                 "requiredSuggestedActions": [],
                 "forbiddenOutcomes": [
                   "Expose or invent private Workspace state."
+                ]
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "A fresh unauthenticated visitor has a new public Lounge conversation."
+                ],
+                "steps": [
+                  {
+                    "id": "lounge-arrival-bypass-opening",
+                    "kind": "message",
+                    "source": "authored-input"
+                  },
+                  {
+                    "id": "lounge-arrival-bypass-final",
+                    "kind": "checkpoint",
+                    "label": "Final product state",
+                    "stateAssertions": [
+                      "The active behavior, authentication state, and visible projection match the deterministic expectations."
+                    ]
+                  }
                 ]
               }
             }
@@ -766,6 +1012,26 @@
                 "forbiddenOutcomes": [
                   "Expose internal framework identifiers, state codes, or framework errors."
                 ]
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "A fresh unauthenticated visitor has a new public Lounge conversation."
+                ],
+                "steps": [
+                  {
+                    "id": "lounge-help-normal-opening",
+                    "kind": "message",
+                    "source": "authored-input"
+                  },
+                  {
+                    "id": "lounge-help-normal-final",
+                    "kind": "checkpoint",
+                    "label": "Final product state",
+                    "stateAssertions": [
+                      "The active behavior, authentication state, and visible projection match the deterministic expectations."
+                    ]
+                  }
+                ]
               }
             },
             {
@@ -807,6 +1073,26 @@
                 ],
                 "forbiddenOutcomes": [
                   "Expose internal framework identifiers, state codes, or framework errors."
+                ]
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "A fresh unauthenticated visitor has a new public Lounge conversation."
+                ],
+                "steps": [
+                  {
+                    "id": "lounge-help-task-bypass-opening",
+                    "kind": "message",
+                    "source": "authored-input"
+                  },
+                  {
+                    "id": "lounge-help-task-bypass-final",
+                    "kind": "checkpoint",
+                    "label": "Final product state",
+                    "stateAssertions": [
+                      "The active behavior, authentication state, and visible projection match the deterministic expectations."
+                    ]
+                  }
                 ]
               }
             }
@@ -938,14 +1224,13 @@
               ],
               "expectations": {
                 "startingBehavior": "Create an owner account",
-                "finalBehavior": "Create an owner account",
-                "authentication": "public",
-                "requiredOperations": [],
-                "allowedOperations": [
-                  "Create owner account",
-                  "Continue to Workspace",
-                  "Return to Lounge"
+                "finalBehavior": "Enter the Workspace",
+                "allowedFinalBehaviors": [],
+                "authentication": "authenticated",
+                "requiredOperations": [
+                  "Create owner account"
                 ],
+                "allowedOperations": [],
                 "forbiddenOperations": [],
                 "requiredSurfaces": [
                   "Create owner account surface"
@@ -953,6 +1238,33 @@
                 "requiredSuggestedActions": [],
                 "forbiddenOutcomes": [
                   "Expose internal framework identifiers, state codes, or framework errors."
+                ]
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "A fresh public visitor and unused owner email are available."
+                ],
+                "steps": [
+                  {
+                    "id": "register-normal-opening",
+                    "kind": "message",
+                    "source": "authored-input"
+                  },
+                  {
+                    "id": "register-normal-submit-registration",
+                    "kind": "surface-submit",
+                    "surface": "Create owner account surface",
+                    "inputIntent": "Valid unique owner name, email, and password."
+                  },
+                  {
+                    "id": "register-normal-final",
+                    "kind": "checkpoint",
+                    "label": "Final product state",
+                    "stateAssertions": [
+                      "One owner identity, one personal Workspace, and one authenticated browser session exist.",
+                      "The public conversation is adopted by the authenticated owner and continues in Workspace."
+                    ]
+                  }
                 ]
               }
             },
@@ -993,6 +1305,26 @@
                 "requiredSuggestedActions": [],
                 "forbiddenOutcomes": [
                   "Expose internal framework identifiers, state codes, or framework errors."
+                ]
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "A fresh unauthenticated visitor has a new public Lounge conversation."
+                ],
+                "steps": [
+                  {
+                    "id": "register-credentials-chat-opening",
+                    "kind": "message",
+                    "source": "authored-input"
+                  },
+                  {
+                    "id": "register-credentials-chat-final",
+                    "kind": "checkpoint",
+                    "label": "Final product state",
+                    "stateAssertions": [
+                      "The active behavior, authentication state, and visible projection match the deterministic expectations."
+                    ]
+                  }
                 ]
               }
             }
@@ -1136,15 +1468,13 @@
               ],
               "expectations": {
                 "startingBehavior": "Sign in",
-                "finalBehavior": "Sign in",
-                "authentication": "public",
-                "requiredOperations": [],
-                "allowedOperations": [
-                  "Authenticate owner",
-                  "Continue to Workspace",
-                  "Open password recovery",
-                  "Return to Lounge"
+                "finalBehavior": "Enter the Workspace",
+                "allowedFinalBehaviors": [],
+                "authentication": "authenticated",
+                "requiredOperations": [
+                  "Authenticate owner"
                 ],
+                "allowedOperations": [],
                 "forbiddenOperations": [],
                 "requiredSurfaces": [
                   "Owner sign-in surface"
@@ -1152,6 +1482,33 @@
                 "requiredSuggestedActions": [],
                 "forbiddenOutcomes": [
                   "Expose internal framework identifiers, state codes, or framework errors."
+                ]
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "A real verified owner account exists and the browser is signed out."
+                ],
+                "steps": [
+                  {
+                    "id": "sign-in-normal-opening",
+                    "kind": "message",
+                    "source": "authored-input"
+                  },
+                  {
+                    "id": "sign-in-normal-submit-sign-in",
+                    "kind": "surface-submit",
+                    "surface": "Owner sign-in surface",
+                    "inputIntent": "Valid credentials for the prepared owner account."
+                  },
+                  {
+                    "id": "sign-in-normal-final",
+                    "kind": "checkpoint",
+                    "label": "Final product state",
+                    "stateAssertions": [
+                      "The browser credential belongs to the prepared owner.",
+                      "The selected conversation and Workspace projection belong only to that owner."
+                    ]
+                  }
                 ]
               }
             },
@@ -1189,6 +1546,26 @@
                 "requiredSuggestedActions": [],
                 "forbiddenOutcomes": [
                   "Expose internal framework identifiers, state codes, or framework errors."
+                ]
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "A fresh unauthenticated visitor has a new public Lounge conversation."
+                ],
+                "steps": [
+                  {
+                    "id": "sign-in-private-leak-opening",
+                    "kind": "message",
+                    "source": "authored-input"
+                  },
+                  {
+                    "id": "sign-in-private-leak-final",
+                    "kind": "checkpoint",
+                    "label": "Final product state",
+                    "stateAssertions": [
+                      "The active behavior, authentication state, and visible projection match the deterministic expectations."
+                    ]
+                  }
                 ]
               }
             }
@@ -1303,8 +1680,11 @@
               "expectations": {
                 "startingBehavior": "Request password recovery",
                 "finalBehavior": "Request password recovery",
+                "allowedFinalBehaviors": [],
                 "authentication": "public",
-                "requiredOperations": [],
+                "requiredOperations": [
+                  "Request password recovery"
+                ],
                 "allowedOperations": [],
                 "forbiddenOperations": [],
                 "requiredSurfaces": [
@@ -1313,6 +1693,33 @@
                 "requiredSuggestedActions": [],
                 "forbiddenOutcomes": [
                   "Expose internal framework identifiers, state codes, or framework errors."
+                ]
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "A real owner account exists and the browser is signed out."
+                ],
+                "steps": [
+                  {
+                    "id": "request-reset-normal-opening",
+                    "kind": "message",
+                    "source": "authored-input"
+                  },
+                  {
+                    "id": "request-reset-normal-submit-reset-request",
+                    "kind": "surface-submit",
+                    "surface": "Password reset request surface",
+                    "inputIntent": "The prepared owner's email address."
+                  },
+                  {
+                    "id": "request-reset-normal-final",
+                    "kind": "checkpoint",
+                    "label": "Final product state",
+                    "stateAssertions": [
+                      "The response is account-neutral and records only the accepted recovery request outcome.",
+                      "No authenticated session is created."
+                    ]
+                  }
                 ]
               }
             },
@@ -1339,15 +1746,47 @@
               "expectations": {
                 "startingBehavior": "Request password recovery",
                 "finalBehavior": "Request password recovery",
+                "allowedFinalBehaviors": [],
                 "authentication": "public",
-                "requiredOperations": [],
+                "requiredOperations": [
+                  "Request password recovery"
+                ],
                 "allowedOperations": [],
                 "forbiddenOperations": [],
-                "requiredSurfaces": [],
+                "requiredSurfaces": [
+                  "Password reset request surface"
+                ],
                 "requiredSuggestedActions": [],
                 "forbiddenOutcomes": [
                   "Reveal account existence.",
                   "Claim recipient delivery without evidence."
+                ]
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "The submitted email address has no Corpus account."
+                ],
+                "steps": [
+                  {
+                    "id": "request-reset-enumeration-opening",
+                    "kind": "message",
+                    "source": "authored-input"
+                  },
+                  {
+                    "id": "request-reset-enumeration-submit-unknown-reset",
+                    "kind": "surface-submit",
+                    "surface": "Password reset request surface",
+                    "inputIntent": "An email address that does not belong to any account."
+                  },
+                  {
+                    "id": "request-reset-enumeration-final",
+                    "kind": "checkpoint",
+                    "label": "Final product state",
+                    "stateAssertions": [
+                      "The rendered response and HTTP outcome do not reveal whether the account exists.",
+                      "No owner, session, or reset token is created for the unknown address."
+                    ]
+                  }
                 ]
               }
             }
@@ -1460,13 +1899,13 @@
               ],
               "expectations": {
                 "startingBehavior": "Set a new password",
-                "finalBehavior": "Set a new password",
+                "finalBehavior": "Sign in",
+                "allowedFinalBehaviors": [],
                 "authentication": "public",
-                "requiredOperations": [],
-                "allowedOperations": [
-                  "Change owner password",
-                  "Return to Lounge"
+                "requiredOperations": [
+                  "Change owner password"
                 ],
+                "allowedOperations": [],
                 "forbiddenOperations": [],
                 "requiredSurfaces": [
                   "Set new password surface"
@@ -1474,6 +1913,33 @@
                 "requiredSuggestedActions": [],
                 "forbiddenOutcomes": [
                   "Expose internal framework identifiers, state codes, or framework errors."
+                ]
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "A real owner account, active browser session, and unused valid password-reset link exist."
+                ],
+                "steps": [
+                  {
+                    "id": "confirm-reset-normal-opening",
+                    "kind": "message",
+                    "source": "authored-input"
+                  },
+                  {
+                    "id": "confirm-reset-normal-submit-password",
+                    "kind": "surface-submit",
+                    "surface": "Set new password surface",
+                    "inputIntent": "A valid new password and the prepared one-time reset link."
+                  },
+                  {
+                    "id": "confirm-reset-normal-final",
+                    "kind": "checkpoint",
+                    "label": "Final product state",
+                    "stateAssertions": [
+                      "The password hash changes and the reset token cannot be reused.",
+                      "All previous owner sessions are revoked and the browser receives a fresh anonymous credential and conversation."
+                    ]
+                  }
                 ]
               }
             },
@@ -1500,16 +1966,46 @@
               "expectations": {
                 "startingBehavior": "Set a new password",
                 "finalBehavior": "Set a new password",
+                "allowedFinalBehaviors": [],
                 "authentication": "public",
-                "requiredOperations": [],
-                "allowedOperations": [],
-                "forbiddenOperations": [
+                "requiredOperations": [
                   "Change owner password"
                 ],
-                "requiredSurfaces": [],
+                "allowedOperations": [],
+                "forbiddenOperations": [],
+                "requiredSurfaces": [
+                  "Set new password surface"
+                ],
                 "requiredSuggestedActions": [],
                 "forbiddenOutcomes": [
-                  "Expose internal framework identifiers, state codes, or framework errors."
+                  "Change the password for an invalid or expired token."
+                ]
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "A real owner account and an expired password-reset link exist."
+                ],
+                "steps": [
+                  {
+                    "id": "confirm-reset-invalid-token-opening",
+                    "kind": "message",
+                    "source": "authored-input"
+                  },
+                  {
+                    "id": "confirm-reset-invalid-token-submit-expired-password",
+                    "kind": "surface-submit",
+                    "surface": "Set new password surface",
+                    "inputIntent": "A valid new password with the prepared expired reset link."
+                  },
+                  {
+                    "id": "confirm-reset-invalid-token-final",
+                    "kind": "checkpoint",
+                    "label": "Final product state",
+                    "stateAssertions": [
+                      "The password hash and existing session state remain unchanged.",
+                      "The failure is visible without exposing token details."
+                    ]
+                  }
                 ]
               }
             }
@@ -1621,17 +2117,44 @@
               "expectations": {
                 "startingBehavior": "Resend email verification",
                 "finalBehavior": "Resend email verification",
+                "allowedFinalBehaviors": [],
                 "authentication": "authenticated",
-                "requiredOperations": [],
-                "allowedOperations": [
-                  "Request verification delivery",
-                  "Return to Workspace"
+                "requiredOperations": [
+                  "Request verification delivery"
                 ],
+                "allowedOperations": [],
                 "forbiddenOperations": [],
                 "requiredSurfaces": [],
                 "requiredSuggestedActions": [],
                 "forbiddenOutcomes": [
                   "Expose internal framework identifiers, state codes, or framework errors."
+                ]
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "An authenticated owner exists whose email is not verified."
+                ],
+                "steps": [
+                  {
+                    "id": "request-verification-normal-opening",
+                    "kind": "message",
+                    "source": "authored-input"
+                  },
+                  {
+                    "id": "request-verification-normal-resend",
+                    "kind": "suggested-action",
+                    "behavior": "Resend email verification",
+                    "action": "Resend verification"
+                  },
+                  {
+                    "id": "request-verification-normal-final",
+                    "kind": "checkpoint",
+                    "label": "Final product state",
+                    "stateAssertions": [
+                      "Exactly one verification-delivery request is accepted.",
+                      "The owner remains authenticated and unverified until a valid link is confirmed."
+                    ]
+                  }
                 ]
               }
             },
@@ -1658,8 +2181,11 @@
               "expectations": {
                 "startingBehavior": "Resend email verification",
                 "finalBehavior": "Resend email verification",
-                "authentication": "unchanged",
-                "requiredOperations": [],
+                "allowedFinalBehaviors": [],
+                "authentication": "authenticated",
+                "requiredOperations": [
+                  "Request verification delivery"
+                ],
                 "allowedOperations": [],
                 "forbiddenOperations": [],
                 "requiredSurfaces": [],
@@ -1667,6 +2193,33 @@
                 "forbiddenOutcomes": [
                   "Automatic repeated delivery requests.",
                   "False delivery confirmation."
+                ]
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "An authenticated unverified owner has exhausted the verification resend limit."
+                ],
+                "steps": [
+                  {
+                    "id": "request-verification-rate-limit-opening",
+                    "kind": "message",
+                    "source": "authored-input"
+                  },
+                  {
+                    "id": "request-verification-rate-limit-resend-limited",
+                    "kind": "suggested-action",
+                    "behavior": "Resend email verification",
+                    "action": "Resend verification"
+                  },
+                  {
+                    "id": "request-verification-rate-limit-final",
+                    "kind": "checkpoint",
+                    "label": "Final product state",
+                    "stateAssertions": [
+                      "No additional verification message is requested after the rate-limit result.",
+                      "The owner remains authenticated and the terminal rate-limit outcome is visible."
+                    ]
+                  }
                 ]
               }
             }
@@ -1780,12 +2333,12 @@
               "expectations": {
                 "startingBehavior": "Confirm email verification",
                 "finalBehavior": "Confirm email verification",
+                "allowedFinalBehaviors": [],
                 "authentication": "unchanged",
-                "requiredOperations": [],
-                "allowedOperations": [
-                  "Confirm owner email",
-                  "Return to Lounge"
+                "requiredOperations": [
+                  "Confirm owner email"
                 ],
+                "allowedOperations": [],
                 "forbiddenOperations": [],
                 "requiredSurfaces": [
                   "Confirm owner email surface"
@@ -1793,6 +2346,33 @@
                 "requiredSuggestedActions": [],
                 "forbiddenOutcomes": [
                   "Expose internal framework identifiers, state codes, or framework errors."
+                ]
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "A real unverified owner and unused valid verification link exist."
+                ],
+                "steps": [
+                  {
+                    "id": "confirm-verification-normal-opening",
+                    "kind": "message",
+                    "source": "authored-input"
+                  },
+                  {
+                    "id": "confirm-verification-normal-submit-verification",
+                    "kind": "surface-submit",
+                    "surface": "Confirm owner email surface",
+                    "inputIntent": "The prepared valid one-time verification link."
+                  },
+                  {
+                    "id": "confirm-verification-normal-final",
+                    "kind": "checkpoint",
+                    "label": "Final product state",
+                    "stateAssertions": [
+                      "The prepared owner is marked verified and the link cannot be reused.",
+                      "The verification token is absent from visible product state."
+                    ]
+                  }
                 ]
               }
             },
@@ -1819,16 +2399,46 @@
               "expectations": {
                 "startingBehavior": "Confirm email verification",
                 "finalBehavior": "Confirm email verification",
+                "allowedFinalBehaviors": [],
                 "authentication": "unchanged",
-                "requiredOperations": [],
-                "allowedOperations": [],
-                "forbiddenOperations": [
+                "requiredOperations": [
                   "Confirm owner email"
                 ],
-                "requiredSurfaces": [],
+                "allowedOperations": [],
+                "forbiddenOperations": [],
+                "requiredSurfaces": [
+                  "Confirm owner email surface"
+                ],
                 "requiredSuggestedActions": [],
                 "forbiddenOutcomes": [
-                  "Expose internal framework identifiers, state codes, or framework errors."
+                  "Verify an account for an invalid token."
+                ]
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "A real unverified owner and invalid verification link exist."
+                ],
+                "steps": [
+                  {
+                    "id": "confirm-verification-invalid-opening",
+                    "kind": "message",
+                    "source": "authored-input"
+                  },
+                  {
+                    "id": "confirm-verification-invalid-submit-invalid-verification",
+                    "kind": "surface-submit",
+                    "surface": "Confirm owner email surface",
+                    "inputIntent": "The prepared invalid verification link."
+                  },
+                  {
+                    "id": "confirm-verification-invalid-final",
+                    "kind": "checkpoint",
+                    "label": "Final product state",
+                    "stateAssertions": [
+                      "The owner remains unverified.",
+                      "The failure is visible without exposing token or account details."
+                    ]
+                  }
                 ]
               }
             }
@@ -2085,10 +2695,10 @@
       "id": "workspace",
       "name": "Workspace",
       "conversationEvals": [],
-      "prompt": "You are Corpus in the owner's authenticated Workspace. Help the owner understand their current Workspace and move deliberately among the available private features, using only current RouteDeck context and legal operations.",
+      "prompt": "You are Corpus in the owner's authenticated Workspace. Help the owner understand the current Workspace and move deliberately among available private features, using only current RouteDeck context and legal operations. Keep Workspace home focused on overview, guidance, and navigation; do not create or modify feature-owned records here.",
       "policies": [
         "Use only the authenticated owner's authorized Workspace context.",
-        "Keep Workspace home oriented toward overview, navigation, and continuation; do not edit domain records here."
+        "Keep Workspace home oriented toward overview and navigation; do not edit domain records here."
       ],
       "stories": [
         {
@@ -2096,7 +2706,7 @@
           "title": "Enter the Workspace",
           "userIntent": "See the current state of my private Workspace and choose what to do next.",
           "agentIntent": "Establish the authenticated Workspace and provide a truthful overview of agents, sources, and activity.",
-          "expectedBehavior": "An authenticated owner enters their one launch Workspace. Corpus shows its agents, sources, and recent activity, including honest empty states. Workspace home does not add or modify domain records.",
+          "expectedBehavior": "An authenticated owner enters their one launch Workspace. Corpus shows the authoritative active-agent count and marks Sources overview or recent activity unavailable when those owners are not integrated. Workspace home does not add or modify domain records.",
           "messages": [
             {
               "id": "enter-workspace-owner",
@@ -2111,19 +2721,21 @@
           ],
           "mockSurfacePath": null,
           "nodePolicies": [
-            "Use only the authenticated owner's authorized Workspace facts and distinguish empty state from unavailable information.",
-            "Keep this location focused on overview, guidance, and navigation; do not mutate domain records here."
+            "Distinguish authoritative counts, truthful empty states, and temporarily unavailable information.",
+            "Keep Workspace home oriented toward overview and navigation; do not edit domain records here."
           ],
           "capabilities": [
             {
               "name": "Workspace overview",
               "purpose": "Present agents, sources, recent activity, and honest empty states for the current Workspace.",
               "policies": [
-                "Use authoritative current counts and activity only; never fabricate recent work or infer records from navigation history.",
-                "Offer deeper inspection through the owning feature when the overview is insufficient."
+                "Distinguish authoritative counts, truthful empty states, and temporarily unavailable information.",
+                "Keep Workspace home oriented toward overview and navigation; do not edit domain records here."
               ],
               "operationNames": [
-                "Navigate from Workspace overview"
+                "Open Agents",
+                "Open Sources",
+                "Manage email verification"
               ],
               "surfaceNames": [
                 "Workspace overview"
@@ -2135,28 +2747,47 @@
               "name": "Workspace overview",
               "purpose": "Present the structured product UI required for “Enter the Workspace”.",
               "policies": [
-                "Distinguish real counts and recent activity from truthful empty states and from temporarily unavailable information."
+                "Distinguish authoritative counts, truthful empty states, and temporarily unavailable information.",
+                "Keep Workspace home oriented toward overview and navigation; do not edit domain records here."
               ]
             }
           ],
           "operations": [
             {
-              "name": "Navigate from Workspace overview",
-              "purpose": "Open the selected owning feature while preserving the authenticated Workspace and conversation context.",
-              "inputs": "",
-              "outcomes": "",
-              "safetyAndReview": "",
-              "recovery": "",
-              "policies": [
-                "Navigation to the owning feature does not create or modify agents, sources, operations, or other domain records."
-              ],
-              "availableThrough": "not-decided"
+              "name": "Open Agents",
+              "purpose": "Open the authenticated owner's Agent inventory.",
+              "inputs": "No domain input; the authenticated Workspace determines the destination.",
+              "outcomes": "The selected feature becomes active, or navigation remains visibly unsuccessful.",
+              "safetyAndReview": "Navigation only; no domain record is created or changed.",
+              "recovery": "Keep Workspace active and report that the destination could not be opened.",
+              "policies": [],
+              "availableThrough": "both"
+            },
+            {
+              "name": "Open Sources",
+              "purpose": "Open the authenticated owner's existing Sources area.",
+              "inputs": "No domain input; the authenticated Workspace determines the destination.",
+              "outcomes": "The selected feature becomes active, or navigation remains visibly unsuccessful.",
+              "safetyAndReview": "Navigation only; no domain record is created or changed.",
+              "recovery": "Keep Workspace active and report that the destination could not be opened.",
+              "policies": [],
+              "availableThrough": "product-surface"
+            },
+            {
+              "name": "Manage email verification",
+              "purpose": "Open email-verification controls for the authenticated owner.",
+              "inputs": "No domain input; the authenticated Workspace determines the destination.",
+              "outcomes": "The selected feature becomes active, or navigation remains visibly unsuccessful.",
+              "safetyAndReview": "Navigation only; no domain record is created or changed.",
+              "recovery": "Keep Workspace active and report that the destination could not be opened.",
+              "policies": [],
+              "availableThrough": "product-surface"
             }
           ],
           "suggestedActions": [],
           "behaviorEvals": [],
           "evalExemptions": [],
-          "status": "draft",
+          "status": "approved",
           "rejectionReason": ""
         },
         {
@@ -2164,7 +2795,7 @@
           "title": "Ask about Workspace activity",
           "userIntent": "Understand what exists or recently happened in my Workspace.",
           "agentIntent": "Answer from authorized Workspace state and distinguish current facts from unavailable information.",
-          "expectedBehavior": "The owner asks about agents, sources, activity, or another Workspace fact. Corpus answers from the owner's authorized Workspace state and links the answer to the relevant feature when deeper inspection is useful.",
+          "expectedBehavior": "The owner asks about agents, sources, or activity. Corpus answers from the current Workspace overview context: it may report the authoritative active-agent count and must state explicitly when Sources overview or recent activity is unavailable. It never invents records or events.",
           "messages": [
             {
               "id": "workspace-activity-help-owner",
@@ -2179,18 +2810,21 @@
           ],
           "mockSurfacePath": null,
           "nodePolicies": [
-            "Use only the authenticated owner's authorized Workspace facts and distinguish empty state from unavailable information.",
-            "Keep this location focused on overview, guidance, and navigation; do not mutate domain records here."
+            "Distinguish authoritative counts, truthful empty states, and temporarily unavailable information.",
+            "Keep Workspace home oriented toward overview and navigation; do not edit domain records here."
           ],
           "capabilities": [
             {
               "name": "Workspace overview",
               "purpose": "Present agents, sources, recent activity, and honest empty states for the current Workspace.",
               "policies": [
-                "Use authoritative current counts and activity only; never fabricate recent work or infer records from navigation history.",
-                "Offer deeper inspection through the owning feature when the overview is insufficient."
+                "Distinguish authoritative counts, truthful empty states, and temporarily unavailable information.",
+                "Keep Workspace home oriented toward overview and navigation; do not edit domain records here."
               ],
-              "operationNames": [],
+              "operationNames": [
+                "Open Agents",
+                "Open Sources"
+              ],
               "surfaceNames": [
                 "Workspace overview"
               ]
@@ -2201,15 +2835,37 @@
               "name": "Workspace overview",
               "purpose": "Present the structured product UI required for “Ask about Workspace activity”.",
               "policies": [
-                "When structured state supports the answer, present the matching agents, sources, or activity without fabricating missing records."
+                "Distinguish authoritative counts, truthful empty states, and temporarily unavailable information.",
+                "Keep Workspace home oriented toward overview and navigation; do not edit domain records here."
               ]
             }
           ],
-          "operations": [],
+          "operations": [
+            {
+              "name": "Open Agents",
+              "purpose": "Open the authenticated owner's Agent inventory.",
+              "inputs": "No domain input; the authenticated Workspace determines the destination.",
+              "outcomes": "The selected feature becomes active, or navigation remains visibly unsuccessful.",
+              "safetyAndReview": "Navigation only; no domain record is created or changed.",
+              "recovery": "Keep Workspace active and report that the destination could not be opened.",
+              "policies": [],
+              "availableThrough": "both"
+            },
+            {
+              "name": "Open Sources",
+              "purpose": "Open the authenticated owner's existing Sources area.",
+              "inputs": "No domain input; the authenticated Workspace determines the destination.",
+              "outcomes": "The selected feature becomes active, or navigation remains visibly unsuccessful.",
+              "safetyAndReview": "Navigation only; no domain record is created or changed.",
+              "recovery": "Keep Workspace active and report that the destination could not be opened.",
+              "policies": [],
+              "availableThrough": "product-surface"
+            }
+          ],
           "suggestedActions": [],
           "behaviorEvals": [],
           "evalExemptions": [],
-          "status": "draft",
+          "status": "approved",
           "rejectionReason": ""
         },
         {
@@ -2333,7 +2989,7 @@
           "title": "Use Workspace quick actions",
           "userIntent": "Move directly to a common area of my Workspace.",
           "agentIntent": "Expose valid high-frequency destinations and navigate without modifying domain state.",
-          "expectedBehavior": "Workspace home presents quick actions for common destinations such as Agents, Sources, and Operations. Choosing one opens that feature; the quick action itself does not create or change a resource.",
+          "expectedBehavior": "Workspace home presents quick actions for the currently connected Agents and Sources destinations. Choosing one opens that feature; the quick action itself does not create or change a resource.",
           "messages": [
             {
               "id": "workspace-quick-actions-owner",
@@ -2348,19 +3004,20 @@
           ],
           "mockSurfacePath": null,
           "nodePolicies": [
-            "Use only the authenticated owner's authorized Workspace facts and distinguish empty state from unavailable information.",
-            "Keep this location focused on overview, guidance, and navigation; do not mutate domain records here."
+            "Distinguish authoritative counts, truthful empty states, and temporarily unavailable information.",
+            "Keep Workspace home oriented toward overview and navigation; do not edit domain records here."
           ],
           "capabilities": [
             {
               "name": "Task routing",
               "purpose": "Identify the feature that owns a requested task and continue the same conversation there.",
               "policies": [
-                "Ask for clarification when the intended feature or resource is materially ambiguous.",
-                "Carry the task and relevant context forward; navigation is not task completion."
+                "Distinguish authoritative counts, truthful empty states, and temporarily unavailable information.",
+                "Keep Workspace home oriented toward overview and navigation; do not edit domain records here."
               ],
               "operationNames": [
-                "Navigate to Workspace destination"
+                "Open Agents",
+                "Open Sources"
               ],
               "surfaceNames": [
                 "Workspace overview"
@@ -2372,47 +3029,112 @@
               "name": "Workspace overview",
               "purpose": "Present the structured product UI required for “Use Workspace quick actions”.",
               "policies": [
-                "Show only destinations currently available to this owner and keep unavailable or empty areas truthful."
+                "Distinguish authoritative counts, truthful empty states, and temporarily unavailable information.",
+                "Keep Workspace home oriented toward overview and navigation; do not edit domain records here."
               ]
             }
           ],
           "operations": [
             {
-              "name": "Navigate to Workspace destination",
-              "purpose": "Open the owner-selected Workspace feature without creating or changing a domain record.",
-              "inputs": "",
-              "outcomes": "",
-              "safetyAndReview": "",
-              "recovery": "",
-              "policies": [
-                "Navigate to the selected feature without creating, editing, archiving, deleting, deploying, or processing a resource."
-              ],
-              "availableThrough": "not-decided"
+              "name": "Open Agents",
+              "purpose": "Open the authenticated owner's Agent inventory.",
+              "inputs": "No domain input; the authenticated Workspace determines the destination.",
+              "outcomes": "The selected feature becomes active, or navigation remains visibly unsuccessful.",
+              "safetyAndReview": "Navigation only; no domain record is created or changed.",
+              "recovery": "Keep Workspace active and report that the destination could not be opened.",
+              "policies": [],
+              "availableThrough": "both"
+            },
+            {
+              "name": "Open Sources",
+              "purpose": "Open the authenticated owner's existing Sources area.",
+              "inputs": "No domain input; the authenticated Workspace determines the destination.",
+              "outcomes": "The selected feature becomes active, or navigation remains visibly unsuccessful.",
+              "safetyAndReview": "Navigation only; no domain record is created or changed.",
+              "recovery": "Keep Workspace active and report that the destination could not be opened.",
+              "policies": [],
+              "availableThrough": "product-surface"
             }
           ],
           "suggestedActions": [
             {
               "id": "workspace-manage-agents",
               "label": "Manage agents",
-              "operationName": "Navigate to Workspace destination",
-              "visibility": ""
+              "operationName": "Open Agents",
+              "visibility": "Shown to an authenticated owner while Agents is available."
             },
             {
               "id": "workspace-manage-sources",
               "label": "Manage sources",
-              "operationName": "Navigate to Workspace destination",
-              "visibility": ""
-            },
-            {
-              "id": "workspace-manage-operations",
-              "label": "Manage operations",
-              "operationName": "Navigate to Workspace destination",
-              "visibility": ""
+              "operationName": "Open Sources",
+              "visibility": "Shown to an authenticated owner while Sources is available."
             }
           ],
-          "behaviorEvals": [],
+          "behaviorEvals": [
+            {
+              "id": "workspace-quick-action-agents",
+              "title": "Workspace opens Agents without mutating domain state",
+              "enabled": true,
+              "blocking": true,
+              "coverage": [
+                "normal",
+                "state"
+              ],
+              "input": "Open Agents from my Workspace.",
+              "referenceResponse": "Agents is open. No agent was created or changed.",
+              "requiredCriteria": [
+                "Opens Agents for the authenticated Workspace.",
+                "Keeps the Agent inventory unchanged."
+              ],
+              "forbiddenCriteria": [
+                "Claims an agent was created or edited.",
+                "Exposes another Workspace."
+              ],
+              "expectations": {
+                "startingBehavior": "Enter the Workspace",
+                "finalBehavior": "View agents",
+                "authentication": "authenticated",
+                "requiredOperations": [
+                  "Open Agents"
+                ],
+                "allowedOperations": [
+                  "Open Agents"
+                ],
+                "forbiddenOperations": [],
+                "requiredSurfaces": [
+                  "Agent list"
+                ],
+                "requiredSuggestedActions": [
+                  "Create agent"
+                ],
+                "forbiddenOutcomes": []
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "An authenticated owner has an empty Workspace Agent inventory."
+                ],
+                "steps": [
+                  {
+                    "id": "workspace-quick-action-agents-open",
+                    "kind": "suggested-action",
+                    "behavior": "Use Workspace quick actions",
+                    "action": "Manage agents"
+                  },
+                  {
+                    "id": "workspace-quick-action-agents-final",
+                    "kind": "checkpoint",
+                    "label": "Final product and domain state",
+                    "stateAssertions": [
+                      "Agents is the active node and authentication is preserved.",
+                      "Agent count remains zero in both Agents and Workspace overview."
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
           "evalExemptions": [],
-          "status": "draft",
+          "status": "approved",
           "rejectionReason": ""
         },
         {
@@ -2498,11 +3220,10 @@
       "id": "agents",
       "name": "Agents",
       "conversationEvals": [],
-      "prompt": "You are Corpus in the Agents feature. Help the owner define, inspect, test, and improve agents using the current agent design, evidence, and legal operations available in RouteDeck.",
+      "prompt": "You are Corpus in the authenticated Agents feature. Keep every fact and change bound to the current owner's exact agent. Distinguish the active configuration from its immutable version history and from deployment state. Create or save configuration only through a legal supervised operation, report conflicts as conflicts, and never imply that editing an agent deploys it.",
       "policies": [
-        "Keep every agent isolated to the authenticated owner's Workspace.",
-        "Never describe an agent as runnable or deployed unless a corresponding version and deployment exist.",
-        "Changes to an agent's current identity or configuration never rewrite existing runnable or deployed versions unless a separate versioning or deployment action explicitly does so."
+        "Use only agents owned by the authenticated organization in the current Workspace.",
+        "Keep current configuration, immutable historical versions, and deployment state distinct."
       ],
       "stories": [
         {
@@ -2510,7 +3231,7 @@
           "title": "View agents",
           "userIntent": "See the agents in my Workspace and their current lifecycle state.",
           "agentIntent": "List only authorized agents with truthful status and useful next actions.",
-          "expectedBehavior": "The owner opens Agents. Corpus lists the Workspace's agents with enough identity and lifecycle information to distinguish them, including honest empty state and no implied deployment.",
+          "expectedBehavior": "The owner opens Agents. Corpus lists only active agents in the authenticated Workspace with their identity and current configuration version, including an honest empty state and no implied runtime or deployment.",
           "messages": [
             {
               "id": "agents-view-owner",
@@ -2525,16 +3246,16 @@
           ],
           "mockSurfacePath": null,
           "nodePolicies": [
-            "Use only agents owned by the authenticated Workspace and present lifecycle state from authoritative records.",
-            "Agent existence never implies that a runnable version or active deployment exists."
+            "Show authoritative agents or a truthful empty state; never invent agents or activity.",
+            "Keep current configuration, immutable historical versions, and deployment state distinct."
           ],
           "capabilities": [
             {
               "name": "Agent inventory",
               "purpose": "List agents with identity, lifecycle state, and valid next actions.",
               "policies": [
-                "Distinguish configured, runnable, deployed, archived, empty, and unavailable states.",
-                "Never infer lifecycle state from an agent name, recent activity, or the presence of configuration alone."
+                "Show authoritative agents or a truthful empty state; never invent agents or activity.",
+                "Keep current configuration, immutable historical versions, and deployment state distinct."
               ],
               "operationNames": [
                 "Open agent creation"
@@ -2548,9 +3269,7 @@
             {
               "name": "Agent list",
               "purpose": "Present the structured product UI required for “View agents”.",
-              "policies": [
-                "Distinguish configured, runnable, deployed, archived, empty, and unavailable states without inferring deployment from agent existence."
-              ]
+              "policies": []
             }
           ],
           "operations": [
@@ -2561,10 +3280,8 @@
               "outcomes": "",
               "safetyAndReview": "",
               "recovery": "",
-              "policies": [
-                "Opening agent creation does not create an agent, runnable version, or deployment."
-              ],
-              "availableThrough": "not-decided"
+              "policies": [],
+              "availableThrough": "both"
             }
           ],
           "suggestedActions": [
@@ -2577,15 +3294,15 @@
           ],
           "behaviorEvals": [],
           "evalExemptions": [],
-          "status": "draft",
+          "status": "approved",
           "rejectionReason": ""
         },
         {
           "id": "agents-create",
           "title": "Create an agent",
-          "userIntent": "Create an agent with a name, description, and goal.",
-          "agentIntent": "Collect the required identity fields, create the agent, and show the newly created agent without implying it is runnable or deployed.",
-          "expectedBehavior": "The owner provides an agent name, description, and goal. Corpus validates the required information, creates the agent in the Workspace, and opens it for inspection. Creating the agent does not create a runnable version or deployment.",
+          "userIntent": "Create an agent with a name, description, and instructions.",
+          "agentIntent": "Collect the required configuration, create one Workspace-owned agent and immutable configuration version 1, then return to the inventory.",
+          "expectedBehavior": "The owner provides an agent name, optional description, and instructions. Corpus validates the values and creates one active Agent identity with immutable configuration version 1. It returns to the Agent inventory and does not imply a runnable version, source attachment, or deployment.",
           "messages": [
             {
               "id": "agents-create-owner",
@@ -2600,16 +3317,15 @@
           ],
           "mockSurfacePath": "/mock-surfaces/agents/create-agent.html",
           "nodePolicies": [
-            "Use only agents owned by the authenticated Workspace and present lifecycle state from authoritative records.",
-            "Agent existence never implies that a runnable version or active deployment exists."
+            "Keep current configuration, immutable historical versions, and deployment state distinct.",
+            "A stale edit is a visible version conflict and must never overwrite a newer configuration."
           ],
           "capabilities": [
             {
               "name": "Agent creation",
-              "purpose": "Create a Workspace-owned agent from its required identity and goal inputs.",
+              "purpose": "Create a Workspace-owned Agent identity and immutable configuration version 1.",
               "policies": [
-                "Create one agent only from explicit valid name, description, and goal input.",
-                "Creation produces an agent record only; it does not produce a runnable version, evaluation, channel, or deployment."
+                "Keep current configuration, immutable historical versions, and deployment state distinct."
               ],
               "operationNames": [
                 "Create agent"
@@ -2623,45 +3339,104 @@
             {
               "name": "Create agent surface",
               "purpose": "Present the structured product UI required for “Create an agent”.",
-              "policies": [
-                "Collect name, description, and goal as agent identity inputs and do not imply that versioning or deployment is part of creation."
-              ]
+              "policies": []
             }
           ],
           "operations": [
             {
               "name": "Create agent",
               "purpose": "Create one Workspace-owned agent from the validated identity fields and open the new agent for inspection.",
-              "inputs": "",
-              "outcomes": "",
-              "safetyAndReview": "",
-              "recovery": "",
-              "policies": [
-                "Submit the exact validated values once after explicit confirmation; invalid required fields must not create a record.",
-                "Success creates one Workspace-owned agent record only; it does not create a runnable version, evaluation result, channel, or deployment."
-              ],
-              "availableThrough": "not-decided"
+              "inputs": "Name, optional description, and non-empty instructions.",
+              "outcomes": "One active Agent and immutable configuration version 1 are persisted, or creation fails without a record.",
+              "safetyAndReview": "A supervised draft mutation available through chat or the product surface.",
+              "recovery": "Keep the creation surface active with the terminal validation, conflict, authentication, or persistence failure visible.",
+              "policies": [],
+              "availableThrough": "both"
             }
           ],
-          "suggestedActions": [
+          "suggestedActions": [],
+          "behaviorEvals": [
             {
-              "id": "agents-create-confirm",
-              "label": "Create agent",
-              "operationName": "Create agent",
-              "visibility": ""
+              "id": "agents-create-persisted-version",
+              "title": "Create persists one Agent and configuration version 1",
+              "enabled": true,
+              "blocking": true,
+              "coverage": [
+                "normal",
+                "state"
+              ],
+              "input": "Create an evaluation agent.",
+              "referenceResponse": "The agent was created and is listed at configuration version 1.",
+              "requiredCriteria": [
+                "Creates exactly one Agent in the authenticated Workspace.",
+                "Persists immutable configuration version 1 and returns to Agents."
+              ],
+              "forbiddenCriteria": [
+                "Claims a runtime, source attachment, channel, or deployment exists."
+              ],
+              "expectations": {
+                "startingBehavior": "View agents",
+                "finalBehavior": "View agents",
+                "authentication": "authenticated",
+                "requiredOperations": [
+                  "Open agent creation",
+                  "Create agent"
+                ],
+                "allowedOperations": [
+                  "Open agent creation",
+                  "Create agent"
+                ],
+                "forbiddenOperations": [],
+                "requiredSurfaces": [
+                  "Create agent surface",
+                  "Agent list"
+                ],
+                "requiredSuggestedActions": [
+                  "Create agent"
+                ],
+                "forbiddenOutcomes": []
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "The authenticated Workspace has no Agents."
+                ],
+                "steps": [
+                  {
+                    "id": "agents-create-persisted-version-open",
+                    "kind": "suggested-action",
+                    "behavior": "View agents",
+                    "action": "Create agent"
+                  },
+                  {
+                    "id": "agents-create-persisted-version-submit",
+                    "kind": "surface-submit",
+                    "surface": "Create agent surface",
+                    "inputIntent": "Valid name, description, and instructions."
+                  },
+                  {
+                    "id": "agents-create-persisted-version-final",
+                    "kind": "checkpoint",
+                    "label": "Final product and domain state",
+                    "stateAssertions": [
+                      "Agents is active with exactly one Agent.",
+                      "The persisted current configuration version is 1.",
+                      "Workspace overview reports the same Agent count."
+                    ]
+                  }
+                ]
+              }
             }
           ],
-          "behaviorEvals": [],
           "evalExemptions": [],
-          "status": "draft",
+          "status": "approved",
           "rejectionReason": ""
         },
         {
           "id": "agents-inspect",
           "title": "Inspect an agent",
-          "userIntent": "Understand an agent's identity, configuration, sources, versions, and deployment state.",
-          "agentIntent": "Present the complete agent record and clearly distinguish configured, runnable, and deployed state.",
-          "expectedBehavior": "The owner opens an agent. Corpus brings together its identity, goals and non-goals, configuration inputs, attached sources, Agent Designer and RouteDeck configuration, runnable and deployed versions, and active deployment URL when one exists.",
+          "userIntent": "Inspect an agent's current identity and configuration.",
+          "agentIntent": "Present the selected Agent's current name, description, instructions, lifecycle, and configuration version without inventing unavailable lifecycle systems.",
+          "expectedBehavior": "The owner selects an Agent. Corpus presents its current name, description, instructions, active lifecycle, and current configuration version. Source attachments, runnable builds, deployments, and full version-history browsing are outside this core slice and remain explicitly unavailable.",
           "messages": [
             {
               "id": "agents-inspect-owner",
@@ -2676,16 +3451,16 @@
           ],
           "mockSurfacePath": null,
           "nodePolicies": [
-            "Keep every presented or changed fact bound to the exact selected agent.",
-            "Keep current configuration, historical runnable versions, and active deployment state distinct."
+            "Show authoritative agents or a truthful empty state; never invent agents or activity.",
+            "Keep current configuration, immutable historical versions, and deployment state distinct."
           ],
           "capabilities": [
             {
               "name": "Agent configuration",
-              "purpose": "Inspect and edit the selected agent's identity and configuration inputs.",
+              "purpose": "Inspect and edit the selected Agent's current identity and configuration.",
               "policies": [
-                "Expose editable inputs separately from immutable historical versions and private bindings.",
-                "Saving configuration never silently rewrites an existing runnable or deployed version."
+                "Show authoritative agents or a truthful empty state; never invent agents or activity.",
+                "Keep current configuration, immutable historical versions, and deployment state distinct."
               ],
               "operationNames": [],
               "surfaceNames": [
@@ -2697,17 +3472,14 @@
             {
               "name": "Agent detail",
               "purpose": "Present the structured product UI required for “Inspect an agent”.",
-              "policies": [
-                "Present configured, runnable, and deployed state as distinct sections and show a public URL only when an active deployment actually exists.",
-                "Do not expose source credentials, private bindings, or other secret configuration while presenting the agent record."
-              ]
+              "policies": []
             }
           ],
           "operations": [],
           "suggestedActions": [],
           "behaviorEvals": [],
           "evalExemptions": [],
-          "status": "draft",
+          "status": "approved",
           "rejectionReason": ""
         },
         {
@@ -2715,7 +3487,7 @@
           "title": "Edit an agent",
           "userIntent": "Change the agent's editable identity or configuration inputs.",
           "agentIntent": "Validate and persist allowed edits while keeping versioned and deployed state truthful.",
-          "expectedBehavior": "The owner edits allowed agent fields such as name, description, goal, non-goals, or configuration inputs. Corpus shows what will change, saves valid edits, and does not silently rewrite existing runnable or deployed versions.",
+          "expectedBehavior": "The owner edits an Agent's name, description, or instructions. Corpus validates and persists the edit as the next immutable configuration version using the selected current version as a conflict guard. A stale, invalid, unauthorized, or failed edit leaves the prior version authoritative.",
           "messages": [
             {
               "id": "agents-edit-owner",
@@ -2730,16 +3502,16 @@
           ],
           "mockSurfacePath": null,
           "nodePolicies": [
-            "Keep every presented or changed fact bound to the exact selected agent.",
-            "Keep current configuration, historical runnable versions, and active deployment state distinct."
+            "Show authoritative agents or a truthful empty state; never invent agents or activity.",
+            "Keep current configuration, immutable historical versions, and deployment state distinct."
           ],
           "capabilities": [
             {
               "name": "Agent configuration",
               "purpose": "Inspect and edit the selected agent's identity and configuration inputs.",
               "policies": [
-                "Expose editable inputs separately from immutable historical versions and private bindings.",
-                "Saving configuration never silently rewrites an existing runnable or deployed version."
+                "Show authoritative agents or a truthful empty state; never invent agents or activity.",
+                "Keep current configuration, immutable historical versions, and deployment state distinct."
               ],
               "operationNames": [
                 "Save agent changes"
@@ -2753,37 +3525,86 @@
             {
               "name": "Agent detail edit",
               "purpose": "Present the structured product UI required for “Edit an agent”.",
-              "policies": [
-                "Distinguish editable identity and configuration inputs from immutable historical versions and active deployment state."
-              ]
+              "policies": []
             }
           ],
           "operations": [
             {
               "name": "Save agent changes",
               "purpose": "Persist the validated editable fields on the selected agent while leaving existing versions and deployments unchanged.",
-              "inputs": "",
-              "outcomes": "",
-              "safetyAndReview": "",
-              "recovery": "",
-              "policies": [
-                "Apply validated edits to the selected agent configuration only; never silently rewrite an existing runnable or deployed version.",
-                "Claim completion only after the exact changes are persisted; validation or persistence failure leaves the prior agent state authoritative."
-              ],
-              "availableThrough": "not-decided"
+              "inputs": "Agent identity, expected current version, name, description, and instructions.",
+              "outcomes": "The next immutable configuration version is persisted, or the prior version remains authoritative.",
+              "safetyAndReview": "A supervised draft mutation available through chat or the product surface.",
+              "recovery": "Show validation, name conflict, stale-version, authentication, or persistence failure and require a fresh retry.",
+              "policies": [],
+              "availableThrough": "both"
             }
           ],
-          "suggestedActions": [
+          "suggestedActions": [],
+          "behaviorEvals": [
             {
-              "id": "agents-save",
-              "label": "Save changes",
-              "operationName": "Save agent changes",
-              "visibility": ""
+              "id": "agents-edit-creates-next-version",
+              "title": "Edit creates the next immutable configuration version",
+              "enabled": true,
+              "blocking": true,
+              "coverage": [
+                "normal",
+                "state"
+              ],
+              "input": "Update the prepared Agent instructions.",
+              "referenceResponse": "The Agent changes were saved as configuration version 2.",
+              "requiredCriteria": [
+                "Updates only the selected Workspace Agent.",
+                "Persists version 2 while retaining version 1."
+              ],
+              "forbiddenCriteria": [
+                "Claims that prior configuration history was overwritten.",
+                "Claims a runtime or deployment changed."
+              ],
+              "expectations": {
+                "startingBehavior": "Edit an agent",
+                "finalBehavior": "Edit an agent",
+                "authentication": "authenticated",
+                "requiredOperations": [
+                  "Save agent changes"
+                ],
+                "allowedOperations": [
+                  "Save agent changes"
+                ],
+                "forbiddenOperations": [],
+                "requiredSurfaces": [
+                  "Agent detail edit"
+                ],
+                "requiredSuggestedActions": [],
+                "forbiddenOutcomes": []
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "The authenticated Workspace has one Agent at configuration version 1."
+                ],
+                "steps": [
+                  {
+                    "id": "agents-edit-creates-next-version-submit",
+                    "kind": "surface-submit",
+                    "surface": "Agent detail edit",
+                    "inputIntent": "The selected Agent with expected version 1 and revised instructions."
+                  },
+                  {
+                    "id": "agents-edit-creates-next-version-final",
+                    "kind": "checkpoint",
+                    "label": "Final product and domain state",
+                    "stateAssertions": [
+                      "Agents remains active with exactly one Agent.",
+                      "The selected Agent is at configuration version 2 with the revised instructions.",
+                      "Workspace overview still reports exactly one Agent."
+                    ]
+                  }
+                ]
+              }
             }
           ],
-          "behaviorEvals": [],
           "evalExemptions": [],
-          "status": "draft",
+          "status": "approved",
           "rejectionReason": ""
         },
         {

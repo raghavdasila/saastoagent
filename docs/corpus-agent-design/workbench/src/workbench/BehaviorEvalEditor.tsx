@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { EVAL_COVERAGE, getBehaviorEvalCaseIssues, getBehaviorEvalReadiness } from "@/workbench/evaluationReadiness"
 import { EvaluationStatus } from "@/workbench/EvaluationStatus"
+import { EvaluationActionPlanEditor } from "@/workbench/EvaluationActionPlanEditor"
 import type { BehaviorEvalCase, DesignStory, DeterministicExpectations } from "@/workbench/types"
 
 function emptyExpectations(story: DesignStory): DeterministicExpectations {
@@ -36,6 +37,13 @@ function newCase(story: DesignStory): BehaviorEvalCase {
     requiredCriteria: [],
     forbiddenCriteria: [],
     expectations: emptyExpectations(story),
+    actionPlan: {
+      preconditions: ["Describe the required product state before this behavior begins."],
+      steps: [
+        { id: `behavior-eval-${Date.now()}-opening`, kind: "message", source: "authored-input" },
+        { id: `behavior-eval-${Date.now()}-final`, kind: "checkpoint", label: "Final product state", stateAssertions: ["Describe the product state that must be proven."] },
+      ],
+    },
   }
 }
 
@@ -112,6 +120,7 @@ export function BehaviorEvalEditor({ story, disabled, onChange }: {
             <Field><FieldLabel htmlFor={`eval-reference-${activeIndex}`}>Reference response (optional)</FieldLabel><Textarea id={`eval-reference-${activeIndex}`} className="min-h-20" value={activeCase.referenceResponse} disabled={disabled} onChange={(event) => updateCase(activeIndex, { referenceResponse: event.target.value })} /><FieldDescription>Semantic direction for the judge. Wording is never matched exactly.</FieldDescription></Field>
             <StringList title="Required meaning" values={activeCase.requiredCriteria} disabled={disabled} onChange={(requiredCriteria) => updateCase(activeIndex, { requiredCriteria })} />
             <StringList title="Forbidden meaning" values={activeCase.forbiddenCriteria} disabled={disabled} onChange={(forbiddenCriteria) => updateCase(activeIndex, { forbiddenCriteria })} />
+            <EvaluationActionPlanEditor plan={activeCase.actionPlan} actionOptions={story.suggestedActions.map((item) => ({ behavior: story.title, label: item.label }))} surfaceOptions={story.surfaces.map((item) => item.name)} allowAdaptiveMessages={false} disabled={disabled} onChange={(actionPlan) => updateCase(activeIndex, { actionPlan })} />
             <div className="studio-eval-subsection"><h3>Runtime facts</h3><p>Product-semantic expectations only. The external runner resolves these through the implementation manifest.</p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field><FieldLabel htmlFor={`eval-start-${activeIndex}`}>Starting behavior</FieldLabel><Input id={`eval-start-${activeIndex}`} value={activeCase.expectations.startingBehavior} disabled={disabled} onChange={(event) => updateCase(activeIndex, { expectations: { ...activeCase.expectations, startingBehavior: event.target.value } })} /></Field>

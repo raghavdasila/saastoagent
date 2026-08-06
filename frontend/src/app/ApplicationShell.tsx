@@ -12,7 +12,7 @@ import { AgentShell } from "./AgentShell";
 import { ApplicationNavigationDrawer } from "./ApplicationNavigationDrawer";
 import type { AppRouteDeck } from "./createRouteDeck";
 import { NavgraphSidebar } from "./NavgraphSidebar";
-import { OwnerSessionProvider } from "../features/lounge/OwnerSessionContext";
+import { OwnerSessionProvider } from "../auth/OwnerSessionContext";
 
 export interface ApplicationShellProps {
   routeDeck: AppRouteDeck;

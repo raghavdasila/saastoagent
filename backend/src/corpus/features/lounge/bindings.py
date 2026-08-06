@@ -2,12 +2,6 @@ from __future__ import annotations
 
 from routedeck_core.app import FeatureBindings
 
-from corpus.auth.config import AuthSettings
-from corpus.auth.credential_transition import CredentialTransition
-from corpus.auth.mail import OwnerMailDelivery
-from corpus.auth.rate_limits import AuthRateLimiter
-from corpus.auth.service import AuthService
-
 from .declarations import (
     ARRIVAL_OPEN_REGISTRATION,
     ARRIVAL_OPEN_SIGN_IN,
@@ -36,6 +30,12 @@ from .declarations import (
     VERIFICATION_RETURN_TO_WORKSPACE,
     VERIFY_EMAIL_FORM_ID,
 )
+from .ports import (
+    LoungeAccountGateway,
+    LoungeCredentialTransition,
+    LoungeMailDelivery,
+    LoungeRateLimiter,
+)
 from .operations import (
     AuthenticateOwnerHandler,
     ChangeOwnerPasswordHandler,
@@ -50,12 +50,12 @@ from .private_forms import EncryptedLoungePrivateFormReader
 
 def create_lounge_bindings(
     *,
-    service: AuthService,
-    limiter: AuthRateLimiter,
-    mail: OwnerMailDelivery,
-    settings: AuthSettings,
+    account: LoungeAccountGateway,
+    limiter: LoungeRateLimiter,
+    mail: LoungeMailDelivery,
+    public_frontend_url: str,
     private_forms: EncryptedLoungePrivateFormReader,
-    credential_transition: CredentialTransition,
+    credential_transition: LoungeCredentialTransition,
 ) -> FeatureBindings:
     navigation = (
         OPEN_PRODUCT_HELP,
@@ -101,22 +101,31 @@ def create_lounge_bindings(
                 VERIFY_EMAIL_FORM_ID,
             ),
             CREATE_OWNER_ACCOUNT.ref: CreateOwnerAccountHandler(
-                service, limiter, private_forms, credential_transition
+                account, limiter, private_forms, credential_transition
             ),
             AUTHENTICATE_OWNER.ref: AuthenticateOwnerHandler(
-                service, limiter, private_forms, credential_transition
+                account, limiter, private_forms, credential_transition
             ),
             REQUEST_PASSWORD_RESET.ref: RequestPasswordResetHandler(
-                service, limiter, mail, settings, private_forms, credential_transition
+                account,
+                limiter,
+                mail,
+                public_frontend_url,
+                private_forms,
+                credential_transition,
             ),
             CHANGE_OWNER_PASSWORD.ref: ChangeOwnerPasswordHandler(
-                service, private_forms, credential_transition
+                account, private_forms, credential_transition
             ),
             REQUEST_VERIFICATION_DELIVERY.ref: RequestVerificationDeliveryHandler(
-                service, limiter, mail, settings, credential_transition
+                account,
+                limiter,
+                mail,
+                public_frontend_url,
+                credential_transition,
             ),
             CONFIRM_OWNER_EMAIL.ref: ConfirmOwnerEmailHandler(
-                service, private_forms, credential_transition
+                account, private_forms, credential_transition
             ),
         }
     )

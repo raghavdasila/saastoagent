@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   createRouteDeckAgentClient,
   type AgentChatClient,
@@ -6,7 +6,6 @@ import {
   type RouteDeckClientState,
 } from "@routedeck/core";
 import {
-  RouteDeckSuggestedActions,
   RouteDeckSurfaceHost,
   useRouteDeckConversation,
   useRouteDeckConversationInputPolicy,
@@ -18,6 +17,7 @@ import {
 
 import { Composer } from "./Composer";
 import { Conversation } from "./Conversation";
+import { CorpusSuggestedActions } from "./CorpusSuggestedActions";
 
 const CONVERSATION_SURFACE_SLOTS: readonly RouteDeckSurfaceSlot[] = Object.freeze([
   "active",
@@ -25,6 +25,8 @@ const CONVERSATION_SURFACE_SLOTS: readonly RouteDeckSurfaceSlot[] = Object.freez
 ]);
 const EMPTY_LEGAL_OPERATIONS = Object.freeze([]);
 const selectSessionVersion = (state: RouteDeckClientState) => state.sessionVersion;
+const selectCurrentNodeId = (state: RouteDeckClientState) =>
+  state.projection?.current.node_id ?? null;
 const selectLegalOperations = (state: RouteDeckClientState) =>
   state.projection?.legal_operations ?? EMPTY_LEGAL_OPERATIONS;
 const selectActiveChatRequestId = (state: RouteDeckClientState) => {
@@ -46,9 +48,11 @@ export function AgentShell({
 }: AgentShellProps) {
   const runtime = useRouteDeckRuntime();
   const sessionVersion = useRouteDeckSelector(selectSessionVersion);
+  const currentNodeId = useRouteDeckSelector(selectCurrentNodeId);
   const legalOperations = useRouteDeckSelector(selectLegalOperations);
   const activeRunRequestId = useRouteDeckSelector(selectActiveChatRequestId);
   const conversationInput = useRouteDeckConversationInputPolicy();
+  const surfaceDockRef = useRef<HTMLDivElement>(null);
   const chatClient = useMemo(
     () => client ?? createRouteDeckAgentClient(),
     [client],
@@ -77,16 +81,22 @@ export function AgentShell({
     ? conversationInput.disabled_message ?? undefined
     : undefined;
 
+  useEffect(() => {
+    if (surfaceDockRef.current !== null) {
+      surfaceDockRef.current.scrollTop = 0;
+    }
+  }, [currentNodeId]);
+
   return (
     <main data-agent-shell="">
       <Conversation
         messages={agent.messages}
         status={agent.status}
         suggestedActions={
-          <RouteDeckSuggestedActions disabled={agent.status === "streaming"} />
+          <CorpusSuggestedActions disabled={agent.status === "streaming"} />
         }
       />
-      <div data-agent-surface-dock="">
+      <div ref={surfaceDockRef} data-agent-surface-dock="">
         <div data-agent-surface="">
           <RouteDeckSurfaceHost
             registry={registry}

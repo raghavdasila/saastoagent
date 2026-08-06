@@ -9,6 +9,7 @@ from routedeck_core.contracts.conversation import (
 from routedeck_core.contracts.navigation import (
     DeepLinkPolicy,
     NodeKind,
+    NodeRef,
     Route,
     Transition,
 )
@@ -22,11 +23,8 @@ from routedeck_core.contracts.surfaces import (
     SurfaceSlots,
 )
 
-from corpus.features.workspace.declarations import (
-    EMPTY_OBJECT_SCHEMA,
-    HOME_REF,
-    OWNER_CONTEXT_PROVIDER,
-)
+from corpus.auth.contracts import OWNER_CONTEXT_PROVIDER
+from corpus.shared.schemas import EMPTY_OBJECT_SCHEMA
 
 from . import policies
 from .declarations import (
@@ -374,63 +372,67 @@ PRODUCT_HELP_NODE = Node(
     ),
     policy_refs=(policies.PUBLIC_NODE_CONTEXT.ref, policies.PUBLIC_NODE_PATHS.ref),
 )
-REGISTER_NODE = Node(
-    id=REGISTER_REF.id,
-    title="Create account",
-    kind=NodeKind.SECTION,
-    parent=LOUNGE_REF,
-    route=Route(template="/register", deep_link_policy=DeepLinkPolicy.SHAREABLE),
-    context_providers=(OWNER_CONTEXT_PROVIDER,),
-    conversation_input=CREDENTIAL_INPUT,
-    operations=(
-        CREATE_OWNER_ACCOUNT,
-        REGISTRATION_CONTINUE_TO_WORKSPACE,
-        REGISTRATION_RETURN_TO_LOUNGE,
-    ),
-    outgoing=(
-        Transition(operation=CREATE_OWNER_ACCOUNT.ref, outcome="created", target=HOME_REF),
-        Transition(operation=REGISTRATION_CONTINUE_TO_WORKSPACE.ref, outcome="opened", target=HOME_REF),
-        Transition(operation=REGISTRATION_RETURN_TO_LOUNGE.ref, outcome="opened", target=LOUNGE_REF),
-    ),
-    capabilities=(REGISTER,),
-    surfaces=SurfaceSlots(active=REGISTER_SURFACE),
-    suggested_actions=(
-        SuggestedAction(id="lounge.register.submit", operation_id=CREATE_OWNER_ACCOUNT.id, label="Sign up"),
-        SuggestedAction(id="lounge.register.continue", operation_id=REGISTRATION_CONTINUE_TO_WORKSPACE.id, label="Continue to Workspace"),
-    ),
-    policy_refs=(
-        policies.REGISTRATION_NODE_PRIVACY.ref,
-        policies.REGISTRATION_NODE_PARTIAL_SUCCESS.ref,
-    ),
-)
-SIGN_IN_NODE = Node(
-    id=SIGN_IN_REF.id,
-    title="Sign in",
-    kind=NodeKind.SECTION,
-    parent=LOUNGE_REF,
-    route=Route(template="/sign-in", deep_link_policy=DeepLinkPolicy.SHAREABLE),
-    context_providers=(OWNER_CONTEXT_PROVIDER,),
-    conversation_input=CREDENTIAL_INPUT,
-    operations=(
-        AUTHENTICATE_OWNER,
-        SIGN_IN_CONTINUE_TO_WORKSPACE,
-        SIGN_IN_OPEN_PASSWORD_RECOVERY,
-        SIGN_IN_RETURN_TO_LOUNGE,
-    ),
-    outgoing=(
-        Transition(operation=AUTHENTICATE_OWNER.ref, outcome="authenticated", target=HOME_REF),
-        Transition(operation=SIGN_IN_CONTINUE_TO_WORKSPACE.ref, outcome="opened", target=HOME_REF),
-        Transition(operation=SIGN_IN_OPEN_PASSWORD_RECOVERY.ref, outcome="opened", target=FORGOT_PASSWORD_REF),
-        Transition(operation=SIGN_IN_RETURN_TO_LOUNGE.ref, outcome="opened", target=LOUNGE_REF),
-    ),
-    capabilities=(SIGN_IN,),
-    surfaces=SurfaceSlots(active=SIGN_IN_SURFACE),
-    suggested_actions=(
-        SuggestedAction(id="lounge.sign_in.submit", operation_id=AUTHENTICATE_OWNER.id, label="Sign in"),
-        SuggestedAction(id="lounge.sign_in.continue", operation_id=SIGN_IN_CONTINUE_TO_WORKSPACE.id, label="Continue to Workspace"),
-    ),
-    policy_refs=(policies.SIGN_IN_NODE_PRIVACY.ref, policies.SIGN_IN_NODE_FAILURE.ref),
-)
+def _register_node(workspace_home_ref: NodeRef) -> Node:
+    return Node(
+        id=REGISTER_REF.id,
+        title="Create account",
+        kind=NodeKind.SECTION,
+        parent=LOUNGE_REF,
+        route=Route(template="/register", deep_link_policy=DeepLinkPolicy.SHAREABLE),
+        context_providers=(OWNER_CONTEXT_PROVIDER,),
+        conversation_input=CREDENTIAL_INPUT,
+        operations=(
+            CREATE_OWNER_ACCOUNT,
+            REGISTRATION_CONTINUE_TO_WORKSPACE,
+            REGISTRATION_RETURN_TO_LOUNGE,
+        ),
+        outgoing=(
+            Transition(operation=CREATE_OWNER_ACCOUNT.ref, outcome="created", target=workspace_home_ref),
+            Transition(operation=REGISTRATION_CONTINUE_TO_WORKSPACE.ref, outcome="opened", target=workspace_home_ref),
+            Transition(operation=REGISTRATION_RETURN_TO_LOUNGE.ref, outcome="opened", target=LOUNGE_REF),
+        ),
+        capabilities=(REGISTER,),
+        surfaces=SurfaceSlots(active=REGISTER_SURFACE),
+        suggested_actions=(
+            SuggestedAction(id="lounge.register.submit", operation_id=CREATE_OWNER_ACCOUNT.id, label="Sign up"),
+            SuggestedAction(id="lounge.register.continue", operation_id=REGISTRATION_CONTINUE_TO_WORKSPACE.id, label="Continue to Workspace"),
+        ),
+        policy_refs=(
+            policies.REGISTRATION_NODE_PRIVACY.ref,
+            policies.REGISTRATION_NODE_PARTIAL_SUCCESS.ref,
+        ),
+    )
+
+
+def _sign_in_node(workspace_home_ref: NodeRef) -> Node:
+    return Node(
+        id=SIGN_IN_REF.id,
+        title="Sign in",
+        kind=NodeKind.SECTION,
+        parent=LOUNGE_REF,
+        route=Route(template="/sign-in", deep_link_policy=DeepLinkPolicy.SHAREABLE),
+        context_providers=(OWNER_CONTEXT_PROVIDER,),
+        conversation_input=CREDENTIAL_INPUT,
+        operations=(
+            AUTHENTICATE_OWNER,
+            SIGN_IN_CONTINUE_TO_WORKSPACE,
+            SIGN_IN_OPEN_PASSWORD_RECOVERY,
+            SIGN_IN_RETURN_TO_LOUNGE,
+        ),
+        outgoing=(
+            Transition(operation=AUTHENTICATE_OWNER.ref, outcome="authenticated", target=workspace_home_ref),
+            Transition(operation=SIGN_IN_CONTINUE_TO_WORKSPACE.ref, outcome="opened", target=workspace_home_ref),
+            Transition(operation=SIGN_IN_OPEN_PASSWORD_RECOVERY.ref, outcome="opened", target=FORGOT_PASSWORD_REF),
+            Transition(operation=SIGN_IN_RETURN_TO_LOUNGE.ref, outcome="opened", target=LOUNGE_REF),
+        ),
+        capabilities=(SIGN_IN,),
+        surfaces=SurfaceSlots(active=SIGN_IN_SURFACE),
+        suggested_actions=(
+            SuggestedAction(id="lounge.sign_in.submit", operation_id=AUTHENTICATE_OWNER.id, label="Sign in"),
+            SuggestedAction(id="lounge.sign_in.continue", operation_id=SIGN_IN_CONTINUE_TO_WORKSPACE.id, label="Continue to Workspace"),
+        ),
+        policy_refs=(policies.SIGN_IN_NODE_PRIVACY.ref, policies.SIGN_IN_NODE_FAILURE.ref),
+    )
 FORGOT_PASSWORD_NODE = Node(
     id=FORGOT_PASSWORD_REF.id,
     title="Request password recovery",
@@ -469,29 +471,30 @@ RESET_PASSWORD_NODE = Node(
     ),
     policy_refs=(policies.RESET_NODE_TOKEN_PRIVACY.ref, policies.RESET_NODE_TOKEN_FAILURE.ref),
 )
-VERIFICATION_PENDING_NODE = Node(
-    id=VERIFICATION_PENDING_REF.id,
-    title="Resend email verification",
-    kind=NodeKind.SECTION,
-    parent=LOUNGE_REF,
-    route=Route(template="/verification-pending", deep_link_policy=DeepLinkPolicy.SESSION_BOUND),
-    context_providers=(OWNER_CONTEXT_PROVIDER,),
-    operations=(REQUEST_VERIFICATION_DELIVERY, VERIFICATION_RETURN_TO_WORKSPACE),
-    outgoing=(
-        Transition(operation=REQUEST_VERIFICATION_DELIVERY.ref, outcome="requested", target=VERIFICATION_PENDING_REF),
-        Transition(operation=VERIFICATION_RETURN_TO_WORKSPACE.ref, outcome="opened", target=HOME_REF),
-    ),
-    capabilities=(REQUEST_VERIFICATION,),
-    surfaces=SurfaceSlots(),
-    suggested_actions=(
-        SuggestedAction(id="lounge.verification.resend", operation_id=REQUEST_VERIFICATION_DELIVERY.id, label="Resend verification"),
-        SuggestedAction(id="lounge.verification.return", operation_id=VERIFICATION_RETURN_TO_WORKSPACE.id, label="Return to Workspace"),
-    ),
-    policy_refs=(
-        policies.VERIFICATION_NODE_TOKEN_PRIVACY.ref,
-        policies.VERIFICATION_NODE_ADVISORY.ref,
-    ),
-)
+def _verification_pending_node(workspace_home_ref: NodeRef) -> Node:
+    return Node(
+        id=VERIFICATION_PENDING_REF.id,
+        title="Resend email verification",
+        kind=NodeKind.SECTION,
+        parent=LOUNGE_REF,
+        route=Route(template="/verification-pending", deep_link_policy=DeepLinkPolicy.SESSION_BOUND),
+        context_providers=(OWNER_CONTEXT_PROVIDER,),
+        operations=(REQUEST_VERIFICATION_DELIVERY, VERIFICATION_RETURN_TO_WORKSPACE),
+        outgoing=(
+            Transition(operation=REQUEST_VERIFICATION_DELIVERY.ref, outcome="requested", target=VERIFICATION_PENDING_REF),
+            Transition(operation=VERIFICATION_RETURN_TO_WORKSPACE.ref, outcome="opened", target=workspace_home_ref),
+        ),
+        capabilities=(REQUEST_VERIFICATION,),
+        surfaces=SurfaceSlots(),
+        suggested_actions=(
+            SuggestedAction(id="lounge.verification.resend", operation_id=REQUEST_VERIFICATION_DELIVERY.id, label="Resend verification"),
+            SuggestedAction(id="lounge.verification.return", operation_id=VERIFICATION_RETURN_TO_WORKSPACE.id, label="Return to Workspace"),
+        ),
+        policy_refs=(
+            policies.VERIFICATION_NODE_TOKEN_PRIVACY.ref,
+            policies.VERIFICATION_NODE_ADVISORY.ref,
+        ),
+    )
 VERIFY_EMAIL_NODE = Node(
     id=VERIFY_EMAIL_REF.id,
     title="Confirm email verification",
@@ -516,40 +519,40 @@ VERIFY_EMAIL_NODE = Node(
 )
 
 
-LOUNGE_FEATURE = Feature(
-    namespace="lounge",
-    nodes=(
-        LOUNGE_NODE,
-        PRODUCT_HELP_NODE,
-        REGISTER_NODE,
-        SIGN_IN_NODE,
-        FORGOT_PASSWORD_NODE,
-        RESET_PASSWORD_NODE,
-        VERIFICATION_PENDING_NODE,
-        VERIFY_EMAIL_NODE,
-    ),
-    agent_policies=policies.LOUNGE_AGENT_POLICIES,
-    policy_refs=(
-        policies.FEATURE_PROMPT.ref,
-        policies.PUBLIC_CONTEXT_ONLY.ref,
-        policies.LOUNGE_TASK_BOUNDARY.ref,
-        policies.LOUNGE_TASK_REDIRECTION.ref,
-        policies.ACCOUNT_ACCESS_BOUNDARY.ref,
-        policies.LOUNGE_CHROME_BOUNDARY.ref,
-        policies.USER_FACING_LANGUAGE.ref,
-    ),
-)
+def create_lounge_feature(workspace_home_ref: NodeRef) -> Feature:
+    """Compose Lounge with an application-owned authenticated destination."""
+
+    return Feature(
+        namespace="lounge",
+        nodes=(
+            LOUNGE_NODE,
+            PRODUCT_HELP_NODE,
+            _register_node(workspace_home_ref),
+            _sign_in_node(workspace_home_ref),
+            FORGOT_PASSWORD_NODE,
+            RESET_PASSWORD_NODE,
+            _verification_pending_node(workspace_home_ref),
+            VERIFY_EMAIL_NODE,
+        ),
+        agent_policies=policies.LOUNGE_AGENT_POLICIES,
+        policy_refs=(
+            policies.FEATURE_PROMPT.ref,
+            policies.PUBLIC_CONTEXT_ONLY.ref,
+            policies.LOUNGE_TASK_BOUNDARY.ref,
+            policies.LOUNGE_TASK_REDIRECTION.ref,
+            policies.ACCOUNT_ACCESS_BOUNDARY.ref,
+            policies.LOUNGE_CHROME_BOUNDARY.ref,
+            policies.USER_FACING_LANGUAGE.ref,
+        ),
+    )
 
 
 __all__ = [
     "FORGOT_PASSWORD_NODE",
-    "LOUNGE_FEATURE",
     "LOUNGE_NODE",
     "LOUNGE_SURFACE",
     "PRODUCT_HELP_NODE",
-    "REGISTER_NODE",
     "RESET_PASSWORD_NODE",
-    "SIGN_IN_NODE",
-    "VERIFICATION_PENDING_NODE",
     "VERIFY_EMAIL_NODE",
+    "create_lounge_feature",
 ]

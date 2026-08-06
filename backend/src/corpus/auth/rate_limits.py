@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
-from .database import AuthDatabase
+from corpus.persistence import CorpusDatabase
 from .models import AuthRateLimit
 
 
@@ -14,7 +14,7 @@ class RateLimitExceeded(RuntimeError):
 
 
 class AuthRateLimiter:
-    def __init__(self, database: AuthDatabase) -> None:
+    def __init__(self, database: CorpusDatabase) -> None:
         self.database = database
 
     async def consume(

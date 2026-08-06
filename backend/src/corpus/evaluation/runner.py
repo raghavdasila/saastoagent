@@ -16,6 +16,9 @@ from ollama import Client
 from pydantic import SecretStr
 from pydantic import BaseModel, ConfigDict
 
+from .action_plan import EvaluationActionPlanExecutor
+from .http_action_runtime import HttpEvaluationActionRuntime
+
 
 class _StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -46,8 +49,8 @@ class JudgeResult(_StrictModel):
     rationale: str
 
 
-class LoungeEvaluationRunner:
-    """Execute Studio-owned Lounge conversations through the real Corpus HTTP path."""
+class FeatureEvaluationRunner:
+    """Execute Studio-owned feature evaluations through the real Corpus HTTP path."""
 
     def __init__(
         self,
@@ -93,18 +96,24 @@ class LoungeEvaluationRunner:
         scenario_id: str | None = None,
         *,
         evaluation_level: str = "conversation",
+        feature_name: str = "Lounge",
     ) -> dict[str, Any]:
         design = _load_json(self.design_path)
         manifest = _load_json(self.manifest_path)
-        lounge = next(item for item in design["features"] if item["name"] == "Lounge")
+        feature = next(
+            (item for item in design["features"] if item["name"] == feature_name),
+            None,
+        )
+        if feature is None:
+            raise ValueError(f"Unknown Design Studio feature: {feature_name}")
         if evaluation_level == "conversation":
             scenarios = [
-                item for item in lounge["conversationEvals"] if item["enabled"]
+                item for item in feature["conversationEvals"] if item["enabled"]
             ]
         elif evaluation_level == "behavior":
             scenarios = [
                 {**case, "designBehavior": story["title"]}
-                for story in lounge["stories"]
+                for story in feature["stories"]
                 for case in story["behaviorEvals"]
                 if case["enabled"]
             ]
@@ -114,29 +123,39 @@ class LoungeEvaluationRunner:
             scenarios = [item for item in scenarios if item["id"] == scenario_id]
             if not scenarios:
                 raise ValueError(
-                    f"Unknown enabled Lounge {evaluation_level} evaluation: {scenario_id}"
+                    f"Unknown enabled {feature_name} {evaluation_level} evaluation: "
+                    f"{scenario_id}"
                 )
-        lounge_manifest = next(
-            item for item in manifest["features"] if item["designFeature"] == "Lounge"
+        feature_manifest = next(
+            (
+                item
+                for item in manifest["features"]
+                if item["designFeature"] == feature_name
+            ),
+            None,
         )
+        if feature_manifest is None:
+            raise ValueError(
+                f"No implementation manifest mapping for feature: {feature_name}"
+            )
         behavior_nodes = {
             item["designBehavior"]: item["node"]
-            for item in lounge_manifest["behaviors"]
+            for item in feature_manifest["behaviors"]
         }
         surface_ids = {
             design_name: runtime_id
-            for behavior in lounge_manifest["behaviors"]
+            for behavior in feature_manifest["behaviors"]
             for design_name, runtime_id in behavior["surfaces"].items()
         }
         operation_ids: dict[str, set[str]] = {}
-        for behavior in lounge_manifest["behaviors"]:
+        for behavior in feature_manifest["behaviors"]:
             for design_name, runtime_id in behavior["operations"].items():
                 operation_ids.setdefault(design_name, set()).add(runtime_id)
         run_id = f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:10]}"
         started = datetime.now(UTC).isoformat()
         try:
             with httpx.Client(base_url=self.base_url, headers={"Origin": self.origin}, timeout=180.0) as client:
-                _expect(client.get("/readyz"), 200)
+                _wait_until_ready(client)
                 anonymous = client.post("/api/auth/anonymous")
                 _expect(anonymous, 201)
                 client.headers["Authorization"] = f"Bearer {anonymous.json()['access_token']}"
@@ -145,9 +164,11 @@ class LoungeEvaluationRunner:
                         self._run_scenario(
                             client,
                             item,
+                            feature_manifest["evaluationBindings"][item["id"]],
                             behavior_nodes,
                             surface_ids,
                             operation_ids,
+                            feature_manifest["behaviors"],
                         )
                         for item in scenarios
                     ]
@@ -156,9 +177,10 @@ class LoungeEvaluationRunner:
                         self._run_behavior_case(
                             client,
                             item,
+                            feature_manifest["evaluationBindings"][item["id"]],
                             behavior_nodes,
                             surface_ids,
-                            lounge_manifest["behaviors"],
+                            feature_manifest["behaviors"],
                             operation_ids,
                         )
                         for item in scenarios
@@ -179,6 +201,7 @@ class LoungeEvaluationRunner:
             "schema": "corpus.self-evaluation.v1",
             "runId": run_id,
             "evaluationLevel": evaluation_level,
+            "feature": feature_name,
             "status": "passed" if results and all(item["status"] == "passed" for item in results) else "failed",
             "startedAt": started,
             "completedAt": completed,
@@ -220,6 +243,7 @@ class LoungeEvaluationRunner:
         self,
         client: httpx.Client,
         case: dict[str, Any],
+        evaluation_binding: dict[str, Any],
         behavior_nodes: dict[str, str],
         surface_ids: dict[str, str],
         manifest_behaviors: list[dict[str, Any]],
@@ -228,43 +252,18 @@ class LoungeEvaluationRunner:
         definition = {
             key: value for key, value in case.items() if key != "designBehavior"
         }
-        setup_operation_ids = _behavior_setup_operation_ids(
-            case["designBehavior"], manifest_behaviors
-        )
-        if setup_operation_ids is None:
-            return {
-                "evaluationId": case["id"],
-                "title": case["title"],
-                "status": "prerequisite_blocked",
-                "definitionSha256": _json_sha256(definition),
-                "blocker": (
-                    f"{case['designBehavior']} requires authenticated state or a real "
-                    "one-time product token; the runner does not fabricate either."
-                ),
-            }
         try:
-            listed = _expect(client.get("/api/conversations"), 200).json()[
-                "conversations"
-            ]
-            created = (
-                client.post("/api/conversations", json={})
-                if not listed
-                else client.post(f"/api/conversations/{listed[0]['id']}/replacement")
+            runtime = HttpEvaluationActionRuntime(
+                runner=self,
+                client=client,
+                definition=case,
+                manifest_behaviors=manifest_behaviors,
             )
-            _expect(created, 201)
-            conversation = created.json()
-            client.headers["X-Corpus-Conversation-ID"] = conversation["id"]
-            self._await_run(client, conversation["active_run"]["request_id"])
-            for operation_id in setup_operation_ids:
-                self._dispatch(client, operation_id)
-            starting_projection = _expect(
-                client.get("/api/routedeck/session"), 200
-            ).json()["projection"]
-            starting_authentication = _authentication_state(client)
-            starting_event_cursor = _expect(
-                client.get("/api/routedeck/inspect"), 200
-            ).json().get("diagnostics", {}).get("event_cursor", 0)
-            self._send(client, case["input"])
+            action_execution = EvaluationActionPlanExecutor().execute(
+                definition=case,
+                binding=evaluation_binding,
+                runtime=runtime,
+            )
             transcript = self._transcript(client)
             projection = _expect(
                 client.get("/api/routedeck/session"), 200
@@ -272,27 +271,58 @@ class LoungeEvaluationRunner:
             inspection = _expect(client.get("/api/routedeck/inspect"), 200).json()
             events = _event_evidence(
                 client,
-                starting_event_cursor,
+                runtime.starting_event_cursor,
                 inspection.get("diagnostics", {}).get("event_cursor", 0),
             )
             deterministic = _deterministic_assertions(
                 case,
-                behavior_nodes,
+                {
+                    **behavior_nodes,
+                    **evaluation_binding.get("behaviorNodes", {}),
+                },
                 projection,
                 transcript,
-                starting_projection=starting_projection,
-                surface_ids=surface_ids,
+                starting_projection=runtime.starting_projection,
+                surface_ids={
+                    **surface_ids,
+                    **evaluation_binding.get("surfaceIds", {}),
+                },
                 operation_ids=operation_ids,
                 events=events,
-                starting_authentication=starting_authentication,
+                starting_authentication=runtime.starting_authentication,
                 final_authentication=_authentication_state(client),
+                observed_surface_ids=runtime.observed_surface_ids,
+                observed_suggested_action_labels=(
+                    runtime.observed_suggested_action_labels
+                ),
             )
-            judge = self._judge_behavior(case, transcript, deterministic)
-            semantic_pass = (
-                all(item.passed for item in judge.required)
-                and not any(item.observed for item in judge.forbidden)
-                and judge.overall_pass
+            deterministic.extend(
+                _action_plan_transition_assertions(
+                    action_execution.steps,
+                    runtime.starting_projection,
+                    runtime.starting_event_cursor,
+                )
             )
+            if _has_message_step(case):
+                judge = self._judge_behavior(case, transcript, deterministic)
+                semantic_pass = (
+                    all(item.passed for item in judge.required)
+                    and not any(item.observed for item in judge.forbidden)
+                    and judge.overall_pass
+                )
+                judge_evidence: dict[str, Any] = judge.model_dump(mode="json")
+            else:
+                semantic_pass = True
+                judge_evidence = {
+                    "mode": "not_applicable",
+                    "rationale": (
+                        "This action-only plan is decided by bound operation, "
+                        "projection, event, authentication, and domain-state evidence."
+                    ),
+                    "required": [],
+                    "forbidden": [],
+                    "overall_pass": None,
+                }
             passed = all(item["passed"] for item in deterministic) and semantic_pass
             return {
                 "evaluationId": case["id"],
@@ -300,12 +330,20 @@ class LoungeEvaluationRunner:
                 "designBehavior": case["designBehavior"],
                 "status": "passed" if passed else "failed",
                 "definitionSha256": _json_sha256(definition),
-                "conversationId": conversation["id"],
+                "conversationId": runtime.conversation_id,
                 "transcript": transcript,
                 "deterministicAssertions": deterministic,
-                "judge": judge.model_dump(mode="json"),
+                "judge": judge_evidence,
                 "evidence": {
-                    "startingProjection": starting_projection,
+                    "startingProjection": runtime.starting_projection,
+                    "actionPlan": {
+                        "setup": action_execution.setup,
+                        "steps": action_execution.steps,
+                        "observedSurfaceIds": sorted(runtime.observed_surface_ids),
+                        "observedSuggestedActions": sorted(
+                            runtime.observed_suggested_action_labels
+                        ),
+                    },
                     "projection": projection,
                     "routeTraces": inspection.get("route_traces", []),
                     "invocationTraceHashes": [
@@ -330,54 +368,60 @@ class LoungeEvaluationRunner:
         self,
         client: httpx.Client,
         scenario: dict[str, Any],
+        evaluation_binding: dict[str, Any],
         behavior_nodes: dict[str, str],
         surface_ids: dict[str, str],
         operation_ids: dict[str, set[str]],
+        manifest_behaviors: list[dict[str, Any]],
     ) -> dict[str, Any]:
         try:
-            listed = _expect(client.get("/api/conversations"), 200).json()["conversations"]
-            created = (
-                client.post("/api/conversations", json={})
-                if not listed
-                else client.post(f"/api/conversations/{listed[0]['id']}/replacement")
+            runtime = HttpEvaluationActionRuntime(
+                runner=self,
+                client=client,
+                definition=scenario,
+                manifest_behaviors=manifest_behaviors,
             )
-            _expect(created, 201)
-            conversation = created.json()
-            client.headers["X-Corpus-Conversation-ID"] = conversation["id"]
-            self._await_run(client, conversation["active_run"]["request_id"])
-            starting_projection = _expect(
-                client.get("/api/routedeck/session"), 200
-            ).json()["projection"]
-            starting_authentication = _authentication_state(client)
-            starting_event_cursor = _expect(
-                client.get("/api/routedeck/inspect"), 200
-            ).json().get("diagnostics", {}).get("event_cursor", 0)
-            self._send(client, scenario["openingMessage"])
-            for _ in range(min(self.max_adaptive_turns, scenario["maxTurns"] - 1)):
-                transcript = self._transcript(client)
-                tester = self._tester_turn(scenario, transcript)
-                if tester.stop:
-                    break
-                self._send(client, tester.message)
+            action_execution = EvaluationActionPlanExecutor().execute(
+                definition=scenario,
+                binding=evaluation_binding,
+                runtime=runtime,
+            )
             transcript = self._transcript(client)
             projection = _expect(client.get("/api/routedeck/session"), 200).json()["projection"]
             inspection = _expect(client.get("/api/routedeck/inspect"), 200).json()
             events = _event_evidence(
                 client,
-                starting_event_cursor,
+                runtime.starting_event_cursor,
                 inspection.get("diagnostics", {}).get("event_cursor", 0),
             )
             deterministic = _deterministic_assertions(
                 scenario,
-                behavior_nodes,
+                {
+                    **behavior_nodes,
+                    **evaluation_binding.get("behaviorNodes", {}),
+                },
                 projection,
                 transcript,
-                starting_projection=starting_projection,
-                surface_ids=surface_ids,
+                starting_projection=runtime.starting_projection,
+                surface_ids={
+                    **surface_ids,
+                    **evaluation_binding.get("surfaceIds", {}),
+                },
                 operation_ids=operation_ids,
                 events=events,
-                starting_authentication=starting_authentication,
+                starting_authentication=runtime.starting_authentication,
                 final_authentication=_authentication_state(client),
+                observed_surface_ids=runtime.observed_surface_ids,
+                observed_suggested_action_labels=(
+                    runtime.observed_suggested_action_labels
+                ),
+            )
+            deterministic.extend(
+                _action_plan_transition_assertions(
+                    action_execution.steps,
+                    runtime.starting_projection,
+                    runtime.starting_event_cursor,
+                )
             )
             judge = self._judge(scenario, transcript, deterministic)
             semantic_pass = (
@@ -391,11 +435,20 @@ class LoungeEvaluationRunner:
                 "title": scenario["title"],
                 "status": "passed" if passed else "failed",
                 "definitionSha256": _json_sha256(scenario),
-                "conversationId": conversation["id"],
+                "conversationId": runtime.conversation_id,
                 "transcript": transcript,
                 "deterministicAssertions": deterministic,
                 "judge": judge.model_dump(mode="json"),
                 "evidence": {
+                    "startingProjection": runtime.starting_projection,
+                    "actionPlan": {
+                        "setup": action_execution.setup,
+                        "steps": action_execution.steps,
+                        "observedSurfaceIds": sorted(runtime.observed_surface_ids),
+                        "observedSuggestedActions": sorted(
+                            runtime.observed_suggested_action_labels
+                        ),
+                    },
                     "projection": projection,
                     "routeTraces": inspection.get("route_traces", []),
                     "invocationTraceHashes": [
@@ -570,17 +623,23 @@ def _deterministic_assertions(
     events=None,
     starting_authentication=None,
     final_authentication=None,
+    observed_surface_ids=None,
+    observed_suggested_action_labels=None,
 ):
     expectations = scenario["expectations"]
     text = "\n".join(item["content"] for item in transcript if item["role"] == "assistant")
     current_node = projection["current"]["node_id"]
-    action_labels = {item["label"] for item in projection.get("suggested_actions", [])}
+    action_labels = {
+        item["label"] for item in projection.get("suggested_actions", [])
+    } | set(observed_suggested_action_labels or ())
     accepted_final_behaviors = [
         expectations["finalBehavior"],
         *expectations.get("allowedFinalBehaviors", []),
     ]
     accepted_final_nodes = {behavior_nodes[name] for name in accepted_final_behaviors}
-    observed_surface_ids = _projection_surface_ids(projection)
+    all_observed_surface_ids = _projection_surface_ids(projection) | set(
+        observed_surface_ids or ()
+    )
     required_surface_ids = {
         (surface_ids or {})[name]
         for name in expectations.get("requiredSurfaces", [])
@@ -633,8 +692,8 @@ def _deterministic_assertions(
         _check("final behavior", current_node in accepted_final_nodes, f"expected one of {sorted(accepted_final_nodes)}, observed {current_node}"),
         _check(
             "required surfaces",
-            required_surface_ids <= observed_surface_ids,
-            f"required {sorted(required_surface_ids)}, observed {sorted(observed_surface_ids)}",
+            required_surface_ids <= all_observed_surface_ids,
+            f"required {sorted(required_surface_ids)}, observed {sorted(all_observed_surface_ids)}",
         ),
         _check("required suggested actions", set(expectations["requiredSuggestedActions"]) <= action_labels, f"required {expectations['requiredSuggestedActions']}, observed {sorted(action_labels)}"),
         _check(
@@ -676,6 +735,84 @@ def _deterministic_assertions(
     return checks
 
 
+def _action_plan_transition_assertions(
+    steps: list[dict[str, Any]],
+    starting_projection: dict[str, Any],
+    starting_event_cursor: int,
+) -> list[dict[str, Any]]:
+    checkpoints = [
+        step.get("evidence", {})
+        for step in steps
+        if step.get("kind") == "checkpoint"
+    ]
+    executable = [
+        step.get("evidence", {})
+        for step in steps
+        if step.get("kind") in {"suggested-action", "surface-submit"}
+    ]
+    if not checkpoints:
+        return [_check("action-plan checkpoint", False, "no checkpoint executed")]
+    final = checkpoints[-1]
+    start_session_version = int(starting_projection.get("session_version", 0))
+    final_session_version = int(final.get("sessionVersion", -1))
+    final_event_cursor = int(final.get("eventCursor", -1))
+    terminal_dispositions = {"completed", "failed", "needs_input", "pending"}
+    machine_assertions = [
+        item
+        for checkpoint in checkpoints
+        for item in checkpoint.get("machineAssertions", [])
+        if isinstance(item, dict)
+    ]
+    return [
+        _check(
+            "action-plan checkpoint",
+            isinstance(final.get("nodeId"), str)
+            and isinstance(final.get("projectionVersion"), int),
+            f"captured {len(checkpoints)} checkpoint(s)",
+        ),
+        _check(
+            "session state advancement",
+            not executable or final_session_version > start_session_version,
+            f"started {start_session_version}, observed {final_session_version}",
+        ),
+        _check(
+            "event state advancement",
+            not executable or final_event_cursor > starting_event_cursor,
+            f"started {starting_event_cursor}, observed {final_event_cursor}",
+        ),
+        _check(
+            "executable action outcomes captured",
+            all(
+                evidence.get("disposition") in terminal_dispositions
+                for evidence in executable
+            ),
+            "observed dispositions "
+            + repr([evidence.get("disposition") for evidence in executable]),
+        ),
+        _check(
+            "bound action outcomes",
+            all(evidence.get("outcomeMatched", True) for evidence in executable),
+            "observed "
+            + repr(
+                [
+                    {
+                        "expected": evidence.get("expectedOutcome"),
+                        "observed": evidence.get("outcome"),
+                    }
+                    for evidence in executable
+                    if evidence.get("expectedOutcome") is not None
+                ]
+            ),
+        ),
+        _check(
+            "bound domain and projection state",
+            all(item.get("passed") is True for item in machine_assertions),
+            f"passed {sum(item.get('passed') is True for item in machine_assertions)}"
+            f"/{len(machine_assertions)} bound assertion(s)",
+        ),
+    ]
+
+
 def _forbidden_outcome_absent(
     outcome: str,
     assistant_text: str,
@@ -693,7 +830,13 @@ def _forbidden_outcome_absent(
     elif "private workspace state" in normalized:
         observed = current_node.startswith("workspace.")
     elif "account existence" in normalized:
-        observed = re.search(
+        neutral = re.search(
+            r"\b(?:can(?:not|'t|’t)|unable to)\s+(?:confirm|tell|determine)\b"
+            r"|\bwhether or not\b|\bif\s+(?:an?\s+|that\s+|the\s+)?account\s+exists\b"
+            r"|\bsame\s+(?:confirmation|response|message)\b",
+            visible,
+        ) is not None
+        observed = not neutral and re.search(
             r"\b(?:account|email)\b.{0,40}\b(?:already registered|exists|does not exist|not found|unknown)\b",
             visible,
         ) is not None
@@ -811,11 +954,40 @@ def _expect(response: httpx.Response, status: int) -> httpx.Response:
     return response
 
 
+def _wait_until_ready(client: httpx.Client, timeout_seconds: float = 30.0) -> None:
+    deadline = time.monotonic() + timeout_seconds
+    last_status = 0
+    last_body = ""
+    while time.monotonic() < deadline:
+        try:
+            response = client.get("/readyz")
+            last_status = response.status_code
+            last_body = response.text[:500]
+            if response.status_code == 200:
+                return
+        except httpx.HTTPError as error:
+            last_body = str(error)
+        time.sleep(0.25)
+    raise RuntimeError(
+        "Corpus did not remain ready for evaluation within "
+        f"{timeout_seconds:.0f}s; last status={last_status}, body={last_body}"
+    )
+
+
 def _load_json(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
         raise ValueError(f"Expected JSON object: {path}")
     return value
+
+
+def _has_message_step(definition: dict[str, Any]) -> bool:
+    action_plan = definition.get("actionPlan", {})
+    steps = action_plan.get("steps", []) if isinstance(action_plan, dict) else []
+    return any(
+        isinstance(step, dict) and step.get("kind") == "message"
+        for step in steps
+    )
 
 
 def _sha256(path: Path) -> str:
@@ -833,3 +1005,10 @@ def _git(repository: Path, *arguments: str) -> str:
 def _git_diff_sha256(repository: Path) -> str:
     diff = subprocess.run(["git", "diff", "--binary", "HEAD"], cwd=repository, check=True, capture_output=True).stdout
     return hashlib.sha256(diff).hexdigest()
+
+
+# Backwards-compatible name for the existing Lounge CLI.
+LoungeEvaluationRunner = FeatureEvaluationRunner
+
+
+__all__ = ["FeatureEvaluationRunner", "LoungeEvaluationRunner"]

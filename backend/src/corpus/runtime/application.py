@@ -21,6 +21,8 @@ from routedeck_sqlalchemy import (
 from corpus.app.host import LiveRouteDeckApplication
 from corpus.bindings import bind_corpus_app
 from corpus.composition import compile_corpus_app
+from corpus.features.agents.service import AgentService
+from corpus.features.workspace.service import WorkspaceService
 from corpus.session import create_guest_session, initialize_guest_session
 
 from .agent import create_corpus_agent, create_corpus_entry_agent
@@ -100,6 +102,8 @@ async def open_live_corpus_application(
     auth_limiter,
     auth_mail,
     credential_transition,
+    agent_service: AgentService,
+    workspace_service: WorkspaceService,
 ) -> LiveRouteDeckApplication:
     configured = settings or CorpusRuntimeSettings.from_env()
     compiled = compile_corpus_app()
@@ -117,6 +121,8 @@ async def open_live_corpus_application(
             private_form_store=resources.store,
             private_form_codec=resources.codec,
             credential_transition=credential_transition,
+            agent_service=agent_service,
+            workspace_service=workspace_service,
         )
 
     runtime = await open_sqlalchemy_routedeck_runtime(

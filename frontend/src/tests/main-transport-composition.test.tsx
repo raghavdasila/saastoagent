@@ -17,6 +17,10 @@ const state = vi.hoisted(() => {
       async loadConversation() { return []; },
     })),
     sourceClients: [] as unknown[],
+    agentClients: [] as unknown[],
+    agentStores: [] as unknown[],
+    workspaceClients: [] as unknown[],
+    workspaceStores: [] as unknown[],
     createCorpusSurfaceRegistry: vi.fn(() => ({})),
     loadRouteDeck: vi.fn(async () => ({ store: { dispose: vi.fn() } })),
     render: vi.fn(),
@@ -34,13 +38,41 @@ vi.mock("../app/bootstrapConnection", () => ({
   bootstrapCorpusConnection: state.bootstrap,
 }));
 vi.mock("../app/loadRouteDeck", () => ({ loadRouteDeck: state.loadRouteDeck }));
-vi.mock("../features/lounge/authClient", () => ({
+vi.mock("../auth/authClient", () => ({
   configureOwnerAuthClient: state.configureOwnerAuthClient,
 }));
 vi.mock("../features/sources/sourceClient", () => ({
   SourceClient: class {
     constructor(transport: unknown) {
       state.sourceClients.push(transport);
+    }
+  },
+}));
+vi.mock("../features/agents/client", () => ({
+  AgentClient: class {
+    constructor(transport: unknown) {
+      state.agentClients.push(transport);
+    }
+  },
+}));
+vi.mock("../features/agents/store", () => ({
+  AgentStore: class {
+    constructor(client: unknown) {
+      state.agentStores.push(client);
+    }
+  },
+}));
+vi.mock("../features/workspace/client", () => ({
+  WorkspaceClient: class {
+    constructor(transport: unknown) {
+      state.workspaceClients.push(transport);
+    }
+  },
+}));
+vi.mock("../features/workspace/store", () => ({
+  WorkspaceStore: class {
+    constructor(client: unknown) {
+      state.workspaceStores.push(client);
     }
   },
 }));
@@ -72,6 +104,10 @@ it("composes bearer auth and Sources with conversation-scoped RouteDeck clients"
     signOut: expect.any(Function),
   });
   expect(state.sourceClients).toEqual([state.authorized]);
+  expect(state.agentClients).toEqual([state.authorized]);
+  expect(state.agentStores).toHaveLength(1);
+  expect(state.workspaceClients).toEqual([state.authorized]);
+  expect(state.workspaceStores).toHaveLength(1);
   expect(state.createRouteDeckClient).toHaveBeenCalledWith(expect.objectContaining({
     fetch: state.conversationTransport.fetch,
     credentials: "omit",

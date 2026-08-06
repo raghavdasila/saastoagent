@@ -9,8 +9,8 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { CorpusNavigationControls } from "./CorpusNavigationControls";
-import { ownerAuthClient } from "../features/lounge/authClient";
-import { useOwnerSession } from "../features/lounge/OwnerSessionContext";
+import { ownerAuthClient } from "../auth/authClient";
+import { useOwnerSession } from "../auth/OwnerSessionContext";
 
 export function CorpusHeader({
   onNewConversation,
@@ -35,7 +35,9 @@ export function CorpusHeader({
         ? "Lounge"
         : currentNode.startsWith("sources.")
           ? "Sources"
-          : "Workspace";
+          : currentNode.startsWith("agents.")
+            ? "Agents"
+            : "Workspace";
 
   return (
     <>
@@ -68,7 +70,7 @@ export function CorpusHeader({
           }}
         >
           <MessageSquarePlus />
-          New conversation
+          <span>New conversation</span>
         </Button>
         {conversationError === null ? null : (
           <span className="corpus-header-error" role="alert">

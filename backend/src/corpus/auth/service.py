@@ -12,7 +12,10 @@ from fastapi_users.exceptions import InvalidPasswordException, UserAlreadyExists
 from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 
-from .database import AuthDatabase, TransactionalUserDatabase
+from corpus.persistence import CorpusDatabase
+
+from .contracts import OwnerRouteContext
+from .database import TransactionalUserDatabase
 from .manager import CorpusUserManager
 from .models import (
     AccessToken,
@@ -69,6 +72,7 @@ class CurrentPrincipal:
     kind: Literal["anonymous", "owner"]
     auth_session_id: uuid.UUID
     user_id: uuid.UUID | None
+    organization_id: uuid.UUID | None
     access_expires_at: datetime
     owner: OwnerPrincipalView | None
 
@@ -93,19 +97,10 @@ class VerificationDeliveryContext:
     already_verified: bool
 
 
-@dataclass(frozen=True)
-class OwnerRouteContext:
-    display_name: str | None
-    organization_name: str
-    organization_slug: str
-    role: str
-    is_verified: bool
-
-
 class AuthService:
     def __init__(
         self,
-        database: AuthDatabase,
+        database: CorpusDatabase,
         *,
         reset_secret: str = "test-reset-secret-at-least-32-bytes-long",
         verification_secret: str = "test-verification-secret-at-least-32-bytes-long",
@@ -572,6 +567,22 @@ class AuthService:
                 already_verified=user.is_verified,
             )
 
+    async def organization_id_for_route(self, route_session_id: str) -> uuid.UUID:
+        async with self.database.session() as session:
+            conversation = await session.scalar(
+                select(CorpusConversation).where(
+                    CorpusConversation.route_session_id == route_session_id,
+                    CorpusConversation.owner_user_id.is_not(None),
+                )
+            )
+            if conversation is None or conversation.owner_user_id is None:
+                raise SessionUnavailable("The owner Workspace is unavailable.")
+            _membership, organization = await self._personal_membership(
+                session,
+                conversation.owner_user_id,
+            )
+            return organization.id
+
     async def verify(self, token: str) -> None:
         from fastapi_users.exceptions import InvalidVerifyToken, UserAlreadyVerified
 
@@ -729,6 +740,7 @@ class AuthService:
         ):
             raise SessionUnavailable("The access token is unavailable.")
         owner: OwnerPrincipalView | None = None
+        organization_id: uuid.UUID | None = None
         if auth_session.user_id is not None:
             user = await session.get(User, auth_session.user_id)
             if user is None or not user.is_active:
@@ -737,10 +749,12 @@ class AuthService:
                 session, user.id
             )
             owner = _owner_principal(user, organization, membership)
+            organization_id = organization.id
         return CurrentPrincipal(
             kind="owner" if auth_session.user_id is not None else "anonymous",
             auth_session_id=auth_session.id,
             user_id=auth_session.user_id,
+            organization_id=organization_id,
             access_expires_at=_as_utc(access.expires_at),
             owner=owner,
         )
@@ -941,7 +955,6 @@ __all__ = [
     "InvalidAuthToken",
     "InvalidCredentials",
     "IssuedOwnerSession",
-    "OwnerRouteContext",
     "SessionUnavailable",
     "VerificationDeliveryContext",
 ]

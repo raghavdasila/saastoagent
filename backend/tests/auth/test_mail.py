@@ -51,8 +51,6 @@ class RecordingSmtp:
 
 def _settings(*, password: str | None) -> AuthSettings:
     return AuthSettings(
-        database_url="sqlite+aiosqlite:///./auth.sqlite3",
-        migration_revision="0001_owner_auth",
         reset_secret="r" * 40,
         verification_secret="v" * 40,
         public_frontend_url="http://127.0.0.1:5199",

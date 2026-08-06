@@ -284,6 +284,21 @@ service.
 - Desktop and mobile browser checks cover the rendered shell, real chat,
   bottom surface/composer dock, hamburger navigation drawer, registration
   navigation/failure, return transition, and live Navgraph.
+- `scripts/run_lounge_product_journeys.py` starts disposable Corpus
+  backend/frontend pairs with owned SQLite state and exercises Studio-owned
+  Lounge journeys through official Playwright Chromium. Mail journeys use the
+  real Corpus Gmail SMTP adapter and Mail.tm public API. Result artifacts retain
+  transcripts, deterministic backend assertions, screenshots, traces, and
+  failures under `.runtime/evaluations/**`; normal development databases are
+  not selected.
+
+The 2026-08-05 product-journey run passed registration/sign-in,
+unknown-account recovery neutrality, email verification, and invalid-token
+rejection. Duplicate-registration presentation, password-reset
+credential/conversation handoff, verification-rate-limit presentation, and
+known mail-outage recovery failed with retained evidence. These are Corpus
+feature/application integration gaps; no RouteDeck framework change is proven
+without a trace contradicting its generic terminal or recovery contracts.
 
 ## Invariants
 

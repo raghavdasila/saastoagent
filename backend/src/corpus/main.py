@@ -7,11 +7,12 @@ from routedeck_core import RouteDeckRuntime
 from routedeck_fastapi import SameOriginMutationPolicy
 
 from corpus.app.host import LiveRouteDeckApplication, create_routedeck_host
+from corpus.app.agents_adapters import AuthAgentOwnerScopeGateway
+from corpus.app.workspace_adapters import CorpusWorkspaceOverviewGateway
 from corpus.app.source_composition import (
     create_source_routers,
     create_source_service,
 )
-from corpus.auth.database import AuthDatabase
 from corpus.auth.conversations import create_conversation_router
 from corpus.auth.http import (
     AuthHttpProblem,
@@ -33,16 +34,30 @@ from corpus.features.sources.http import (
     SourceHttpProblem,
     source_problem_response,
 )
+from corpus.features.agents.http import (
+    AgentsHttpProblem,
+    agents_problem_response,
+    create_agents_router,
+)
+from corpus.features.agents.repository import SqlAlchemyAgentRepository
+from corpus.features.agents.service import AgentService
+from corpus.features.workspace.http import (
+    WorkspaceHttpProblem,
+    create_workspace_router,
+    workspace_problem_response,
+)
+from corpus.features.workspace.service import WorkspaceService
+from corpus.persistence import CorpusDatabase
 from corpus.runtime.application import open_live_corpus_application
 from corpus.runtime.config import CorpusRuntimeSettings
 
 
 def create_live_app(settings: CorpusRuntimeSettings | None = None):
     configured = settings or CorpusRuntimeSettings.from_env()
-    auth_database = AuthDatabase(configured.auth.database_url)
+    database = CorpusDatabase(configured.database.url)
     mail_delivery = create_mail_delivery(configured.auth)
     auth_service = AuthService(
-        auth_database,
+        database,
         reset_secret=configured.auth.reset_secret.get_secret_value(),
         verification_secret=(
             configured.auth.verification_secret.get_secret_value()
@@ -61,7 +76,12 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
             hours=configured.auth.verification_token_hours
         ),
     )
-    auth_limiter = AuthRateLimiter(auth_database)
+    auth_limiter = AuthRateLimiter(database)
+    agent_service = AgentService(SqlAlchemyAgentRepository(database))
+    agent_owner_scope = AuthAgentOwnerScopeGateway(auth_service)
+    workspace_service = WorkspaceService(
+        CorpusWorkspaceOverviewGateway(auth_service, agent_service)
+    )
     credential_transition = HttpCredentialTransition()
     selector = CorpusSessionSelector(auth_service)
     source_service = create_source_service(
@@ -72,8 +92,8 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
 
     async def open_runtime():
         try:
-            await auth_database.verify_revision(
-                configured.auth.migration_revision
+            await database.verify_revision(
+                configured.database.migration_revision
             )
             live = await open_live_corpus_application(
                 configured,
@@ -82,14 +102,16 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
                 auth_limiter=auth_limiter,
                 auth_mail=mail_delivery,
                 credential_transition=credential_transition,
+                agent_service=agent_service,
+                workspace_service=workspace_service,
             )
         except Exception:
-            await auth_database.close()
+            await database.close()
             raise
         return LiveRouteDeckApplication(
             runtime=live.runtime,
             readiness=live.readiness,
-            additional_close=(auth_database.close,),
+            additional_close=(database.close,),
         )
 
     host = configured.host
@@ -112,6 +134,8 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
         trusted_origins=frozenset(browser_origins)
     )
     app.add_exception_handler(AuthHttpProblem, auth_problem_response)
+    app.add_exception_handler(AgentsHttpProblem, agents_problem_response)
+    app.add_exception_handler(WorkspaceHttpProblem, workspace_problem_response)
     app.add_exception_handler(SourceHttpProblem, source_problem_response)
     app.include_router(
         create_auth_router(
@@ -134,6 +158,13 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
             runtime_provider=runtime_from_request,
         )
     )
+    app.include_router(
+        create_agents_router(
+            service=agent_service,
+            owner_scope=agent_owner_scope,
+        )
+    )
+    app.include_router(create_workspace_router(workspace_service))
     for source_router in create_source_routers(
         service=source_service,
         auth_service=auth_service,
@@ -143,6 +174,8 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
     ):
         app.include_router(source_router)
     app.state.corpus_auth_service = auth_service
+    app.state.corpus_agent_service = agent_service
+    app.state.corpus_workspace_service = workspace_service
     app.state.corpus_source_service = source_service
     return app
 

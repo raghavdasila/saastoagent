@@ -105,6 +105,56 @@ describe("client bearer session", () => {
     expect(new Headers(fetcher.mock.calls[2][1].headers).get("Authorization"))
       .toBe("Bearer owner-access");
   });
+
+  it("awaits the application handoff after revocation and re-enters with a new anonymous identity", async () => {
+    const replacement = {
+      ...ANONYMOUS,
+      access_token: "access-two",
+      refresh_token: "refresh-two",
+    };
+    const revoked = json({ ok: true });
+    revoked.headers.set("X-Corpus-Auth-Revoked", "true");
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(json(ANONYMOUS))
+      .mockResolvedValueOnce(revoked)
+      .mockResolvedValueOnce(json(replacement, 201))
+      .mockResolvedValueOnce(json({ conversations: [] }));
+    const store = memoryStore();
+    const manager = new ClientSessionManager(store, immediateLock(), fetcher);
+    await manager.bootstrap();
+    const handoff = vi.fn(async () => {
+      expect(manager.principal).toBeNull();
+      expect(store.value).toBeNull();
+      await manager.authorizedFetch("/api/conversations");
+    });
+    manager.setCredentialRevocationHandler(handoff);
+
+    await manager.authorizedFetch("/api/routedeck/dispatch", { method: "POST" });
+
+    expect(handoff).toHaveBeenCalledOnce();
+    expect(store.value).toBe("refresh-two");
+    expect(new Headers(fetcher.mock.calls[1][1].headers).get("Authorization"))
+      .toBe("Bearer access-one");
+    expect(new Headers(fetcher.mock.calls[3][1].headers).get("Authorization"))
+      .toBe("Bearer access-two");
+  });
+
+  it("fails clearly when revocation has no application coordinator", async () => {
+    const revoked = json({ ok: true });
+    revoked.headers.set("X-Corpus-Auth-Revoked", "true");
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(json(ANONYMOUS))
+      .mockResolvedValueOnce(revoked);
+    const store = memoryStore();
+    const manager = new ClientSessionManager(store, immediateLock(), fetcher);
+    await manager.bootstrap();
+
+    await expect(
+      manager.authorizedFetch("/api/routedeck/dispatch", { method: "POST" }),
+    ).rejects.toThrow(/credential revocation without an application coordinator/i);
+    expect(manager.principal).toBeNull();
+    expect(store.value).toBeNull();
+  });
 });
 
 function json(value: unknown, status = 200) {

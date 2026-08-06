@@ -17,11 +17,9 @@ from sqlalchemy import (
     Uuid,
     text as sa_text,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-
-class Base(DeclarativeBase):
-    pass
+from corpus.persistence.models import Base
 
 
 class MembershipRole(str, enum.Enum):
@@ -178,7 +176,6 @@ __all__ = [
     "AccessToken",
     "AuthRateLimit",
     "AuthSession",
-    "Base",
     "CorpusConversation",
     "Membership",
     "MembershipRole",

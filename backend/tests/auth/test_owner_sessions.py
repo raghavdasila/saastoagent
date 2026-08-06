@@ -6,7 +6,7 @@ import pytest
 from routedeck_fastapi.contracts import RouteDeckHttpProblem
 from starlette.requests import Request
 
-from corpus.auth.database import AuthDatabase
+from corpus.persistence import CorpusDatabase
 from corpus.auth.selector import CorpusSessionSelector
 from corpus.auth.service import AuthService
 
@@ -35,7 +35,7 @@ def _request(access_token: str, conversation_id: str | None) -> Request:
 async def test_selector_requires_bearer_and_authorized_public_conversation(
     tmp_path: Path,
 ) -> None:
-    database = AuthDatabase(
+    database = CorpusDatabase(
         f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}"
     )
     await database.create_schema_for_tests()

@@ -3,17 +3,21 @@ import type {
   DesignFeature,
   DesignStory,
   EvalCoverageTag,
+  EvaluationActionPlan,
   FeatureConversationEvalScenario,
   ProductJourneyEval,
 } from "@/workbench/types"
 
 export const EVAL_COVERAGE: Array<{ id: EvalCoverageTag; label: string }> = [
   { id: "normal", label: "Normal" },
+  { id: "state", label: "State" },
   { id: "boundary", label: "Boundary" },
   { id: "failure", label: "Failure" },
   { id: "privacy", label: "Privacy" },
   { id: "adversarial", label: "Adversarial" },
 ]
+
+const REQUIRED_RISK_COVERAGE = EVAL_COVERAGE.filter((category) => category.id !== "state")
 
 export interface EvaluationIssue {
   id: string
@@ -75,6 +79,13 @@ export function getBehaviorEvalCaseIssues(story: DesignStory, evalCase: Behavior
   evalCase.requiredCriteria.forEach((item, criterionIndex) => { if (blank(item)) issues.push({ id: `${prefix}-required-${criterionIndex}`, message: `${evalCase.title || `Eval case ${index + 1}`} contains an empty required criterion.`, targetId }) })
   evalCase.forbiddenCriteria.forEach((item, criterionIndex) => { if (blank(item)) issues.push({ id: `${prefix}-forbidden-${criterionIndex}`, message: `${evalCase.title || `Eval case ${index + 1}`} contains an empty forbidden criterion.`, targetId }) })
   issues.push(...expectationIssues(story, evalCase, prefix, targetId))
+  issues.push(...actionPlanIssues(evalCase.actionPlan, {
+    prefix,
+    targetId,
+    actions: new Set(story.suggestedActions.map((item) => `${story.title}\u0000${item.label}`)),
+    surfaces: new Set(story.surfaces.map((item) => item.name)),
+    allowAdaptiveMessages: false,
+  }))
   return issues
 }
 
@@ -86,7 +97,7 @@ export function getBehaviorEvalReadiness(story: DesignStory): EvaluationReadines
   })
   const covered = new Set(story.behaviorEvals.filter((item) => item.enabled).flatMap((item) => item.coverage))
   const exemptions = new Map(story.evalExemptions.map((item) => [item.coverage, item.reason]))
-  for (const category of EVAL_COVERAGE) {
+  for (const category of REQUIRED_RISK_COVERAGE) {
     if (covered.has(category.id)) continue
     const reason = exemptions.get(category.id)
     if (!reason || blank(reason)) issues.push({ id: `behavior-eval-coverage-${category.id}`, message: `Cover ${category.label.toLowerCase()} behavior or record why it is not applicable.`, targetId: "behavior-evals-heading" })
@@ -123,6 +134,13 @@ export function getConversationScenarioIssues(feature: DesignFeature, scenario: 
       suggestedActions: feature.stories.flatMap((story) => story.suggestedActions),
     }, scenario, prefix, targetId))
   }
+  issues.push(...actionPlanIssues(scenario.actionPlan, {
+    prefix,
+    targetId,
+    actions: new Set(feature.stories.flatMap((story) => story.suggestedActions.map((item) => `${story.title}\u0000${item.label}`))),
+    surfaces: new Set(feature.stories.flatMap((story) => story.surfaces.map((item) => item.name))),
+    allowAdaptiveMessages: true,
+  }))
   return issues
 }
 
@@ -155,6 +173,46 @@ export function getProductJourneyIssues(feature: DesignFeature, journey: Product
   }
   const behaviorNames = new Set(feature.stories.map((story) => story.title))
   if (!behaviorNames.has(journey.startingBehavior)) issues.push({ id: `${prefix}-starting-missing`, message: `Starting behavior references a missing design item.`, targetId })
+  return issues
+}
+
+function actionPlanIssues(
+  plan: EvaluationActionPlan,
+  options: {
+    prefix: string
+    targetId: string
+    actions: Set<string>
+    surfaces: Set<string>
+    allowAdaptiveMessages: boolean
+  },
+): EvaluationIssue[] {
+  const { prefix, targetId, actions, surfaces, allowAdaptiveMessages } = options
+  const issues: EvaluationIssue[] = []
+  if (plan.preconditions.length === 0) issues.push({ id: `${prefix}-preconditions`, message: "Add at least one product-state precondition.", targetId })
+  plan.preconditions.forEach((value, index) => {
+    if (blank(value)) issues.push({ id: `${prefix}-precondition-${index}`, message: "Action plan contains an empty precondition.", targetId })
+  })
+  if (plan.steps.length < 2) issues.push({ id: `${prefix}-steps`, message: "Action plan needs an authored message and a checkpoint.", targetId })
+  if (plan.steps[0]?.kind !== "message" || plan.steps[0]?.source !== "authored-input") issues.push({ id: `${prefix}-first-step`, message: "Action plan must start with the authored evaluation input.", targetId })
+  if (plan.steps.at(-1)?.kind !== "checkpoint") issues.push({ id: `${prefix}-last-step`, message: "Action plan must end with a deterministic checkpoint.", targetId })
+  const duplicateStepIds = duplicateIds(plan.steps.map((step) => step.id))
+  plan.steps.forEach((step, index) => {
+    if (blank(step.id)) issues.push({ id: `${prefix}-step-${index}-id`, message: `Action step ${index + 1} needs a stable ID.`, targetId })
+    if (duplicateStepIds.has(step.id.trim())) issues.push({ id: `${prefix}-step-${index}-duplicate`, message: `Action step ID “${step.id}” is duplicated.`, targetId })
+    if (step.kind === "message" && step.source === "adaptive-tester" && !allowAdaptiveMessages) issues.push({ id: `${prefix}-step-${index}-adaptive`, message: "Behavior evals cannot delegate dialogue to the adaptive tester.", targetId })
+    if (step.kind === "suggested-action" && (blank(step.behavior) || blank(step.action) || !actions.has(`${step.behavior}\u0000${step.action}`))) issues.push({ id: `${prefix}-step-${index}-action`, message: `Action step references missing SuggestedAction “${step.behavior || "empty"} / ${step.action || "empty"}”.`, targetId })
+    if (step.kind === "surface-submit") {
+      if (blank(step.surface) || !surfaces.has(step.surface)) issues.push({ id: `${prefix}-step-${index}-surface`, message: `Surface submission references missing Surface “${step.surface || "empty"}”.`, targetId })
+      if (blank(step.inputIntent)) issues.push({ id: `${prefix}-step-${index}-intent`, message: "Surface submission needs a product-semantic input intent.", targetId })
+    }
+    if (step.kind === "checkpoint") {
+      if (blank(step.label)) issues.push({ id: `${prefix}-step-${index}-label`, message: "Checkpoint needs a label.", targetId })
+      if (step.stateAssertions.length === 0 || step.stateAssertions.every(blank)) issues.push({ id: `${prefix}-step-${index}-state`, message: "Checkpoint needs at least one product-state assertion.", targetId })
+      step.stateAssertions.forEach((value, assertionIndex) => {
+        if (blank(value)) issues.push({ id: `${prefix}-step-${index}-state-${assertionIndex}`, message: "Checkpoint contains an empty product-state assertion.", targetId })
+      })
+    }
+  })
   return issues
 }
 

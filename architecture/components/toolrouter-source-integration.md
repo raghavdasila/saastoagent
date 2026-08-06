@@ -15,6 +15,22 @@ future ToolRouter/GRAG implementation replace the current snapshot without
 changing Source identity, RouteDeck navigation, HTTP ownership, or the debug
 surface contract.
 
+## Standalone Source Hub suite
+
+`D:\Dev\AI Projects\source-hub-runtime` is a separately proven Source Hub/API
+Source suite. It combines source lifecycle, durable ToolRouter processing,
+semantic graph presentation, encrypted API connections, the sibling API
+execution runtime, response-schema mismatch decisions and corrected OpenAPI
+schema lineage.
+
+Corpus does not currently import that suite. Its standalone host identity,
+FastAPI composition, React page, Huey choice and no-attachments usage adapter
+are proof infrastructure, not Corpus integration contracts. The future mapping
+must reconcile its use cases with the existing generic `SourceService`, this
+repository's `ApiSourceEngine` bridge and one authoritative ToolRouter
+snapshot. The detailed boundary and launch-feature coverage live in
+`docs/standalone-source-hub-integration.md`.
+
 ```text
 RouteDeck sources.home + /api/sources
   -> app/source_composition.py (concrete registration only)

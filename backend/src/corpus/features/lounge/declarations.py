@@ -4,11 +4,8 @@ from routedeck_core.contracts.navigation import NodeRef
 from routedeck_core.contracts.operations import Operation, OperationSource, SafetyClass
 from routedeck_core.contracts.projection import FrozenJsonObject
 
-from corpus.features.workspace.declarations import (
-    EMPTY_OBJECT_SCHEMA,
-    HOME_REF,
-    OWNER_CONTEXT_PROVIDER,
-)
+from corpus.auth.contracts import OWNER_CONTEXT_PROVIDER
+from corpus.shared.schemas import EMPTY_OBJECT_SCHEMA
 
 from . import policies
 
@@ -256,7 +253,6 @@ __all__ = [
     "HELP_OPEN_REGISTRATION",
     "HELP_OPEN_SIGN_IN",
     "HELP_RETURN_TO_LOUNGE",
-    "HOME_REF",
     "LOUNGE_REF",
     "OPEN_PRODUCT_HELP",
     "PRODUCT_HELP_REF",

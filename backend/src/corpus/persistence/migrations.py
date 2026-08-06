@@ -26,9 +26,9 @@ def _sync_url(database_url: str) -> str:
 
 
 if __name__ == "__main__":
-    from .config import AuthSettings
+    from .config import CorpusDatabaseSettings
 
-    asyncio.run(upgrade_database(AuthSettings.from_env().database_url))
+    asyncio.run(upgrade_database(CorpusDatabaseSettings.from_env().url))
 
 
 __all__ = ["upgrade_database"]

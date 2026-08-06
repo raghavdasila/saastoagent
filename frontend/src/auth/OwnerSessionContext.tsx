@@ -44,9 +44,8 @@ export function OwnerSessionProvider({
       if (error instanceof AuthProblemError && error.status === 401) {
         setSession(null);
         return null;
-      } else {
-        throw error;
       }
+      throw error;
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,6 @@
 {
   "version": 1,
   "unimplementedDesignFeatures": [
-    "Agents",
     "API Source"
   ],
   "features": [
@@ -124,24 +123,259 @@
             "Return to Lounge": "lounge.confirm_email.return_to_lounge"
           }
         }
-      ]
+      ],
+      "evaluationBindings": {
+        "lounge-arrival-normal": { "setupAdapter": "lounge.public", "steps": {} },
+        "lounge-arrival-bypass": { "setupAdapter": "lounge.public", "steps": {} },
+        "lounge-help-normal": { "setupAdapter": "lounge.public", "steps": {} },
+        "lounge-help-task-bypass": { "setupAdapter": "lounge.public", "steps": {} },
+        "register-normal": {
+          "setupAdapter": "lounge.public_unique_owner",
+          "behaviorNodes": { "Enter the Workspace": "workspace.home" },
+          "steps": {
+            "register-normal-submit-registration": { "operation": "lounge.create_owner_account", "surface": "lounge.register", "payloadAdapter": "lounge.valid_unique_owner" }
+          }
+        },
+        "register-credentials-chat": { "setupAdapter": "lounge.public", "steps": {} },
+        "sign-in-normal": {
+          "setupAdapter": "lounge.existing_verified_owner_signed_out",
+          "behaviorNodes": { "Enter the Workspace": "workspace.home" },
+          "steps": {
+            "sign-in-normal-submit-sign-in": { "operation": "lounge.authenticate_owner_account", "surface": "lounge.sign_in", "payloadAdapter": "lounge.valid_existing_owner_credentials" }
+          }
+        },
+        "sign-in-private-leak": { "setupAdapter": "lounge.public", "steps": {} },
+        "request-reset-normal": {
+          "setupAdapter": "lounge.existing_owner_signed_out",
+          "steps": {
+            "request-reset-normal-submit-reset-request": { "operation": "lounge.request_password_reset", "surface": "lounge.forgot_password", "payloadAdapter": "lounge.existing_owner_email" }
+          }
+        },
+        "request-reset-enumeration": {
+          "setupAdapter": "lounge.unknown_owner_email",
+          "steps": {
+            "request-reset-enumeration-submit-unknown-reset": { "operation": "lounge.request_password_reset", "surface": "lounge.forgot_password", "payloadAdapter": "lounge.unknown_owner_email" }
+          }
+        },
+        "confirm-reset-normal": {
+          "setupAdapter": "lounge.valid_reset_link_with_active_session",
+          "steps": {
+            "confirm-reset-normal-submit-password": { "operation": "lounge.change_owner_password", "surface": "lounge.reset_password", "payloadAdapter": "lounge.valid_new_password" }
+          }
+        },
+        "confirm-reset-invalid-token": {
+          "setupAdapter": "lounge.expired_reset_link",
+          "steps": {
+            "confirm-reset-invalid-token-submit-expired-password": { "operation": "lounge.change_owner_password", "surface": "lounge.reset_password", "payloadAdapter": "lounge.valid_new_password" }
+          }
+        },
+        "request-verification-normal": {
+          "setupAdapter": "lounge.authenticated_unverified_owner",
+          "steps": {
+            "request-verification-normal-resend": { "operation": "lounge.request_verification_delivery" }
+          }
+        },
+        "request-verification-rate-limit": {
+          "setupAdapter": "lounge.verification_limit_exhausted",
+          "steps": {
+            "request-verification-rate-limit-resend-limited": { "operation": "lounge.request_verification_delivery" }
+          }
+        },
+        "confirm-verification-normal": {
+          "setupAdapter": "lounge.valid_verification_link",
+          "steps": {
+            "confirm-verification-normal-submit-verification": { "operation": "lounge.confirm_owner_email", "surface": "lounge.verify_email", "payloadAdapter": "lounge.valid_verification_token" }
+          }
+        },
+        "confirm-verification-invalid": {
+          "setupAdapter": "lounge.invalid_verification_link",
+          "steps": {
+            "confirm-verification-invalid-submit-invalid-verification": { "operation": "lounge.confirm_owner_email", "surface": "lounge.verify_email", "payloadAdapter": "lounge.invalid_verification_token" }
+          }
+        },
+        "lounge-conversation-grounded-help": { "setupAdapter": "lounge.public", "steps": {} },
+        "lounge-conversation-task-redirection": { "setupAdapter": "lounge.public", "steps": {} },
+        "lounge-conversation-auth-routing": { "setupAdapter": "lounge.public", "steps": {} },
+        "lounge-conversation-recovery-enumeration": {
+          "setupAdapter": "lounge.unknown_owner_email",
+          "steps": {
+            "lounge-conversation-recovery-enumeration-submit-reset": { "operation": "lounge.request_password_reset", "surface": "lounge.forgot_password", "payloadAdapter": "lounge.unknown_owner_email" }
+          }
+        },
+        "lounge-conversation-credentials-chat": { "setupAdapter": "lounge.public", "steps": {} },
+        "lounge-conversation-workspace-leakage": { "setupAdapter": "lounge.public", "steps": {} },
+        "lounge-conversation-multiturn-bypass": { "setupAdapter": "lounge.public", "steps": {} },
+        "lounge-conversation-unavailable-claims": { "setupAdapter": "lounge.public", "steps": {} }
+      }
     },
     {
       "designFeature": "Workspace",
       "routeDeckFeature": "workspace",
       "implementationStatus": "partial",
+      "featurePromptPolicy": "workspace.feature.prompt",
       "unmappedDesignBehaviors": [
-        "Enter the Workspace",
-        "Ask about Workspace activity",
         "Ask about Corpus while signed in",
         "Continue a task in the correct feature",
-        "Use Workspace quick actions",
         "Sign out to Lounge"
       ],
-      "unmappedCompiledNodes": [
-        "workspace.home"
+      "unmappedCompiledNodes": [],
+      "behaviors": [
+        {
+          "designBehavior": "Enter the Workspace",
+          "node": "workspace.home",
+          "capabilities": { "Workspace overview": "workspace.overview" },
+          "surfaces": { "Workspace overview": "workspace.home" },
+          "operations": {
+            "Open Agents": "workspace.open_agents",
+            "Open Sources": "workspace.open_sources",
+            "Manage email verification": "workspace.open_verification"
+          }
+        },
+        {
+          "designBehavior": "Ask about Workspace activity",
+          "node": "workspace.home",
+          "capabilities": { "Workspace overview": "workspace.overview" },
+          "surfaces": { "Workspace overview": "workspace.home" },
+          "operations": {
+            "Open Agents": "workspace.open_agents",
+            "Open Sources": "workspace.open_sources"
+          }
+        },
+        {
+          "designBehavior": "Use Workspace quick actions",
+          "node": "workspace.home",
+          "capabilities": { "Task routing": "workspace.overview" },
+          "surfaces": { "Workspace overview": "workspace.home" },
+          "operations": {
+            "Open Agents": "workspace.open_agents",
+            "Open Sources": "workspace.open_sources"
+          }
+        }
       ],
-      "behaviors": []
+      "evaluationBindings": {
+        "workspace-quick-action-agents": {
+          "setupAdapter": "workspace.authenticated_owner",
+          "behaviorNodes": { "View agents": "agents.home" },
+          "surfaceIds": { "Agent list": "agents.home" },
+          "steps": {
+            "workspace-quick-action-agents-open": {
+              "operation": "workspace.open_agents",
+              "expectedOutcome": "opened"
+            }
+          },
+          "checkpoints": {
+            "workspace-quick-action-agents-final": {
+              "node": "agents.home",
+              "authentication": "authenticated",
+              "state": {
+                "agents.count": 0,
+                "workspace.agent_count": 0,
+                "workspace.agents.status": "empty",
+                "workspace.sources.status": "unavailable",
+                "workspace.recent_activity.status": "unavailable"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "designFeature": "Agents",
+      "routeDeckFeature": "agents",
+      "implementationStatus": "partial",
+      "featurePromptPolicy": "agents.feature.prompt",
+      "unmappedDesignBehaviors": [
+        "Attach an existing source",
+        "Create and attach a source",
+        "Open an attached source",
+        "Archive an agent",
+        "Delete an agent"
+      ],
+      "unmappedCompiledNodes": [],
+      "behaviors": [
+        {
+          "designBehavior": "View agents",
+          "node": "agents.home",
+          "capabilities": { "Agent inventory": "agents.inventory" },
+          "surfaces": { "Agent list": "agents.home" },
+          "operations": { "Open agent creation": "agents.open_create" }
+        },
+        {
+          "designBehavior": "Create an agent",
+          "node": "agents.create",
+          "capabilities": { "Agent creation": "agents.creation" },
+          "surfaces": { "Create agent surface": "agents.create" },
+          "operations": { "Create agent": "agents.create_agent" }
+        },
+        {
+          "designBehavior": "Inspect an agent",
+          "node": "agents.home",
+          "capabilities": { "Agent configuration": "agents.inventory" },
+          "surfaces": { "Agent detail": "agents.home" },
+          "operations": {}
+        },
+        {
+          "designBehavior": "Edit an agent",
+          "node": "agents.home",
+          "capabilities": { "Agent configuration": "agents.inventory" },
+          "surfaces": { "Agent detail edit": "agents.home" },
+          "operations": { "Save agent changes": "agents.save_changes" }
+        }
+      ],
+      "evaluationBindings": {
+        "agents-create-persisted-version": {
+          "setupAdapter": "agents.empty_workspace",
+          "steps": {
+            "agents-create-persisted-version-open": {
+              "operation": "agents.open_create",
+              "expectedOutcome": "opened"
+            },
+            "agents-create-persisted-version-submit": {
+              "operation": "agents.create_agent",
+              "surface": "agents.create",
+              "payloadAdapter": "agents.valid_new_agent",
+              "expectedOutcome": "created"
+            }
+          },
+          "checkpoints": {
+            "agents-create-persisted-version-final": {
+              "node": "agents.home",
+              "authentication": "authenticated",
+              "state": {
+                "agents.count": 1,
+                "agents.latest.name": "Evaluation Created Agent",
+                "agents.latest.current_version": 1,
+                "workspace.agent_count": 1,
+                "workspace.agents.status": "available"
+              }
+            }
+          }
+        },
+        "agents-edit-creates-next-version": {
+          "setupAdapter": "agents.one_agent",
+          "steps": {
+            "agents-edit-creates-next-version-submit": {
+              "operation": "agents.save_changes",
+              "surface": "agents.home",
+              "payloadAdapter": "agents.valid_edit",
+              "expectedOutcome": "saved"
+            }
+          },
+          "checkpoints": {
+            "agents-edit-creates-next-version-final": {
+              "node": "agents.home",
+              "authentication": "authenticated",
+              "state": {
+                "agents.count": 1,
+                "agents.latest.name": "Evaluation Agent",
+                "agents.latest.current_version": 2,
+                "agents.latest.instructions": "Complete the owner task and retain evidence.",
+                "workspace.agent_count": 1
+              }
+            }
+          }
+        }
+      }
     },
     {
       "designFeature": "Source Hub",

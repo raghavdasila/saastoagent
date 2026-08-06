@@ -55,6 +55,14 @@ function completeStory(): DesignStory {
         requiredSuggestedActions: ["Review result"],
         forbiddenOutcomes: [],
       },
+      actionPlan: {
+        preconditions: ["A reviewable result exists."],
+        steps: [
+          { id: "review-ready-opening", kind: "message", source: "authored-input" },
+          { id: "review-ready-action", kind: "suggested-action", behavior: "Review a complete behavior", action: "Review result" },
+          { id: "review-ready-checkpoint", kind: "checkpoint", label: "Result visible", stateAssertions: ["The selected result is visible and unchanged."] },
+        ],
+      },
     }],
     evalExemptions: [],
     status: "draft",

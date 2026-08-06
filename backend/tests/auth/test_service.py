@@ -7,7 +7,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import func, select
 
-from corpus.auth.database import AuthDatabase
+from corpus.persistence import CorpusDatabase
 from corpus.auth.models import AccessToken, AuthSession, CorpusConversation, User
 from corpus.auth.service import (
     AuthService,
@@ -19,7 +19,7 @@ from corpus.auth.service import (
 
 @pytest_asyncio.fixture
 async def auth_service(tmp_path: Path):
-    database = AuthDatabase(
+    database = CorpusDatabase(
         f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}"
     )
     await database.create_schema_for_tests()

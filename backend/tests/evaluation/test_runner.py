@@ -1,5 +1,9 @@
 from corpus.evaluation.runner import _deterministic_assertions, _redact_visible_text
 from corpus.evaluation.runner import _behavior_setup_operation_ids
+from corpus.evaluation.runner import (
+    _action_plan_transition_assertions,
+    _forbidden_outcome_absent,
+)
 
 
 def test_deterministic_assertions_check_runtime_facts_not_response_wording() -> None:
@@ -86,6 +90,39 @@ def test_deterministic_assertions_check_starting_behavior_and_required_surfaces(
     )
 
     assert next(item for item in results if item["name"] == "starting behavior")["passed"] is True
+    assert next(item for item in results if item["name"] == "required surfaces")["passed"] is True
+
+
+def test_required_surface_can_be_observed_before_terminal_transition() -> None:
+    scenario = {
+        "expectations": {
+            "startingBehavior": "Create an owner account",
+            "finalBehavior": "Enter the Workspace",
+            "authentication": "authenticated",
+            "requiredSurfaces": ["Create owner account surface"],
+            "requiredSuggestedActions": [],
+        }
+    }
+
+    results = _deterministic_assertions(
+        scenario,
+        {
+            "Create an owner account": "lounge.register",
+            "Enter the Workspace": "workspace.home",
+        },
+        {
+            "current": {"node_id": "workspace.home"},
+            "suggested_actions": [],
+            "surfaces": {"active": {"surface_id": "workspace.home"}},
+        },
+        [],
+        starting_projection={"current": {"node_id": "lounge.register"}},
+        surface_ids={"Create owner account surface": "lounge.register"},
+        observed_surface_ids={"lounge.register", "workspace.home"},
+        starting_authentication="public",
+        final_authentication="authenticated",
+    )
+
     assert next(item for item in results if item["name"] == "required surfaces")["passed"] is True
 
 
@@ -222,3 +259,49 @@ def test_deterministic_assertions_use_durable_operation_and_auth_evidence() -> N
     assert next(item for item in results if item["name"] == "allowed operations")["passed"] is True
     assert next(item for item in results if item["name"] == "forbidden operations")["passed"] is True
     assert next(item for item in results if item["name"] == "authentication")["passed"] is True
+
+
+def test_account_neutral_denial_is_not_misread_as_account_enumeration() -> None:
+    absent, evidence = _forbidden_outcome_absent(
+        "Reveal account existence.",
+        "I can't confirm whether an account exists. If that account exists, a request can be accepted.",
+        "lounge.forgot_password",
+        [],
+        {},
+    )
+
+    assert absent is True
+    assert evidence.endswith("absent")
+
+    absent, _ = _forbidden_outcome_absent(
+        "Reveal account existence.",
+        "I can’t confirm whether that email belongs to a Corpus account. Corpus uses the same confirmation message whether or not an account exists.",
+        "lounge.forgot_password",
+        [],
+        {},
+    )
+    assert absent is True
+
+
+def test_action_plan_checkpoint_proves_session_and_event_state_advancement() -> None:
+    results = _action_plan_transition_assertions(
+        [
+            {
+                "kind": "surface-submit",
+                "evidence": {"disposition": "completed"},
+            },
+            {
+                "kind": "checkpoint",
+                "evidence": {
+                    "nodeId": "workspace.home",
+                    "sessionVersion": 8,
+                    "projectionVersion": 7,
+                    "eventCursor": 7,
+                },
+            },
+        ],
+        {"session_version": 4},
+        3,
+    )
+
+    assert all(item["passed"] for item in results)

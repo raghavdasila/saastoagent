@@ -1,5 +1,5 @@
 import { useRouteDeckContract, useRouteDeckCurrentNode } from "@routedeck/react";
-import { DatabaseZap, House, KeyRound, LogIn, MailCheck, MessageCircleQuestion, UserPlus } from "lucide-react";
+import { Bot, DatabaseZap, House, KeyRound, LogIn, MailCheck, MessageCircleQuestion, UserPlus } from "lucide-react";
 
 const NODE_PRESENTATION = Object.freeze({
   "lounge.home": { icon: House, detail: "Public starting point" },
@@ -11,6 +11,8 @@ const NODE_PRESENTATION = Object.freeze({
   "lounge.verify_email": { icon: MailCheck, detail: "Confirm email" },
   "lounge.verification_pending": { icon: MailCheck, detail: "Verification delivery" },
   "workspace.home": { icon: House, detail: "Owner Workspace" },
+  "agents.home": { icon: Bot, detail: "Agent inventory" },
+  "agents.create": { icon: Bot, detail: "Create an agent" },
   "sources.home": { icon: DatabaseZap, detail: "Connector debug" },
 });
 
@@ -30,6 +32,7 @@ export function FeatureNavigation() {
     ? [{ title: "Lounge", nodes: loungeNodes }]
     : [
         { title: "Workspace", nodes: nodes.filter((node) => node.id.startsWith("workspace.")) },
+        { title: "Agents", nodes: nodes.filter((node) => node.id.startsWith("agents.")) },
         { title: "Sources", nodes: nodes.filter((node) => node.id.startsWith("sources.")) },
       ];
 

@@ -6,9 +6,13 @@ import { expect, it, vi } from "vitest";
 import { LoungeSurface } from "../features/lounge/LoungeSurface";
 import { RegisterSurface } from "../features/lounge/RegisterSurface";
 import { SignInSurface } from "../features/lounge/SignInSurface";
-import { OwnerSessionProvider } from "../features/lounge/OwnerSessionContext";
-import { configureOwnerAuthClient } from "../features/lounge/authClient";
+import { OwnerSessionProvider } from "../auth/OwnerSessionContext";
+import { configureOwnerAuthClient } from "../auth/authClient";
 import { SourceClient } from "../features/sources/sourceClient";
+import { AgentClient } from "../features/agents/client";
+import { AgentStore } from "../features/agents/store";
+import { WorkspaceClient } from "../features/workspace/client";
+import { WorkspaceStore } from "../features/workspace/store";
 import { createCorpusSurfaceRegistry } from "../routedeck/surfaces";
 import {
   frameworkContractFixture,
@@ -53,8 +57,10 @@ const FORM_HANDLES: Readonly<Record<string, string>> = Object.freeze({
 });
 
 
-it("registers Lounge, Workspace, and Sources surfaces", () => {
+it("registers Lounge, Workspace, Agents, and Sources surfaces", () => {
   expect(Object.keys(surfaceRegistry()).sort()).toEqual([
+    "agents.create",
+    "agents.home",
     "lounge.forgot_password",
     "lounge.home",
     "lounge.register",
@@ -69,7 +75,18 @@ it("registers Lounge, Workspace, and Sources surfaces", () => {
 function surfaceRegistry() {
   return createCorpusSurfaceRegistry(
     new SourceClient({ fetch: async () => new Response("{}") }),
+    new AgentStore(new AgentClient({ fetch: async () => new Response('{"agents":[]}') })),
+    new WorkspaceStore(new WorkspaceClient({ fetch: async () => new Response(JSON.stringify(workspaceOverview())) })),
   );
+}
+
+function workspaceOverview() {
+  return {
+    agent_count: 0,
+    agents: { status: "empty", message: "No agents have been created in this Workspace." },
+    sources: { status: "unavailable", message: "Sources overview is unavailable." },
+    recent_activity: { status: "unavailable", message: "Recent activity is unavailable." },
+  };
 }
 
 
@@ -267,6 +284,53 @@ it("validates registration password policy and keeps a typed return action", asy
   rendered.dispose();
 });
 
+it("keeps duplicate registration unsuccessful and shows the public terminal failure", async () => {
+  const publicMessage = "Account creation could not be completed with those details.";
+  const dispatchAffordance = vi.fn(async () => failedDispatchResult(
+    "lounge.create_owner_account",
+    "duplicate_account",
+    publicMessage,
+  ));
+  const fetcher = vi.fn(async () => ({
+    ok: false,
+    status: 401,
+    json: async () => ({ code: "authentication_required", message: "Authentication is required." }),
+  })) as unknown as typeof fetch;
+  vi.stubGlobal("fetch", fetcher);
+  configureOwnerAuthClient({
+    transport: { fetch: fetcher },
+    signOut: async () => undefined,
+  });
+  const rendered = await renderRouteDeckComponent(
+    <OwnerSessionProvider loadSession={false}>
+      <RegisterSurface
+        {...surfaceProps(
+          "lounge.register",
+          [
+            { id: "return_to_lounge", operationId: "lounge.registration.return_to_lounge" },
+            { id: "create_owner_account", operationId: "lounge.create_owner_account" },
+            { id: "continue_to_workspace", operationId: "lounge.registration.continue_to_workspace" },
+          ],
+          dispatchAffordance,
+        )}
+      />
+    </OwnerSessionProvider>,
+    { contract: frameworkContractFixture(), projection: frameworkProjectionFixture() },
+  );
+
+  fireEvent.change(await screen.findByLabelText("Email"), {
+    target: { value: "existing@example.com" },
+  });
+  fireEvent.change(screen.getByLabelText("Password"), {
+    target: { value: "a sufficiently private password" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(publicMessage);
+  expect(screen.getByLabelText("Email")).toBeVisible();
+  rendered.dispose();
+});
+
 function ownerSession() {
   return {
     owner: { email: "owner@example.com", display_name: "Owner", is_verified: false },
@@ -296,5 +360,39 @@ function dispatchResult(): RouteDeckDispatchResult {
     review: null,
     outcome: "opened",
     failure: null,
+  };
+}
+
+function failedDispatchResult(
+  operationId: string,
+  code: string,
+  publicMessage: string,
+): RouteDeckDispatchResult {
+  return {
+    disposition: "failed",
+    operation_id: operationId,
+    request_id: "workspace-surface-failure",
+    session_version: 2,
+    projection_version: 2,
+    evidence: {
+      source: "surface",
+      phases: ["received", "tool_failed"],
+      attempt_id: "attempt-workspace-failure",
+      request_fingerprint: "fingerprint-workspace-failure",
+      delivery_phase: "not_sent",
+    },
+    review: null,
+    outcome: null,
+    failure: {
+      kind: "business",
+      code,
+      phase: "tool_failed",
+      correlation_id: "correlation-workspace-failure",
+      operation_id: operationId,
+      request_id: "workspace-surface-failure",
+      public_message: publicMessage,
+      recovery_directive: null,
+      safe_details: {},
+    },
   };
 }

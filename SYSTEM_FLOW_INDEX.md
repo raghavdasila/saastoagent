@@ -46,7 +46,9 @@ RouteDeck projects active/review surfaces and conversation state
 
 The responsive shell changes only presentation. RouteDeck continues to own the
 current node, legal operations, surface projection, history, and Navgraph
-state; Corpus does not duplicate those contracts in either drawer.
+state; Corpus does not duplicate those contracts in either drawer. When the
+current node changes, the bounded surface dock resets to its top so a newly
+projected feature surface never inherits the previous feature's scroll state.
 
 ## Implemented Bearer-Selected Lounge
 
@@ -148,6 +150,27 @@ from `workspace.home` through `workspace.open_verification`. The
 explicitly selects Resend verification, reports the real result, and returns
 through `lounge.return_to_workspace`.
 
+## Implemented Workspace And Core Agents Slice
+
+```text
+authenticated workspace.home
+  -> Workspace overview resolves owner scope through an application adapter
+  -> real Agent count is read from AgentService
+  -> unavailable Source/activity summaries remain explicitly unavailable
+  -> workspace.open_agents commits agents.home
+  -> authenticated Agent HTTP reads load the owner-scoped inventory
+  -> agents.open_create commits agents.create
+  -> agents.create_agent validates and persists Agent identity + immutable v1
+  -> agents.save_changes checks expected_version and appends immutable v2+
+  -> Workspace reload reports the persisted Agent count
+```
+
+Agent mutations exist only as supervised RouteDeck Operations. Agent HTTP is
+read-only. The frontend Agent store owns domain query/loading/error state but
+never copies current node, legal operations, projection versions, review, or
+recovery state from RouteDeck. Cross-feature navigation references are
+injected through declared contracts at application composition.
+
 ## Implemented Sources And API Connector Debug Path
 
 ```text
@@ -174,12 +197,43 @@ between the API engine port and the replaceable
 The private ToolRouter engine owns OpenAPI/graph/retrieval/evalset algorithms;
 it owns no product node or owner/session behavior.
 
-The live product now has ten nodes: eight `lounge.*` nodes, one
-`workspace.home` node, and one `sources.home` node. The Sources surface is an authenticated experimental debug
+The live product now has twelve nodes: eight `lounge.*` nodes, one
+`workspace.home` node, two `agents.*` nodes, and one `sources.home` node. The Sources surface is an authenticated experimental debug
 surface, not Agent Designer, an execution Sandbox, or a public deployed Web
 channel. The four evidence stages are UI state derived from the Source,
 retrieval, and evalset results; they are not additional product or RouteDeck
 nodes.
+
+## Feature Evaluation Evidence
+
+Behavior and conversation evaluation exercise the compiled runtime directly:
+
+```text
+Studio-owned behavior, action plan, or adaptive conversation definition
+  -> isolated Corpus HTTP conversation
+  -> declared real setup through product Operations
+  -> RouteDeck operation dispatch and node transitions
+  -> durable operation/session/domain/projection evidence and transcript
+  -> deterministic bound outcome and checkpoint assertions
+  -> semantic judge only for conversational plans
+  -> immutable .runtime/evaluations result artifact
+```
+
+Product-journey evaluation exercises the rendered product separately:
+
+```text
+Studio-owned product journey
+  -> disposable Corpus backend/frontend and SQLite state
+  -> official Playwright Chromium interaction
+  -> real private surfaces, RouteDeck dispatch and Corpus auth transitions
+  -> Mail.tm mailbox plus real Gmail SMTP when mail is required
+  -> screenshot, trace, transcript and backend-state assertions
+  -> pass or retained product failure artifact
+```
+
+The product runner owns isolated ports and databases and removes its runtime
+after execution. It does not mutate normal development databases, invent mail
+delivery, or turn a failed user-visible outcome into success.
 
 ## Agent Creation And Release
 

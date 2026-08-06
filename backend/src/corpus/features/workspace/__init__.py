@@ -1,5 +1,6 @@
-"""Workspace feature, including the unauthenticated entry journey."""
+"""Authenticated Corpus Workspace feature."""
 
-from .feature import WORKSPACE_FEATURE
+from .contracts import HOME_REF
+from .feature import create_workspace_feature
 
-__all__ = ["WORKSPACE_FEATURE"]
+__all__ = ["HOME_REF", "create_workspace_feature"]

@@ -1,6 +1,6 @@
 export type ReviewStatus = "draft" | "approved" | "rejected"
 export type ChatActor = "Corpus" | "Owner"
-export type EvalCoverageTag = "normal" | "boundary" | "failure" | "privacy" | "adversarial"
+export type EvalCoverageTag = "normal" | "state" | "boundary" | "failure" | "privacy" | "adversarial"
 export type ProductJourneyInteraction = "surface" | "single-message" | "adaptive-conversation"
 
 export interface MockChatMessage {
@@ -29,6 +29,36 @@ export interface DeterministicExpectations {
   forbiddenOutcomes: string[]
 }
 
+export type EvaluationActionStep =
+  | {
+      id: string
+      kind: "message"
+      source: "authored-input" | "adaptive-tester"
+    }
+  | {
+      id: string
+      kind: "suggested-action"
+      behavior: string
+      action: string
+    }
+  | {
+      id: string
+      kind: "surface-submit"
+      surface: string
+      inputIntent: string
+    }
+  | {
+      id: string
+      kind: "checkpoint"
+      label: string
+      stateAssertions: string[]
+    }
+
+export interface EvaluationActionPlan {
+  preconditions: string[]
+  steps: EvaluationActionStep[]
+}
+
 export interface BehaviorEvalCase {
   id: string
   title: string
@@ -40,6 +70,7 @@ export interface BehaviorEvalCase {
   requiredCriteria: string[]
   forbiddenCriteria: string[]
   expectations: DeterministicExpectations
+  actionPlan: EvaluationActionPlan
 }
 
 export interface EvaluationExemption {
@@ -63,6 +94,7 @@ export interface FeatureConversationEvalScenario {
   finalRequiredCriteria: string[]
   finalForbiddenCriteria: string[]
   expectations: DeterministicExpectations
+  actionPlan: EvaluationActionPlan
   successCondition: string
   failureConditions: string[]
   stoppingConditions: string[]

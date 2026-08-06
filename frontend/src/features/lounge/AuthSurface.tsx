@@ -9,8 +9,9 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { useOwnerSession } from "./OwnerSessionContext";
+import { useOwnerSession } from "../../auth/OwnerSessionContext";
 import { useInitialFieldFocus } from "./useInitialFieldFocus";
+import { publicOperationFailureMessage, requireCompletedOperation } from "./operationResult";
 
 export interface AuthSurfaceProps
   extends Pick<RouteDeckSurfaceComponentProps, "dispatchAffordance"> {
@@ -59,18 +60,22 @@ export function AuthSurface({ mode, privateForm, dispatchAffordance }: AuthSurfa
           { complete: true },
         );
         await store.resync();
-        await dispatchAffordance(
-          isRegistration ? "create_owner_account" : "authenticate_owner",
-          {},
+        requireCompletedOperation(
+          await dispatchAffordance(
+            isRegistration ? "create_owner_account" : "authenticate_owner",
+            {},
+          ),
+          isRegistration ? "Account creation failed." : "Sign-in failed.",
         );
         await refresh();
       } catch (caught) {
         const authenticated = await refresh().catch(() => null);
         setMessage(
           authenticated === null
-            ? caught instanceof Error
-              ? caught.message
-              : `${isRegistration ? "Account creation" : "Sign-in"} failed.`
+            ? publicOperationFailureMessage(
+                caught,
+                `${isRegistration ? "Account creation" : "Sign-in"} failed.`,
+              )
             : "Authenticated. Workspace continuation failed; continue when ready.",
         );
       } finally {
@@ -84,12 +89,16 @@ export function AuthSurface({ mode, privateForm, dispatchAffordance }: AuthSurfa
     setMessage(null);
     setSubmitting(true);
     try {
-      await dispatchAffordance("continue_to_workspace", {});
+      requireCompletedOperation(
+        await dispatchAffordance("continue_to_workspace", {}),
+        "Workspace continuation failed; retry when ready.",
+      );
     } catch (caught) {
       setMessage(
-        caught instanceof Error
-          ? caught.message
-          : "Workspace continuation failed; retry when ready.",
+        publicOperationFailureMessage(
+          caught,
+          "Workspace continuation failed; retry when ready.",
+        ),
       );
     } finally {
       setSubmitting(false);

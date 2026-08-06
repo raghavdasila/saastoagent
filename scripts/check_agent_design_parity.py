@@ -154,6 +154,25 @@ def _compare_ids(
         failures.append(f"{label}: contains objects absent from Studio mapping: {', '.join(extra)}")
 
 
+def _compare_id_subset(
+    failures: list[str], label: str, expected: Iterable[str], actual: Iterable[str]
+) -> None:
+    missing = sorted(set(expected) - set(actual))
+    if missing:
+        failures.append(f"{label}: missing mapped objects: {', '.join(missing)}")
+
+
+def _compare_policy_subset(
+    failures: list[str], label: str, expected: Iterable[str], actual: Iterable[str]
+) -> None:
+    expected_counter = Counter(_normalized(item) for item in expected)
+    actual_counter = Counter(_normalized(item) for item in actual)
+    for instruction, count in (expected_counter - actual_counter).items():
+        failures.append(
+            f"{label}: missing {count} policy activation(s): {instruction!r}"
+        )
+
+
 def _require_compiled_object(
     failures: list[str], catalog: Mapping[str, Any], identifier: str, label: str
 ) -> Any | None:
@@ -161,6 +180,222 @@ def _require_compiled_object(
     if value is None:
         failures.append(f"{label}: mapped RouteDeck object {identifier!r} is missing")
     return value
+
+
+def _check_evaluation_bindings(
+    failures: list[str],
+    design_feature: Mapping[str, Any],
+    raw_feature_mapping: Mapping[str, Any],
+    design_behaviors: Mapping[str, Mapping[str, Any]],
+    behavior_mappings: Mapping[str, Mapping[str, Any]],
+    compiled,
+    feature_label: str,
+) -> None:
+    evaluation_items: list[Mapping[str, Any]] = []
+    for behavior_name, behavior in design_behaviors.items():
+        for index, item in enumerate(
+            _required_list(behavior, "behaviorEvals", f"{feature_label} / {behavior_name}")
+        ):
+            if not isinstance(item, dict):
+                raise ParityInputError(
+                    f"{feature_label} / {behavior_name} behaviorEvals[{index}] must be an object"
+                )
+            evaluation_items.append(item)
+    for index, item in enumerate(
+        _required_list(design_feature, "conversationEvals", feature_label)
+    ):
+        if not isinstance(item, dict):
+            raise ParityInputError(
+                f"{feature_label} conversationEvals[{index}] must be an object"
+            )
+        evaluation_items.append(item)
+    if not evaluation_items:
+        return
+
+    evaluation_design = _named(evaluation_items, "id", f"{feature_label} evaluations")
+    raw_bindings = raw_feature_mapping.get("evaluationBindings")
+    if not isinstance(raw_bindings, dict):
+        raise ParityInputError(
+            f"{feature_label} with authored evaluations requires object 'evaluationBindings'"
+        )
+    _compare_ids(
+        failures,
+        f"{feature_label} evaluation bindings",
+        evaluation_design,
+        raw_bindings,
+    )
+
+    action_operations: dict[str, set[str]] = {}
+    surface_ids: dict[str, set[str]] = {}
+    feature_operation_ids: set[str] = set()
+    for behavior_name, behavior in design_behaviors.items():
+        mapping = behavior_mappings.get(behavior_name)
+        if mapping is None:
+            continue
+        operation_mapping = _required_mapping(
+            mapping, "operations", f"{feature_label} / {behavior_name}"
+        )
+        surface_mapping = _required_mapping(
+            mapping, "surfaces", f"{feature_label} / {behavior_name}"
+        )
+        feature_operation_ids.update(operation_mapping.values())
+        for surface_name, surface_id in surface_mapping.items():
+            surface_ids.setdefault(surface_name, set()).add(surface_id)
+        for raw_action in _required_list(
+            behavior, "suggestedActions", f"{feature_label} / {behavior_name}"
+        ):
+            if not isinstance(raw_action, dict):
+                raise ParityInputError(
+                    f"{feature_label} / {behavior_name} Suggested Actions must be objects"
+                )
+            label = _required_string(raw_action, "label", feature_label)
+            operation_name = _required_string(raw_action, "operationName", feature_label)
+            operation_id = operation_mapping.get(operation_name)
+            if operation_id is not None:
+                action_operations.setdefault(f"{behavior_name}\0{label}", set()).add(
+                    operation_id
+                )
+
+    for evaluation_id, evaluation in evaluation_design.items():
+        raw_binding = raw_bindings.get(evaluation_id)
+        if not isinstance(raw_binding, dict):
+            continue
+        _required_string(raw_binding, "setupAdapter", f"{feature_label} / Eval {evaluation_id}")
+        behavior_nodes = raw_binding.get("behaviorNodes", {})
+        if not isinstance(behavior_nodes, dict):
+            raise ParityInputError(
+                f"{feature_label} / Eval {evaluation_id} 'behaviorNodes' must be an object"
+            )
+        expectations = evaluation.get("expectations")
+        if behavior_nodes and not isinstance(expectations, dict):
+            raise ParityInputError(
+                f"{feature_label} / Eval {evaluation_id} with behaviorNodes "
+                "requires object 'expectations'"
+            )
+        expected_behavior_names: set[str] = set()
+        if isinstance(expectations, dict):
+            for name in ("startingBehavior", "finalBehavior"):
+                value = expectations.get(name)
+                if isinstance(value, str) and value:
+                    expected_behavior_names.add(value)
+            allowed = expectations.get("allowedFinalBehaviors", [])
+            if not isinstance(allowed, list) or any(
+                not isinstance(value, str) or not value for value in allowed
+            ):
+                raise ParityInputError(
+                    f"{feature_label} / Eval {evaluation_id} "
+                    "allowedFinalBehaviors must be a string list"
+                )
+            expected_behavior_names.update(allowed)
+        for behavior_name, node_id in behavior_nodes.items():
+            if behavior_name not in expected_behavior_names:
+                failures.append(
+                    f"{feature_label} / Eval {evaluation_id}: behaviorNodes contains "
+                    f"unreferenced behavior {behavior_name!r}"
+                )
+            if not isinstance(node_id, str) or not node_id:
+                raise ParityInputError(
+                    f"{feature_label} / Eval {evaluation_id} behaviorNodes values "
+                    "must be non-empty strings"
+                )
+            _require_compiled_object(
+                failures,
+                compiled.nodes,
+                node_id,
+                f"{feature_label} / Eval {evaluation_id} / Behavior {behavior_name}",
+            )
+        raw_step_bindings = raw_binding.get("steps")
+        if not isinstance(raw_step_bindings, dict):
+            raise ParityInputError(
+                f"{feature_label} / Eval {evaluation_id} requires object 'steps'"
+            )
+        action_plan = evaluation.get("actionPlan")
+        if not isinstance(action_plan, dict):
+            raise ParityInputError(
+                f"{feature_label} / Eval {evaluation_id} requires object 'actionPlan'"
+            )
+        planned_steps = _required_list(
+            action_plan, "steps", f"{feature_label} / Eval {evaluation_id} actionPlan"
+        )
+        executable_steps: dict[str, Mapping[str, Any]] = {}
+        for index, step in enumerate(planned_steps):
+            if not isinstance(step, dict):
+                raise ParityInputError(
+                    f"{feature_label} / Eval {evaluation_id} actionPlan.steps[{index}] must be an object"
+                )
+            kind = _required_string(step, "kind", f"{feature_label} / Eval {evaluation_id}")
+            if kind in {"suggested-action", "surface-submit"}:
+                step_id = _required_string(step, "id", f"{feature_label} / Eval {evaluation_id}")
+                if step_id in executable_steps:
+                    raise ParityInputError(
+                        f"{feature_label} / Eval {evaluation_id} duplicates executable step {step_id!r}"
+                    )
+                executable_steps[step_id] = step
+        _compare_ids(
+            failures,
+            f"{feature_label} / Eval {evaluation_id} executable steps",
+            executable_steps,
+            raw_step_bindings,
+        )
+        for step_id, step in executable_steps.items():
+            raw_step_binding = raw_step_bindings.get(step_id)
+            if not isinstance(raw_step_binding, dict):
+                continue
+            operation_id = _required_string(
+                raw_step_binding,
+                "operation",
+                f"{feature_label} / Eval {evaluation_id} / Step {step_id}",
+            )
+            _require_compiled_object(
+                failures,
+                compiled.operations,
+                operation_id,
+                f"{feature_label} / Eval {evaluation_id} / Step {step_id}",
+            )
+            if operation_id not in feature_operation_ids:
+                failures.append(
+                    f"{feature_label} / Eval {evaluation_id} / Step {step_id}: "
+                    f"Operation {operation_id!r} is not owned by the mapped feature"
+                )
+            if step["kind"] == "suggested-action":
+                behavior = _required_string(
+                    step, "behavior", f"{feature_label} / Eval {evaluation_id}"
+                )
+                action = _required_string(step, "action", f"{feature_label} / Eval {evaluation_id}")
+                expected_operations = action_operations.get(
+                    f"{behavior}\0{action}", set()
+                )
+                if expected_operations != {operation_id}:
+                    failures.append(
+                        f"{feature_label} / Eval {evaluation_id} / Step {step_id}: "
+                        f"Suggested Action {behavior!r} / {action!r} resolves to {sorted(expected_operations)!r}, "
+                        f"not {operation_id!r}"
+                    )
+            else:
+                surface_name = _required_string(step, "surface", f"{feature_label} / Eval {evaluation_id}")
+                surface_id = _required_string(
+                    raw_step_binding,
+                    "surface",
+                    f"{feature_label} / Eval {evaluation_id} / Step {step_id}",
+                )
+                expected_surfaces = surface_ids.get(surface_name, set())
+                if expected_surfaces != {surface_id}:
+                    failures.append(
+                        f"{feature_label} / Eval {evaluation_id} / Step {step_id}: "
+                        f"Surface {surface_name!r} resolves to {sorted(expected_surfaces)!r}, "
+                        f"not {surface_id!r}"
+                    )
+                _require_compiled_object(
+                    failures,
+                    compiled.surfaces,
+                    surface_id,
+                    f"{feature_label} / Eval {evaluation_id} / Step {step_id}",
+                )
+                _required_string(
+                    raw_step_binding,
+                    "payloadAdapter",
+                    f"{feature_label} / Eval {evaluation_id} / Step {step_id}",
+                )
 
 
 def check_parity(
@@ -313,31 +548,44 @@ def check_parity(
             "designBehavior",
             f"{owner}.behaviors",
         )
-        _compare_ids(
+        if implementation_status == "complete":
+            _compare_ids(
+                failures,
+                f"{feature_label} behavior mapping",
+                design_behaviors,
+                behavior_mappings,
+            )
+        _check_evaluation_bindings(
             failures,
-            f"{feature_label} behavior mapping",
+            design_feature,
+            raw_feature_mapping,
             design_behaviors,
             behavior_mappings,
+            compiled,
+            feature_label,
         )
 
         mapped_node_ids = [
             _required_string(mapping, "node", f"{feature_label} behavior mapping")
             for mapping in behavior_mappings.values()
         ]
-        duplicate_nodes = sorted(
-            node_id for node_id, count in Counter(mapped_node_ids).items() if count > 1
-        )
-        if duplicate_nodes:
-            failures.append(
-                f"{feature_label}: multiple Studio behaviors map to the same Node: "
-                + ", ".join(duplicate_nodes)
+        if implementation_status == "complete":
+            duplicate_nodes = sorted(
+                node_id
+                for node_id, count in Counter(mapped_node_ids).items()
+                if count > 1
             )
-        _compare_ids(
-            failures,
-            f"{feature_label} Nodes",
-            mapped_node_ids,
-            (node.id for node in compiled_feature.nodes),
-        )
+            if duplicate_nodes:
+                failures.append(
+                    f"{feature_label}: multiple Studio behaviors map to the same Node: "
+                    + ", ".join(duplicate_nodes)
+                )
+            _compare_ids(
+                failures,
+                f"{feature_label} Nodes",
+                mapped_node_ids,
+                (node.id for node in compiled_feature.nodes),
+            )
 
         for behavior_name, behavior_mapping in behavior_mappings.items():
             design_behavior = design_behaviors.get(behavior_name)
@@ -355,7 +603,17 @@ def check_parity(
                 )
                 continue
 
-            _compare_policies(
+            compare_policies = (
+                _compare_policies
+                if implementation_status == "complete"
+                else _compare_policy_subset
+            )
+            compare_ids = (
+                _compare_ids
+                if implementation_status == "complete"
+                else _compare_id_subset
+            )
+            compare_policies(
                 failures,
                 f"{behavior_label} Node policies",
                 _required_list(design_behavior, "nodePolicies", behavior_label),
@@ -404,19 +662,19 @@ def check_parity(
                 design_operations,
                 operation_mapping,
             )
-            _compare_ids(
+            compare_ids(
                 failures,
                 f"{behavior_label} Node Capabilities",
                 capability_mapping.values(),
                 (capability.id for capability in node.capabilities),
             )
-            _compare_ids(
+            compare_ids(
                 failures,
                 f"{behavior_label} Node Surfaces",
                 surface_mapping.values(),
                 (surface.id for surface in node.surfaces.declared_surfaces()),
             )
-            _compare_ids(
+            compare_ids(
                 failures,
                 f"{behavior_label} Node Operations",
                 operation_mapping.values(),
@@ -439,7 +697,7 @@ def check_parity(
                 capability_label = (
                     f"{behavior_label} / Capability {design_capability_name!r}"
                 )
-                _compare_policies(
+                compare_policies(
                     failures,
                     f"{capability_label} policies",
                     _required_list(design_capability, "policies", capability_label),
@@ -467,13 +725,13 @@ def check_parity(
                         )
                     else:
                         expected_surface_ids.append(surface_mapping[name])
-                _compare_ids(
+                compare_ids(
                     failures,
                     f"{capability_label} Operations",
                     expected_operation_ids,
                     (ref.id for ref in capability.operations),
                 )
-                _compare_ids(
+                compare_ids(
                     failures,
                     f"{capability_label} Surfaces",
                     expected_surface_ids,
@@ -492,7 +750,7 @@ def check_parity(
                 )
                 if surface is not None:
                     surface_label = f"{behavior_label} / Surface {design_surface_name!r}"
-                    _compare_policies(
+                    compare_policies(
                         failures,
                         f"{surface_label} policies",
                         _required_list(design_surface, "policies", surface_label),
@@ -532,7 +790,7 @@ def check_parity(
                             f"{designed_source!r} does not match RouteDeck "
                             f"allowed_sources {sorted(runtime_sources)!r}"
                         )
-                    _compare_policies(
+                    compare_policies(
                         failures,
                         f"{operation_label} policies",
                         _required_list(design_operation, "policies", operation_label),
@@ -567,11 +825,12 @@ def check_parity(
                     f"{behavior_label}: missing {count} Suggested Action(s) "
                     f"{action[0]!r} -> {action[1]!r}"
                 )
-            for action, count in (actual_actions - expected_actions).items():
-                failures.append(
-                    f"{behavior_label}: has {count} undesigned Suggested Action(s) "
-                    f"{action[0]!r} -> {action[1]!r}"
-                )
+            if implementation_status == "complete":
+                for action, count in (actual_actions - expected_actions).items():
+                    failures.append(
+                        f"{behavior_label}: has {count} undesigned Suggested Action(s) "
+                        f"{action[0]!r} -> {action[1]!r}"
+                    )
 
     compiled_namespaces = {
         feature.namespace for feature in compiled.application.features

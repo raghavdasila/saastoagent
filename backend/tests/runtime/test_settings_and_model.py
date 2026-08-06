@@ -19,8 +19,8 @@ def write_runtime_env(path: Path, *, include_model: bool = True) -> None:
         "ROUTEDECK_RESUME_CAPABILITY_TTL_SECONDS=600",
         "ROUTEDECK_WORKER_COUNT=1",
         "ROUTEDECK_BROWSER_ORIGINS=http://127.0.0.1:5199",
-        "CORPUS_AUTH_DATABASE_URL=sqlite+aiosqlite:///./auth.sqlite3",
-        "CORPUS_AUTH_MIGRATION_REVISION=0001_owner_auth",
+        "CORPUS_DATABASE_URL=sqlite+aiosqlite:///./corpus.sqlite3",
+        "CORPUS_MIGRATION_REVISION=0002_agents",
         f"CORPUS_RESET_SECRET={'r' * 40}",
         f"CORPUS_VERIFICATION_SECRET={'v' * 40}",
         "CORPUS_AUTH_ACCESS_TOKEN_MINUTES=15",
@@ -44,6 +44,7 @@ def test_runtime_settings_combine_host_and_explicit_ollama_configuration(
     settings = CorpusRuntimeSettings.from_env(env_file)
 
     assert settings.host.routedeck_instance_id == "corpus-runtime-test"
+    assert settings.database.url.endswith("corpus.sqlite3")
     assert str(settings.ollama_base_url).rstrip("/") == "http://127.0.0.1:11434"
     assert settings.ollama_model == "gemma4:latest"
 

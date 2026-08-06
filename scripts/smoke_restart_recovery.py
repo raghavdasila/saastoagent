@@ -17,7 +17,7 @@ from sqlalchemy import delete, or_, select
 from sqlalchemy.engine import make_url
 
 from corpus.auth.config import AuthSettings
-from corpus.auth.database import AuthDatabase
+from corpus.persistence import CorpusDatabase
 from corpus.auth.models import (
     AccessToken,
     AuthSession,
@@ -278,6 +278,7 @@ def _prepare(
     *,
     settings: AuthSettings,
     database_url: str,
+    migration_revision: str,
 ) -> None:
     reservation = StateReservation.acquire(state_file)
     owner: TemporaryOwner | None = None
@@ -286,7 +287,7 @@ def _prepare(
         owner = asyncio.run(
             _create_temporary_owner(
                 database_url,
-                migration_revision=settings.migration_revision,
+                migration_revision=migration_revision,
                 access_lifetime=timedelta(minutes=settings.access_token_minutes),
                 absolute_lifetime=timedelta(days=settings.absolute_session_days),
             )
@@ -313,7 +314,7 @@ def _prepare(
             conversation = asyncio.run(
                 _load_temporary_conversation(
                     database_url,
-                    migration_revision=settings.migration_revision,
+                    migration_revision=migration_revision,
                     owner=owner,
                     public_id=conversation_id,
                 )
@@ -369,7 +370,7 @@ def _prepare(
                 asyncio.run(
                     _delete_temporary_owner(
                         database_url,
-                        migration_revision=settings.migration_revision,
+                        migration_revision=migration_revision,
                         owner=owner,
                         conversation=conversation,
                     )
@@ -393,6 +394,7 @@ def _verify(
     *,
     settings: AuthSettings,
     database_url: str,
+    migration_revision: str,
 ) -> None:
     state = _read_state(state_file)
     headers = {
@@ -442,7 +444,7 @@ def _verify(
         asyncio.run(
             _delete_temporary_owner(
                 database_url,
-                migration_revision=settings.migration_revision,
+                migration_revision=migration_revision,
                 owner=state.owner,
                 conversation=state.conversation,
             )
@@ -462,7 +464,7 @@ async def _create_temporary_owner(
     access_lifetime: timedelta,
     absolute_lifetime: timedelta,
 ) -> TemporaryOwner:
-    database = AuthDatabase(database_url)
+    database = CorpusDatabase(database_url)
     try:
         await database.verify_revision(migration_revision)
         now = datetime.now(UTC)
@@ -537,7 +539,7 @@ async def _load_temporary_conversation(
     owner: TemporaryOwner,
     public_id: str,
 ) -> TemporaryConversation:
-    database = AuthDatabase(database_url)
+    database = CorpusDatabase(database_url)
     try:
         await database.verify_revision(migration_revision)
         async with database.session() as session:
@@ -575,7 +577,7 @@ async def _delete_temporary_owner(
     owner: TemporaryOwner,
     conversation: TemporaryConversation | None,
 ) -> None:
-    database = AuthDatabase(database_url)
+    database = CorpusDatabase(database_url)
     try:
         await database.verify_revision(migration_revision)
         async with database.session() as session:
@@ -762,7 +764,7 @@ def _require_local_database(database_url: str) -> Path:
     try:
         parsed = make_url(database_url)
     except Exception as error:
-        raise RuntimeError("Corpus auth database URL is invalid.") from error
+        raise RuntimeError("Corpus database URL is invalid.") from error
     database = parsed.database
     if (
         parsed.drivername != "sqlite+aiosqlite"
@@ -774,16 +776,16 @@ def _require_local_database(database_url: str) -> Path:
     ):
         raise RuntimeError(
             "Restart smoke owner setup requires the configured absolute local "
-            "file-backed sqlite+aiosqlite auth database."
+            "file-backed sqlite+aiosqlite Corpus database."
         )
     path = Path(database)
     windows_path = PureWindowsPath(database)
     if not path.is_absolute() and not windows_path.is_absolute():
         raise RuntimeError(
-            "Restart smoke owner setup requires an absolute local auth database path."
+            "Restart smoke owner setup requires an absolute local Corpus database path."
         )
     if windows_path.drive.startswith("\\\\"):
-        raise RuntimeError("Network auth database paths are not allowed.")
+        raise RuntimeError("Network Corpus database paths are not allowed.")
     return path
 
 

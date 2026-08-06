@@ -54,13 +54,13 @@ class LoungeProductJourneyRunner:
         *,
         repository: Path,
         frontend_url: str,
-        auth_database_url: str,
+        database_url: str,
         headless: bool = True,
         mail_outage_frontend_url: str | None = None,
     ) -> None:
         self.repository = repository
         self.frontend_url = frontend_url.rstrip("/")
-        self.auth_database_path = _sqlite_path(auth_database_url)
+        self.database_path = _sqlite_path(database_url)
         self.headless = headless
         self.mail_outage_frontend_url = (
             mail_outage_frontend_url.rstrip("/")
@@ -218,8 +218,7 @@ class LoungeProductJourneyRunner:
             await self._sign_in(page, mailbox.address, new_password, evidence)
             await page.get_by_label("Sign out", exact=True).click()
             await page.get_by_role("heading", name="Explore Corpus").wait_for()
-            await page.get_by_role("button", name="Sign in").click()
-            await page.get_by_role("heading", name="Sign in").wait_for()
+            await self._open_lounge_path(page, "Sign in", "Sign in")
             await self._fill_sign_in(page, mailbox.address, old_password)
             await page.locator("form").get_by_role("button", name="Sign in", exact=True).click()
             alert = await page.locator("section.workspace-auth").get_by_role("alert").inner_text()
@@ -359,8 +358,12 @@ class LoungeProductJourneyRunner:
         self, page: Page, button_name: str, heading_name: str
     ) -> None:
         heading = page.get_by_role("heading", name=heading_name)
+        if await heading.is_visible():
+            return
         for attempt in range(3):
-            await page.get_by_role("button", name=button_name).click()
+            await page.get_by_role(
+                "button", name=button_name, exact=True
+            ).click()
             try:
                 await heading.wait_for(timeout=5_000)
                 return
@@ -399,7 +402,7 @@ class LoungeProductJourneyRunner:
             return
 
     def _owner_state(self, email: str) -> dict[str, int]:
-        with sqlite3.connect(self.auth_database_path) as connection:
+        with sqlite3.connect(self.database_path) as connection:
             user = connection.execute(
                 "SELECT id, is_verified FROM users WHERE lower(email) = lower(?)", (email,)
             ).fetchone()
@@ -433,23 +436,91 @@ class LoungeProductJourneyRunner:
         return definitions
 
     def _update_latest(self, artifact: dict[str, Any], artifact_path: Path) -> None:
-        latest_path = self.results_root / "latest.json"
-        latest = json.loads(latest_path.read_text(encoding="utf-8")) if latest_path.exists() else {"schema": "corpus.self-evaluation.latest.v1", "evaluations": {}}
-        for result in artifact["results"]:
-            latest["evaluations"][result["evaluationId"]] = {
-                "status": result["status"],
-                "runId": artifact["runId"],
-                "completedAt": artifact["completedAt"],
-                "definitionSha256": result["definitionSha256"],
-                "artifact": str(artifact_path.relative_to(self.repository)),
-            }
-        latest_path.write_text(json.dumps(latest, indent=2) + "\n", encoding="utf-8")
+        _update_latest(self.repository, artifact, artifact_path)
+
+
+def enabled_lounge_product_journey_ids(repository: Path) -> tuple[str, ...]:
+    design_path = repository / "docs/corpus-agent-design/workbench/design-state.json"
+    design = json.loads(design_path.read_text(encoding="utf-8"))
+    lounge = next(item for item in design["features"] if item["name"] == "Lounge")
+    return tuple(
+        item["id"] for item in lounge["productJourneyEvals"] if item["enabled"]
+    )
+
+
+def aggregate_product_journey_artifacts(
+    repository: Path,
+    artifacts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if not artifacts:
+        raise ValueError("At least one product-journey artifact is required.")
+    design_hashes = {
+        item["identities"]["designSha256"] for item in artifacts
+    }
+    if len(design_hashes) != 1:
+        raise ValueError("Product-journey artifacts do not share one design identity.")
+    results = [
+        result
+        for artifact in artifacts
+        for result in artifact["results"]
+    ]
+    evaluation_ids = [item["evaluationId"] for item in results]
+    if len(evaluation_ids) != len(set(evaluation_ids)):
+        raise ValueError("Product-journey artifacts contain duplicate evaluations.")
+    run_id = f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:10]}"
+    run_dir = repository / ".runtime" / "evaluations" / run_id
+    run_dir.mkdir(parents=True, exist_ok=False)
+    artifact = {
+        "schema": "corpus.product-journey-evaluation.v1",
+        "runId": run_id,
+        "evaluationLevel": "product-journey",
+        "status": (
+            "passed"
+            if results and all(item["status"] == "passed" for item in results)
+            else "failed"
+        ),
+        "startedAt": min(item["startedAt"] for item in artifacts),
+        "completedAt": max(item["completedAt"] for item in artifacts),
+        "identities": {
+            "designSha256": design_hashes.pop(),
+            "frontend": "fresh isolated local runtime per journey",
+            "browser": "playwright-chromium",
+            "mailbox": "Mail.tm public API",
+            "mailboxAttribution": "https://mail.tm",
+            "runtimeIsolation": "fresh Corpus processes and persistent state per journey",
+            "componentRunIds": [item["runId"] for item in artifacts],
+        },
+        "usage": _aggregate_usage(results),
+        "results": results,
+    }
+    artifact_path = run_dir / "result.json"
+    artifact_path.write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
+    _update_latest(repository, artifact, artifact_path)
+    return artifact
+
+
+def _update_latest(
+    repository: Path,
+    artifact: dict[str, Any],
+    artifact_path: Path,
+) -> None:
+    latest_path = repository / ".runtime" / "evaluations" / "latest.json"
+    latest = json.loads(latest_path.read_text(encoding="utf-8")) if latest_path.exists() else {"schema": "corpus.self-evaluation.latest.v1", "evaluations": {}}
+    for result in artifact["results"]:
+        latest["evaluations"][result["evaluationId"]] = {
+            "status": result["status"],
+            "runId": artifact["runId"],
+            "completedAt": artifact["completedAt"],
+            "definitionSha256": result["definitionSha256"],
+            "artifact": str(artifact_path.relative_to(repository)),
+        }
+    latest_path.write_text(json.dumps(latest, indent=2) + "\n", encoding="utf-8")
 
 
 def _sqlite_path(database_url: str) -> Path:
     prefix = "sqlite+aiosqlite:///"
     if not database_url.startswith(prefix):
-        raise ValueError("Product journey state assertions currently require an isolated SQLite auth database.")
+        raise ValueError("Product journey state assertions currently require an isolated SQLite Corpus database.")
     value = database_url[len(prefix):]
     if re.match(r"^[A-Za-z]:/", value):
         return Path(value)
@@ -539,4 +610,9 @@ def _aggregate_usage(results: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-__all__ = ["LoungeProductJourneyRunner", "ProductJourneyError"]
+__all__ = [
+    "LoungeProductJourneyRunner",
+    "ProductJourneyError",
+    "aggregate_product_journey_artifacts",
+    "enabled_lounge_product_journey_ids",
+]

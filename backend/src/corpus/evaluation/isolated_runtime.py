@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import time
 from dataclasses import dataclass
@@ -8,14 +9,14 @@ from pathlib import Path
 
 import httpx
 
-from corpus.auth.migrations import upgrade_database
+from corpus.persistence.migrations import upgrade_database
 
 
 @dataclass(frozen=True)
 class IsolatedRuntimeEndpoints:
     frontend_url: str
     backend_url: str
-    auth_database_url: str
+    database_url: str
 
 
 class IsolatedCorpusRuntime:
@@ -38,16 +39,16 @@ class IsolatedCorpusRuntime:
         self.runtime_root = repository / ".runtime" / "product-journeys" / name
         self.processes: list[subprocess.Popen[bytes]] = []
         self._logs: list[object] = []
-        auth_path = (self.runtime_root / "corpus-auth.sqlite3").resolve()
+        database_path = (self.runtime_root / "corpus.sqlite3").resolve()
         self.endpoints = IsolatedRuntimeEndpoints(
             frontend_url=f"http://127.0.0.1:{frontend_port}",
             backend_url=f"http://127.0.0.1:{backend_port}",
-            auth_database_url=f"sqlite+aiosqlite:///{auth_path.as_posix()}",
+            database_url=f"sqlite+aiosqlite:///{database_path.as_posix()}",
         )
 
     async def start(self) -> IsolatedRuntimeEndpoints:
         self.runtime_root.mkdir(parents=True, exist_ok=False)
-        await upgrade_database(self.endpoints.auth_database_url)
+        await upgrade_database(self.endpoints.database_url)
         environment = _read_env_file(self.repository / ".env.local")
         environment.update(os.environ)
         environment.update(
@@ -59,8 +60,8 @@ class IsolatedCorpusRuntime:
                 ),
                 "ROUTEDECK_INSTANCE_ID": f"corpus-product-eval-{self.name}",
                 "ROUTEDECK_BROWSER_ORIGINS": self.endpoints.frontend_url,
-                "CORPUS_AUTH_DATABASE_URL": self.endpoints.auth_database_url,
-                "CORPUS_AUTH_MIGRATION_REVISION": "0001_owner_auth",
+                "CORPUS_DATABASE_URL": self.endpoints.database_url,
+                "CORPUS_MIGRATION_REVISION": "0002_agents",
                 "CORPUS_PUBLIC_FRONTEND_URL": self.endpoints.frontend_url,
                 "CORPUS_SOURCE_DATA_ROOT": str(self.runtime_root / "sources"),
             }
@@ -95,11 +96,20 @@ class IsolatedCorpusRuntime:
         frontend_environment["CORPUS_BACKEND_PROXY_URL"] = self.endpoints.backend_url
         frontend_log = (self.runtime_root / "frontend.log").open("wb")
         self._logs.append(frontend_log)
+        node = shutil.which("node")
+        if node is None:
+            raise RuntimeError("Node.js is required for the isolated Corpus frontend.")
         frontend = subprocess.Popen(
             [
-                "pnpm.cmd",
-                "exec",
-                "vite",
+                node,
+                str(
+                    self.repository
+                    / "frontend"
+                    / "node_modules"
+                    / "vite"
+                    / "bin"
+                    / "vite.js"
+                ),
                 "--host",
                 "127.0.0.1",
                 "--port",

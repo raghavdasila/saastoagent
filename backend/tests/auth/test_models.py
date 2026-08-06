@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from corpus.auth.models import Base, MembershipRole
+from corpus.auth.models import MembershipRole
+from corpus.persistence import Base
 
 
 def test_auth_schema_has_hashed_bearer_credentials_and_opaque_conversations() -> None:
     tables = Base.metadata.tables
 
-    assert {
+    auth_tables = {
         "users",
         "organizations",
         "memberships",
@@ -14,7 +15,8 @@ def test_auth_schema_has_hashed_bearer_credentials_and_opaque_conversations() ->
         "access_tokens",
         "corpus_conversations",
         "auth_rate_limits",
-    } == set(tables)
+    }
+    assert auth_tables <= set(tables)
     assert "refresh_token_hash" in tables["auth_sessions"].columns
     assert "refresh_token" not in tables["auth_sessions"].columns
     assert "token_hash" in tables["access_tokens"].columns

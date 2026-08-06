@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { PrivateFormGate, requireFormHandle } from "./PrivateFormGate";
 import { clearCapturedTokenFragment, useCapturedTokenFragment } from "./tokenFragment";
 import { useInitialFieldFocus } from "./useInitialFieldFocus";
+import { publicOperationFailureMessage, requireCompletedOperation } from "./operationResult";
 
 export function ResetPasswordSurface(props: RouteDeckSurfaceComponentProps) {
   const token = useCapturedTokenFragment("password_reset");
@@ -43,10 +44,13 @@ function ResetPasswordForm({ privateForm, token, dispatchAffordance }: RouteDeck
     try {
       await privateForm.save({ token, new_password: newPassword }, { complete: true });
       await store.resync();
-      await dispatchAffordance("change_owner_password", {});
+      requireCompletedOperation(
+        await dispatchAffordance("change_owner_password", {}),
+        "Password reset failed.",
+      );
       clearCapturedTokenFragment("password_reset");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Password reset failed.");
+      setMessage(publicOperationFailureMessage(error, "Password reset failed."));
     } finally {
       setBusy(false);
     }
@@ -62,7 +66,7 @@ function ResetPasswordForm({ privateForm, token, dispatchAffordance }: RouteDeck
           <Button type="button" size="lg" variant="outline" disabled={busy} onClick={() => void dispatchAffordance("return_to_lounge", {})}>Back to Lounge</Button>
         </div>
       </form>
-      {message === null ? null : <p role="status">{message}</p>}
+      {message === null ? null : <p role="alert">{message}</p>}
     </section>
   );
 }

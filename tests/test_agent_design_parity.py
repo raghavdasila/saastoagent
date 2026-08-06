@@ -103,6 +103,7 @@ def _design_state():
                 "name": "Demo",
                 "prompt": "You are in Demo.",
                 "policies": ["Feature policy."],
+                "conversationEvals": [],
                 "stories": [
                     {
                         "title": "Use Demo",
@@ -124,6 +125,7 @@ def _design_state():
                         "operations": [
                             {
                                 "name": "Run",
+                                "availableThrough": "both",
                                 "policies": ["Operation policy."],
                             }
                         ],
@@ -131,6 +133,29 @@ def _design_state():
                             {
                                 "label": "Run it",
                                 "operationName": "Run",
+                            }
+                        ],
+                        "behaviorEvals": [
+                            {
+                                "id": "demo-run",
+                                "actionPlan": {
+                                    "steps": [
+                                        {
+                                            "id": "demo-run-opening",
+                                            "kind": "message",
+                                        },
+                                        {
+                                            "id": "demo-run-action",
+                                            "kind": "suggested-action",
+                                            "behavior": "Use Demo",
+                                            "action": "Run it",
+                                        },
+                                        {
+                                            "id": "demo-run-final",
+                                            "kind": "checkpoint",
+                                        },
+                                    ]
+                                },
                             }
                         ],
                     }
@@ -143,11 +168,21 @@ def _design_state():
 def _manifest():
     return {
         "version": 1,
+        "unimplementedDesignFeatures": [],
         "features": [
             {
                 "designFeature": "Demo",
                 "routeDeckFeature": "demo",
+                "implementationStatus": "complete",
                 "featurePromptPolicy": "demo.feature_prompt",
+                "evaluationBindings": {
+                    "demo-run": {
+                        "setupAdapter": "demo.ready",
+                        "steps": {
+                            "demo-run-action": {"operation": "demo.run"}
+                        },
+                    }
+                },
                 "behaviors": [
                     {
                         "designBehavior": "Use Demo",

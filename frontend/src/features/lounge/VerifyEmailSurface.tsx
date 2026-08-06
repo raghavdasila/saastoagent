@@ -7,8 +7,9 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { PrivateFormGate, requireFormHandle } from "./PrivateFormGate";
-import { useOwnerSession } from "./OwnerSessionContext";
+import { useOwnerSession } from "../../auth/OwnerSessionContext";
 import { clearCapturedTokenFragment, useCapturedTokenFragment } from "./tokenFragment";
+import { publicOperationFailureMessage, requireCompletedOperation } from "./operationResult";
 
 export function VerifyEmailSurface(props: RouteDeckSurfaceComponentProps) {
   const token = useCapturedTokenFragment("verification");
@@ -32,15 +33,19 @@ function VerifyEmailForm({ privateForm, token, dispatchAffordance }: RouteDeckSu
     try {
       await privateForm.save({ token }, { complete: true });
       await store.resync();
-      await dispatchAffordance("confirm_owner_email", {});
+      requireCompletedOperation(
+        await dispatchAffordance("confirm_owner_email", {}),
+        "Email verification failed.",
+      );
       clearCapturedTokenFragment("verification");
-      const refreshed = await refresh();
+      const refreshed = await refresh().catch(() => null);
       if (refreshed?.owner.is_verified !== true) {
-        throw new Error("Email verification could not be confirmed from the refreshed owner state.");
+        setMessage("Email verification completed, but Corpus could not refresh the verified owner state. Reload Corpus.");
+        return;
       }
       setMessage("Email verified.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Email verification failed.");
+      setMessage(publicOperationFailureMessage(error, "Email verification failed."));
     } finally {
       setBusy(false);
     }

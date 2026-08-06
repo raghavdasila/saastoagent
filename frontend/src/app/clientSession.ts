@@ -28,9 +28,12 @@ export interface RefreshLock {
   run<T>(action: () => Promise<T>): Promise<T>;
 }
 
+export type CredentialRevocationHandler = () => Promise<void>;
+
 export class ClientSessionManager {
   private current: TokenPair | null = null;
   private bootstrapPromise: Promise<TokenPair> | null = null;
+  private credentialRevocationHandler: CredentialRevocationHandler | null = null;
 
   constructor(
     private readonly store: RefreshCredentialStore,
@@ -71,6 +74,22 @@ export class ClientSessionManager {
     validateTokenPair(pair);
     await this.store.save(pair.refresh_token);
     this.current = Object.freeze(pair);
+  }
+
+  setCredentialRevocationHandler(
+    handler: CredentialRevocationHandler,
+  ): () => void {
+    if (this.credentialRevocationHandler !== null) {
+      throw new AuthenticationUnavailableError(
+        "Corpus already has a credential-revocation coordinator.",
+      );
+    }
+    this.credentialRevocationHandler = handler;
+    return () => {
+      if (this.credentialRevocationHandler === handler) {
+        this.credentialRevocationHandler = null;
+      }
+    };
   }
 
   async signOut(): Promise<void> {
@@ -137,6 +156,13 @@ export class ClientSessionManager {
     if (response.headers.get("X-Corpus-Auth-Revoked") === "true") {
       this.current = null;
       await this.store.clear();
+      const handler = this.credentialRevocationHandler;
+      if (handler === null) {
+        throw new AuthenticationUnavailableError(
+          "Corpus cannot complete credential revocation without an application coordinator.",
+        );
+      }
+      await handler();
       return;
     }
     const serialized = response.headers.get("X-Corpus-Auth-Tokens");

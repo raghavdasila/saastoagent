@@ -4,7 +4,7 @@ from routedeck_core.contracts.navigation import NodeRef
 from routedeck_core.contracts.operations import Operation, OperationSource, SafetyClass
 from routedeck_core.contracts.projection import FrozenJsonObject
 
-from corpus.features.workspace.declarations import EMPTY_OBJECT_SCHEMA
+from corpus.shared.schemas import EMPTY_OBJECT_SCHEMA
 
 
 RETURN_TO_HOME = Operation(

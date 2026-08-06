@@ -1,0 +1,42 @@
+.agents-home, .agent-create { display: grid; gap: 18px; padding: 4px; }
+.agents-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.agents-heading > div:first-child { min-width: 0; }
+.agents-heading > div:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.agents-heading p, .agents-heading h1, .agents-heading span { margin: 0; }
+.agents-heading p { color: var(--primary); font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.agents-heading h1 { margin-top: 3px; font-size: 24px; letter-spacing: -.03em; }
+.agents-heading span { display: block; margin-top: 4px; color: var(--muted-foreground); font-size: 13px; line-height: 1.45; }
+.agents-error { margin: 0; padding: 10px 12px; border: 1px solid color-mix(in oklch, var(--destructive) 35%, white); border-radius: var(--radius); color: var(--destructive); background: color-mix(in oklch, var(--destructive) 6%, white); font-size: 13px; }
+.agents-layout { display: grid; min-height: 320px; grid-template-columns: minmax(190px, 30%) minmax(0, 1fr); overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+.agents-layout > aside { min-width: 0; padding: 16px; border-right: 1px solid var(--border); background: var(--muted); }
+.agents-layout > aside h2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 12px; font-size: 13px; }
+.agents-layout > aside h2 span { color: var(--muted-foreground); font-weight: 500; }
+.agents-layout > aside > ul { display: grid; gap: 7px; padding: 0; margin: 0; list-style: none; }
+.agents-layout > aside li button { display: grid; width: 100%; min-width: 0; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 9px; padding: 10px; border: 1px solid transparent; border-radius: 9px; color: var(--foreground); background: transparent; text-align: left; }
+.agents-layout > aside li button[data-selected="true"] { border-color: color-mix(in oklch, var(--primary) 32%, var(--border)); background: var(--background); }
+.agents-layout > aside li button svg { width: 18px; color: var(--primary); }
+.agents-layout > aside li button span { display: grid; min-width: 0; gap: 2px; }
+.agents-layout > aside li button strong, .agents-layout > aside li button small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agents-layout > aside li button strong { font-size: 13px; }
+.agents-layout > aside li button small { color: var(--muted-foreground); font-size: 11px; }
+.agents-empty, .agents-editor-empty { display: grid; place-items: center; gap: 6px; padding: 28px 14px; color: var(--muted-foreground); text-align: center; }
+.agents-empty svg, .agents-editor-empty svg { width: 28px; height: 28px; }
+.agents-empty strong { color: var(--foreground); font-size: 13px; }
+.agents-empty span, .agents-editor-empty p { margin: 0; font-size: 12px; line-height: 1.45; }
+.agents-layout > main { min-width: 0; padding: 20px; background: var(--background); }
+.agents-layout > main form { display: grid; gap: 18px; }
+.agents-layout > main form > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.agents-layout > main form > header p, .agents-layout > main form > header h2 { margin: 0; }
+.agents-layout > main form > header p { color: var(--muted-foreground); font-size: 11px; text-transform: uppercase; }
+.agents-layout > main form > header h2 { margin-top: 2px; font-size: 18px; }
+.agents-layout > main form > header > span { padding: 4px 7px; border-radius: 999px; color: var(--primary); background: color-mix(in oklch, var(--primary) 10%, white); font-size: 11px; font-weight: 700; }
+.agents-layout textarea, .agent-create textarea { min-height: 110px; resize: vertical; }
+.agent-create > form { display: grid; width: min(650px, 100%); grid-template-columns: auto minmax(0, 1fr); gap: 18px; padding: 22px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+.agent-create-icon { width: 30px; height: 30px; padding: 5px; border-radius: 9px; color: var(--primary); background: color-mix(in oklch, var(--primary) 10%, white); }
+@media (max-width: 700px) {
+  .agents-heading { display: grid; }
+  .agents-heading > div:last-child { justify-content: flex-start; }
+  .agents-layout { grid-template-columns: minmax(0, 1fr); }
+  .agents-layout > aside { border-right: 0; border-bottom: 1px solid var(--border); }
+  .agent-create > form { grid-template-columns: minmax(0, 1fr); }
+}

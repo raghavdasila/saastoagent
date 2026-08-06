@@ -4,7 +4,11 @@ import argparse
 import asyncio
 from pathlib import Path
 
-from corpus.evaluation import LoungeProductJourneyRunner
+from corpus.evaluation import (
+    LoungeProductJourneyRunner,
+    aggregate_product_journey_artifacts,
+    enabled_lounge_product_journey_ids,
+)
 from corpus.evaluation.isolated_runtime import IsolatedCorpusRuntime
 
 
@@ -12,7 +16,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
             "Run Studio-owned Lounge product journeys through a real Corpus "
-            "browser, isolated auth database, Gmail SMTP, and Mail.tm mailbox."
+            "browser, isolated Corpus database, Gmail SMTP, and Mail.tm mailbox."
         )
     )
     parser.add_argument("--journey")
@@ -35,6 +39,21 @@ def main() -> None:
 
 
 async def _run(repository: Path, journey: str | None, headless: bool):
+    if journey is not None:
+        return await _run_isolated_journey(repository, journey, headless)
+    artifacts = []
+    for journey_id in enabled_lounge_product_journey_ids(repository):
+        artifacts.append(
+            await _run_isolated_journey(repository, journey_id, headless)
+        )
+    return aggregate_product_journey_artifacts(repository, artifacts)
+
+
+async def _run_isolated_journey(
+    repository: Path,
+    journey: str,
+    headless: bool,
+):
     run_name = __import__("uuid").uuid4().hex[:10]
     primary = IsolatedCorpusRuntime(
         repository,
@@ -52,12 +71,12 @@ async def _run(repository: Path, journey: str | None, headless: bool):
     primary_endpoints = await primary.start()
     outage_endpoints = None
     try:
-        if journey in {None, "lounge-journey-mail-outage"}:
+        if journey == "lounge-journey-mail-outage":
             outage_endpoints = await outage.start()
         runner = LoungeProductJourneyRunner(
             repository=repository,
             frontend_url=primary_endpoints.frontend_url,
-            auth_database_url=primary_endpoints.auth_database_url,
+            database_url=primary_endpoints.database_url,
             headless=headless,
             mail_outage_frontend_url=(
                 outage_endpoints.frontend_url

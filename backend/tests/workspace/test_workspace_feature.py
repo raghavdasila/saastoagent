@@ -10,8 +10,14 @@ from routedeck_core.contracts.session import SessionSnapshot
 
 from corpus.bindings import bind_corpus_app
 from corpus.auth.credential_transition import AccountOperationRequest
-from corpus.auth.service import OwnerRouteContext
-from corpus.composition import CORPUS_APP, compile_corpus_app
+from corpus.auth.contracts import OwnerRouteContext
+from corpus.composition import (
+    AGENTS_FEATURE,
+    CORPUS_APP,
+    LOUNGE_FEATURE,
+    WORKSPACE_FEATURE,
+    compile_corpus_app,
+)
 from corpus.features.lounge.declarations import (
     ARRIVAL_OPEN_REGISTRATION,
     ARRIVAL_OPEN_SIGN_IN,
@@ -23,9 +29,14 @@ from corpus.features.lounge.declarations import (
     REQUEST_PASSWORD_RESET,
     REQUEST_VERIFICATION_DELIVERY,
 )
-from corpus.features.lounge.feature import LOUNGE_FEATURE
-from corpus.features.workspace.declarations import OPEN_SOURCES
-from corpus.features.workspace.feature import WORKSPACE_FEATURE
+from corpus.features.agents.declarations import (
+    CANCEL_CREATE,
+    CREATE_AGENT,
+    OPEN_CREATE,
+    RETURN_TO_WORKSPACE,
+    SAVE_AGENT_CHANGES,
+)
+from corpus.features.workspace.declarations import OPEN_AGENTS, OPEN_SOURCES
 from corpus.features.sources.declarations import RETURN_TO_HOME
 from corpus.features.sources.feature import SOURCES_FEATURE
 from corpus.session import create_guest_session, initialize_guest_session
@@ -57,7 +68,12 @@ class CredentialTransitionProbe:
 def test_composition_selects_workspace_and_sources_and_enters_the_lounge() -> None:
     compiled = compile_corpus_app()
 
-    assert CORPUS_APP.features == (LOUNGE_FEATURE, WORKSPACE_FEATURE, SOURCES_FEATURE)
+    assert CORPUS_APP.features == (
+        LOUNGE_FEATURE,
+        WORKSPACE_FEATURE,
+        AGENTS_FEATURE,
+        SOURCES_FEATURE,
+    )
     assert compiled.frontend_contract.entry_node_id == "lounge.home"
     assert set(compiled.frontend_contract.nodes) == {
         "lounge.home",
@@ -69,6 +85,8 @@ def test_composition_selects_workspace_and_sources_and_enters_the_lounge() -> No
         "lounge.verify_email",
         "lounge.verification_pending",
         "workspace.home",
+        "agents.home",
+        "agents.create",
         "sources.home",
     }
 
@@ -114,6 +132,7 @@ def test_lounge_and_workspace_own_their_operations_transitions_and_surfaces() ->
     assert contract.nodes["workspace.home"].conversation_input.enabled is True
     assert contract.nodes["sources.home"].surfaces.active == "sources.debug"
     assert set(contract.nodes["workspace.home"].operation_ids) == {
+        "workspace.open_agents",
         "workspace.open_sources",
         "workspace.open_verification",
     }
@@ -137,6 +156,12 @@ def test_lounge_and_workspace_own_their_operations_transitions_and_surfaces() ->
         ("lounge.reset_password", "lounge.change_password.return_to_lounge", "lounge.home"),
         ("lounge.verify_email", "lounge.confirm_email.return_to_lounge", "lounge.home"),
         ("workspace.home", "workspace.open_sources", "sources.home"),
+        ("workspace.home", "workspace.open_agents", "agents.home"),
+        ("agents.home", "agents.open_create", "agents.create"),
+        ("agents.create", "agents.create_agent", "agents.home"),
+        ("agents.create", "agents.cancel_create", "agents.home"),
+        ("agents.home", "agents.save_changes", "agents.home"),
+        ("agents.home", "agents.return_to_workspace", "workspace.home"),
         ("workspace.home", "workspace.open_verification", "lounge.verification_pending"),
         ("lounge.verification_pending", "lounge.verification_delivery.return_to_workspace", "workspace.home"),
         ("sources.home", "sources.return_to_home", "workspace.home"),
@@ -180,7 +205,13 @@ def test_operations_allow_only_the_designed_invocation_sources() -> None:
         "lounge.confirm_owner_email": surface_only,
         "lounge.confirm_email.return_to_lounge": surface_only,
         "workspace.open_sources": surface_only,
+        "workspace.open_agents": agent_and_surface,
         "workspace.open_verification": surface_only,
+        "agents.open_create": agent_and_surface,
+        "agents.return_to_workspace": agent_and_surface,
+        "agents.create_agent": agent_and_surface,
+        "agents.save_changes": agent_and_surface,
+        "agents.cancel_create": agent_and_surface,
         "sources.return_to_home": surface_only,
     }
 
@@ -236,10 +267,12 @@ async def test_workspace_navigation_bindings_return_only_declared_outcomes() -> 
         auth_service=object(),
         auth_limiter=object(),
         auth_mail=object(),
-        auth_settings=object(),
+        auth_settings=SimpleNamespace(public_frontend_url="http://corpus.test"),
         private_form_store=object(),
         private_form_codec=object(),
         credential_transition=credential_transition,
+        agent_service=object(),
+        workspace_service=object(),
     )
 
     for operation in (
@@ -251,13 +284,17 @@ async def test_workspace_navigation_bindings_return_only_declared_outcomes() -> 
         CONFIRM_OWNER_EMAIL,
     ):
         handler = bound.bindings.handlers[operation.ref]
-        assert handler.credential_transition is credential_transition
+        assert handler.credential_transition.transition is credential_transition
 
     for operation in (
         ARRIVAL_OPEN_SIGN_IN,
         ARRIVAL_OPEN_REGISTRATION,
         HELP_RETURN_TO_LOUNGE,
         OPEN_SOURCES,
+        OPEN_AGENTS,
+        OPEN_CREATE,
+        CANCEL_CREATE,
+        RETURN_TO_WORKSPACE,
         RETURN_TO_HOME,
     ):
         outcome = await bound.bindings.handlers[operation.ref](
@@ -277,10 +314,12 @@ async def test_account_operations_fail_explicitly_without_a_request_context() ->
         auth_service=object(),
         auth_limiter=object(),
         auth_mail=object(),
-        auth_settings=object(),
+        auth_settings=SimpleNamespace(public_frontend_url="http://corpus.test"),
         private_form_store=object(),
         private_form_codec=object(),
         credential_transition=CredentialTransitionProbe(),
+        agent_service=object(),
+        workspace_service=object(),
     )
     context = SimpleNamespace(
         source=OperationSource.SURFACE,

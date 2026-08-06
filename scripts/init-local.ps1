@@ -37,7 +37,7 @@ New-Item -ItemType Directory -Force -Path $RuntimeDirectory | Out-Null
 if (-not (Test-Path -LiteralPath $EnvironmentPath)) {
     $EncryptionKey = & $PythonExecutable -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
     $DatabasePath = (Join-Path $RuntimeDirectory "routedeck.sqlite").Replace("\", "/")
-    $AuthDatabasePath = (Join-Path $RuntimeDirectory "corpus-auth.sqlite3").Replace("\", "/")
+    $CorpusDatabasePath = (Join-Path $RuntimeDirectory "corpus.sqlite3").Replace("\", "/")
     $SourceDataPath = (Join-Path $RuntimeDirectory "sources").Replace("\", "/")
     $ResetSecret = & $PythonExecutable -c "import secrets; print(secrets.token_urlsafe(48))"
     $VerificationSecret = & $PythonExecutable -c "import secrets; print(secrets.token_urlsafe(48))"
@@ -62,8 +62,8 @@ if (-not (Test-Path -LiteralPath $EnvironmentPath)) {
         "CORPUS_TOOLROUTER_GENERATOR_MODEL=gemma4:latest"
         "CORPUS_TOOLROUTER_REVIEWER_MODEL=qwen2.5-coder:7b"
         "CORPUS_TOOLROUTER_EVALSET_TIMEOUT_SECONDS=240"
-        "CORPUS_AUTH_DATABASE_URL=sqlite+aiosqlite:///$AuthDatabasePath"
-        "CORPUS_AUTH_MIGRATION_REVISION=0001_owner_auth"
+        "CORPUS_DATABASE_URL=sqlite+aiosqlite:///$CorpusDatabasePath"
+        "CORPUS_MIGRATION_REVISION=0002_agents"
         "CORPUS_RESET_SECRET=$ResetSecret"
         "CORPUS_VERIFICATION_SECRET=$VerificationSecret"
         "CORPUS_AUTH_ACCESS_TOKEN_MINUTES=15"
@@ -88,13 +88,13 @@ if (-not (Test-Path -LiteralPath $EnvironmentPath)) {
             $ExistingNames[$Matches[1]] = $true
         }
     }
-    $AuthDatabasePath = (Join-Path $RuntimeDirectory "corpus-auth.sqlite3").Replace("\", "/")
+    $CorpusDatabasePath = (Join-Path $RuntimeDirectory "corpus.sqlite3").Replace("\", "/")
     $SourceDataPath = (Join-Path $RuntimeDirectory "sources").Replace("\", "/")
     $ResetSecret = & $PythonExecutable -c "import secrets; print(secrets.token_urlsafe(48))"
     $VerificationSecret = & $PythonExecutable -c "import secrets; print(secrets.token_urlsafe(48))"
     $RequiredRuntimeLines = [ordered]@{
-        CORPUS_AUTH_DATABASE_URL = "sqlite+aiosqlite:///$AuthDatabasePath"
-        CORPUS_AUTH_MIGRATION_REVISION = "0001_owner_auth"
+        CORPUS_DATABASE_URL = "sqlite+aiosqlite:///$CorpusDatabasePath"
+        CORPUS_MIGRATION_REVISION = "0002_agents"
         CORPUS_RESET_SECRET = $ResetSecret
         CORPUS_VERIFICATION_SECRET = $VerificationSecret
         CORPUS_AUTH_ACCESS_TOKEN_MINUTES = "15"
@@ -134,7 +134,7 @@ if (-not (Test-Path -LiteralPath $EnvironmentPath)) {
     }
 }
 
-& $PythonExecutable -m corpus.auth.migrations
+& $PythonExecutable -m corpus.persistence.migrations
 
 $Models = (& ollama list) -join "`n"
 if ($Models -notmatch "(?m)^gemma4:latest\s") {

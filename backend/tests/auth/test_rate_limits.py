@@ -5,13 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from corpus.auth.database import AuthDatabase
+from corpus.persistence import CorpusDatabase
 from corpus.auth.rate_limits import AuthRateLimiter, RateLimitExceeded
 
 
 @pytest.mark.asyncio
 async def test_rate_limit_is_database_backed_and_windowed(tmp_path: Path) -> None:
-    database = AuthDatabase(
+    database = CorpusDatabase(
         f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}"
     )
     await database.create_schema_for_tests()

@@ -1,31 +1,20 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import asdict
-from typing import Any, Protocol
+from typing import Any
 
 from routedeck_core.app import FeatureBindings
 from routedeck_core.contracts.operations import DeliveryPhase, OperationOutcome
 from routedeck_core.ports.executor import ExecutionContext
 from routedeck_core.contracts.projection import FrozenJsonObject
-from routedeck_core.supervision.guards import ProviderInvocationContext, ProviderResult
+from routedeck_core.supervision.guards import (
+    ProviderInvocationContext,
+    ProviderResult,
+)
 
-from .declarations import OPEN_SOURCES, OPEN_VERIFICATION, OWNER_CONTEXT_PROVIDER
-
-
-class OwnerContextResolver(Protocol):
-    async def owner_context_for_route(self, route_session_id: str): ...
-
-
-class OwnerContextProvider:
-    def __init__(self, resolver: OwnerContextResolver) -> None:
-        self._resolver = resolver
-
-    async def __call__(self, context: ProviderInvocationContext) -> ProviderResult:
-        owner = await self._resolver.owner_context_for_route(
-            context.session.session_id
-        )
-        return ProviderResult(values=FrozenJsonObject(asdict(owner)))
+from .contracts import WORKSPACE_OVERVIEW_PROVIDER
+from .declarations import OPEN_AGENTS, OPEN_SOURCES, OPEN_VERIFICATION
+from .service import WorkspaceService
 
 
 class NavigationHandler:
@@ -46,21 +35,31 @@ class NavigationHandler:
         )
 
 
-def create_workspace_bindings(
-    owner_context_resolver: OwnerContextResolver,
-) -> FeatureBindings:
+class WorkspaceOverviewProvider:
+    def __init__(self, service: WorkspaceService) -> None:
+        self.service = service
+
+    async def __call__(
+        self,
+        context: ProviderInvocationContext,
+    ) -> ProviderResult:
+        value = await self.service.for_route(context.session.session_id)
+        return ProviderResult(
+            values=FrozenJsonObject(value.model_dump(mode="json"))
+        )
+
+
+def create_workspace_bindings(service: WorkspaceService) -> FeatureBindings:
     return FeatureBindings(
         handlers={
             operation.ref: NavigationHandler(operation.id)
-            for operation in (OPEN_SOURCES, OPEN_VERIFICATION)
+            for operation in (OPEN_AGENTS, OPEN_SOURCES, OPEN_VERIFICATION)
         },
         providers={
-            OWNER_CONTEXT_PROVIDER.ref: OwnerContextProvider(
-                owner_context_resolver
-            )
+            WORKSPACE_OVERVIEW_PROVIDER.ref: WorkspaceOverviewProvider(service)
         },
         guards={},
     )
 
 
-__all__ = ["OwnerContextResolver", "create_workspace_bindings"]
+__all__ = ["create_workspace_bindings"]

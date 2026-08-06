@@ -11,11 +11,9 @@ from routedeck_core.contracts.surfaces import (
     SurfaceSlots,
 )
 
-from corpus.features.workspace.declarations import (
-    EMPTY_OBJECT_SCHEMA,
-    HOME_REF,
-    OWNER_CONTEXT_PROVIDER,
-)
+from corpus.auth.contracts import OWNER_CONTEXT_PROVIDER
+from corpus.features.workspace.contracts import HOME_REF
+from corpus.shared.schemas import EMPTY_OBJECT_SCHEMA
 
 from .declarations import RETURN_TO_HOME, SOURCES_HOME_REF
 

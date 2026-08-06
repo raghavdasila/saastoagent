@@ -63,7 +63,7 @@ function hasValidSuggestedActions(value: unknown): boolean {
   ))
 }
 
-const COVERAGE_TAGS = new Set(["normal", "boundary", "failure", "privacy", "adversarial"])
+const COVERAGE_TAGS = new Set(["normal", "state", "boundary", "failure", "privacy", "adversarial"])
 
 function hasValidExpectations(value: unknown): boolean {
   return isRecord(value)
@@ -72,6 +72,18 @@ function hasValidExpectations(value: unknown): boolean {
     && (value.allowedFinalBehaviors === undefined || (Array.isArray(value.allowedFinalBehaviors) && value.allowedFinalBehaviors.every((item) => typeof item === "string")))
     && (value.authentication === "public" || value.authentication === "authenticated" || value.authentication === "unchanged")
     && ["requiredOperations", "allowedOperations", "forbiddenOperations", "requiredSurfaces", "requiredSuggestedActions", "forbiddenOutcomes"].every((field) => Array.isArray(value[field]) && value[field].every((item) => typeof item === "string"))
+}
+
+function hasValidActionPlan(value: unknown): boolean {
+  if (!isRecord(value) || !hasValidPolicies(value.preconditions) || !Array.isArray(value.steps)) return false
+  return value.steps.every((step) => {
+    if (!isRecord(step) || typeof step.id !== "string") return false
+    if (step.kind === "message") return step.source === "authored-input" || step.source === "adaptive-tester"
+    if (step.kind === "suggested-action") return typeof step.behavior === "string" && typeof step.action === "string"
+    if (step.kind === "surface-submit") return typeof step.surface === "string" && typeof step.inputIntent === "string"
+    if (step.kind === "checkpoint") return typeof step.label === "string" && hasValidPolicies(step.stateAssertions)
+    return false
+  })
 }
 
 function hasValidBehaviorEvals(value: unknown): boolean {
@@ -88,6 +100,7 @@ function hasValidBehaviorEvals(value: unknown): boolean {
     && hasValidPolicies(evalCase.requiredCriteria)
     && hasValidPolicies(evalCase.forbiddenCriteria)
     && hasValidExpectations(evalCase.expectations)
+    && hasValidActionPlan(evalCase.actionPlan)
   ))
 }
 
@@ -113,6 +126,7 @@ function hasValidConversationEvals(value: unknown): boolean {
     && hasValidPolicies(scenario.finalRequiredCriteria)
     && hasValidPolicies(scenario.finalForbiddenCriteria)
     && hasValidExpectations(scenario.expectations)
+    && hasValidActionPlan(scenario.actionPlan)
     && typeof scenario.successCondition === "string"
     && hasValidPolicies(scenario.failureConditions)
     && hasValidPolicies(scenario.stoppingConditions)

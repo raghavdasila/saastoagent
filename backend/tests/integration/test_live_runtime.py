@@ -11,7 +11,8 @@ from corpus.auth.operation_http import HttpCredentialTransition
 from corpus.runtime.application import open_live_corpus_application
 from corpus.runtime.config import CorpusRuntimeSettings
 from corpus.features.sources.config import SourceSettings
-from corpus.auth.service import OwnerRouteContext
+from corpus.persistence import CorpusDatabaseSettings
+from corpus.auth.contracts import OwnerRouteContext
 
 
 class OwnerContextProbe:
@@ -42,9 +43,11 @@ async def test_live_runtime_opens_workspace_and_proves_ollama_readiness(
             routedeck_worker_count=1,
             routedeck_browser_origins=("http://127.0.0.1:5199",),
         ),
+        database=CorpusDatabaseSettings(
+            url=f"sqlite+aiosqlite:///{(tmp_path / 'corpus-domain.sqlite3').as_posix()}",
+            migration_revision="0002_agents",
+        ),
         auth=AuthSettings(
-            database_url=f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}",
-            migration_revision="0001_owner_auth",
             reset_secret="r" * 40,
             verification_secret="v" * 40,
             public_frontend_url="http://127.0.0.1:5199",
@@ -61,6 +64,8 @@ async def test_live_runtime_opens_workspace_and_proves_ollama_readiness(
         auth_limiter=object(),
         auth_mail=object(),
         credential_transition=HttpCredentialTransition(),
+        agent_service=object(),
+        workspace_service=object(),
     )
     try:
         assert live.runtime.services.app.app.frontend_contract.entry_node_id == (

@@ -12,8 +12,6 @@ _DEFAULT_ENV_PATH = Path(__file__).resolve().parents[4] / ".env.local"
 class AuthSettings(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    database_url: str = Field(min_length=1)
-    migration_revision: str = Field(min_length=1)
     reset_secret: SecretStr = Field(min_length=32)
     verification_secret: SecretStr = Field(min_length=32)
     access_token_minutes: int = Field(default=15, gt=0)
@@ -48,8 +46,6 @@ class AuthSettings(BaseModel):
 
 
 _FIELD_BY_ENV = {
-    "CORPUS_AUTH_DATABASE_URL": "database_url",
-    "CORPUS_AUTH_MIGRATION_REVISION": "migration_revision",
     "CORPUS_RESET_SECRET": "reset_secret",
     "CORPUS_VERIFICATION_SECRET": "verification_secret",
     "CORPUS_AUTH_ACCESS_TOKEN_MINUTES": "access_token_minutes",

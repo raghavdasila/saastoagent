@@ -3,6 +3,8 @@ import {
   createRouteDeckClient,
   type AgentHistoryTurn,
   type AgentChatClient,
+  type ConversationRunSnapshot,
+  type RouteDeckAgentClient,
 } from "@routedeck/core";
 
 import type { AppRouteDeck } from "./createRouteDeck";
@@ -43,6 +45,7 @@ export class ConversationLifecycle {
     summary: ConversationSummary,
     existingTransport?: ConversationTransport,
     handoff = false,
+    handoffPath?: string,
   ): Promise<MountedConversation> {
     const transport = existingTransport ?? createConversationTransport(this.authorized);
     if (existingTransport === undefined) transport.selectConversation(summary.id);
@@ -55,6 +58,12 @@ export class ConversationLifecycle {
       baseUrl: "/api/routedeck",
       fetch: transport.fetch,
     });
+    if (
+      handoffPath !== undefined &&
+      summary.active_run?.status === "running"
+    ) {
+      await settleConversationRun(chatClient, summary.active_run.request_id);
+    }
     const routeDeck = await loadRouteDeck(this.browser, routeDeckClient);
     const mustLoadCanonicalPath =
       handoff || historyNeedsReconciliation(this.browser, summary.id);
@@ -62,7 +71,11 @@ export class ConversationLifecycle {
       const projection = await routeDeck.client.getSession();
       const canonicalPath = projectionPath(routeDeck.routes, projection);
       if (handoff) {
-        commitConversationHandoff(this.browser, summary, canonicalPath);
+        commitConversationHandoff(
+          this.browser,
+          summary,
+          handoffPath ?? canonicalPath,
+        );
       } else {
         reconcileConversationHistory(this.browser, summary.id, canonicalPath);
       }
@@ -89,8 +102,66 @@ export class ConversationLifecycle {
     return await this.mount(next, undefined, true);
   }
 
+  async createFresh(handoffPath?: string): Promise<MountedConversation> {
+    return await this.mount(
+      await this.conversations.create(),
+      undefined,
+      true,
+      handoffPath,
+    );
+  }
+
   dispose(mounted: MountedConversation): void {
     mounted.routeDeck.privateForms.dispose();
     mounted.routeDeck.store.dispose();
+  }
+}
+
+export async function settleConversationRun(
+  client: RouteDeckAgentClient,
+  requestId: string,
+): Promise<void> {
+  let run = await client.loadConversationRun(requestId);
+  requireConversationRunIdentity(run, requestId);
+  if (!conversationRunIsTerminal(run)) {
+    for await (const next of client.streamConversationRunEvents(
+      requestId,
+      run.cursor,
+    )) {
+      requireConversationRunIdentity(next, requestId);
+      if (next.cursor <= run.cursor) {
+        throw new Error("Corpus received a regressed conversation-run cursor.");
+      }
+      run = next;
+      if (conversationRunIsTerminal(run)) break;
+    }
+  }
+  if (!conversationRunIsTerminal(run)) {
+    run = await client.loadConversationRun(requestId);
+    requireConversationRunIdentity(run, requestId);
+  }
+  if (run.stage === "interrupted") {
+    throw new Error(
+      run.failure?.message ??
+        "Corpus could not complete the new conversation's arrival turn.",
+    );
+  }
+  if (run.stage !== "completed") {
+    throw new Error(
+      "Corpus could not establish a terminal new-conversation state.",
+    );
+  }
+}
+
+function conversationRunIsTerminal(run: ConversationRunSnapshot): boolean {
+  return run.stage === "completed" || run.stage === "interrupted";
+}
+
+function requireConversationRunIdentity(
+  run: ConversationRunSnapshot,
+  requestId: string,
+): void {
+  if (run.request_id !== requestId) {
+    throw new Error("Corpus received a mismatched conversation-run identity.");
   }
 }

@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from routedeck_fastapi import SameOriginMutationPolicy
 
-from corpus.auth.database import AuthDatabase
+from corpus.persistence import CorpusDatabase
 from corpus.auth.http import AuthHttpProblem, auth_problem_response, create_auth_router
 from corpus.auth.rate_limits import AuthRateLimiter, RateLimitExceeded
 from corpus.auth.security import hash_opaque_token
@@ -15,7 +15,7 @@ from corpus.auth.service import AuthService
 
 
 def _app(
-    database: AuthDatabase,
+    database: CorpusDatabase,
     *,
     limiter=None,
     trusted_proxies: tuple[str, ...] = (),
@@ -38,7 +38,7 @@ def _app(
 def test_anonymous_refresh_session_and_signout_are_bearer_only(
     tmp_path: Path,
 ) -> None:
-    database = AuthDatabase(
+    database = CorpusDatabase(
         f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}"
     )
     asyncio.run(database.create_schema_for_tests())
@@ -102,7 +102,7 @@ class RecordingLimiter:
 
 
 def test_anonymous_and_refresh_apply_explicit_rate_limits(tmp_path: Path) -> None:
-    database = AuthDatabase(
+    database = CorpusDatabase(
         f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}"
     )
     asyncio.run(database.create_schema_for_tests())
@@ -152,7 +152,7 @@ def test_anonymous_and_refresh_apply_explicit_rate_limits(tmp_path: Path) -> Non
 def test_recover_is_removed_and_mutations_reject_cross_origin(
     tmp_path: Path,
 ) -> None:
-    database = AuthDatabase(
+    database = CorpusDatabase(
         f"sqlite+aiosqlite:///{(tmp_path / 'auth.sqlite3').as_posix()}"
     )
     asyncio.run(database.create_schema_for_tests())

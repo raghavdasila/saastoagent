@@ -10,6 +10,7 @@ from corpus.auth.config import AuthSettings
 from corpus.features.sources.config import SourceSettings
 from corpus.features.sources.connectors.api.config import ApiSourceSettings
 from corpus.integrations.toolrouter import ToolRouterSettings
+from corpus.persistence.config import CorpusDatabaseSettings
 from corpus.shared.environment import read_environment
 
 
@@ -22,6 +23,7 @@ class CorpusRuntimeSettings(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     host: RouteDeckHostSettings
+    database: CorpusDatabaseSettings
     auth: AuthSettings
     sources: SourceSettings
     api_sources: ApiSourceSettings = Field(default_factory=ApiSourceSettings)
@@ -59,11 +61,13 @@ class CorpusRuntimeSettings(BaseModel):
     @classmethod
     def from_env(cls, env_file: Path = _DEFAULT_ENV_PATH) -> CorpusRuntimeSettings:
         host = RouteDeckHostSettings.from_env(env_file)
+        database = CorpusDatabaseSettings.from_env(env_file)
         auth = AuthSettings.from_env(env_file)
         values = read_environment(env_file, _MODEL_ENV_FIELDS)
         return cls.model_validate(
             {
                 "host": host,
+                "database": database,
                 "auth": auth,
                 "sources": SourceSettings.from_env(env_file),
                 "api_sources": ApiSourceSettings.from_env(env_file),

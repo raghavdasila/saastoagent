@@ -19,7 +19,13 @@ artifacts. It does not own current source boundaries or session state.
   and exact local completion evidence for the Sources API connector.
 - `local-runtime-runbook.md` is the authoritative procedure for host Ollama,
   Corpus Docker backend/frontend, and the RouteDeck Agent Design Studio at
-  `http://127.0.0.1:8782/`.
+  `http://127.0.0.1:8782/`. Its isolated-capability section also gives the exact
+  optional commands and claim boundary for the standalone Agent Execution
+  Runtime.
+- `standalone-source-hub-integration.md` measures the independently proven
+  Source Hub/API Source suite against the 11-feature launch baseline and owns
+  the future Corpus adapter/integration map. The suite is not currently
+  imported into Corpus.
 
 ## Stale Design Artifacts
 
