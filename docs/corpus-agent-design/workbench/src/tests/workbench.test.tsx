@@ -22,7 +22,7 @@ describe("RouteDeck Agent Design Studio", () => {
     await user.click(screen.getByRole("button", { name: /Agents/ }))
     expect(screen.getByRole("heading", { name: "View agents" })).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: /API Source/ }))
-    expect(screen.getByRole("heading", { name: "Upload an API YAML file" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Add an API definition file" })).toBeInTheDocument()
   })
 
   it("keeps user and agent intent distinct from expected behavior", async () => {
@@ -119,7 +119,7 @@ describe("RouteDeck Agent Design Studio", () => {
     expect(featureNavigation.querySelectorAll("svg")).toHaveLength(0)
     expect(screen.getByRole("button", { name: "Lounge 8" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Workspace 6" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Agents 11" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Agents 12" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Agent Designer 6" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Source Hub 5" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "API Source 10" })).toBeInTheDocument()
@@ -325,7 +325,7 @@ describe("RouteDeck Agent Design Studio", () => {
     const agents = createSeedState().features.find((feature) => feature.id === "agents")!
     const serializedAgents = JSON.stringify(agents).toLowerCase()
 
-    expect(agents.stories).toHaveLength(11)
+    expect(agents.stories).toHaveLength(12)
     expect(agents.stories.map((item) => item.id)).toContain("agents-create")
     expect(serializedAgents).not.toContain("draft agent")
     expect(serializedAgents).not.toContain("agent draft")

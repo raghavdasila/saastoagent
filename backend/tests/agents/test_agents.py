@@ -379,12 +379,22 @@ async def test_agent_operation_handlers_report_action_result_and_state_errors(
             ),
         )
         assert opened_source.outcome == "opened"
-        source_values = {
-            item.name: item.value.to_python()
-            for item in opened_source.effects.surface_updates[0].values
+        source_updates = {
+            update.surface_id: {
+                item.name: item.value.to_python()
+                for item in update.values
+            }
+            for update in opened_source.effects.surface_updates
         }
-        assert source_values["selected_source_id"] == "source-ready-001"
-        assert source_values["selected_source_revision_id"] == "revision-ready01"
+        assert set(source_updates) == {"sources.api"}
+        assert source_updates["sources.api"] == {
+            "return_agent_ref": created_binding.public.handle,
+            "agent_handoff_mode": "inspect",
+            "selected_source_id": "source-ready-001",
+            "selected_source_revision_id": "revision-ready01",
+            "form_handle": "sources-api-connection",
+            "mode": "inspect",
+        }
 
         saved = await SaveAgentChangesHandler(service, scope)(
             {

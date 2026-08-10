@@ -3409,6 +3409,7 @@
               "Edit an agent",
               "Attach an existing source",
               "Create and attach a source",
+              "Set up an agent from an attached API definition",
               "Open an attached source",
               "Archive an agent",
               "Delete an agent",
@@ -3424,6 +3425,8 @@
               "Attach source to agent",
               "Open source creation",
               "Attach newly created source",
+              "Open agent creation",
+              "Attach source to agent",
               "Open attached source",
               "Archive agent",
               "Delete agent",
@@ -4176,7 +4179,8 @@
               "purpose": "Inspect, attach, create, and open sources associated with the selected agent.",
               "policies": [
                 "Attach only eligible sources from the same Workspace and prevent duplicate attachment.",
-                "Preserve the selected agent across Source Hub and API Source handoffs; navigation alone does not attach or edit a source."
+                "Preserve the selected agent across Source Hub and API Source handoffs; navigation alone does not attach or edit a source.",
+                "When an owner asks to set up an Agent from the API definition already added in this conversation, preserve that task across Source and Agent areas. Ask only for missing agent choice, goal, responsibilities, or operation-selection intent; create an Agent only after the owner chooses creation, and attach only the exact ready authorized Source."
               ],
               "operationNames": [
                 "Attach source to agent"
@@ -4315,7 +4319,8 @@
               "purpose": "Inspect, attach, create, and open sources associated with the selected agent.",
               "policies": [
                 "Attach only eligible sources from the same Workspace and prevent duplicate attachment.",
-                "Preserve the selected agent across Source Hub and API Source handoffs; navigation alone does not attach or edit a source."
+                "Preserve the selected agent across Source Hub and API Source handoffs; navigation alone does not attach or edit a source.",
+                "When an owner asks to set up an Agent from the API definition already added in this conversation, preserve that task across Source and Agent areas. Ask only for missing agent choice, goal, responsibilities, or operation-selection intent; create an Agent only after the owner chooses creation, and attach only the exact ready authorized Source."
               ],
               "operationNames": [
                 "Open source creation",
@@ -4428,6 +4433,160 @@
           "rejectionReason": ""
         },
         {
+          "id": "agents-setup-from-api-file",
+          "title": "Set up an agent from an attached API definition",
+          "userIntent": "Use an attached OpenAPI file to create a source and continue setting up an agent.",
+          "agentIntent": "Treat the file as staged owner input, let Corpus choose legal navigation and operations, and ask only for missing agent or operation intent.",
+          "expectedBehavior": "The owner attaches an OpenAPI file and asks Corpus to set up an agent. Attaching the file only stages it for the current conversation. Corpus decides the legal next action from the request: it creates the API source and starts analysis when the request authorizes setup, while preserving any selected-agent context. If no agent is selected, Corpus asks whether to use an existing agent or create one; creating one requires the owner's goal and responsibilities. Corpus attaches only a ready source, never invents operation selections, and continues through design, build, private trial, evaluation, and delivery only as each prerequisite and consequential approval becomes available.",
+          "messages": [
+            {
+              "id": "agents-setup-from-api-file-owner",
+              "actor": "Owner",
+              "content": "Use this API definition and set up the agent for me."
+            },
+            {
+              "id": "agents-setup-from-api-file-corpus",
+              "actor": "Corpus",
+              "content": "I will add and analyze the API definition first, then ask only for the agent details or operation choices that are still missing."
+            }
+          ],
+          "mockSurfacePath": null,
+          "nodePolicies": [
+            "Keep every presented or changed fact bound to the exact selected agent.",
+            "Keep current configuration, historical runnable versions, and active deployment state distinct."
+          ],
+          "capabilities": [
+            {
+              "name": "Source attachments",
+              "purpose": "Inspect, attach, create, and open sources associated with the selected agent.",
+              "policies": [
+                "Attach only eligible sources from the same Workspace and prevent duplicate attachment.",
+                "Preserve the selected agent across Source Hub and API Source handoffs; navigation alone does not attach or edit a source.",
+                "When an owner asks to set up an Agent from the API definition already added in this conversation, preserve that task across Source and Agent areas. Ask only for missing agent choice, goal, responsibilities, or operation-selection intent; create an Agent only after the owner chooses creation, and attach only the exact ready authorized Source."
+              ],
+              "operationNames": [
+                "Open agent creation",
+                "Attach source to agent"
+              ],
+              "surfaceNames": [
+                "Agent source picker"
+              ]
+            }
+          ],
+          "surfaces": [
+            {
+              "name": "Agent source picker",
+              "purpose": "Present the structured product UI required for “Set up an agent from an attached API definition”.",
+              "policies": [
+                "Show only eligible sources from the same Workspace, including readiness and whether each source is already attached."
+              ]
+            }
+          ],
+          "operations": [
+            {
+              "name": "Open agent creation",
+              "availableThrough": "both",
+              "purpose": "Begin a distinct new-agent design path only when the owner's current request still needs a new agent; navigation creates nothing and must not be used after that request already created its agent.",
+              "inputs": "An authenticated owner explicitly asks to begin a distinct new agent and the current request has not already created it; no agent fields are submitted during navigation.",
+              "outcomes": "The agent-creation surface opens in the same Workspace; navigation failure leaves the agent inventory active and creates nothing.",
+              "safetyAndReview": "Navigation has no review and must not imply an agent, runnable build, evaluation, channel, or deployment exists; after Create agent succeeds for the current request, do not reopen creation unless the owner separately asks to start another agent.",
+              "recovery": "Keep the inventory active, report that creation could not be opened, and allow another explicit attempt.",
+              "policies": [
+                "Open creation only after the owner chooses a new agent; do not treat the earlier setup request as permission to bypass missing goal or responsibility input."
+              ]
+            },
+            {
+              "name": "Attach source to agent",
+              "availableThrough": "both",
+              "purpose": "Persist one association between the selected eligible Workspace source and the originating agent.",
+              "inputs": "The authenticated owner, exact selected agent, exact eligible same-Workspace source, and an explicit attachment request.",
+              "outcomes": "One persisted association is created and the originating agent reloads with that source attached; duplicate, stale, unauthorized, or failed attachment leaves prior state authoritative.",
+              "safetyAndReview": "Treat attachment as a draft configuration change, validate owner and source readiness, prevent duplicate association, and never expose source credentials or private bindings.",
+              "recovery": "Keep the originating agent and picker state visible, report the exact safe blocker or conflict, refresh eligible sources, and require an explicit corrected retry.",
+              "policies": [
+                "For an ongoing file-first setup request, attach only the exact ready Source the owner authorized after the Agent choice and required Agent details are established. Never invent operation selection or treat queued analysis as ready."
+              ]
+            }
+          ],
+          "suggestedActions": [],
+          "behaviorEvals": [
+            {
+              "id": "agents-setup-from-api-file-contract",
+              "title": "Set up an agent from an attached API definition product contract",
+              "enabled": true,
+              "blocking": true,
+              "coverage": [
+                "normal",
+                "state",
+                "boundary",
+                "failure",
+                "privacy",
+                "adversarial"
+              ],
+              "input": "Use this API definition and set up the agent for me.",
+              "referenceResponse": "I will add and analyze the API definition first, then ask only for the agent details or operation choices that are still missing.",
+              "requiredCriteria": [
+                "The owner attaches an OpenAPI file and asks Corpus to set up an agent. Attaching the file only stages it for the current conversation. Corpus decides the legal next action from the request: it creates the API source and starts analysis when the request authorizes setup, while preserving any selected-agent context. If no agent is selected, Corpus asks whether to use an existing agent or create one; creating one requires the owner's goal and responsibilities. Corpus attaches only a ready source, never invents operation selections, and continues through design, build, private trial, evaluation, and delivery only as each prerequisite and consequential approval becomes available.",
+                "Uses only the authenticated owner's exact selected agent, source, source revision, build, and observed dependency state required by the behavior.",
+                "Keeps navigation, waiting, blocked, review-required, failed, and completed outcomes distinct and reloadable."
+              ],
+              "forbiddenCriteria": [
+                "Claims attachment, archive, deletion, build, run, evaluation, or lineage completion before authoritative Corpus state proves it.",
+                "Uses another Workspace, substitutes a current source revision for a historical reference, exposes a credential, or uses fixture, synthetic, or fallback behavior."
+              ],
+              "expectations": {
+                "startingBehavior": "Set up an agent from an attached API definition",
+                "finalBehavior": "Set up an agent from an attached API definition",
+                "authentication": "authenticated",
+                "requiredOperations": [
+                  "Open agent creation",
+                  "Attach source to agent"
+                ],
+                "allowedOperations": [
+                  "Open agent creation",
+                  "Attach source to agent"
+                ],
+                "forbiddenOperations": [],
+                "requiredSurfaces": [
+                  "Agent source picker"
+                ],
+                "requiredSuggestedActions": [],
+                "forbiddenOutcomes": [
+                  "cross-Workspace access",
+                  "secret exposure",
+                  "mutable historical lineage",
+                  "synthetic success",
+                  "silent fallback"
+                ]
+              },
+              "actionPlan": {
+                "preconditions": [
+                  "The owner is authenticated and the exact selected agent, source or source revision, build, and dependency state required by the behavior are available, including a real blocker for failure proof."
+                ],
+                "steps": [
+                  {
+                    "id": "agents-setup-from-api-file-contract-opening",
+                    "kind": "message",
+                    "source": "authored-input"
+                  },
+                  {
+                    "id": "agents-setup-from-api-file-contract-checkpoint",
+                    "kind": "checkpoint",
+                    "label": "Set up an agent from an attached API definition result",
+                    "stateAssertions": [
+                      "The visible result and persisted state agree for the exact owner-scoped agent and referenced records.",
+                      "Navigation is not reported as mutation, and no dependency blocker, historical reference, secret, or failure is concealed."
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "evalExemptions": [],
+          "status": "approved",
+          "rejectionReason": ""
+        },
+        {
           "id": "agents-open-source",
           "title": "Open an attached source",
           "userIntent": "Inspect or edit a source attached to this agent.",
@@ -4456,7 +4615,8 @@
               "purpose": "Inspect, attach, create, and open sources associated with the selected agent.",
               "policies": [
                 "Attach only eligible sources from the same Workspace and prevent duplicate attachment.",
-                "Preserve the selected agent across Source Hub and API Source handoffs; navigation alone does not attach or edit a source."
+                "Preserve the selected agent across Source Hub and API Source handoffs; navigation alone does not attach or edit a source.",
+                "When an owner asks to set up an Agent from the API definition already added in this conversation, preserve that task across Source and Agent areas. Ask only for missing agent choice, goal, responsibilities, or operation-selection intent; create an Agent only after the owner chooses creation, and attach only the exact ready authorized Source."
               ],
               "operationNames": [
                 "Open attached source"
@@ -6656,6 +6816,7 @@
         "Expose only sources owned by the authenticated Workspace.",
         "At launch, offer API sources only; do not imply database, knowledge, or MCP support.",
         "Keep source readiness and agent-attachment state truthful; navigation between Source Hub, Agents, and API Source does not itself mutate either record.",
+        "Keep Source Hub an inventory and guided entry point. Open API-specific intake, analysis, graph, operation, connection, and attachment work in API Source rather than merging those controls into the inventory.",
         "Show each source once in the owner inventory and present one continuous immutable revision history for it across Source Hub and API Source.",
         "Long-running source work persists waiting, active, failed, completed, retry, and dependency state so the owner can leave, reload, restart, and return to the actual result."
       ],
@@ -6665,7 +6826,7 @@
           "title": "View sources",
           "userIntent": "See the sources in my Workspace and which agents use them.",
           "agentIntent": "List authorized sources with truthful type, status, and attachment context.",
-          "expectedBehavior": "The owner opens Source Hub. Corpus lists Workspace sources, their type and readiness, and the agents to which they are attached. At launch, API is the only available source family.",
+          "expectedBehavior": "The owner opens Source Hub. Corpus lists Workspace sources, their type, readiness, connection and operation-selection progress, and the agents to which they are attached. It shows the next incomplete setup step in plain language and opens API-specific work in API Source. At launch, API is the only available source family.",
           "messages": [
             {
               "id": "sources-view-owner",
@@ -6747,7 +6908,7 @@
               "input": "Show me my sources.",
               "referenceResponse": "Here are your Workspace sources, their readiness, and their agent attachments.",
               "requiredCriteria": [
-                "The owner opens Source Hub. Corpus lists Workspace sources, their type and readiness, and the agents to which they are attached. At launch, API is the only available source family.",
+                "The owner opens Source Hub. Corpus lists Workspace sources, their type, readiness, connection and operation-selection progress, and the agents to which they are attached. It shows the next incomplete setup step in plain language and opens API-specific work in API Source. At launch, API is the only available source family.",
                 "Uses only the authenticated owner's exact source, revision, selected entities, and observed persisted state.",
                 "Keeps waiting, blocked, failed, review-required, and completed outcomes distinct and resumable where the behavior requires it."
               ],
@@ -7396,13 +7557,13 @@
             "Credential disclosure, duplicate mutation, cross-Workspace state, invented input, or navigation described as completion."
           ],
           "expectations": {
-            "startingBehavior": "Upload an API YAML file",
+            "startingBehavior": "Add an API definition file",
             "finalBehavior": "Route and test an API operation",
             "allowedFinalBehaviors": [
-              "Upload an API YAML file",
+              "Add an API definition file",
               "Add or update the API description",
               "Configure the API connection",
-              "Process the API through ToolRouter",
+              "Analyze API operations",
               "Monitor API processing",
               "Inspect the semantic graph",
               "Replay graph construction",
@@ -7413,12 +7574,12 @@
             "authentication": "authenticated",
             "requiredOperations": [],
             "allowedOperations": [
-              "Upload YAML",
-              "Accept API revision",
+              "Stage API definition",
+              "Add staged API definition",
               "Save API description",
               "Save API connection",
               "Test API connection",
-              "Process API through ToolRouter",
+              "Analyze API operations",
               "Inspect current API architecture",
               "Control graph replay",
               "Save operation curation",
@@ -7479,7 +7640,7 @@
           "enabled": true,
           "blocking": true,
           "interaction": "surface",
-          "startingBehavior": "Upload an API YAML file",
+          "startingBehavior": "Add an API definition file",
           "startingAuthentication": "authenticated",
           "goal": "Create one revision, process it durably, inspect semantic groups and routing evidence, and test one real allowed operation.",
           "preconditions": [
@@ -7588,34 +7749,36 @@
           "openingMessage": "What can this API do, and how did you organize it?"
         }
       ],
-      "prompt": "You are Corpus in the API Source feature. Help the owner configure and validate an API source from its declared contract, keeping credentials private and describing only connection and discovery outcomes that the product has confirmed.",
+      "prompt": "You are Corpus in the API Source feature. Help the owner configure and validate an API source from its declared API definition, keeping credentials private and describing only connection and discovery outcomes that the product has confirmed.",
       "policies": [
         "Keep API specifications, credentials, artifacts, and processing isolated to the authenticated Workspace.",
         "Enter API Source only from Source Hub and keep processing failures explicit.",
         "Bind configuration, processing status, graph artifacts, operation selections, and recovery evidence to the exact API source revision they describe.",
-        "A prepared API contract correction is not a pending owner review. Asking what it changes or what its consequences are is read-only and must not stage review. Only an explicit request to begin or open owner review stages it; say it is pending only after staging succeeds, and only a later explicit acceptance creates the immutable revision.",
+        "A prepared API definition correction is not a pending owner review. Asking what it changes or what its consequences are is read-only and must not stage review. Only an explicit request to begin or open owner review stages it; say it is pending only after staging succeeds, and only a later explicit acceptance creates the immutable API version.",
         "Never expose stored credentials, tokens, or private connection bindings in chat, surfaces, logs, or generated artifacts.",
         "Present only real persisted ToolRouter results as processed artifacts; never substitute fixtures, synthetic graphs, cached success, or alternate processing paths.",
+        "Keep chat visible when the owner maximizes API Source. Maximizing changes presentation only and preserves the same surface, legal operations, selected Source, and conversation.",
+        "Render the complete persisted semantic graph without sampling. Replay only exact recorded ToolRouter construction events and distinguish recorded replay from live processing.",
         "Keep every API result tied to the selected source and revision; run only an operation already discovered, included, resolved, and authorized for that revision.",
         "Long-running processing persists job and attempt identity across leave, reload, and restart; failure remains failure and retry is always explicit."
       ],
       "stories": [
         {
           "id": "api-upload-yaml",
-          "title": "Upload an API YAML file",
-          "userIntent": "Create or revise an API source from an OpenAPI YAML file.",
-          "agentIntent": "Validate the file and size limits, persist an accepted revision, and report invalid input clearly.",
-          "expectedBehavior": "The owner uploads an OpenAPI YAML file from API Source. Corpus enforces the documented file limits and format, creates the source revision only when accepted, and shows validation failures without substituting sample data.",
+          "title": "Add an API definition file",
+          "userIntent": "Stage an OpenAPI YAML or JSON file before creating or analyzing the API source.",
+          "agentIntent": "Validate the file and size limits, retain it for the current conversation, and leave source creation and processing to explicit operations.",
+          "expectedBehavior": "The owner attaches an OpenAPI YAML or JSON file from API Source or chat. Corpus enforces the documented file limits and format and stages the exact file for the current authenticated conversation. Staging does not create a Source, start ToolRouter, or attach anything to an agent. Corpus creates an immutable API version only when the owner request authorizes adding the staged definition, and processing remains a separate explicit action.",
           "messages": [
             {
               "id": "api-upload-yaml-owner",
               "actor": "Owner",
-              "content": "Upload this OpenAPI YAML file."
+              "content": "Use this OpenAPI file."
             },
             {
               "id": "api-upload-yaml-corpus",
               "actor": "Corpus",
-              "content": "I will validate the file and create a source revision only if it is accepted."
+              "content": "I will stage the API definition first. I will not analyze or attach it until your request authorizes those next actions."
             }
           ],
           "mockSurfacePath": null,
@@ -7629,11 +7792,12 @@
               "purpose": "Validate an OpenAPI YAML file and create an identifiable accepted source revision.",
               "policies": [
                 "Enforce documented format and file limits; invalid input creates no accepted revision.",
-                "Bind subsequent connection, processing, graph, and curation state to the exact accepted revision."
+                "Bind subsequent connection, processing, graph, and curation state to the exact accepted revision.",
+                "When the owner says an API definition is attached and authorizes adding or setting it up, use only the exact file staged for this authenticated conversation. Open API Source when needed, add the staged definition, and explicitly start analysis without asking the owner to upload or select the same file again. Adding and analysis remain separate supervised operations, and readiness must come from persisted worker state."
               ],
               "operationNames": [
-                "Upload YAML",
-                "Accept API revision"
+                "Stage API definition",
+                "Add staged API definition"
               ],
               "surfaceNames": [
                 "API intake and connection"
@@ -7643,7 +7807,7 @@
           "surfaces": [
             {
               "name": "API intake and connection",
-              "purpose": "Present the structured product UI required for “Upload an API YAML file”.",
+              "purpose": "Present the structured product UI required for “Add an API definition file”.",
               "policies": [
                 "Accept only the documented OpenAPI YAML format and file limits, and show exact validation errors without substituting sample content."
               ]
@@ -7651,42 +7815,42 @@
           ],
           "operations": [
             {
-              "name": "Upload YAML",
+              "name": "Stage API definition",
               "availableThrough": "both",
-              "purpose": "Submit the owner-selected OpenAPI YAML file for format and file-limit validation.",
+              "purpose": "Retain the owner-selected OpenAPI YAML or JSON file for the current authenticated conversation after format and file-limit validation.",
               "inputs": "A source name and the owner-selected OpenAPI YAML file within the documented type and size limits.",
               "outcomes": "The exact file is validated and becomes eligible for revision acceptance; invalid type, size, syntax, or contract content creates no accepted revision and remains visible.",
               "safetyAndReview": "Use only the submitted file, isolate it to the authenticated Workspace, and never substitute an example, fixture, cached definition, or alternate input.",
               "recovery": "Keep validation evidence visible and let the owner correct or replace the file; never retry or accept it automatically.",
               "policies": [
-                "Process only the file explicitly chosen by the owner and never replace missing or invalid input with a fixture or example specification."
+                "Retain only the file explicitly chosen by the owner for the current conversation and never replace missing or invalid input with a fixture or example definition."
               ]
             },
             {
-              "name": "Accept API revision",
+              "name": "Add staged API definition",
               "availableThrough": "both",
-              "purpose": "Create an identifiable API source revision from the validated OpenAPI YAML file.",
+              "purpose": "Create one identifiable API Source version from the validated staged file without starting analysis.",
               "inputs": "One successfully validated OpenAPI YAML upload and the selected Workspace-owned API source identity.",
               "outcomes": "An immutable identifiable revision bound to the exact file hash is created once; stale, invalid, duplicate, or failed acceptance creates no accepted revision.",
               "safetyAndReview": "Bind the revision to the authenticated owner, source, original file, and content identity without changing prior revision history.",
               "recovery": "Preserve the validated upload and failure evidence where safe, require revalidation if the input changed, and never fabricate a revision.",
               "policies": [
-                "Invalid input creates no accepted revision; successful acceptance creates an identifiable revision bound to the uploaded file."
+                "Staging alone creates nothing; successful addition creates one identifiable API version bound to the staged file."
               ]
             }
           ],
           "suggestedActions": [
             {
               "id": "api-upload",
-              "label": "Upload YAML",
-              "operationName": "Upload YAML",
+              "label": "Add API definition",
+              "operationName": "Stage API definition",
               "visibility": ""
             }
           ],
           "behaviorEvals": [
             {
               "id": "api-upload-yaml-contract",
-              "title": "Upload an API YAML file product contract",
+              "title": "Add an API definition file product contract",
               "enabled": true,
               "blocking": true,
               "coverage": [
@@ -7697,10 +7861,10 @@
                 "privacy",
                 "adversarial"
               ],
-              "input": "Upload this OpenAPI YAML file.",
-              "referenceResponse": "I will validate the file and create a source revision only if it is accepted.",
+              "input": "Use this OpenAPI file.",
+              "referenceResponse": "I will stage the API definition first. I will not analyze or attach it until your request authorizes those next actions.",
               "requiredCriteria": [
-                "The owner uploads an OpenAPI YAML file from API Source. Corpus enforces the documented file limits and format, creates the source revision only when accepted, and shows validation failures without substituting sample data.",
+                "The owner attaches an OpenAPI YAML or JSON file from API Source or chat. Corpus enforces the documented file limits and format and stages the exact file for the current authenticated conversation. Staging does not create a Source, start ToolRouter, or attach anything to an agent. Corpus creates an immutable API version only when the owner request authorizes adding the staged definition, and processing remains a separate explicit action.",
                 "Uses only the authenticated owner's exact source, revision, selected entities, and observed persisted state.",
                 "Keeps waiting, blocked, failed, review-required, and completed outcomes distinct and resumable where the behavior requires it."
               ],
@@ -7709,16 +7873,16 @@
                 "Uses another Workspace, exposes a credential, invents a required value, or substitutes fixture, cached, synthetic, or fallback behavior."
               ],
               "expectations": {
-                "startingBehavior": "Upload an API YAML file",
-                "finalBehavior": "Upload an API YAML file",
+                "startingBehavior": "Add an API definition file",
+                "finalBehavior": "Add an API definition file",
                 "authentication": "authenticated",
                 "requiredOperations": [
-                  "Upload YAML",
-                  "Accept API revision"
+                  "Stage API definition",
+                  "Add staged API definition"
                 ],
                 "allowedOperations": [
-                  "Upload YAML",
-                  "Accept API revision"
+                  "Stage API definition",
+                  "Add staged API definition"
                 ],
                 "forbiddenOperations": [],
                 "requiredSurfaces": [
@@ -7745,7 +7909,7 @@
                   {
                     "id": "api-upload-yaml-contract-checkpoint",
                     "kind": "checkpoint",
-                    "label": "Upload an API YAML file result",
+                    "label": "Add an API definition file result",
                     "stateAssertions": [
                       "The visible result and persisted state agree for the exact owner-scoped source revision.",
                       "No secret, cross-tenant value, invented input, or false completion is present."
@@ -7822,7 +7986,7 @@
               "purpose": "Persist the validated Markdown description on the selected API source without changing its OpenAPI revision.",
               "inputs": "The exact API source and a Markdown file within the documented size and content limits.",
               "outcomes": "Valid supporting description content is saved to that source; invalid or failed content leaves the previously accepted description unchanged.",
-              "safetyAndReview": "Treat Markdown as non-executable supporting context, isolate it to the owner, and never treat it as the OpenAPI contract or read unrelated files.",
+              "safetyAndReview": "Treat Markdown as non-executable supporting context, isolate it to the owner, and never treat it as the API definition or read unrelated files.",
               "recovery": "Keep the prior description authoritative, show validation or persistence failure, and allow an explicit corrected upload.",
               "policies": [
                 "Persist valid description content only to the selected API source; invalid or failed uploads must not replace the prior description."
@@ -8080,7 +8244,7 @@
         },
         {
           "id": "api-process-toolrouter",
-          "title": "Process the API through ToolRouter",
+          "title": "Analyze API operations",
           "userIntent": "Turn the accepted API revision into a semantic graph and operation inventory.",
           "agentIntent": "Run the real ToolRouter pipeline for the exact revision and make success or failure visible.",
           "expectedBehavior": "The owner starts processing for an accepted API revision. Corpus creates one durable job, invokes ToolRouter for that exact revision, records actual phases and artifacts, and marks the revision ready only after required processing completes. The owner can leave and return to the same waiting, active, failed, completed, or ready result. Missing dependencies and processing errors remain failures.",
@@ -8088,12 +8252,12 @@
             {
               "id": "api-process-toolrouter-owner",
               "actor": "Owner",
-              "content": "Process this API source."
+              "content": "Analyze this API definition."
             },
             {
               "id": "api-process-toolrouter-corpus",
               "actor": "Corpus",
-              "content": "I will run ToolRouter against this exact revision and report each completed phase or failure."
+              "content": "I will analyze this exact API version with ToolRouter and report each completed phase or failure."
             }
           ],
           "mockSurfacePath": null,
@@ -8110,7 +8274,7 @@
                 "Keep active, completed, failed, and ready states distinct and supported by actual evidence."
               ],
               "operationNames": [
-                "Process API through ToolRouter"
+                "Analyze API operations"
               ],
               "surfaceNames": [
                 "API processing status"
@@ -8120,7 +8284,7 @@
           "surfaces": [
             {
               "name": "API processing status",
-              "purpose": "Present the structured product UI required for “Process the API through ToolRouter”.",
+              "purpose": "Present the structured product UI required for “Analyze API operations”.",
               "policies": [
                 "Identify the exact accepted revision and show unmet prerequisites before processing can start."
               ]
@@ -8128,31 +8292,31 @@
           ],
           "operations": [
             {
-              "name": "Process API through ToolRouter",
+              "name": "Analyze API operations",
               "availableThrough": "both",
-              "purpose": "Run ToolRouter for the exact accepted revision, persist its real artifacts, and update that revision's processing state.",
+              "purpose": "Run ToolRouter for the exact accepted API version, persist its real artifacts, and update that version's analysis state.",
               "inputs": "An explicit owner request, one accepted source revision, and every required real processing dependency in a ready state.",
               "outcomes": "One durable processing job records waiting, active, failed, completed, and ready evidence for the exact revision; only completed required artifacts make it ready.",
               "safetyAndReview": "Prevent duplicate concurrent work for the revision, use the single Corpus ToolRouter revision chain, and never substitute mock, cached, synthetic, or alternate-processor success.",
               "recovery": "Persist failure and phase evidence across leave, reload, and restart; retry occurs only through the explicit retry operation.",
               "policies": [
-                "Start processing only after explicit owner request and do not create duplicate concurrent runs for the same revision.",
-                "Use the real ToolRouter pipeline for the exact revision; never substitute cached success, a mock graph, or another processor."
+                "Start analysis only after explicit owner request and do not create duplicate concurrent runs for the same API version.",
+                "Use the real ToolRouter pipeline for the exact API version; never substitute cached success, a mock graph, or another processor."
               ]
             }
           ],
           "suggestedActions": [
             {
               "id": "api-process",
-              "label": "Process API",
-              "operationName": "Process API through ToolRouter",
+              "label": "Analyze operations",
+              "operationName": "Analyze API operations",
               "visibility": ""
             }
           ],
           "behaviorEvals": [
             {
               "id": "api-process-toolrouter-contract",
-              "title": "Process the API through ToolRouter product contract",
+              "title": "Analyze API operations product contract",
               "enabled": true,
               "blocking": true,
               "coverage": [
@@ -8163,8 +8327,8 @@
                 "privacy",
                 "adversarial"
               ],
-              "input": "Process this API source.",
-              "referenceResponse": "I will run ToolRouter against this exact revision and report each completed phase or failure.",
+              "input": "Analyze this API definition.",
+              "referenceResponse": "I will analyze this exact API version with ToolRouter and report each completed phase or failure.",
               "requiredCriteria": [
                 "The owner starts processing for an accepted API revision. Corpus creates one durable job, invokes ToolRouter for that exact revision, records actual phases and artifacts, and marks the revision ready only after required processing completes. The owner can leave and return to the same waiting, active, failed, completed, or ready result. Missing dependencies and processing errors remain failures.",
                 "Uses only the authenticated owner's exact source, revision, selected entities, and observed persisted state.",
@@ -8175,14 +8339,14 @@
                 "Uses another Workspace, exposes a credential, invents a required value, or substitutes fixture, cached, synthetic, or fallback behavior."
               ],
               "expectations": {
-                "startingBehavior": "Process the API through ToolRouter",
-                "finalBehavior": "Process the API through ToolRouter",
+                "startingBehavior": "Analyze API operations",
+                "finalBehavior": "Analyze API operations",
                 "authentication": "authenticated",
                 "requiredOperations": [
-                  "Process API through ToolRouter"
+                  "Analyze API operations"
                 ],
                 "allowedOperations": [
-                  "Process API through ToolRouter"
+                  "Analyze API operations"
                 ],
                 "forbiddenOperations": [],
                 "requiredSurfaces": [
@@ -8209,7 +8373,7 @@
                   {
                     "id": "api-process-toolrouter-contract-checkpoint",
                     "kind": "checkpoint",
-                    "label": "Process the API through ToolRouter result",
+                    "label": "Analyze API operations result",
                     "stateAssertions": [
                       "The visible result and persisted state agree for the exact owner-scoped source revision.",
                       "No secret, cross-tenant value, invented input, or false completion is present."
@@ -8346,7 +8510,7 @@
           "id": "api-inspect-graph",
           "title": "Inspect the semantic graph",
           "userIntent": "Understand the structure ToolRouter produced for this API revision.",
-          "agentIntent": "Present the persisted graph with enough context to inspect nodes, edges, and their source revision.",
+          "agentIntent": "Present the complete persisted graph with accumulated and active-neighborhood views, inspectable nodes and edges, semantic groups, and the exact source revision.",
           "expectedBehavior": "After processing succeeds, the owner opens the semantic graph for the exact API revision. Corpus shows persisted nodes, relationships, semantic groups, routing evidence, and source provenance while keeping the revision identifiable.",
           "messages": [
             {
@@ -8483,8 +8647,8 @@
           "id": "api-replay-graph",
           "title": "Replay graph construction",
           "userIntent": "See how ToolRouter built the graph node by node.",
-          "agentIntent": "Replay the persisted construction trace in order without claiming live streaming that is not available.",
-          "expectedBehavior": "After graph processing completes, the owner replays the persisted graph-construction trace node by node. Corpus supports pause, resume, and step-through over recorded events. This baseline does not claim that construction streams live while ToolRouter is still running.",
+          "agentIntent": "Replay the persisted construction trace in order with a scrubber, step controls, and speed control without claiming live streaming that is not available.",
+          "expectedBehavior": "After graph processing completes, the owner replays the exact persisted graph-construction trace event by event over the same complete graph. Corpus supports previous, next, pause, resume, scrub, and explicit playback speed; it highlights the active operation and cumulative node and edge counts. This baseline does not claim that construction streams live while ToolRouter is still running.",
           "messages": [
             {
               "id": "api-replay-graph-owner",
@@ -8572,7 +8736,7 @@
               "input": "Show me how this graph was built.",
               "referenceResponse": "I will replay the recorded construction events in order, one node at a time.",
               "requiredCriteria": [
-                "After graph processing completes, the owner replays the persisted graph-construction trace node by node. Corpus supports pause, resume, and step-through over recorded events. This baseline does not claim that construction streams live while ToolRouter is still running.",
+                "After graph processing completes, the owner replays the exact persisted graph-construction trace event by event over the same complete graph. Corpus supports previous, next, pause, resume, scrub, and explicit playback speed; it highlights the active operation and cumulative node and edge counts. This baseline does not claim that construction streams live while ToolRouter is still running.",
                 "Uses only the authenticated owner's exact source, revision, selected entities, and observed persisted state.",
                 "Keeps waiting, blocked, failed, review-required, and completed outcomes distinct and resumable where the behavior requires it."
               ],

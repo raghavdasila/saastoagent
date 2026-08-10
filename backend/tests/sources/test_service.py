@@ -75,7 +75,7 @@ def _service(tmp_path: Path) -> tuple[SourceService, RecordingJobs]:
 
 
 @pytest.mark.asyncio
-async def test_service_persists_revision_and_enqueues_real_processing_job(
+async def test_service_accepts_revision_before_explicit_processing_job(
     tmp_path: Path,
 ) -> None:
     service, jobs = _service(tmp_path)
@@ -96,14 +96,20 @@ async def test_service_persists_revision_and_enqueues_real_processing_job(
         ),
     )
 
-    assert created.revision.state is SourceState.QUEUED
-    assert created.revision.job_id == str(jobs.job_id)
+    assert created.revision.state is SourceState.ACCEPTED
+    assert created.revision.job_id is None
     assert created.revision.description_filename == "widgets.md"
+    assert jobs.enqueued == []
+
+    queued = await service.process_source(owner_id=owner_id, source_id=created.source_id)
+
+    assert queued.revision.state is SourceState.QUEUED
+    assert queued.revision.job_id == str(jobs.job_id)
     assert jobs.enqueued[0]["payload"] == {
         "source_id": created.source_id,
         "revision_id": created.revision.revision_id,
     }
-    assert service.list_sources(owner_key=str(owner_id)) == (created,)
+    assert service.list_sources(owner_key=str(owner_id)) == (queued,)
     assert service.list_sources(
         owner_key="00000000-0000-0000-0000-000000000002"
     ) == ()
@@ -124,10 +130,11 @@ async def test_service_retries_only_the_failed_linked_job(tmp_path: Path) -> Non
             content=source_file.read_bytes(),
         ),
     )
+    queued = await service.process_source(owner_id=owner_id, source_id=created.source_id)
     service.repository.mark_failed(
         owner_key=str(owner_id),
         source_id=created.source_id,
-        revision_id=created.revision.revision_id,
+        revision_id=queued.revision.revision_id,
         failure_code="source_processing_failed",
         failure_message="ToolRouter rejected the definition.",
     )

@@ -95,7 +95,7 @@ async def main() -> None:
 
             await hub.get_by_role("button", name="Prepare contract revision", exact=True).click()
             proposal_panel = _proposal_panel(page)
-            await proposal_panel.get_by_role("heading", name="API contract revision proposal", exact=True).wait_for(timeout=90_000)
+            await proposal_panel.get_by_role("heading", name="Proposed API version update", exact=True).wait_for(timeout=90_000)
             await proposal_panel.get_by_text("Shared-schema impact: 2", exact=True).wait_for()
             await proposal_panel.get_by_text("6435eb6c5861391b", exact=True).wait_for()
             await proposal_panel.get_by_text(EXPECTED_PARENT, exact=True).wait_for()
@@ -109,11 +109,11 @@ async def main() -> None:
                 page,
                 proposal_panel,
                 proposal_panel.get_by_role(
-                    "heading", name="API contract revision proposal", exact=True
+                    "heading", name="Proposed API version update", exact=True
                 ),
                 {
                     "heading": proposal_panel.get_by_role(
-                        "heading", name="API contract revision proposal", exact=True
+                        "heading", name="Proposed API version update", exact=True
                     ),
                     "impact": proposal_panel.get_by_text(
                         "Shared-schema impact: 2", exact=True
@@ -125,7 +125,7 @@ async def main() -> None:
                 "02-proposal-top-desktop",
             )
             proposal_review_button = proposal_panel.get_by_role(
-                "button", name="Review this revision", exact=True
+                "button", name="Review this API update", exact=True
             )
             proposal_bottom_bounds = await _capture_desktop_viewport(
                 page,
@@ -150,9 +150,9 @@ async def main() -> None:
                 "desktopBottomBounds": proposal_bottom_bounds,
             })
 
-            await proposal_panel.get_by_role("button", name="Review this revision", exact=True).click()
+            await proposal_panel.get_by_role("button", name="Review this API update", exact=True).click()
             review_surface = _review_surface(page)
-            review_heading = review_surface.get_by_role("heading", name="Create this immutable API contract revision?", exact=True)
+            review_heading = review_surface.get_by_role("heading", name="Create this immutable API version?", exact=True)
             await review_heading.wait_for(timeout=30_000)
             await page.reload()
             await review_heading.wait_for(timeout=30_000)
@@ -218,7 +218,7 @@ async def main() -> None:
             })
 
             await page.set_viewport_size({"width": 1440, "height": 1000})
-            await proposal_panel.get_by_role("button", name="Review this revision", exact=True).click()
+            await proposal_panel.get_by_role("button", name="Review this API update", exact=True).click()
             await review_heading.wait_for(timeout=30_000)
             await review_surface.get_by_role("button", name="Accept and create new revision", exact=True).click()
             await hub.get_by_text("Reviewed contract revision", exact=True).wait_for(timeout=60_000)

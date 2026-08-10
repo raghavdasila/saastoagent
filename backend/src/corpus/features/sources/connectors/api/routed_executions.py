@@ -284,7 +284,7 @@ class ApiRoutedExecutionService:
                 document = json.loads(content)
             except (OSError, json.JSONDecodeError) as error:
                 raise ApiRoutedExecutionError(
-                    "The approved API contract document is unavailable."
+                    "The approved API definition is unavailable."
                 ) from error
             if (
                 hashlib.sha256(content).hexdigest() != source.revision.content_sha256
@@ -293,7 +293,7 @@ class ApiRoutedExecutionService:
                 or record.document_sha256 != MEDUSA_EFFECTIVE_CONTRACT_HASH
             ):
                 raise ApiRoutedExecutionConflict(
-                    "The selected API contract no longer matches its approved identity."
+                    "The selected API version no longer matches its approved identity."
                 )
             path, query, header, cookie = _execution_inputs(
                 record=record,

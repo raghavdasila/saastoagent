@@ -217,15 +217,17 @@ class _AgentToolHandler:
         self.captured[context.request_id] = result
         delivery = _delivery_phase(result)
         if result.status == "succeeded":
-            return OperationOutcome(
-                outcome="observed",
-                delivery_phase=delivery,
-                observation=FrozenJsonObject({
+            observation = FrozenJsonObject({
                     "operation_id": result.operation_id,
                     "status": result.status,
                     "http_status": result.http_status,
                     "outcome_verified": result.outcome_verified,
-                }),
+                })
+            return OperationOutcome(
+                outcome="observed",
+                delivery_phase=delivery,
+                observation=observation,
+                public_observation=observation,
             )
         unknown = result.status == "outcome_unknown"
         return OperationOutcome(

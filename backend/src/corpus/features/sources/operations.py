@@ -54,6 +54,11 @@ from .connectors.api.routed_executions import (
     ApiRoutedExecutionService,
 )
 from .connectors.api.route_plans import ApiRoutePlanConflict
+from .connectors.api.staged_attachments import (
+    ApiStagedAttachmentError,
+    ApiStagedAttachmentService,
+    ApiStagedAttachmentUnavailable,
+)
 from .connectors.api.contract_revisions import (
     ApiContractRevisionConflict,
     ApiContractRevisionError,
@@ -62,6 +67,7 @@ from .connectors.api.contract_revisions import (
 )
 from .declarations import (
     API_CONNECTION_FORM_ID,
+    ACCEPT_STAGED_API,
     INSPECT_CURRENT_API,
     RETRY_PROCESSING,
     SAVE_API_CONNECTION,
@@ -70,6 +76,9 @@ from .declarations import (
     APPROVE_CONTRACT_REVISION,
     PROPOSE_CONTRACT_REVISION,
     PREPARE_ROUTED_API_TEST,
+    PROCESS_API,
+    OPEN_API_CREATION,
+    OPEN_API_SOURCE,
     TEST_API_CONNECTION,
     TEST_ROUTED_API_READ,
     TEST_ROUTED_API_WRITE,
@@ -80,6 +89,8 @@ from .schemas import (
     ApproveContractRevisionArguments,
     GraphStageArguments,
     ProposeContractRevisionArguments,
+    ProcessApiSourceArguments,
+    OpenApiSourceArguments,
     RetrySourceArguments,
     SaveApiOperationCurationArguments,
     TestApiConnectionArguments,
@@ -100,6 +111,66 @@ class SourcesNavigationHandler:
         return _success("opened")
 
 
+class OpenApiCreationHandler:
+    async def __call__(self, arguments, context) -> OperationOutcome:
+        del context
+        if arguments:
+            raise ValueError(f"{OPEN_API_CREATION.id} accepts no arguments")
+        return _success(
+            "opened",
+            effects=SessionEffects(
+                surface_updates=(
+                    PublicSurfaceEffect(
+                        surface_id="sources.api",
+                        values=(
+                            PublicValue(name="form_handle", value=FrozenJson(API_CONNECTION_FORM_ID)),
+                            PublicValue(name="mode", value=FrozenJson("create")),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class OpenApiSourceHandler:
+    service: SourceService
+    owner_scope: SourceOwnerScopeGateway
+
+    async def __call__(self, arguments, context) -> OperationOutcome:
+        try:
+            payload = OpenApiSourceArguments.model_validate(dict(arguments))
+            owner_id = await self.owner_scope.organization_id_for_route(context.session_id)
+            source = await asyncio.to_thread(
+                self.service.get_source,
+                owner_key=str(owner_id),
+                source_id=payload.source_id,
+                revision_id=payload.source_revision_id,
+            )
+        except (ValidationError, ValueError) as error:
+            return _failure(context, OPEN_API_SOURCE.id, "invalid_api_source_selection", str(error), FailureKind.CONTRACT)
+        except (SourceNotFound, SourceRepositoryError):
+            return _failure(context, OPEN_API_SOURCE.id, "api_source_unavailable", "The selected API Source is unavailable.", FailureKind.BUSINESS)
+        except SourceOwnerScopeUnavailable as error:
+            return _failure(context, OPEN_API_SOURCE.id, "authentication_required", str(error), FailureKind.STATE_CONFLICT)
+        return _success(
+            "opened",
+            effects=SessionEffects(
+                surface_updates=(
+                    PublicSurfaceEffect(
+                        surface_id="sources.api",
+                        values=(
+                            PublicValue(name="form_handle", value=FrozenJson(API_CONNECTION_FORM_ID)),
+                            PublicValue(name="mode", value=FrozenJson("inspect")),
+                            PublicValue(name="selected_source_id", value=FrozenJson(source.source_id)),
+                            PublicValue(name="selected_source_revision_id", value=FrozenJson(source.revision.revision_id)),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+
 class OpenApiRoutePlanHandler:
     async def __call__(self, arguments, context) -> OperationOutcome:
         del context
@@ -116,6 +187,156 @@ class OpenApiRoutePlanHandler:
                 ),
             ),
         )
+
+
+@dataclass(frozen=True)
+class AcceptStagedApiHandler:
+    staged: ApiStagedAttachmentService
+    owner_scope: SourceOwnerScopeGateway
+
+    async def __call__(
+        self, arguments: Mapping[str, Any], context: ExecutionContext
+    ) -> OperationOutcome:
+        if arguments:
+            return _failure(
+                context,
+                ACCEPT_STAGED_API.id,
+                "invalid_staged_api_acceptance",
+                "Adding the attached API definition does not accept user-supplied identities.",
+                FailureKind.CONTRACT,
+            )
+        try:
+            owner_id = await self.owner_scope.organization_id_for_route(context.session_id)
+            source = await asyncio.to_thread(
+                self.staged.accept_current,
+                owner_key=str(owner_id),
+                route_session_id=context.session_id,
+            )
+        except SourceOwnerScopeUnavailable as error:
+            return _failure(
+                context,
+                ACCEPT_STAGED_API.id,
+                "authentication_required",
+                str(error),
+                FailureKind.STATE_CONFLICT,
+            )
+        except ApiStagedAttachmentUnavailable as error:
+            return _failure(
+                context,
+                ACCEPT_STAGED_API.id,
+                "staged_api_definition_unavailable",
+                str(error),
+                FailureKind.STATE_CONFLICT,
+            )
+        except (ApiStagedAttachmentError, SourceRepositoryError):
+            return _failure(
+                context,
+                ACCEPT_STAGED_API.id,
+                "staged_api_acceptance_failed",
+                "The attached API definition could not be added.",
+                FailureKind.PERSISTENCE,
+            )
+        observation = {
+            "source_id": source.source_id,
+            "source_revision_id": source.revision.revision_id,
+            "display_name": source.display_name,
+            "state": "accepted",
+        }
+        return _success(
+            "accepted",
+            observation=observation,
+            effects=SessionEffects(
+                surface_updates=(
+                    PublicSurfaceEffect(
+                        surface_id="sources.api",
+                        values=(
+                            PublicValue(
+                                name="form_handle",
+                                value=FrozenJson(API_CONNECTION_FORM_ID),
+                            ),
+                            PublicValue(name="mode", value=FrozenJson("inspect")),
+                            PublicValue(name="selected_source_id", value=FrozenJson(source.source_id)),
+                            PublicValue(
+                                name="selected_source_revision_id",
+                                value=FrozenJson(source.revision.revision_id),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class ProcessApiHandler:
+    service: SourceService
+    staged: ApiStagedAttachmentService
+    owner_scope: SourceOwnerScopeGateway
+
+    async def __call__(
+        self, arguments: Mapping[str, Any], context: ExecutionContext
+    ) -> OperationOutcome:
+        try:
+            payload = ProcessApiSourceArguments.model_validate(dict(arguments))
+            owner_id = await self.owner_scope.organization_id_for_route(context.session_id)
+            source_id = payload.source_id
+            if source_id is None:
+                source_id, _ = await asyncio.to_thread(
+                    self.staged.accepted_source,
+                    owner_key=str(owner_id),
+                    route_session_id=context.session_id,
+                )
+            source = await self.service.process_source(
+                owner_id=owner_id,
+                source_id=source_id,
+            )
+        except (ValidationError, ValueError) as error:
+            return _failure(
+                context,
+                PROCESS_API.id,
+                "invalid_api_analysis_selection",
+                str(error),
+                FailureKind.CONTRACT,
+            )
+        except SourceOwnerScopeUnavailable as error:
+            return _failure(
+                context,
+                PROCESS_API.id,
+                "authentication_required",
+                str(error),
+                FailureKind.STATE_CONFLICT,
+            )
+        except (ApiStagedAttachmentUnavailable, SourceNotReady) as error:
+            return _failure(
+                context,
+                PROCESS_API.id,
+                "api_analysis_not_ready",
+                str(error),
+                FailureKind.STATE_CONFLICT,
+            )
+        except SourceNotFound as error:
+            return _failure(
+                context,
+                PROCESS_API.id,
+                "api_source_unavailable",
+                str(error),
+                FailureKind.BUSINESS,
+            )
+        except (ApiStagedAttachmentError, SourceRepositoryError):
+            return _failure(
+                context,
+                PROCESS_API.id,
+                "api_analysis_queue_failed",
+                "API analysis could not be queued.",
+                FailureKind.PERSISTENCE,
+            )
+        observation = {
+            "source_id": source.source_id,
+            "source_revision_id": source.revision.revision_id,
+            "display_name": source.display_name,
+            "state": "queued",
+        }
+        return _success("queued", observation=observation)
 
 
 @dataclass(frozen=True)
@@ -184,10 +405,7 @@ class InspectCurrentApiHandler:
                 "The current API architecture could not be inspected.",
                 FailureKind.PERSISTENCE,
             )
-        return OperationOutcome(
-            outcome="inspected",
-            delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
-            observation=FrozenJsonObject({
+        observation = FrozenJsonObject({
                 "source_id": source.source_id,
                 "source_revision_id": source.revision.revision_id,
                 "revision_kind": str(
@@ -216,7 +434,12 @@ class InspectCurrentApiHandler:
                     if curation.current is None
                     else list(curation.current.included_operation_ids)
                 ),
-            }),
+            })
+        return OperationOutcome(
+            outcome="inspected",
+            delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
+            observation=observation,
+            public_observation=observation,
         )
 
 
@@ -805,7 +1028,7 @@ class ProposeContractRevisionHandler:
                 context,
                 PROPOSE_CONTRACT_REVISION.id,
                 "contract_revision_proposal_unavailable",
-                "The reviewed contract proposal could not be prepared.",
+                "The reviewed API update could not be prepared.",
                 FailureKind.PERSISTENCE,
             )
         proposal_ref = proposal_public_ref(proposal.proposal_id)
@@ -925,7 +1148,7 @@ class ApproveContractRevisionHandler:
                 context,
                 APPROVE_CONTRACT_REVISION.id,
                 "contract_revision_approval_unavailable",
-                "The reviewed contract revision could not be created.",
+                "The reviewed API version could not be created.",
                 FailureKind.PERSISTENCE,
             )
         return _success(
@@ -957,6 +1180,7 @@ def _success(
         delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
         effects=effects or SessionEffects(),
         observation=FrozenJsonObject(observation or {}),
+        public_observation=FrozenJsonObject(observation or {}),
     )
 
 
@@ -979,10 +1203,12 @@ def _failure(context, operation_id, code, message, kind) -> OperationOutcome:
 
 
 __all__ = [
+    "AcceptStagedApiHandler",
     "ApproveContractRevisionHandler",
     "GraphStageSelectionHandler",
     "InspectCurrentApiHandler",
     "OpenApiRoutePlanHandler",
+    "ProcessApiHandler",
     "RoutedApiExecutionHandler",
     "ProposeContractRevisionHandler",
     "RetrySourceProcessingHandler",

@@ -145,6 +145,18 @@ async def test_sql_routedeck_saves_exact_curation_and_guard_blocks_stale_invento
             )
         )
         assert opened.disposition is OperationDisposition.COMPLETED
+        hub = await runtime.services.store.load(session_id)
+        api_opened = await runtime.services.runner.run(
+            OperationRequest(
+                session_id=session_id,
+                request_id="open-api-source-workflow",
+                expected_session_version=hub.session_version,
+                operation_id="sources.open_api_creation",
+                source=OperationSource.SURFACE,
+                arguments=FrozenJsonObject({}),
+            )
+        )
+        assert api_opened.disposition is OperationDisposition.COMPLETED
         selected = await runtime.services.store.load(session_id)
         inspected = await runtime.services.runner.run(
             OperationRequest(

@@ -40,6 +40,10 @@ from corpus.features.sources.connectors.api.routed_executions import (
     ApiRoutedExecutionRepository,
     ApiRoutedExecutionService,
 )
+from corpus.features.sources.connectors.api.staged_attachments import (
+    ApiStagedAttachmentRepository,
+    ApiStagedAttachmentService,
+)
 from corpus.features.sources.connectors.api.toolrouter import (
     ToolRouterApiSourceEngine,
 )
@@ -68,6 +72,7 @@ class SourceRuntime:
     routed_execution_service: ApiRoutedExecutionService
     api_engine: ToolRouterApiSourceEngine
     routed_execution_adapter: RoutedApiExecutionAdapter
+    staged_attachment_service: ApiStagedAttachmentService
 
 
 def create_source_runtime(
@@ -81,12 +86,11 @@ def create_source_runtime(
     """Compose the concrete launch connector behind the generic Sources service."""
     api_engine = ToolRouterApiSourceEngine(ToolRouterAdapter(toolrouter_settings))
     repository = LocalSourceRepository(source_settings.data_root)
-    connectors = (
-        ApiSourceConnector(
-            api_engine,
-            max_upload_bytes=api_settings.max_upload_bytes,
-        ),
+    api_connector = ApiSourceConnector(
+        api_engine,
+        max_upload_bytes=api_settings.max_upload_bytes,
     )
+    connectors = (api_connector,)
     processor = SourceJobProcessor(
         repository,
         SqlAlchemyDurableJobRepository(database),
@@ -112,6 +116,11 @@ def create_source_runtime(
     routed_execution_adapter = RoutedApiExecutionAdapter(
         credentials=infrastructure.credentials,
         allowed_base_urls=api_settings.safe_check_allowed_base_urls,
+    )
+    staged_attachments = ApiStagedAttachmentService(
+        repository=ApiStagedAttachmentRepository(source_settings.data_root),
+        sources=repository,
+        connector=api_connector,
     )
     return SourceRuntime(
         service=SourceService(
@@ -147,6 +156,7 @@ def create_source_runtime(
         ),
         api_engine=api_engine,
         routed_execution_adapter=routed_execution_adapter,
+        staged_attachment_service=staged_attachments,
     )
 
 
@@ -164,6 +174,7 @@ def create_source_routers(
     operation_curation_service: ApiOperationCurationService,
     route_plan_service: ApiRoutePlanService,
     routed_execution_service: ApiRoutedExecutionService,
+    staged_attachment_service: ApiStagedAttachmentService,
 ) -> tuple[APIRouter, ...]:
     """Compose generic Source transport with connector-owned API upload transport."""
     return (
@@ -186,6 +197,7 @@ def create_source_routers(
             operation_curation_service=operation_curation_service,
             route_plan_service=route_plan_service,
             routed_execution_service=routed_execution_service,
+            staged_attachment_service=staged_attachment_service,
         ),
     )
 

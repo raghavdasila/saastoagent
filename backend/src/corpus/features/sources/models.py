@@ -13,6 +13,7 @@ def utc_now() -> datetime:
 
 
 class SourceState(str, Enum):
+    ACCEPTED = "accepted"
     QUEUED = "queued"
     RUNNING = "running"
     READY = "ready"

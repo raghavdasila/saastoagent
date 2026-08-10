@@ -86,7 +86,8 @@ def test_source_actions_are_scoped_to_the_source_hub_surface() -> None:
         / "SourceHubSurface.tsx"
     ).read_text(encoding="utf-8")
     assert 'section.sources-debug[aria-labelledby="source-hub-title"]' in text
-    assert 'className="sources-debug" aria-labelledby="source-hub-title"' in source_surface
+    assert 'className="sources-debug source-hub" aria-labelledby="source-hub-title"' in source_surface
+    assert 'className="sources-debug api-source-workspace" aria-labelledby="source-hub-title"' in source_surface
     assert 'hub.get_by_role("button", name="Add API source", exact=True)' in text
     assert 'page.get_by_role("button", name="Add API source", exact=True)' not in text
     assert 'hub.get_by_role("button", name="Prepare contract revision", exact=True)' in text
@@ -119,7 +120,7 @@ def test_desktop_proposal_and_review_capture_key_surface_content_in_viewport() -
     assert '"04-review-reloaded-desktop"' in text
     assert 'await page.screenshot(path=path, full_page=False)' in text
     assert 'if not all(_inside_viewport(value, width, height) for value in bounds.values())' in text
-    for label in ("API contract revision proposal", "Review this revision"):
+    for label in ("Proposed API version update", "Review this API update"):
         assert label in proposal_surface
         assert label in text
     assert "Shared-schema impact:" in proposal_surface
@@ -128,7 +129,7 @@ def test_desktop_proposal_and_review_capture_key_surface_content_in_viewport() -
     assert "3f4de4aa354d0324" in text
     assert 'proposal_review_button,' in text
     for label in (
-        "Create this immutable API contract revision?",
+        "Create this immutable API version?",
         "Accept and create new revision",
         "Keep current revision unchanged",
     ):

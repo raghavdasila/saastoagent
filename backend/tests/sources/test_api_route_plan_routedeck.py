@@ -100,6 +100,18 @@ async def test_sql_routedeck_opens_nonexecuting_planner_from_agent_and_surface(
             )
         )
         assert opened.disposition is OperationDisposition.COMPLETED
+        hub = await runtime.services.store.load(session_id)
+        api_opened = await runtime.services.runner.run(
+            OperationRequest(
+                session_id=session_id,
+                request_id="open-api-source-workflow",
+                expected_session_version=hub.session_version,
+                operation_id="sources.open_api_creation",
+                source=OperationSource.SURFACE,
+                arguments=FrozenJsonObject({}),
+            )
+        )
+        assert api_opened.disposition is OperationDisposition.COMPLETED
         selected = await runtime.services.store.load(session_id)
         planned = await runtime.services.runner.run(
             OperationRequest(

@@ -27,6 +27,7 @@ class ApiGraphNodeView(BaseModel):
 class ApiGraphEdgeView(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    id: str
     source: str
     target: str
     type: str
@@ -51,6 +52,19 @@ class ApiGraphPlaybackStageView(BaseModel):
     warning_codes: tuple[str, ...]
 
 
+class ApiGraphTraceFrameView(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    index: int
+    event_type: str
+    active_endpoint_id: str | None = None
+    added_node_ids: tuple[str, ...]
+    updated_node_ids: tuple[str, ...]
+    added_edge_ids: tuple[str, ...]
+    cumulative_nodes: int
+    cumulative_edges: int
+
+
 class ApiGraphView(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -64,6 +78,7 @@ class ApiGraphView(BaseModel):
     edges: tuple[ApiGraphEdgeView, ...]
     semantic_groups: tuple[ApiSemanticGroupView, ...]
     playback: tuple[ApiGraphPlaybackStageView, ...]
+    trace: tuple[ApiGraphTraceFrameView, ...]
 
     def operation_ids_for_group(
         self,
@@ -153,6 +168,7 @@ class ApiGraphPresenter:
             edges=edges,
             semantic_groups=_semantic_groups(nodes, edges),
             playback=_playback(metadata),
+            trace=_trace(artifact_dir / "graph" / "graph_trace.jsonl", nodes, edges),
         )
 
     def inspect_stage(
@@ -229,10 +245,17 @@ def _edge(value: dict[str, Any]) -> ApiGraphEdgeView:
     confidence = value.get("confidence")
     if not isinstance(confidence, (int, float)) or isinstance(confidence, bool):
         raise SourceArtifactError("The graph edge confidence artifact is invalid.")
+    source = _required_string(value.get("source"), "graph edge source")
+    target = _required_string(value.get("target"), "graph edge target")
+    edge_type = _required_string(value.get("type"), "graph edge type")
+    edge_id = value.get("id")
+    if edge_id is None:
+        edge_id = f"{source}|{edge_type}|{target}"
     return ApiGraphEdgeView(
-        source=_required_string(value.get("source"), "graph edge source"),
-        target=_required_string(value.get("target"), "graph edge target"),
-        type=_required_string(value.get("type"), "graph edge type"),
+        id=_required_string(edge_id, "graph edge ID"),
+        source=source,
+        target=target,
+        type=edge_type,
         status=_required_string(value.get("status"), "graph edge status"),
         confidence=float(confidence),
     )
@@ -297,6 +320,73 @@ def _playback(metadata: dict[str, Any]) -> tuple[ApiGraphPlaybackStageView, ...]
             )
         )
     return tuple(output)
+
+
+def _trace(
+    path: Path,
+    nodes: tuple[ApiGraphNodeView, ...],
+    edges: tuple[ApiGraphEdgeView, ...],
+) -> tuple[ApiGraphTraceFrameView, ...]:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError) as error:
+        raise SourceArtifactError("The graph construction trace is unavailable.") from error
+    if not lines or len(lines) > 50_000:
+        raise SourceArtifactError("The graph construction trace is invalid.")
+    node_ids = {node.id for node in nodes}
+    edge_ids = {edge.id for edge in edges}
+    output: list[ApiGraphTraceFrameView] = []
+    for index, line in enumerate(lines):
+        try:
+            event = _object(json.loads(line), "graph construction trace event")
+        except json.JSONDecodeError as error:
+            raise SourceArtifactError("The graph construction trace is invalid.") from error
+        added_node_ids = _trace_ids(event.get("added_nodes", []), "node", "id")
+        updated_node_ids = _trace_ids(
+            event.get("updated_nodes", []),
+            "updated node",
+            "node_id",
+        )
+        added_edge_ids = _trace_ids(event.get("added_edges", []), "edge", "id")
+        if not set((*added_node_ids, *updated_node_ids)).issubset(node_ids):
+            raise SourceArtifactError("The graph construction trace references an unavailable node.")
+        if not set(added_edge_ids).issubset(edge_ids):
+            raise SourceArtifactError("The graph construction trace references an unavailable edge.")
+        cumulative = _object(event.get("cumulative"), "graph construction trace cumulative counts")
+        cumulative_nodes = cumulative.get("nodes")
+        event_type = _required_string(
+            event.get("type"),
+            "graph construction event type",
+        )
+        cumulative_edges = cumulative.get(
+            "edges" if event_type in {"cards_complete", "conformance_complete"} else "unique_edges"
+        )
+        if not isinstance(cumulative_nodes, int) or cumulative_nodes < 0:
+            raise SourceArtifactError("The graph construction trace node count is invalid.")
+        if not isinstance(cumulative_edges, int) or cumulative_edges < 0:
+            raise SourceArtifactError("The graph construction trace edge count is invalid.")
+        output.append(ApiGraphTraceFrameView(
+            index=index,
+            event_type=event_type,
+            active_endpoint_id=_optional_string(event.get("active_endpoint_id"), "active endpoint ID"),
+            added_node_ids=added_node_ids,
+            updated_node_ids=updated_node_ids,
+            added_edge_ids=added_edge_ids,
+            cumulative_nodes=cumulative_nodes,
+            cumulative_edges=cumulative_edges,
+        ))
+    return tuple(output)
+
+
+def _trace_ids(value: Any, label: str, id_field: str) -> tuple[str, ...]:
+    items = _list_of_objects(value, f"graph construction {label}s")
+    return tuple(
+        _required_string(
+            item.get(id_field),
+            f"graph construction {label} ID",
+        )
+        for item in items
+    )
 
 
 __all__ = ["ApiGraphPresenter", "ApiGraphView"]

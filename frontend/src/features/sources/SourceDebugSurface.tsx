@@ -86,9 +86,14 @@ export function SourceDebugSurface({
     setBusy("upload");
     setError(null);
     try {
-      const created = await sourceClient.uploadApi(sourceName.trim(), sourceFile, null);
-      setSources((current) => [...current, created]);
-      setSelectedId(created.source_id);
+      await sourceClient.stageApiDefinition(sourceName.trim(), sourceFile, null);
+      const result = await dispatchAffordance("accept_staged_api", {});
+      if (!completed(result, "accepted")) {
+        throw new Error("The API definition could not be added.");
+      }
+      const loaded = await sourceClient.list();
+      setSources(loaded);
+      setSelectedId(loaded.at(-1)?.source_id ?? null);
       setSourceName("");
       setSourceFile(null);
       setFileInputKey((current) => current + 1);
@@ -344,6 +349,12 @@ export function SourceDebugSurface({
       </div>
     </section>
   );
+}
+
+function completed(value: unknown, outcome: string): boolean {
+  if (value === null || typeof value !== "object") return false;
+  const result = value as { outcome?: unknown; disposition?: unknown };
+  return result.outcome === outcome || result.disposition === "completed";
 }
 
 

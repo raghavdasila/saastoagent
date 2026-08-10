@@ -176,7 +176,7 @@ class ApiConnectionCheckService:
             or summary.get("approved_by_owner_id") != owner_key
         ):
             raise ApiConnectionCheckConflict(
-                "The selected Source revision is not the approved executable API contract."
+                "The selected Source version is not the approved executable API version."
             )
         profile = self.profiles.get_exact(
             owner_key=owner_key,
@@ -211,7 +211,7 @@ class ApiConnectionCheckService:
                 document = json.loads(content)
             except (OSError, json.JSONDecodeError) as error:
                 raise ApiConnectionCheckError(
-                    "The approved API contract document is unavailable."
+                    "The approved API definition is unavailable."
                 ) from error
         if (
             hashlib.sha256(content).hexdigest() != source.revision.content_sha256
@@ -219,7 +219,7 @@ class ApiConnectionCheckService:
             or openapi_document_hash(document) != MEDUSA_EFFECTIVE_CONTRACT_HASH
         ):
             raise ApiConnectionCheckConflict(
-                "The selected API contract no longer matches its approved identity."
+                "The selected API version no longer matches its approved identity."
             )
         method, path_template = operation
         return PreparedApiConnectionCheck(

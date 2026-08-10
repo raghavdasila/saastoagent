@@ -20,6 +20,8 @@ from .schemas import (
     ApproveContractRevisionArguments,
     GraphStageArguments,
     ProposeContractRevisionArguments,
+    ProcessApiSourceArguments,
+    OpenApiSourceArguments,
     RetrySourceArguments,
     SaveApiOperationCurationArguments,
     TestApiConnectionArguments,
@@ -54,6 +56,7 @@ def operation(
         allowed_sources=sources,
         outcomes=(outcome,),
         outcome_schemas=FrozenJsonObject({outcome: outcome_schema}),
+        public_outcome_schemas=FrozenJsonObject({outcome: outcome_schema}),
         provider_refs=(OWNER_CONTEXT_PROVIDER.ref,),
         entity_inputs=entity_inputs,
         review_policy=review_policy,
@@ -67,12 +70,12 @@ def operation(
 CONTRACT_REVISION_PROPOSAL_PROVIDER = EntityProvider(
     id="sources.contract_revision_proposal",
     entity_kind="contract_revision_proposal",
-    description="The exact owner-scoped persisted API contract proposal retained in this session.",
+    description="The exact owner-scoped persisted API update proposal retained in this session.",
     output_schema=FrozenJsonObject(EMPTY_OBJECT_SCHEMA),
 )
 CONTRACT_REVISION_CURRENT_GUARD = Guard(
     id="sources.contract_revision_current",
-    description="Requires the reviewed contract proposal and exact parent Source revision to remain current at acceptance time.",
+    description="Requires the reviewed API update and exact parent Source version to remain current at acceptance time.",
 )
 API_CONNECTION_CHECK_CURRENT_GUARD = Guard(
     id="sources.api_connection_check_current",
@@ -102,8 +105,69 @@ RETURN_TO_HOME = operation(
 OPEN_API_CREATION = operation(
     "sources.open_api_creation",
     "Open API source creation",
-    "Open the API source intake within the current Workspace.",
+    (
+        "Open API Source for a new definition in the current Workspace. If the owner's current "
+        "request has already authorized creating and analyzing an attached definition, continue "
+        "that same request there instead of asking for the file again."
+    ),
     "opened",
+)
+OPEN_API_SOURCE = operation(
+    "sources.open_api_source",
+    "Open API source",
+    "Open one exact owner-scoped API Source version from Source Hub without changing it.",
+    "opened",
+    input_schema=OpenApiSourceArguments.model_json_schema(),
+)
+RETURN_TO_SOURCE_HUB = operation(
+    "sources.return_to_source_hub",
+    "Return to Source Hub",
+    "Return from API Source to the owner Source inventory without changing either record.",
+    "opened",
+)
+ACCEPT_STAGED_API = operation(
+    "sources.accept_staged_api",
+    "Add attached API definition",
+    (
+        "Create one accepted API Source version from the exact file staged in the "
+        "current authenticated conversation. This does not start analysis or attach it to an Agent."
+    ),
+    "accepted",
+    safety_class=SafetyClass.DRAFT,
+    outcome_schema={
+        "type": "object",
+        "properties": {
+            "source_id": {"type": "string", "minLength": 16, "maxLength": 16},
+            "source_revision_id": {"type": "string", "minLength": 16, "maxLength": 16},
+            "display_name": {"type": "string", "minLength": 1},
+            "state": {"type": "string", "const": "accepted"},
+        },
+        "required": ["source_id", "source_revision_id", "display_name", "state"],
+        "additionalProperties": False,
+    },
+)
+PROCESS_API = operation(
+    "sources.process_api",
+    "Analyze API operations",
+    (
+        "Explicitly queue ToolRouter analysis for one accepted API version. "
+        "With no Source identity, use the exact API definition added from this conversation."
+    ),
+    "queued",
+    input_schema=ProcessApiSourceArguments.model_json_schema(),
+    safety_class=SafetyClass.DRAFT,
+    policy_refs=(policies.PROCESSING_TRUTH.ref,),
+    outcome_schema={
+        "type": "object",
+        "properties": {
+            "source_id": {"type": "string", "minLength": 16, "maxLength": 16},
+            "source_revision_id": {"type": "string", "minLength": 16, "maxLength": 16},
+            "display_name": {"type": "string", "minLength": 1},
+            "state": {"type": "string", "const": "queued"},
+        },
+        "required": ["source_id", "source_revision_id", "display_name", "state"],
+        "additionalProperties": False,
+    },
 )
 RETRY_PROCESSING = operation(
     "sources.retry_processing",
@@ -175,7 +239,7 @@ INSPECT_CURRENT_API = operation(
 SAVE_API_CONNECTION = operation(
     "sources.save_api_connection",
     "Save API connection",
-    "Persist one revision-bound API connection profile from the protected surface.",
+    "Persist one API-version-specific connection profile from the protected surface.",
     "saved",
     safety_class=SafetyClass.CREDENTIAL,
     sources=frozenset({OperationSource.SURFACE}),
@@ -183,7 +247,7 @@ SAVE_API_CONNECTION = operation(
 TEST_API_CONNECTION = operation(
     "sources.test_api_connection",
     "Test API connection",
-    "Run one explicitly selected safe read through the exact approved API contract and saved profile.",
+    "Run one explicitly selected safe read through the exact approved API version and saved profile.",
     "checked",
     input_schema=TestApiConnectionArguments.model_json_schema(),
     safety_class=SafetyClass.READ_EXTERNAL,
@@ -248,9 +312,9 @@ TEST_ROUTED_API_WRITE = operation(
 )
 PROPOSE_CONTRACT_REVISION = operation(
     "sources.propose_contract_revision",
-    "Prepare API contract revision proposal",
+    "Prepare API version update",
     (
-        "Validate and persist the exact local Medusa contract proposal without calling the API. "
+        "Validate and persist the exact local Medusa compatibility update without calling the API. "
         "This prepares evidence only; it does not stage the required owner review."
     ),
     "proposed",
@@ -274,10 +338,10 @@ PROPOSE_CONTRACT_REVISION = operation(
 )
 APPROVE_CONTRACT_REVISION = operation(
     "sources.approve_contract_revision",
-    "Review API contract revision",
+    "Review API version update",
     (
-        "Stage the durable owner review for creating one immutable API Source revision. "
-        "Staging is not approval; only a later explicit acceptance creates the revision."
+        "Stage the durable owner review for creating one immutable API version. "
+        "Staging is not approval; only a later explicit acceptance creates the version."
     ),
     "approved",
     input_schema=ApproveContractRevisionArguments.model_json_schema(),
@@ -295,13 +359,17 @@ APPROVE_CONTRACT_REVISION = operation(
 )
 
 SOURCES_HOME_REF = NodeRef(id="sources.home")
+SOURCES_API_REF = NodeRef(id="sources.api")
 __all__ = [
+    "ACCEPT_STAGED_API",
     "APPROVE_CONTRACT_REVISION",
     "CONTRACT_REVISION_CURRENT_GUARD",
     "CONTRACT_REVISION_PROPOSAL_PROVIDER",
     "INSPECT_CURRENT_API",
     "OPEN_API_CREATION",
+    "OPEN_API_SOURCE",
     "PREPARE_ROUTED_API_TEST",
+    "PROCESS_API",
     "TEST_ROUTED_API_READ",
     "TEST_ROUTED_API_WRITE",
     "ROUTED_API_READ_CURRENT_GUARD",
@@ -312,9 +380,11 @@ __all__ = [
     "API_OPERATION_CURATION_CURRENT_GUARD",
     "RETRY_PROCESSING",
     "RETURN_TO_HOME",
+    "RETURN_TO_SOURCE_HUB",
     "SELECT_GRAPH_STAGE",
     "SAVE_API_CONNECTION",
     "SAVE_API_OPERATION_CURATION",
     "TEST_API_CONNECTION",
     "SOURCES_HOME_REF",
+    "SOURCES_API_REF",
 ]

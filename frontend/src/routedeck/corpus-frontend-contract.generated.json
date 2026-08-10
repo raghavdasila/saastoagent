@@ -439,18 +439,19 @@
       },
       "title": "Agent Sandbox"
     },
-    "sources.home": {
+    "sources.api": {
       "conversation_input": {
         "disabled_message": null,
         "enabled": true
       },
       "deep_link_policy": "session_bound",
-      "id": "sources.home",
+      "id": "sources.api",
       "operation_ids": [
-        "sources.open_api_creation",
+        "sources.accept_staged_api",
+        "sources.process_api",
         "sources.inspect_current_api",
         "sources.retry_processing",
-        "sources.return_to_home",
+        "sources.return_to_source_hub",
         "sources.select_graph_stage",
         "sources.save_api_connection",
         "sources.test_api_connection",
@@ -461,11 +462,13 @@
         "sources.propose_contract_revision",
         "sources.approve_contract_revision",
         "agents.attach_created_source",
-        "agents.return_from_source"
+        "agents.return_from_source",
+        "workspace.open_agents",
+        "agents.open_create"
       ],
-      "route_template": "/sources",
+      "route_template": "/sources/api",
       "surfaces": {
-        "active": "sources.home",
+        "active": "sources.api",
         "detail": [
           "sources.contract_revision_proposal",
           "sources.api_operation_test"
@@ -479,6 +482,34 @@
           "sources.contract_revision_review",
           "sources.routed_api_write_review"
         ],
+        "status": []
+      },
+      "title": "API Source"
+    },
+    "sources.home": {
+      "conversation_input": {
+        "disabled_message": null,
+        "enabled": true
+      },
+      "deep_link_policy": "session_bound",
+      "id": "sources.home",
+      "operation_ids": [
+        "sources.open_api_creation",
+        "sources.open_api_source",
+        "sources.return_to_home",
+        "agents.attach_created_source",
+        "agents.return_from_source"
+      ],
+      "route_template": "/sources",
+      "surfaces": {
+        "active": "sources.home",
+        "detail": [],
+        "diagnostic": [],
+        "error": [],
+        "form": [],
+        "frame": [],
+        "peer": [],
+        "review": [],
         "status": []
       },
       "title": "Sources"
@@ -1305,6 +1336,152 @@
         "type": "object"
       }
     },
+    "sources.api": {
+      "affordances": [
+        {
+          "event": "open",
+          "id": "return_to_source_hub",
+          "operation": {
+            "id": "sources.return_to_source_hub"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "propose_contract_revision",
+          "operation": {
+            "id": "sources.propose_contract_revision"
+          }
+        },
+        {
+          "event": "select",
+          "id": "select_graph_stage",
+          "operation": {
+            "id": "sources.select_graph_stage"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "save_api_connection",
+          "operation": {
+            "id": "sources.save_api_connection"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "test_api_connection",
+          "operation": {
+            "id": "sources.test_api_connection"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "save_api_operation_curation",
+          "operation": {
+            "id": "sources.save_api_operation_curation"
+          }
+        },
+        {
+          "event": "open",
+          "id": "prepare_routed_api_test",
+          "operation": {
+            "id": "sources.prepare_routed_api_test"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "accept_staged_api",
+          "operation": {
+            "id": "sources.accept_staged_api"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "process_api",
+          "operation": {
+            "id": "sources.process_api"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "retry_processing",
+          "operation": {
+            "id": "sources.retry_processing"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "attach_created_source",
+          "operation": {
+            "id": "agents.attach_created_source"
+          }
+        },
+        {
+          "event": "open",
+          "id": "return_to_agent",
+          "operation": {
+            "id": "agents.return_from_source"
+          }
+        },
+        {
+          "event": "open",
+          "id": "open_agent_inventory",
+          "operation": {
+            "id": "workspace.open_agents"
+          }
+        },
+        {
+          "event": "open",
+          "id": "open_agent_creation",
+          "operation": {
+            "id": "agents.open_create"
+          }
+        }
+      ],
+      "component": "sources.api",
+      "id": "sources.api",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_handoff_mode": {
+            "enum": [
+              "create",
+              "inspect"
+            ],
+            "type": "string"
+          },
+          "form_handle": {
+            "const": "sources-api-connection",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "create",
+              "inspect"
+            ],
+            "type": "string"
+          },
+          "return_agent_ref": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "selected_source_id": {
+            "maxLength": 16,
+            "minLength": 16,
+            "type": "string"
+          },
+          "selected_source_revision_id": {
+            "maxLength": 16,
+            "minLength": 16,
+            "type": "string"
+          }
+        },
+        "required": [
+          "form_handle"
+        ],
+        "type": "object"
+      }
+    },
     "sources.api_operation_test": {
       "affordances": [
         {
@@ -1399,48 +1576,6 @@
           }
         },
         {
-          "event": "submit",
-          "id": "propose_contract_revision",
-          "operation": {
-            "id": "sources.propose_contract_revision"
-          }
-        },
-        {
-          "event": "select",
-          "id": "select_graph_stage",
-          "operation": {
-            "id": "sources.select_graph_stage"
-          }
-        },
-        {
-          "event": "submit",
-          "id": "save_api_connection",
-          "operation": {
-            "id": "sources.save_api_connection"
-          }
-        },
-        {
-          "event": "submit",
-          "id": "test_api_connection",
-          "operation": {
-            "id": "sources.test_api_connection"
-          }
-        },
-        {
-          "event": "submit",
-          "id": "save_api_operation_curation",
-          "operation": {
-            "id": "sources.save_api_operation_curation"
-          }
-        },
-        {
-          "event": "open",
-          "id": "prepare_routed_api_test",
-          "operation": {
-            "id": "sources.prepare_routed_api_test"
-          }
-        },
-        {
           "event": "open",
           "id": "open_api_creation",
           "operation": {
@@ -1448,10 +1583,10 @@
           }
         },
         {
-          "event": "submit",
-          "id": "retry_processing",
+          "event": "open",
+          "id": "open_api_source",
           "operation": {
-            "id": "sources.retry_processing"
+            "id": "sources.open_api_source"
           }
         },
         {
@@ -1482,10 +1617,6 @@
             ],
             "type": "string"
           },
-          "form_handle": {
-            "const": "sources-api-connection",
-            "type": "string"
-          },
           "return_agent_ref": {
             "minLength": 1,
             "type": "string"
@@ -1501,9 +1632,6 @@
             "type": "string"
           }
         },
-        "required": [
-          "form_handle"
-        ],
         "type": "object"
       }
     },
@@ -1744,7 +1872,7 @@
       "operation_id": "agents.open_source_creation",
       "outcome": "opened",
       "source": "agents.home",
-      "target": "sources.home"
+      "target": "sources.api"
     },
     {
       "operation_id": "agents.attach_created_source",
@@ -1756,7 +1884,7 @@
       "operation_id": "agents.open_attached_source",
       "outcome": "opened",
       "source": "agents.home",
-      "target": "sources.home"
+      "target": "sources.api"
     },
     {
       "operation_id": "agents.archive_agent",
@@ -1810,7 +1938,7 @@
       "operation_id": "agents.open_build_source_revision",
       "outcome": "opened",
       "source": "agents.home",
-      "target": "sources.home"
+      "target": "sources.api"
     },
     {
       "operation_id": "agents.create_agent",
@@ -1948,25 +2076,13 @@
       "operation_id": "sources.open_api_creation",
       "outcome": "opened",
       "source": "sources.home",
-      "target": "sources.home"
+      "target": "sources.api"
     },
     {
-      "operation_id": "sources.inspect_current_api",
-      "outcome": "inspected",
+      "operation_id": "sources.open_api_source",
+      "outcome": "opened",
       "source": "sources.home",
-      "target": "sources.home"
-    },
-    {
-      "operation_id": "sources.propose_contract_revision",
-      "outcome": "proposed",
-      "source": "sources.home",
-      "target": "sources.home"
-    },
-    {
-      "operation_id": "sources.approve_contract_revision",
-      "outcome": "approved",
-      "source": "sources.home",
-      "target": "sources.home"
+      "target": "sources.api"
     },
     {
       "operation_id": "agents.attach_created_source",
@@ -1981,58 +2097,118 @@
       "target": "agents.home"
     },
     {
-      "operation_id": "sources.retry_processing",
-      "outcome": "queued",
-      "source": "sources.home",
-      "target": "sources.home"
-    },
-    {
       "operation_id": "sources.return_to_home",
       "outcome": "opened",
       "source": "sources.home",
       "target": "workspace.home"
     },
     {
+      "operation_id": "sources.accept_staged_api",
+      "outcome": "accepted",
+      "source": "sources.api",
+      "target": "sources.api"
+    },
+    {
+      "operation_id": "sources.process_api",
+      "outcome": "queued",
+      "source": "sources.api",
+      "target": "sources.api"
+    },
+    {
+      "operation_id": "sources.inspect_current_api",
+      "outcome": "inspected",
+      "source": "sources.api",
+      "target": "sources.api"
+    },
+    {
+      "operation_id": "sources.propose_contract_revision",
+      "outcome": "proposed",
+      "source": "sources.api",
+      "target": "sources.api"
+    },
+    {
+      "operation_id": "sources.approve_contract_revision",
+      "outcome": "approved",
+      "source": "sources.api",
+      "target": "sources.api"
+    },
+    {
+      "operation_id": "sources.retry_processing",
+      "outcome": "queued",
+      "source": "sources.api",
+      "target": "sources.api"
+    },
+    {
+      "operation_id": "sources.return_to_source_hub",
+      "outcome": "opened",
+      "source": "sources.api",
+      "target": "sources.home"
+    },
+    {
+      "operation_id": "agents.attach_created_source",
+      "outcome": "attached",
+      "source": "sources.api",
+      "target": "agents.home"
+    },
+    {
+      "operation_id": "agents.return_from_source",
+      "outcome": "opened",
+      "source": "sources.api",
+      "target": "agents.home"
+    },
+    {
+      "operation_id": "workspace.open_agents",
+      "outcome": "opened",
+      "source": "sources.api",
+      "target": "agents.home"
+    },
+    {
+      "operation_id": "agents.open_create",
+      "outcome": "opened",
+      "source": "sources.api",
+      "target": "agents.create"
+    },
+    {
       "operation_id": "sources.select_graph_stage",
       "outcome": "selected",
-      "source": "sources.home",
-      "target": "sources.home"
+      "source": "sources.api",
+      "target": "sources.api"
     },
     {
       "operation_id": "sources.save_api_connection",
       "outcome": "saved",
-      "source": "sources.home",
-      "target": "sources.home"
+      "source": "sources.api",
+      "target": "sources.api"
     },
     {
       "operation_id": "sources.test_api_connection",
       "outcome": "checked",
-      "source": "sources.home",
-      "target": "sources.home"
+      "source": "sources.api",
+      "target": "sources.api"
     },
     {
       "operation_id": "sources.save_api_operation_curation",
       "outcome": "saved",
-      "source": "sources.home",
-      "target": "sources.home"
+      "source": "sources.api",
+      "target": "sources.api"
     },
     {
       "operation_id": "sources.prepare_routed_api_test",
       "outcome": "opened",
-      "source": "sources.home",
-      "target": "sources.home"
+      "source": "sources.api",
+      "target": "sources.api"
     },
     {
       "operation_id": "sources.test_routed_api_read",
       "outcome": "observed",
-      "source": "sources.home",
-      "target": "sources.home"
+      "source": "sources.api",
+      "target": "sources.api"
     },
     {
       "operation_id": "sources.test_routed_api_write",
       "outcome": "observed",
-      "source": "sources.home",
-      "target": "sources.home"
+      "source": "sources.api",
+      "target": "sources.api"
     }
   ]
 }

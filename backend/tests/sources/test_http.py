@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import asyncio
 import re
 from pathlib import Path
 from types import SimpleNamespace
@@ -37,6 +38,10 @@ from corpus.features.sources.connectors.api.http import create_api_source_router
 from corpus.features.sources.connectors.api.operation_curation import (
     ApiOperationCurationService,
 )
+from corpus.features.sources.connectors.api.staged_attachments import (
+    ApiStagedAttachmentRepository,
+    ApiStagedAttachmentService,
+)
 from corpus.features.sources.http import (
     SourceHttpProblem,
     create_sources_router,
@@ -57,6 +62,19 @@ class OwnerResolver:
         except KeyError as error:
             raise SessionUnavailable from error
         return SimpleNamespace(user_id=user_id, organization_id=user_id)
+
+    async def resolve_conversation(
+        self, *, access_token: str, conversation_id: str, touch: bool
+    ):
+        del touch
+        if conversation_id != f"conversation-{access_token}":
+            from corpus.auth.service import ConversationUnavailable
+
+            raise ConversationUnavailable
+        return SimpleNamespace(
+            public_id=conversation_id,
+            route_session_id=f"route-{access_token}",
+        )
 
 
 class RecordingJobs:
@@ -162,15 +180,20 @@ def test_owner_authenticated_sources_http_path_uploads_retrieves_and_generates(
         review_transport=_review_response,
         model_digest_resolver=lambda model: f"digest:{model}",
     )
+    repository = LocalSourceRepository(tmp_path / "sources")
+    connector = ApiSourceConnector(
+        ToolRouterApiSourceEngine(adapter),
+        max_upload_bytes=20 * 1024 * 1024,
+    )
     service = SourceService(
-        LocalSourceRepository(tmp_path / "sources"),
-        connectors=(
-            ApiSourceConnector(
-                ToolRouterApiSourceEngine(adapter),
-                max_upload_bytes=20 * 1024 * 1024,
-            ),
-        ),
+        repository,
+        connectors=(connector,),
         jobs=RecordingJobs(),
+    )
+    staged = ApiStagedAttachmentService(
+        repository=ApiStagedAttachmentRepository(tmp_path / "sources"),
+        sources=repository,
+        connector=connector,
     )
     settings = _auth_settings()
     app = FastAPI()
@@ -200,6 +223,7 @@ def test_owner_authenticated_sources_http_path_uploads_retrieves_and_generates(
                 connection_check_service=object(),  # endpoint is covered by the Phase C HTTP tests
                 operation_curation_service=ApiOperationCurationService(service.repository),
                 route_plan_service=object(),
+                staged_attachment_service=staged,
         )
     )
     source_file = write_openapi_fixture(tmp_path / "widgets.json")
@@ -207,8 +231,11 @@ def test_owner_authenticated_sources_http_path_uploads_retrieves_and_generates(
     with TestClient(app) as client:
         client.headers.update({"Authorization": "Bearer owner-a"})
         uploaded = client.post(
-            "/api/sources/api",
-            headers={"Origin": "http://127.0.0.1:5199"},
+            "/api/sources/api/attachments",
+            headers={
+                "Origin": "http://127.0.0.1:5199",
+                "X-Corpus-Conversation-ID": "conversation-owner-a",
+            },
             data={"name": "Widget API"},
             files={
                 "file": (
@@ -224,11 +251,26 @@ def test_owner_authenticated_sources_http_path_uploads_retrieves_and_generates(
             },
         )
         assert uploaded.status_code == 201, uploaded.text
-        source_id = uploaded.json()["source_id"]
-        assert uploaded.json()["connector_key"] == "api"
-        assert uploaded.json()["revision"]["state"] == "queued"
-        assert uploaded.json()["revision"]["job_id"]
-        assert uploaded.json()["revision"]["description_filename"] == "widgets.md"
+        assert uploaded.json()["state"] == "staged"
+        assert uploaded.json()["source_id"] is None
+        assert client.get("/api/sources").json() == []
+
+        accepted = staged.accept_current(
+            owner_key="00000000-0000-0000-0000-000000000001",
+            conversation_id="conversation-owner-a",
+            route_session_id="route-owner-a",
+        )
+        assert accepted.revision.state.value == "accepted"
+        queued = asyncio.run(
+            service.process_source(
+                owner_id=UUID("00000000-0000-0000-0000-000000000001"),
+                source_id=accepted.source_id,
+            )
+        )
+        source_id = accepted.source_id
+        assert queued.revision.state.value == "queued"
+        assert queued.revision.job_id
+        assert queued.revision.description_filename == "widgets.md"
 
         listed = client.get("/api/sources")
         assert listed.status_code == 200
@@ -244,8 +286,11 @@ def test_owner_authenticated_sources_http_path_uploads_retrieves_and_generates(
         assert hidden_proposals.status_code == 404
 
         rejected = client.post(
-            "/api/sources/api",
-            headers={"Origin": "https://attacker.invalid"},
+            "/api/sources/api/attachments",
+            headers={
+                "Origin": "https://attacker.invalid",
+                "X-Corpus-Conversation-ID": "conversation-owner-b",
+            },
             data={"name": "Widget API"},
             files={"file": ("widgets.json", source_file.read_bytes())},
         )

@@ -37,10 +37,10 @@ export function ApiContractRevisionPanel({
         proposal_ref: boundProposalRef,
       });
       if (!isReviewRequired(result)) {
-        store.reportError(resultMessage(result, "Corpus could not stage this contract review."));
+        store.reportError(resultMessage(result, "Corpus could not open this API change review."));
       }
     } catch {
-      store.reportError("Corpus could not stage this contract review.");
+      store.reportError("Corpus could not open this API change review.");
     } finally {
       setSubmitting(false);
     }
@@ -51,9 +51,9 @@ export function ApiContractRevisionPanel({
       <header>
         <ShieldCheck aria-hidden="true" />
         <div>
-          <p>Corpus-reviewed derivative</p>
-          <h2 id="contract-proposal-title">API contract revision proposal</h2>
-          <span>Local Medusa {proposal?.local_medusa_version ?? "target"} evidence. This is not an official Medusa contract.</span>
+          <p>Corpus-validated update</p>
+          <h2 id="contract-proposal-title">Proposed API version update</h2>
+          <span>Validated against local Medusa {proposal?.local_medusa_version ?? "target"} compatibility evidence.</span>
         </div>
       </header>
       {snapshot.loading ? <p role="status">Loading exact proposal evidence…</p> : null}
@@ -83,7 +83,7 @@ export function ApiContractRevisionPanel({
             ))}
           </ol>
           <Button type="button" disabled={submitting || proposal.state !== "pending"} onClick={() => void openReview()}>
-            {submitting ? "Opening review…" : proposal.state === "pending" ? "Review this revision" : "Revision approved"}
+            {submitting ? "Opening review…" : proposal.state === "pending" ? "Review this API update" : "API update approved"}
           </Button>
           <p className="contract-no-call">Preparing or reviewing this proposal does not call the target API.</p>
         </>
@@ -100,7 +100,7 @@ function decodeContext(props: RouteDeckSurfaceComponentProps["props"]): {
   if (
     typeof props.source_id !== "string" || props.source_id.length !== 16 ||
     typeof props.proposal_ref !== "string" || props.proposal_ref.length === 0
-  ) throw new Error("The contract proposal context is invalid.");
+  ) throw new Error("The API update context is invalid.");
   return { sourceId: props.source_id, proposalRef: props.proposal_ref };
 }
 

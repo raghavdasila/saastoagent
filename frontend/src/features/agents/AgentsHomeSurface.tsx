@@ -379,7 +379,7 @@ export function AgentsHomeSurface({
                   <ul>
                     {snapshot.attachments.map((attachment) => (
                       <li key={attachment.source_id}>
-                        <span><strong>{attachment.display_name}</strong><small>Revision {attachment.source_revision_id}</small></span>
+                        <span><strong>{attachment.display_name}</strong><small>API version {attachment.source_revision_id}</small></span>
                         <Button type="button" variant="outline" disabled={busy !== null || !exactSelectionBound} onClick={() => void openAttached(attachment.source_id)}>
                           <ExternalLink data-icon="inline-start" /> Open Source
                         </Button>
@@ -429,9 +429,9 @@ export function AgentsHomeSurface({
                               <ul>
                                 {build.source_references.map((reference) => (
                                   <li key={`${build.build_id}:${reference.source_id}`}>
-                                    <span><strong>{reference.display_name ?? "Unavailable Source"}</strong><small>Revision {reference.source_revision_id}</small></span>
+                                    <span><strong>{reference.display_name ?? "Unavailable Source"}</strong><small>API version {reference.source_revision_id}</small></span>
                                     <Button type="button" variant="outline" disabled={busy !== null || !exactSelectionBound || !reference.available} onClick={() => void openBuildSource(build.build_id, reference.source_id, reference.source_revision_id)}>
-                                      <ExternalLink data-icon="inline-start" />Open source revision
+                                      <ExternalLink data-icon="inline-start" />Open API version
                                     </Button>
                                   </li>
                                 ))}

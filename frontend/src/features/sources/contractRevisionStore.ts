@@ -33,7 +33,7 @@ export class ContractRevisionStore {
         (item) => `contract-proposal-${item.proposal_id}` === proposalRef,
       );
       if (proposal === undefined) {
-        throw new Error("The exact reviewed contract proposal is unavailable.");
+        throw new Error("The exact reviewed API update is unavailable.");
       }
       this.update({ ...this.value, proposal, loading: false, error: null });
     } catch (error) {
@@ -41,7 +41,7 @@ export class ContractRevisionStore {
         ...this.value,
         proposal: null,
         loading: false,
-        error: error instanceof Error ? error.message : "The contract proposal is unavailable.",
+        error: error instanceof Error ? error.message : "The API update is unavailable.",
       });
     }
   }

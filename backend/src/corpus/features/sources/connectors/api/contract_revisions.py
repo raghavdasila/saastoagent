@@ -125,7 +125,7 @@ MEDUSA_EFFECTIVE_CONTRACT_PLAN = EffectiveContractPlan(
 
 
 class ApiContractRevisionService:
-    """Create and approve one immutable, locally validated API contract derivative.
+    """Create and approve one immutable, locally validated API version update.
 
     This service performs document validation and filesystem persistence only. It
     has no transport dependency and cannot call the target API.
@@ -150,7 +150,7 @@ class ApiContractRevisionService:
         owner_key = str(owner_id)
         source = self.repository.get(owner_key=owner_key, source_id=source_id)
         if source.connector_key != "api" or source.revision.state is not SourceState.READY:
-            raise SourceNotReady("Only a ready API Source can propose a contract revision.")
+            raise SourceNotReady("Only a ready API Source can propose an API version update.")
         if source.revision.revision_id != parent_revision_id:
             raise ApiContractRevisionConflict(
                 "The selected Source revision is no longer current. Reload before proposing."
@@ -238,11 +238,11 @@ class ApiContractRevisionService:
         path = self.repository.input_path(owner_key=owner_key, source_id=source.source_id)
         if hashlib.sha256(path.read_bytes()).hexdigest() != self.plan.source_raw_sha256:
             raise ApiContractRevisionConflict(
-                "This Source does not match the reviewed API contract input."
+                "This Source does not match the reviewed API definition."
             )
         bundle = load_api_contract_documents(path)
         if len(bundle.raw_specs) != 1 or len(bundle.repaired_specs) != 1:
-            raise ApiContractRevisionError("The API contract normalization result is invalid.")
+            raise ApiContractRevisionError("The API definition normalization result is invalid.")
         source_name = next(iter(bundle.raw_specs))
         raw = bundle.raw_specs[source_name]
         repaired = bundle.repaired_specs[source_name]
@@ -255,7 +255,7 @@ class ApiContractRevisionService:
             or repair_manifest_hash != self.plan.repair_manifest_sha256
         ):
             raise ApiContractRevisionConflict(
-                "The normalized Source no longer matches the reviewed contract chain."
+                "The normalized Source no longer matches the reviewed API version chain."
             )
         runtime_patches = tuple(item.runtime_patch() for item in self.plan.patches)
         revision = approve_contract_patches(
@@ -321,7 +321,7 @@ class ApiContractRevisionService:
         )
         if actual != expected:
             raise ApiContractRevisionConflict(
-                "The persisted proposal no longer matches the reviewed contract plan."
+                "The persisted proposal no longer matches the reviewed API update plan."
             )
 
 

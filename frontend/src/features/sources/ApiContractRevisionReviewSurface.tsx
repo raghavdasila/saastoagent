@@ -34,10 +34,10 @@ export function ApiContractRevisionReviewSurface({
       }
       store.reportError(resultMessage(
         result,
-        "Corpus could not complete this contract revision review. Reload and try again.",
+        "Corpus could not complete this API update review. Reload and try again.",
       ));
     } catch {
-      store.reportError("Corpus could not complete this contract revision review. Reload and try again.");
+      store.reportError("Corpus could not complete this API update review. Reload and try again.");
     } finally {
       setPending(null);
     }
@@ -46,12 +46,12 @@ export function ApiContractRevisionReviewSurface({
   return (
     <section className="contract-revision-review" aria-labelledby={`contract-review-${review.reviewId}`}>
       <p>Explicit owner review</p>
-      <h2 id={`contract-review-${review.reviewId}`}>Create this immutable API contract revision?</h2>
+      <h2 id={`contract-review-${review.reviewId}`}>Create this immutable API version?</h2>
       {proposal === null ? (
         <p role="status">Reloading the exact persisted proposal before approval…</p>
       ) : (
         <>
-          <p>The current Source remains intact. Acceptance creates a new revision from parent <code>{proposal.repaired_parent_sha256}</code>.</p>
+          <p>The current API version remains intact. Acceptance creates a new version from <code>{proposal.repaired_parent_sha256}</code>.</p>
           <p>Final canonical hash: <code>{proposal.final_canonical_sha256}</code></p>
           <div className="contract-shared-impact" role="note">
             <strong>Explicit shared-schema impact: {sharedImpact?.impact_count ?? "unavailable"}</strong>
@@ -64,10 +64,10 @@ export function ApiContractRevisionReviewSurface({
       <p>Review expires {new Date(review.expiresAt).toLocaleString()}.</p>
       <div className="sources-form-actions">
         <Button type="button" disabled={proposal === null || pending !== null} onClick={() => void decide("accept")}>
-          {pending === "accept" ? "Creating revision…" : "Accept and create new revision"}
+          {pending === "accept" ? "Creating version…" : "Accept and create new version"}
         </Button>
         <Button type="button" variant="outline" disabled={pending !== null} onClick={() => void decide("reject")}>
-          {pending === "reject" ? "Keeping current revision…" : "Keep current revision unchanged"}
+          {pending === "reject" ? "Keeping current version…" : "Keep current version unchanged"}
         </Button>
       </div>
     </section>
@@ -82,7 +82,7 @@ function decodeReview(props: RouteDeckSurfaceComponentProps["props"]): {
     props.state !== "pending" ||
     typeof props.review_id !== "string" || props.review_id.length === 0 ||
     typeof props.expires_at !== "string" || !Number.isFinite(Date.parse(props.expires_at))
-  ) throw new Error("The contract revision review projection is invalid.");
+  ) throw new Error("The API update review projection is invalid.");
   return { reviewId: props.review_id, expiresAt: props.expires_at };
 }
 

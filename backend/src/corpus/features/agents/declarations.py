@@ -82,11 +82,12 @@ OPEN_CREATE = operation(
     "agents.open_create",
     "Open agent creation",
     (
-        "Begin a distinct new-agent configuration only when the owner's current "
-        "request still needs a new agent. This navigation creates nothing and must "
+        "Begin a distinct new-Agent configuration only when the owner's current "
+        "request still needs a new Agent. This navigation creates nothing and must "
         "not follow a successful agent creation for that same request."
     ),
     "opened",
+    policy_refs=(policies.OPEN_CREATE_SETUP.ref,),
 )
 RETURN_TO_WORKSPACE = operation(
     "agents.return_to_workspace",
@@ -140,12 +141,20 @@ SELECT_AGENT = operation(
 ATTACH_SOURCE = operation(
     "agents.attach_source",
     "Attach Source to Agent",
-    "Pin the ready current revision of an owner-scoped Source to the selected Agent.",
+    (
+        "Pin the ready current API version of an owner-scoped Source to the selected Agent. "
+        "When source_id is omitted, resolve only one eligible ready unattached Source and only "
+        "when the owner's ongoing setup request authorizes that exact attachment."
+    ),
     "attached",
     input_schema=AttachSourceArguments.model_json_schema(),
     safety_class=SafetyClass.DRAFT,
     entity_inputs=(EntityInput(argument_name="agent_ref", entity_kind="agent"),),
-    policy_refs=(policies.ATTACH_EXACT_SOURCE.ref, policies.ATTACH_PERSISTED_SUCCESS.ref),
+    policy_refs=(
+        policies.ATTACH_EXACT_SOURCE.ref,
+        policies.ATTACH_PERSISTED_SUCCESS.ref,
+        policies.SETUP_ATTACH_READY.ref,
+    ),
 )
 OPEN_SOURCE_CREATION = operation(
     "agents.open_source_creation",
@@ -164,7 +173,7 @@ OPEN_SOURCE_CREATION = operation(
 ATTACH_CREATED_SOURCE = operation(
     "agents.attach_created_source",
     "Attach created Source",
-    "Pin the newly created ready Source revision and return to the selected Agent.",
+    "Pin the newly created ready API version and return to the selected Agent.",
     "attached",
     input_schema=AttachSourceArguments.model_json_schema(),
     safety_class=SafetyClass.DRAFT,
@@ -286,8 +295,8 @@ OPEN_AGENT_CHANNELS = operation(
 )
 OPEN_BUILD_SOURCE_REVISION = operation(
     "agents.open_build_source_revision",
-    "Open referenced source revision",
-    "Open only the exact Source revision retained by one immutable historical build.",
+    "Open referenced API version",
+    "Open only the exact API version retained by one immutable historical build.",
     "opened",
     input_schema=OpenBuildSourceReferenceArguments.model_json_schema(),
     entity_inputs=(EntityInput(argument_name="agent_ref", entity_kind="agent"),),

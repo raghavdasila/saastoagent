@@ -477,20 +477,28 @@ def _source_surface_effects(
     source_id: str | None = None,
     source_revision_id: str | None = None,
 ) -> SessionEffects:
-    values = [
-        PublicValue(name="form_handle", value=FrozenJson(API_CONNECTION_FORM_ID)),
+    shared_values = [
         PublicValue(name="return_agent_ref", value=FrozenJson(agent_ref)),
         PublicValue(name="agent_handoff_mode", value=FrozenJson(mode)),
     ]
     if source_id is not None:
-        values.append(PublicValue(name="selected_source_id", value=FrozenJson(source_id)))
+        shared_values.append(PublicValue(name="selected_source_id", value=FrozenJson(source_id)))
     if source_revision_id is not None:
-        values.append(PublicValue(name="selected_source_revision_id", value=FrozenJson(source_revision_id)))
+        shared_values.append(PublicValue(name="selected_source_revision_id", value=FrozenJson(source_revision_id)))
     return SessionEffects(
         replace_entities=(
             _agent_binding_effect(agent_ref, private_agent_id, allowed_operation_ids),
         ),
-        surface_updates=(PublicSurfaceEffect(surface_id="sources.home", values=tuple(values)),)
+        surface_updates=(
+            PublicSurfaceEffect(
+                surface_id="sources.api",
+                values=tuple([
+                    *shared_values,
+                    PublicValue(name="form_handle", value=FrozenJson(API_CONNECTION_FORM_ID)),
+                    PublicValue(name="mode", value=FrozenJson(mode)),
+                ]),
+            ),
+        )
     )
 
 

@@ -267,6 +267,7 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
                 source_connection_check_service=source_runtime.connection_check_service,
                 source_operation_curation_service=source_runtime.operation_curation_service,
                 source_routed_execution_service=source_runtime.routed_execution_service,
+                source_staged_attachment_service=source_runtime.staged_attachment_service,
             )
         except Exception:
             await database.close()
@@ -347,6 +348,7 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
         operation_curation_service=source_runtime.operation_curation_service,
         route_plan_service=source_runtime.route_plan_service,
         routed_execution_service=source_runtime.routed_execution_service,
+        staged_attachment_service=source_runtime.staged_attachment_service,
     ):
         app.include_router(source_router)
     app.state.corpus_auth_service = auth_service

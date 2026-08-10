@@ -98,6 +98,14 @@ def test_graph_presenter_returns_persisted_safe_graph_and_playback(
         ),
         encoding="utf-8",
     )
+    (graph_dir / "graph_trace.jsonl").write_text(
+        "\n".join((
+            json.dumps({"type": "operation_added", "active_endpoint_id": "catalog:listProducts", "added_nodes": [{"id": "api_operation:catalog:listProducts"}], "updated_nodes": [], "added_edges": [], "cumulative": {"nodes": 1, "unique_edges": 0}}),
+            json.dumps({"type": "resource_connected", "active_endpoint_id": "catalog:listProducts", "added_nodes": [{"id": "resource:products"}], "updated_nodes": [{"node_id": "resource:products", "evidence_added": 1}], "added_edges": [{"id": "api_operation:catalog:listProducts|exposes|resource:products"}], "cumulative": {"nodes": 2, "unique_edges": 1}}),
+            json.dumps({"type": "cards_complete", "added_nodes": [], "updated_nodes": [], "added_edges": [], "cumulative": {"nodes": 2, "edges": 1, "cards": 2}}),
+        )) + "\n",
+        encoding="utf-8",
+    )
 
     result = ApiGraphPresenter(repository).inspect(
         owner_key="owner-a",
@@ -113,6 +121,8 @@ def test_graph_presenter_returns_persisted_safe_graph_and_playback(
     )
     assert [stage.id for stage in result.playback] == ["ingest", "connect"]
     assert result.playback[1].warning_codes == ("example_warning",)
+    assert result.trace[1].updated_node_ids == ("resource:products",)
+    assert result.trace[2].cumulative_edges == 1
     serialized = result.model_dump_json()
     assert "must-not-leak" not in serialized
     assert "internal detail" not in serialized
@@ -164,6 +174,10 @@ async def _exercise_graph_stage_selection(tmp_path: Path) -> None:
                 },
             }
         ),
+        encoding="utf-8",
+    )
+    (graph_dir / "graph_trace.jsonl").write_text(
+        json.dumps({"type": "graph_complete", "added_nodes": [], "updated_nodes": [], "added_edges": [], "cumulative": {"nodes": 0, "unique_edges": 0}}) + "\n",
         encoding="utf-8",
     )
     context = SimpleNamespace(

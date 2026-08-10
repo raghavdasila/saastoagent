@@ -218,19 +218,19 @@ export function ApiOperationTestPanel({
         <div>
           <p>Non-executing ToolRouter plan</p>
           <h2 id="api-operation-test-title">API operation test</h2>
-          <span>Choose the exact approved revision, curation and saved profile before routing.</span>
+          <span>Choose the exact approved API version, operation selection and saved profile before routing.</span>
         </div>
       </header>
       <p className="api-route-no-call" role="note">Planning only; no API request has been sent.</p>
       {error === null ? null : <p className="sources-debug-error" role="alert">{error}</p>}
       {busy && sources.length === 0 ? <p role="status">Loading exact route-planning context…</p> : null}
       {sources.length === 0 && !busy ? (
-        <p role="status">Approve an effective API revision before preparing a route.</p>
+        <p role="status">Approve an API version before preparing a route.</p>
       ) : (
         <form onSubmit={(event) => void createPlan(event)}>
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="api-route-source">Effective API revision</FieldLabel>
+              <FieldLabel htmlFor="api-route-source">Approved API version</FieldLabel>
               <select
                 id="api-route-source"
                 value={sourceId}
@@ -243,7 +243,7 @@ export function ApiOperationTestPanel({
                   </option>
                 ))}
               </select>
-              <FieldDescription>Exact contract {EFFECTIVE_HASH.slice(0, 12)}…</FieldDescription>
+              <FieldDescription>API definition {EFFECTIVE_HASH.slice(0, 12)}…</FieldDescription>
             </Field>
             <Field>
               <FieldLabel htmlFor="api-route-profile">Saved connection profile</FieldLabel>

@@ -98,10 +98,20 @@ export function createCorpusSurfaceRegistry(
       <OperationsSurface {...props} runtimeClient={activeAgentRuntimeClient} agentStore={agentStore} />
     ),
     "sources.home": (props) => (
+      <SourceHubSurface
+        {...props}
+        view="hub"
+        sourceClient={sourceClient}
+        privateForm={null}
+        contractRevisionStore={contractRevisionStore}
+      />
+    ),
+    "sources.api": (props) => (
       <PrivateFormGate formId={requireFormHandle(props.props)}>
         {(privateForm) => (
           <SourceHubSurface
             {...props}
+            view="api"
             sourceClient={sourceClient}
             privateForm={privateForm}
             contractRevisionStore={contractRevisionStore}

@@ -1,4 +1,15 @@
-export type SourceState = "queued" | "running" | "ready" | "failed";
+export type SourceState = "accepted" | "queued" | "running" | "ready" | "failed";
+
+export interface StagedApiAttachment {
+  readonly attachment_id: string;
+  readonly display_name: string;
+  readonly filename: string;
+  readonly content_sha256: string;
+  readonly staged_at: string;
+  readonly state: "staged" | "accepted";
+  readonly source_id: string | null;
+  readonly source_revision_id: string | null;
+}
 
 export interface SourceRevision {
   readonly revision_id: string;

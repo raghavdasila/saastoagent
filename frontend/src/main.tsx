@@ -19,7 +19,6 @@ import {
 } from "./auth/authClient";
 import { LOUNGE_SIGN_IN_PATH } from "./features/lounge/routes";
 import { SourceClient } from "./features/sources/sourceClient";
-import type { SourceView } from "./features/sources/contracts";
 import { AgentClient } from "./features/agents/client";
 import { AgentStore } from "./features/agents/store";
 import { DesignerClient } from "./features/designer/client";
@@ -128,7 +127,7 @@ function CorpusApplication({
   lifecycle: ConversationLifecycle;
   session: BootstrappedCorpusConnection["session"];
   registry: ReturnType<typeof createCorpusSurfaceRegistry>;
-  uploadChatSource(file: File): Promise<{ sourceId: string; displayName: string }>;
+  uploadChatSource(file: File): Promise<{ attachmentId: string; displayName: string }>;
   onMounted(mounted: MountedConversation): void;
   isAnonymous(): boolean;
 }) {
@@ -195,22 +194,10 @@ function CorpusApplication({
 async function uploadChatSource(
   sourceClient: SourceClient,
   file: File,
-): Promise<{ sourceId: string; displayName: string }> {
+): Promise<{ attachmentId: string; displayName: string }> {
   const displayName = file.name.replace(/\.(?:json|ya?ml)$/i, "").trim() || "Uploaded API";
-  const created = await sourceClient.uploadApi(displayName, file, null);
-  for (let attempt = 0; attempt < 180; attempt += 1) {
-    const current = (await sourceClient.list()).find(
-      (source: SourceView) => source.source_id === created.source_id,
-    );
-    if (current?.revision.state === "ready") {
-      return { sourceId: current.source_id, displayName: current.display_name };
-    }
-    if (current?.revision.state === "failed") {
-      throw new Error(current.revision.failure_message ?? "The attached API Source failed processing.");
-    }
-    await new Promise((resolve) => window.setTimeout(resolve, 1_000));
-  }
-  throw new Error("The attached API Source did not finish processing in time.");
+  const staged = await sourceClient.stageApiDefinition(displayName, file, null);
+  return { attachmentId: staged.attachment_id, displayName: staged.display_name };
 }
 
 function FatalShell({ fallback }: { fallback: string }) {

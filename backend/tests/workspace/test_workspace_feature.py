@@ -56,8 +56,8 @@ from corpus.session import create_guest_session, initialize_guest_session
 
 def test_open_agent_creation_is_only_for_an_unfinished_distinct_create_request() -> None:
     assert OPEN_CREATE.description == (
-        "Begin a distinct new-agent configuration only when the owner's current "
-        "request still needs a new agent. This navigation creates nothing and must "
+        "Begin a distinct new-Agent configuration only when the owner's current "
+        "request still needs a new Agent. This navigation creates nothing and must "
         "not follow a successful agent creation for that same request."
     )
 
@@ -186,6 +186,7 @@ def test_composition_selects_workspace_and_sources_and_enters_the_lounge() -> No
         "channels.home",
         "operations.home",
         "sources.home",
+        "sources.api",
     }
 
 
@@ -248,9 +249,20 @@ def test_lounge_and_workspace_own_their_operations_transitions_and_surfaces() ->
         "agents.attach_created_source",
         "agents.return_from_source",
         "sources.open_api_creation",
+        "sources.open_api_source",
+        "sources.return_to_home",
+    }
+    assert contract.nodes["sources.api"].surfaces.active == "sources.api"
+    assert set(contract.nodes["sources.api"].operation_ids) == {
+        "agents.open_create",
+        "sources.accept_staged_api",
+        "agents.attach_created_source",
+        "agents.return_from_source",
+        "workspace.open_agents",
+        "sources.process_api",
         "sources.inspect_current_api",
         "sources.retry_processing",
-        "sources.return_to_home",
+        "sources.return_to_source_hub",
         "sources.select_graph_stage",
         "sources.save_api_connection",
         "sources.propose_contract_revision",
@@ -286,13 +298,20 @@ def test_lounge_and_workspace_own_their_operations_transitions_and_surfaces() ->
         ("agents.home", "agents.return_to_workspace", "workspace.home"),
         ("agents.home", "agents.select_agent", "agents.home"),
         ("agents.home", "agents.attach_source", "agents.home"),
-        ("agents.home", "agents.open_source_creation", "sources.home"),
-        ("agents.home", "agents.open_attached_source", "sources.home"),
+        ("agents.home", "agents.open_source_creation", "sources.api"),
+        ("agents.home", "agents.open_attached_source", "sources.api"),
+        ("agents.home", "agents.open_build_source_revision", "sources.api"),
         ("workspace.home", "workspace.open_verification", "lounge.verification_pending"),
         ("lounge.verification_pending", "lounge.verification_delivery.return_to_workspace", "workspace.home"),
         ("sources.home", "sources.return_to_home", "workspace.home"),
-        ("sources.home", "sources.open_api_creation", "sources.home"),
-        ("sources.home", "sources.retry_processing", "sources.home"),
+        ("sources.home", "sources.open_api_creation", "sources.api"),
+        ("sources.home", "sources.open_api_source", "sources.api"),
+        ("sources.api", "sources.accept_staged_api", "sources.api"),
+        ("sources.api", "sources.process_api", "sources.api"),
+        ("sources.api", "sources.retry_processing", "sources.api"),
+        ("sources.api", "sources.return_to_source_hub", "sources.home"),
+        ("sources.api", "workspace.open_agents", "agents.home"),
+        ("sources.api", "agents.open_create", "agents.create"),
         ("sources.home", "agents.attach_created_source", "agents.home"),
         ("sources.home", "agents.return_from_source", "agents.home"),
     }
@@ -374,7 +393,11 @@ def test_operations_allow_only_the_designed_invocation_sources() -> None:
             "sandbox.start": agent_and_surface,
             "sandbox.resume": agent_and_surface,
         "sources.return_to_home": agent_and_surface,
+        "sources.accept_staged_api": agent_and_surface,
         "sources.open_api_creation": agent_and_surface,
+        "sources.open_api_source": agent_and_surface,
+        "sources.return_to_source_hub": agent_and_surface,
+        "sources.process_api": agent_and_surface,
         "sources.inspect_current_api": agent_only,
         "sources.retry_processing": agent_and_surface,
             "sources.select_graph_stage": agent_and_surface,
@@ -565,7 +588,7 @@ async def test_guest_session_has_no_invented_principal_or_authentication_state()
     source_surface = next(
         state
         for state in session.public_state.surface_state
-        if state.surface_id == "sources.home"
+        if state.surface_id == "sources.api"
     )
     assert source_surface.values[0].name == "form_handle"
     assert source_surface.values[0].value.to_python() == "sources-api-connection"
@@ -595,4 +618,30 @@ def test_designer_to_builder_chat_context_continues_the_user_task() -> None:
     assert any(
         "belongs in Builds, not Designer" in policy.instruction
         for policy in AGENTS_FEATURE.agent_policies
+    )
+
+
+def test_attached_api_setup_uses_existing_supervised_operations_without_manual_reupload() -> None:
+    compiled = compile_corpus_app()
+
+    assert "without asking the owner to upload or select the same file again" in (
+        compiled.agent_policies["sources.staged_setup_continuation"].instruction
+    )
+    source_continuation = compiled.agent_policies[
+        "sources.staged_setup_continuation"
+    ].instruction
+    assert "ask immediately whether the owner wants to use an existing Agent" in (
+        source_continuation
+    )
+    assert "do not promise automatic continuation" in source_continuation
+    assert "API version rather than a Source revision" in source_continuation
+    assert (
+        "ask only for missing agent choice, goal, responsibilities, or operation-selection intent"
+        in compiled.agent_policies["agents.capability.setup_continuation"].instruction.lower()
+    )
+    assert "current request has already authorized creating and analyzing" in (
+        compiled.operations["sources.open_api_creation"].description
+    )
+    assert "current request still needs a new Agent" in (
+        compiled.operations["agents.open_create"].description
     )

@@ -19,10 +19,25 @@ def test_sources_exposes_inventory_intake_and_retry_through_routedeck() -> None:
     assert set(node.operation_ids) == {
         "agents.attach_created_source",
         "agents.return_from_source",
-            "sources.open_api_creation",
-            "sources.inspect_current_api",
-        "sources.retry_processing",
+        "sources.open_api_creation",
+        "sources.open_api_source",
         "sources.return_to_home",
+    }
+    api_node = contract.nodes["sources.api"]
+    assert api_node.title == "API Source"
+    assert api_node.route_template == "/sources/api"
+    assert api_node.surfaces.active == "sources.api"
+    assert contract.surfaces["sources.api"].component == "sources.api"
+    assert set(api_node.operation_ids) == {
+        "agents.open_create",
+        "sources.accept_staged_api",
+        "agents.attach_created_source",
+        "agents.return_from_source",
+        "workspace.open_agents",
+        "sources.process_api",
+        "sources.inspect_current_api",
+        "sources.retry_processing",
+        "sources.return_to_source_hub",
         "sources.select_graph_stage",
         "sources.save_api_connection",
         "sources.propose_contract_revision",
@@ -32,8 +47,15 @@ def test_sources_exposes_inventory_intake_and_retry_through_routedeck() -> None:
             "sources.prepare_routed_api_test",
             "sources.test_routed_api_read",
             "sources.test_routed_api_write",
-        }
-    assert node.surfaces.detail == (
+    }
+    assert {
+        (transition.source, transition.operation_id, transition.target)
+        for transition in contract.transitions
+    } >= {
+        ("sources.api", "workspace.open_agents", "agents.home"),
+        ("sources.api", "agents.open_create", "agents.create"),
+    }
+    assert api_node.surfaces.detail == (
         "sources.contract_revision_proposal",
         "sources.api_operation_test",
     )
@@ -44,9 +66,9 @@ def test_sources_exposes_inventory_intake_and_retry_through_routedeck() -> None:
         action.id == "api-test-operation"
         and action.operation_id == "sources.prepare_routed_api_test"
         and not action.arguments
-        for action in compiled.nodes["sources.home"].suggested_actions
+        for action in compiled.nodes["sources.api"].suggested_actions
     )
-    assert node.surfaces.review == (
+    assert api_node.surfaces.review == (
         "sources.contract_revision_review",
         "sources.routed_api_write_review",
     )

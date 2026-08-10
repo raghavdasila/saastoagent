@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Maximize2, Minimize2 } from "lucide-react";
 import {
   createRouteDeckAgentClient,
   type AgentChatClient,
@@ -20,7 +21,6 @@ import {
 
 import { Composer } from "./Composer";
 import type { ChatSourceUpload } from "./Composer";
-import { uploadAndAttachApiDefinition } from "./chatSourceAttachment";
 import { Conversation } from "./Conversation";
 import type { ConversationScrollState } from "./Conversation";
 import { CorpusSuggestedActions } from "./CorpusSuggestedActions";
@@ -188,6 +188,7 @@ function AgentConversationShell({
   const projection = useRouteDeckProjection();
   const dispatch = useRouteDeckDispatch();
   const surfaceDockRef = useRef<HTMLDivElement>(null);
+  const [surfaceExpanded, setSurfaceExpanded] = useState(false);
   const currentSessionVersion = useCallback(
     () => runtime.store.getState().sessionVersion,
     [runtime.store],
@@ -240,12 +241,8 @@ function AgentConversationShell({
   const disabledReason = conversationInputDisabled
     ? conversationInput.disabled_message ?? undefined
     : undefined;
-  const selectedAgentRef = projection?.entities.find(
-    (entity) => entity.entity_kind === "agent",
-  )?.handle ?? null;
   const canAttachApiDefinition =
     onUploadApiSource !== undefined
-    && selectedAgentRef !== null
     && legalOperations.some(
       (operation) => operation.operation_id === "agents.open_source_creation",
     );
@@ -256,12 +253,7 @@ function AgentConversationShell({
         || operation.operation_id === "sources.open_api_creation",
     );
   const uploadApiDefinition = canAttachApiDefinition
-    ? (file: File) => uploadAndAttachApiDefinition({
-        file,
-        agentRef: selectedAgentRef,
-        dispatch,
-        upload: onUploadApiSource,
-      })
+    ? onUploadApiSource
     : canUploadWorkspaceApiDefinition
       ? onUploadApiSource
       : undefined;
@@ -273,7 +265,7 @@ function AgentConversationShell({
   }, [currentNodeId]);
 
   return (
-    <main ref={onShellElementChange} data-agent-shell="">
+    <main ref={onShellElementChange} data-agent-shell="" data-surface-layout={surfaceExpanded ? "split" : "dock"}>
       <Conversation
         messages={agent.messages}
         status={agent.status}
@@ -283,6 +275,13 @@ function AgentConversationShell({
         }
       />
       <div ref={surfaceDockRef} data-agent-surface-dock="">
+        <div data-agent-surface-toolbar="">
+          <span>{surfaceExpanded ? "Chat and surface" : "Current workspace"}</span>
+          <button type="button" aria-pressed={surfaceExpanded} onClick={() => setSurfaceExpanded((value) => !value)}>
+            {surfaceExpanded ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
+            {surfaceExpanded ? "Return to dock" : "Maximize surface"}
+          </button>
+        </div>
         <div data-agent-surface="">
           <RouteDeckSessionVersionContext.Provider value={sessionVersion ?? 0}>
             <RouteDeckSurfaceHost

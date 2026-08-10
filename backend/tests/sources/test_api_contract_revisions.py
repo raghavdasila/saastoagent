@@ -204,7 +204,7 @@ def test_accept_time_recheck_rejects_persisted_patch_provenance_drift(
     persisted["contract_revision_proposals"][0]["patches"][0]["impact_count"] = 99
     source_path.write_text(json.dumps(persisted), encoding="utf-8")
 
-    with pytest.raises(ApiContractRevisionConflict, match="reviewed contract plan"):
+    with pytest.raises(ApiContractRevisionConflict, match="reviewed API update plan"):
         service.require_pending_current(
             owner_id=OWNER,
             source_id=source.source_id,

@@ -274,6 +274,18 @@ async def _create_sources_session(runtime, compiled, session_id: str) -> None:
         )
     )
     assert opened.disposition is OperationDisposition.COMPLETED
+    hub = await runtime.services.store.load(session_id)
+    api_opened = await runtime.services.runner.run(
+        OperationRequest(
+            session_id=session_id,
+            request_id=f"open-api-{session_id}",
+            expected_session_version=hub.session_version,
+            operation_id="sources.open_api_creation",
+            source=OperationSource.SURFACE,
+            arguments=FrozenJsonObject({}),
+        )
+    )
+    assert api_opened.disposition is OperationDisposition.COMPLETED
 
 
 async def _propose(runtime, session_id: str, source_id: str, revision_id: str):

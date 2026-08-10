@@ -78,6 +78,7 @@ it("registers the complete Corpus lifecycle surface set", () => {
     "lounge.verify_email",
     "operations.home",
     "sandbox.home",
+    "sources.api",
     "sources.api_operation_test",
     "sources.contract_revision_proposal",
     "sources.contract_revision_review",

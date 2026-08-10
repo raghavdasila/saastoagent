@@ -152,6 +152,18 @@ async def test_sql_routedeck_guard_allows_exact_agent_check_and_blocks_stale_sur
             )
         )
         assert opened.disposition is OperationDisposition.COMPLETED
+        hub = await runtime.services.store.load(session_id)
+        api_opened = await runtime.services.runner.run(
+            OperationRequest(
+                session_id=session_id,
+                request_id="open-api-source-workflow",
+                expected_session_version=hub.session_version,
+                operation_id="sources.open_api_creation",
+                source=OperationSource.SURFACE,
+                arguments=FrozenJsonObject({}),
+            )
+        )
+        assert api_opened.disposition is OperationDisposition.COMPLETED
         exact = {
             "source_id": source_id,
             "source_revision_id": revision_id,

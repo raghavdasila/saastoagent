@@ -47,10 +47,12 @@ class StartSandboxHandler:
             return _failure(context, "sandbox_conflict", str(error), FailureKind.STATE_CONFLICT)
         except AgentOwnerScopeUnavailable as error:
             return _failure(context, "authentication_required", str(error), FailureKind.STATE_CONFLICT)
+        observation = FrozenJsonObject(sandbox_tool_observation(result))
         return OperationOutcome(
             outcome="started",
             delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
-            observation=FrozenJsonObject(sandbox_tool_observation(result)),
+            observation=observation,
+            public_observation=observation,
         )
 
 
@@ -89,10 +91,12 @@ class ResumeSandboxHandler:
             return _failure_for(RESUME_SANDBOX.id, context, "sandbox_conflict", str(error), FailureKind.STATE_CONFLICT)
         except AgentOwnerScopeUnavailable as error:
             return _failure_for(RESUME_SANDBOX.id, context, "authentication_required", str(error), FailureKind.STATE_CONFLICT)
+        observation = FrozenJsonObject(sandbox_tool_observation(result))
         return OperationOutcome(
             outcome="resumed",
             delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
-            observation=FrozenJsonObject(sandbox_tool_observation(result)),
+            observation=observation,
+            public_observation=observation,
         )
 
 

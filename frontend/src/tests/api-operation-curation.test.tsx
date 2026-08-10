@@ -51,7 +51,7 @@ it("requires every exact operation decision and saves immutable revision-bound c
     },
   ));
   expect(await screen.findByText(
-    "Saved 1 included and 1 excluded operations for this exact revision.",
+    "Saved 1 included and 1 excluded operations for this exact API version.",
   )).toBeVisible();
   expect(screen.getByText("1", { selector: ".api-curation-identity dd" })).toBeVisible();
   expect(fetchMock).toHaveBeenCalledTimes(2);

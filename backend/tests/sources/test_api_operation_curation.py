@@ -344,6 +344,27 @@ def _ready_source(tmp_path: Path) -> tuple[LocalSourceRepository, str, str]:
         ),
         encoding="utf-8",
     )
+    (graph_dir / "graph_trace.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "graph_completed",
+                "active_endpoint_id": "widgets:listWidgets",
+                "added_nodes": [
+                    {"id": "resource:widgets"},
+                    {"id": "api_operation:widgets:listWidgets"},
+                    {"id": "api_operation:widgets:createWidget"},
+                ],
+                "updated_nodes": [],
+                "added_edges": [
+                    {"id": "api_operation:widgets:listWidgets|exposes|resource:widgets"},
+                    {"id": "api_operation:widgets:createWidget|exposes|resource:widgets"},
+                ],
+                "cumulative": {"nodes": 3, "unique_edges": 2},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     return repository, ready.source_id, ready.revision.revision_id
 
 

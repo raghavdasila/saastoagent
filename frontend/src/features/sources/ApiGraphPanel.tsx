@@ -5,12 +5,11 @@ import type { RouteDeckSurfaceComponentProps } from "@routedeck/react";
 import { Button } from "@/components/ui/button";
 
 import {
-  type ApiGraphEdge,
-  type ApiGraphNode,
   type ApiGraphView,
   type SourceClient,
   SourceClientError,
 } from "./sourceClient";
+import { SemanticGraphVisualizer } from "./SemanticGraphVisualizer";
 
 
 export function ApiGraphPanel({
@@ -106,12 +105,12 @@ export function ApiGraphPanel({
       </div>
       {error === null ? null : <p role="alert" className="sources-debug-error">{error}</p>}
       {graph === null && error === null ? <p role="status">Loading the persisted graph…</p> : null}
-      <GraphCanvas nodes={graph?.nodes ?? []} edges={graph?.edges ?? []} selectedNodeIds={selectedGroup === null ? [] : [selectedGroup.id, ...selectedGroup.operation_ids]} />
+      {graph === null ? null : <SemanticGraphVisualizer graph={graph} selectedGroupId={selectedGroupId} />}
       {graph === null ? null : (
         <>
           {graph.artifact_revision_id === graph.revision_id ? null : (
             <p className="contract-no-call">
-              ToolRouter evidence is inherited unchanged from parent revision <code>{graph.artifact_revision_id}</code>.
+              ToolRouter evidence is inherited unchanged from parent API version <code>{graph.artifact_revision_id}</code>.
             </p>
           )}
           <div className="api-graph-type-counts" aria-label="Graph node types">
@@ -124,7 +123,7 @@ export function ApiGraphPanel({
             <section aria-labelledby="semantic-groups-title">
               <h4 id="semantic-groups-title">Semantic groups</h4>
               {graph.semantic_groups.length === 0 ? (
-                <p>No resource groups were emitted for this revision.</p>
+                <p>No resource groups were emitted for this API version.</p>
               ) : (
                 <div className="api-semantic-groups" role="list">
                   {graph.semantic_groups.map((group) => (
@@ -192,49 +191,4 @@ export function ApiGraphPanel({
       )}
     </section>
   );
-}
-
-function GraphCanvas({ nodes, edges, selectedNodeIds }: { nodes: readonly ApiGraphNode[]; edges: readonly ApiGraphEdge[]; selectedNodeIds: readonly string[] }) {
-  const selected = new Set(selectedNodeIds);
-  const selectedNodes = nodes.filter(({ id }) => selected.has(id));
-  const neighborIds = new Set(
-    edges.flatMap(({ source, target }) =>
-      selected.has(source) ? [target] : selected.has(target) ? [source] : [],
-    ),
-  );
-  const neighbors = nodes.filter(
-    ({ id }) => neighborIds.has(id) && !selected.has(id),
-  );
-  const visible = [...selectedNodes, ...neighbors, ...nodes]
-    .filter((node, index, values) =>
-      values.findIndex(({ id }) => id === node.id) === index,
-    )
-    .slice(0, 16);
-  const visibleIds = new Set(visible.map(({ id }) => id));
-  const positions = new Map(visible.map((node, index) => {
-    const column = index % 4;
-    const row = Math.floor(index / 4);
-    return [node.id, { x: 28 + column * 174, y: 24 + row * 78 }] as const;
-  }));
-  const rows = Math.max(1, Math.ceil(visible.length / 4));
-  const height = 48 + rows * 78;
-  return <figure className="api-graph-canvas" aria-label="Semantic graph visualization">
-    <svg viewBox={`0 0 720 ${height}`} role="img" aria-label="Semantic graph visualization">
-      <title id="api-graph-visual-title">Semantic graph visualization</title>
-      <desc id="api-graph-visual-description">The selected semantic group and its directly related persisted nodes. Selected operations are highlighted.</desc>
-      {edges.filter(({ source, target }) => visibleIds.has(source) && visibleIds.has(target)).map((edge, index) => {
-        const source = positions.get(edge.source)!; const target = positions.get(edge.target)!;
-        return <line key={`${edge.source}-${edge.target}-${index}`} x1={source.x + 72} y1={source.y + 25} x2={target.x + 72} y2={target.y + 25} data-status={edge.status} />;
-      })}
-      {visible.map((node) => {
-        const point = positions.get(node.id)!;
-        return <g key={node.id} transform={`translate(${point.x} ${point.y})`} data-selected={selected.has(node.id)}>
-          <rect width="144" height="50" rx="9" />
-          <text className="api-graph-node-label" x="10" y="20">{node.label.slice(0, 22)}</text>
-          <text className="api-graph-node-type" x="10" y="38">{node.node_type.replaceAll("_", " ").slice(0, 24)}</text>
-        </g>;
-      })}
-    </svg>
-    <figcaption>Showing {visible.length} nodes from the selected semantic group and its direct relationships · {nodes.length} total persisted nodes.</figcaption>
-  </figure>;
 }

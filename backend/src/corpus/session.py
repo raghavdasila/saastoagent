@@ -34,7 +34,7 @@ _PRIVATE_FORM_HANDLES = (
     ("lounge.forgot_password", RESET_REQUEST_FORM_ID),
     ("lounge.reset_password", RESET_CONFIRM_FORM_ID),
     ("lounge.verify_email", VERIFY_EMAIL_FORM_ID),
-    ("sources.home", API_CONNECTION_FORM_ID),
+    ("sources.api", API_CONNECTION_FORM_ID),
 )
 
 

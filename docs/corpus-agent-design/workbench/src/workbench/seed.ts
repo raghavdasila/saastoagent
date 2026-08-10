@@ -115,6 +115,11 @@ const BEHAVIOR_POLICY_SEED: Record<string, PolicySeed[]> = {
     ["operation", "Open source creation", "Navigation to source creation does not attach a source and must not be presented as task completion."],
     ["operation", "Attach newly created source", "Attach only a successfully created eligible source; cancellation or source-creation failure returns without changing the agent."],
   ],
+  "agents-setup-from-api-file": [
+    ["surface", "Agent source picker", "Show only eligible sources from the same Workspace, including readiness and whether each source is already attached."],
+    ["operation", "Open agent creation", "Open creation only after the owner chooses a new agent; do not treat the earlier setup request as permission to bypass missing goal or responsibility input."],
+    ["operation", "Attach source to agent", "For an ongoing file-first setup request, attach only the exact ready Source the owner authorized after the Agent choice and required Agent details are established. Never invent operation selection or treat queued analysis as ready."],
+  ],
   "agents-open-source": [
     ["operation", "Open attached source", "Preserve the originating agent and return context when navigating to the selected source."],
   ],
@@ -163,8 +168,8 @@ const BEHAVIOR_POLICY_SEED: Record<string, PolicySeed[]> = {
   ],
   "api-upload-yaml": [
     ["surface", "API intake and connection", "Accept only the documented OpenAPI YAML format and file limits, and show exact validation errors without substituting sample content."],
-    ["operation", "Upload YAML", "Process only the file explicitly chosen by the owner and never replace missing or invalid input with a fixture or example specification."],
-    ["operation", "Accept API revision", "Invalid input creates no accepted revision; successful acceptance creates an identifiable revision bound to the uploaded file."],
+    ["operation", "Stage API definition", "Retain only the file explicitly chosen by the owner for the current conversation and never replace missing or invalid input with a fixture or example definition."],
+    ["operation", "Add staged API definition", "Staging alone creates nothing; successful addition creates one identifiable API version bound to the staged file."],
   ],
   "api-description": [
     ["surface", "API intake and connection", "Present Markdown description as supporting context distinct from the OpenAPI specification and enforce its documented file limits."],
@@ -179,8 +184,8 @@ const BEHAVIOR_POLICY_SEED: Record<string, PolicySeed[]> = {
   ],
   "api-process-toolrouter": [
     ["surface", "API processing status", "Identify the exact accepted revision and show unmet prerequisites before processing can start."],
-    ["operation", "Process API through ToolRouter", "Start processing only after explicit owner request and do not create duplicate concurrent runs for the same revision."],
-    ["operation", "Process API through ToolRouter", "Use the real ToolRouter pipeline for the exact revision; never substitute cached success, a mock graph, or another processor."],
+    ["operation", "Analyze API operations", "Start analysis only after explicit owner request and do not create duplicate concurrent runs for the same API version."],
+    ["operation", "Analyze API operations", "Use the real ToolRouter pipeline for the exact API version; never substitute cached success, a mock graph, or another processor."],
   ],
   "api-monitor-processing": [
     ["surface", "API processing status", "Show only observed phases, states, timestamps, and evidence; never invent a percentage, phase, or success state."],
@@ -255,12 +260,12 @@ const OPERATION_INTENDED_EFFECTS: Record<string, string> = {
   "Attach selected source": "Persist the selected eligible source on the originating agent and return to that agent.",
   "Delete API source": "Permanently remove the confirmed API source only when its attachments and processing state permit deletion.",
   "Open API description editor": "Open the selected API source at its Markdown description input while preserving Source Hub return context.",
-  "Upload YAML": "Submit the owner-selected OpenAPI YAML file for format and file-limit validation.",
-  "Accept API revision": "Create an identifiable API source revision from the validated OpenAPI YAML file.",
+  "Stage API definition": "Retain the owner-selected OpenAPI YAML or JSON file for the current authenticated conversation after format and file-limit validation.",
+  "Add staged API definition": "Create one identifiable API Source version from the validated staged file without starting analysis.",
   "Save API description": "Persist the validated Markdown description on the selected API source without changing its OpenAPI revision.",
   "Save API connection": "Persist the validated connection settings and protected credentials on the selected API connection profile.",
   "Test API connection": "Run an explicitly requested safe check against the selected API connection profile and return the observed result.",
-  "Process API through ToolRouter": "Run ToolRouter for the exact accepted revision, persist its real artifacts, and update that revision's processing state.",
+  "Analyze API operations": "Run ToolRouter for the exact accepted API version, persist its real artifacts, and update that version's analysis state.",
   "Control graph replay": "Change the playback position of the persisted construction trace without rerunning processing or mutating the graph.",
   "Save operation curation": "Persist the owner's exact included and excluded discovered operations for the selected API revision.",
   "Retry API processing": "Start a new attempt for the failed processing step using the corrected input while retaining the original failure evidence.",
@@ -297,6 +302,8 @@ const LOUNGE_OPERATION_AVAILABILITY: Record<string, OperationDesign["availableTh
   "Attach an existing source::Attach source to agent": "both",
   "Create and attach a source::Open source creation": "both",
   "Create and attach a source::Attach newly created source": "both",
+  "Set up an agent from an attached API definition::Open agent creation": "both",
+  "Set up an agent from an attached API definition::Attach source to agent": "both",
   "Open an attached source::Open attached source": "both",
   "Archive an agent::Archive agent": "both",
   "Delete an agent::Delete agent": "both",
@@ -310,12 +317,12 @@ const LOUNGE_OPERATION_AVAILABILITY: Record<string, OperationDesign["availableTh
   "Select a source for an agent::Attach selected source": "both",
   "Delete an API source::Delete API source": "both",
   "Start adding an API description::Open API description editor": "both",
-  "Upload an API YAML file::Upload YAML": "both",
-  "Upload an API YAML file::Accept API revision": "both",
+  "Add an API definition file::Stage API definition": "both",
+  "Add an API definition file::Add staged API definition": "both",
   "Add or update the API description::Save API description": "both",
   "Configure the API connection::Save API connection": "product-surface",
   "Configure the API connection::Test API connection": "both",
-  "Process the API through ToolRouter::Process API through ToolRouter": "both",
+  "Analyze API operations::Analyze API operations": "both",
   "Inspect the semantic graph::Inspect current API architecture": "chat",
   "Replay graph construction::Control graph replay": "both",
   "Curate API operations::Save operation curation": "both",
@@ -643,6 +650,7 @@ const NODE_TEMPLATE_SEED: Record<string, NodeTemplate[]> = {
           policies: [
             "Attach only eligible sources from the same Workspace and prevent duplicate attachment.",
             "Preserve the selected agent across Source Hub and API Source handoffs; navigation alone does not attach or edit a source.",
+            "When an owner asks to set up an Agent from the API definition already added in this conversation, preserve that task across Source and Agent areas. Ask only for missing agent choice, goal, responsibilities, or operation-selection intent; create an Agent only after the owner chooses creation, and attach only the exact ready authorized Source.",
           ],
         },
         {
@@ -715,6 +723,7 @@ const NODE_TEMPLATE_SEED: Record<string, NodeTemplate[]> = {
           policies: [
             "Enforce documented format and file limits; invalid input creates no accepted revision.",
             "Bind subsequent connection, processing, graph, and curation state to the exact accepted revision.",
+            "When the owner says an API definition is attached and authorizes adding or setting it up, use only the exact file staged for this authenticated conversation. Open API Source when needed, add the staged definition, and explicitly start analysis without asking the owner to upload or select the same file again. Adding and analysis remain separate supervised operations, and readiness must come from persisted worker state.",
           ],
         },
         {
@@ -883,6 +892,7 @@ const BEHAVIOR_NODE_TEMPLATE: Record<string, [featureId: string, nodeName: strin
   "agents-edit": ["agents", "Agent detail", "Agent configuration"],
   "agents-attach-source": ["agents", "Agent detail", "Source attachments"],
   "agents-create-source": ["agents", "Agent detail", "Source attachments"],
+  "agents-setup-from-api-file": ["agents", "Agent detail", "Source attachments"],
   "agents-open-source": ["agents", "Agent detail", "Source attachments"],
   "agents-archive": ["agents", "Agent detail", "Agent lifecycle"],
   "agents-delete": ["agents", "Agent detail", "Agent lifecycle"],
@@ -938,11 +948,11 @@ const SUGGESTED_ACTION_OPERATION: Record<string, string> = {
   "sources-select": "Attach selected source",
   "sources-delete-confirm": "Delete API source",
   "sources-add-description": "Open API description editor",
-  "api-upload": "Upload YAML",
+  "api-upload": "Stage API definition",
   "api-description-upload": "Save API description",
   "api-save-connection": "Save API connection",
   "api-test-connection": "Test API connection",
-  "api-process": "Process API through ToolRouter",
+  "api-process": "Analyze API operations",
   "api-replay-start": "Control graph replay",
   "api-replay-step": "Control graph replay",
   "api-save-operations": "Save operation curation",
@@ -1451,13 +1461,13 @@ const SOURCE_OPERATION_CONTRACTS: Record<string, OperationContract> = {
     safetyAndReview: "Navigation does not upload, validate, save, render, or process a Markdown file and may not switch to another source.",
     recovery: "Keep Source Hub and the selected source visible, report the navigation failure, and allow an explicit retry.",
   },
-  "Upload YAML": {
+  "Stage API definition": {
     inputs: "A source name and the owner-selected OpenAPI YAML file within the documented type and size limits.",
     outcomes: "The exact file is validated and becomes eligible for revision acceptance; invalid type, size, syntax, or contract content creates no accepted revision and remains visible.",
     safetyAndReview: "Use only the submitted file, isolate it to the authenticated Workspace, and never substitute an example, fixture, cached definition, or alternate input.",
     recovery: "Keep validation evidence visible and let the owner correct or replace the file; never retry or accept it automatically.",
   },
-  "Accept API revision": {
+  "Add staged API definition": {
     inputs: "One successfully validated OpenAPI YAML upload and the selected Workspace-owned API source identity.",
     outcomes: "An immutable identifiable revision bound to the exact file hash is created once; stale, invalid, duplicate, or failed acceptance creates no accepted revision.",
     safetyAndReview: "Bind the revision to the authenticated owner, source, original file, and content identity without changing prior revision history.",
@@ -1466,7 +1476,7 @@ const SOURCE_OPERATION_CONTRACTS: Record<string, OperationContract> = {
   "Save API description": {
     inputs: "The exact API source and a Markdown file within the documented size and content limits.",
     outcomes: "Valid supporting description content is saved to that source; invalid or failed content leaves the previously accepted description unchanged.",
-    safetyAndReview: "Treat Markdown as non-executable supporting context, isolate it to the owner, and never treat it as the OpenAPI contract or read unrelated files.",
+    safetyAndReview: "Treat Markdown as non-executable supporting context, isolate it to the owner, and never treat it as the API definition or read unrelated files.",
     recovery: "Keep the prior description authoritative, show validation or persistence failure, and allow an explicit corrected upload.",
   },
   "Save API connection": {
@@ -1481,7 +1491,7 @@ const SOURCE_OPERATION_CONTRACTS: Record<string, OperationContract> = {
     safetyAndReview: "Use only the selected endpoint and stored credentials, never reveal secrets, and never switch environment, provider, endpoint, or credentials silently.",
     recovery: "Retain the failed check and redacted evidence, leave saved configuration unchanged, and allow correction followed by an explicit retry.",
   },
-  "Process API through ToolRouter": {
+  "Analyze API operations": {
     inputs: "An explicit owner request, one accepted source revision, and every required real processing dependency in a ready state.",
     outcomes: "One durable processing job records waiting, active, failed, completed, and ready evidence for the exact revision; only completed required artifacts make it ready.",
     safetyAndReview: "Prevent duplicate concurrent work for the revision, use the single Corpus ToolRouter revision chain, and never substitute mock, cached, synthetic, or alternate-processor success.",
@@ -1516,6 +1526,7 @@ const SOURCE_OPERATION_CONTRACTS: Record<string, OperationContract> = {
 const AGENT_LIFECYCLE_STORY_IDS = new Set([
   "agents-attach-source",
   "agents-create-source",
+  "agents-setup-from-api-file",
   "agents-open-source",
   "agents-archive",
   "agents-delete",
@@ -1858,7 +1869,7 @@ function sourceBehaviorEval(story: DesignStory): BehaviorEvalCase {
 
 function sourceConversationEval(feature: DesignFeature): FeatureConversationEvalScenario {
   const apiSource = feature.id === "api-source"
-  const startingBehavior = apiSource ? "Upload an API YAML file" : "View sources"
+  const startingBehavior = apiSource ? "Add an API definition file" : "View sources"
   const finalBehavior = apiSource ? "Route and test an API operation" : "Select a source for an agent"
   return {
     id: `${feature.id}-mixed-continuation`,
@@ -1910,7 +1921,7 @@ function sourceJourney(feature: DesignFeature): ProductJourneyEval {
     enabled: true,
     blocking: true,
     interaction: "surface",
-    startingBehavior: apiSource ? "Upload an API YAML file" : "View sources",
+    startingBehavior: apiSource ? "Add an API definition file" : "View sources",
     startingAuthentication: "authenticated",
     goal: apiSource ? "Create one revision, process it durably, inspect semantic groups and routing evidence, and test one real allowed operation." : "View the inventory, start or select an API source, and preserve the correct return and dependency context.",
     preconditions: ["Corpus is running locally with the real ToolRouter and target API dependencies ready."],
@@ -2226,6 +2237,15 @@ export function createSeedState(): WorkbenchState {
             "I will take you to Source Hub and return here with the completed source attached.",
           ),
           story(
+            "agents-setup-from-api-file",
+            "Set up an agent from an attached API definition",
+            "Use an attached OpenAPI file to create a source and continue setting up an agent.",
+            "Treat the file as staged owner input, let Corpus choose legal navigation and operations, and ask only for missing agent or operation intent.",
+            "The owner attaches an OpenAPI file and asks Corpus to set up an agent. Attaching the file only stages it for the current conversation. Corpus decides the legal next action from the request: it creates the API source and starts analysis when the request authorizes setup, while preserving any selected-agent context. If no agent is selected, Corpus asks whether to use an existing agent or create one; creating one requires the owner's goal and responsibilities. Corpus attaches only a ready source, never invents operation selections, and continues through design, build, private trial, evaluation, and delivery only as each prerequisite and consequential approval becomes available.",
+            "Use this API definition and set up the agent for me.",
+            "I will add and analyze the API definition first, then ask only for the agent details or operation choices that are still missing.",
+          ),
+          story(
             "agents-open-source",
             "Open an attached source",
             "Inspect or edit a source attached to this agent.",
@@ -2294,6 +2314,7 @@ export function createSeedState(): WorkbenchState {
           "Expose only sources owned by the authenticated Workspace.",
           "At launch, offer API sources only; do not imply database, knowledge, or MCP support.",
           "Keep source readiness and agent-attachment state truthful; navigation between Source Hub, Agents, and API Source does not itself mutate either record.",
+          "Keep Source Hub an inventory and guided entry point. Open API-specific intake, analysis, graph, operation, connection, and attachment work in API Source rather than merging those controls into the inventory.",
         ]),
         stories: [
           story(
@@ -2301,7 +2322,7 @@ export function createSeedState(): WorkbenchState {
             "View sources",
             "See the sources in my Workspace and which agents use them.",
             "List authorized sources with truthful type, status, and attachment context.",
-            "The owner opens Source Hub. Corpus lists Workspace sources, their type and readiness, and the agents to which they are attached. At launch, API is the only available source family.",
+            "The owner opens Source Hub. Corpus lists Workspace sources, their type, readiness, connection and operation-selection progress, and the agents to which they are attached. It shows the next incomplete setup step in plain language and opens API-specific work in API Source. At launch, API is the only available source family.",
             "Show me my sources.",
             "Here are your Workspace sources, their readiness, and their agent attachments.",
             { suggestedActions: [{ id: "sources-add-api", label: "Add API source" }] },
@@ -2353,25 +2374,27 @@ export function createSeedState(): WorkbenchState {
         name: "API Source",
         conversationEvals: [],
         productJourneyEvals: [],
-        prompt: "You are Corpus in the API Source feature. Help the owner configure and validate an API source from its declared contract, keeping credentials private and describing only connection and discovery outcomes that the product has confirmed.",
+        prompt: "You are Corpus in the API Source feature. Help the owner configure and validate an API source from its declared API definition, keeping credentials private and describing only connection and discovery outcomes that the product has confirmed.",
         policies: policies("API Source", [
           "Keep API specifications, credentials, artifacts, and processing isolated to the authenticated Workspace.",
           "Enter API Source only from Source Hub and keep processing failures explicit.",
           "Bind configuration, processing status, graph artifacts, operation selections, and recovery evidence to the exact API source revision they describe.",
-          "A prepared API contract correction is not a pending owner review. Asking what it changes or what its consequences are is read-only and must not stage review. Only an explicit request to begin or open owner review stages it; say it is pending only after staging succeeds, and only a later explicit acceptance creates the immutable revision.",
+          "A prepared API definition correction is not a pending owner review. Asking what it changes or what its consequences are is read-only and must not stage review. Only an explicit request to begin or open owner review stages it; say it is pending only after staging succeeds, and only a later explicit acceptance creates the immutable API version.",
           "Never expose stored credentials, tokens, or private connection bindings in chat, surfaces, logs, or generated artifacts.",
           "Present only real persisted ToolRouter results as processed artifacts; never substitute fixtures, synthetic graphs, cached success, or alternate processing paths.",
+          "Keep chat visible when the owner maximizes API Source. Maximizing changes presentation only and preserves the same surface, legal operations, selected Source, and conversation.",
+          "Render the complete persisted semantic graph without sampling. Replay only exact recorded ToolRouter construction events and distinguish recorded replay from live processing.",
         ]),
         stories: [
           story(
             "api-upload-yaml",
-            "Upload an API YAML file",
-            "Create or revise an API source from an OpenAPI YAML file.",
-            "Validate the file and size limits, persist an accepted revision, and report invalid input clearly.",
-            "The owner uploads an OpenAPI YAML file from API Source. Corpus enforces the documented file limits and format, creates the source revision only when accepted, and shows validation failures without substituting sample data.",
-            "Upload this OpenAPI YAML file.",
-            "I will validate the file and create a source revision only if it is accepted.",
-            { suggestedActions: [{ id: "api-upload", label: "Upload YAML" }] },
+            "Add an API definition file",
+            "Stage an OpenAPI YAML or JSON file before creating or analyzing the API source.",
+            "Validate the file and size limits, retain it for the current conversation, and leave source creation and processing to explicit operations.",
+            "The owner attaches an OpenAPI YAML or JSON file from API Source or chat. Corpus enforces the documented file limits and format and stages the exact file for the current authenticated conversation. Staging does not create a Source, start ToolRouter, or attach anything to an agent. Corpus creates an immutable API version only when the owner request authorizes adding the staged definition, and processing remains a separate explicit action.",
+            "Use this OpenAPI file.",
+            "I will stage the API definition first. I will not analyze or attach it until your request authorizes those next actions.",
+            { suggestedActions: [{ id: "api-upload", label: "Add API definition" }] },
           ),
           story(
             "api-description",
@@ -2395,13 +2418,13 @@ export function createSeedState(): WorkbenchState {
           ),
           story(
             "api-process-toolrouter",
-            "Process the API through ToolRouter",
+            "Analyze API operations",
             "Turn the accepted API revision into a semantic graph and operation inventory.",
             "Run the real ToolRouter pipeline for the exact revision and make success or failure visible.",
             "The owner starts processing for an accepted API revision. Corpus invokes ToolRouter for that exact revision, records its actual artifacts, and marks the revision ready only after required processing completes. Missing dependencies or processing errors remain failures.",
-            "Process this API source.",
-            "I will run ToolRouter against this exact revision and report each completed phase or failure.",
-            { suggestedActions: [{ id: "api-process", label: "Process API" }] },
+            "Analyze this API definition.",
+            "I will analyze this exact API version with ToolRouter and report each completed phase or failure.",
+            { suggestedActions: [{ id: "api-process", label: "Analyze operations" }] },
           ),
           story(
             "api-monitor-processing",
@@ -2416,8 +2439,8 @@ export function createSeedState(): WorkbenchState {
             "api-inspect-graph",
             "Inspect the semantic graph",
             "Understand the structure ToolRouter produced for this API revision.",
-            "Present the persisted graph with enough context to inspect nodes, edges, and their source revision.",
-            "After processing succeeds, the owner opens the semantic graph for the exact API revision. Corpus shows the persisted nodes and relationships and keeps the source revision identifiable.",
+            "Present the complete persisted graph with accumulated and active-neighborhood views, inspectable nodes and edges, semantic groups, and the exact source revision.",
+            "After processing succeeds, the owner opens the semantic graph for the exact API revision. Corpus uses the proven ToolRouter graph interaction: the complete accumulated graph is never sampled, an active neighborhood can be isolated without changing the stored graph, nodes and relationships are inspectable, and the source revision remains identifiable.",
             "What can this API do, and how did you organize it?",
             "I will inspect the current API architecture and explain its persisted semantic groups and operations.",
           ),
@@ -2425,8 +2448,8 @@ export function createSeedState(): WorkbenchState {
             "api-replay-graph",
             "Replay graph construction",
             "See how ToolRouter built the graph node by node.",
-            "Replay the persisted construction trace in order without claiming live streaming that is not available.",
-            "After graph processing completes, the owner replays the persisted graph-construction trace node by node. Corpus supports pause, resume, and step-through over recorded events. This baseline does not claim that construction streams live while ToolRouter is still running.",
+            "Replay the persisted construction trace in order with a scrubber, step controls, and speed control without claiming live streaming that is not available.",
+            "After graph processing completes, the owner replays the exact persisted graph-construction trace event by event over the same complete graph. Corpus supports previous, next, pause, resume, scrub, and explicit playback speed; it highlights the active operation and cumulative node and edge counts. This baseline does not claim that construction streams live while ToolRouter is still running.",
             "Show me how this graph was built.",
             "I will replay the recorded construction events in order, one node at a time.",
             { suggestedActions: [{ id: "api-replay-start", label: "Replay construction" }, { id: "api-replay-step", label: "Step" }] },

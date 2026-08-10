@@ -125,7 +125,7 @@ export function ApiOperationCurationPanel({
       const next = await refresh();
       if (next === null) return;
       setMessage(
-        `Saved ${next.current?.included_operation_ids.length ?? 0} included and ${next.current?.excluded_operation_ids.length ?? 0} excluded operations for this exact revision.`
+        `Saved ${next.current?.included_operation_ids.length ?? 0} included and ${next.current?.excluded_operation_ids.length ?? 0} excluded operations for this exact API version.`
       );
     } catch (caught) {
       setError(errorMessage(caught));
@@ -156,7 +156,7 @@ export function ApiOperationCurationPanel({
     <section className="api-operation-curation" aria-labelledby="api-operation-curation-title">
       <div className="api-operation-curation-heading">
         <div>
-          <p>Revision-bound design inventory</p>
+          <p>API version operation inventory</p>
           <h3 id="api-operation-curation-title">API operation curation</h3>
           <span>Include or exclude every exact discovered operation. Filtering never changes the saved selection.</span>
         </div>
@@ -176,7 +176,7 @@ export function ApiOperationCurationPanel({
       ) : (
         <>
           <dl className="api-curation-identity">
-            <div><dt>Revision</dt><dd><code>{view.source_revision_id}</code></dd></div>
+            <div><dt>API version</dt><dd><code>{view.source_revision_id}</code></dd></div>
             <div><dt>Inventory</dt><dd><code>{view.inventory_fingerprint.slice(0, 12)}…</code></dd></div>
             <div><dt>Saved versions</dt><dd>{view.history.length}</dd></div>
             <div><dt>Unclassified</dt><dd>{unclassifiedCount}</dd></div>

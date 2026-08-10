@@ -173,6 +173,17 @@ button, input, textarea { font: inherit; }
 
 [data-agent-surface-dock] { width: min(860px, 100%); max-height: min(46dvh, 520px); min-width: 0; overflow-x: hidden; overflow-y: auto; margin: 0 auto; padding-top: 10px; background: linear-gradient(to bottom, transparent, var(--background) 18%); overscroll-behavior: contain; scrollbar-gutter: stable; }
 [data-agent-surface-dock]:not(:has([data-routedeck-surface])) { display: none; }
+[data-agent-surface-toolbar] { position: sticky; z-index: 6; top: 0; display: flex; min-height: 38px; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 8px; border: 1px solid var(--border); border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0; background: color-mix(in oklch, var(--background) 94%, transparent); backdrop-filter: blur(12px); }
+[data-agent-surface-toolbar] > span { color: var(--muted-foreground); font-size: 11px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
+[data-agent-surface-toolbar] button { display: inline-flex; min-height: 28px; align-items: center; gap: 6px; padding: 0 9px; border: 1px solid var(--border); border-radius: 7px; color: var(--foreground); background: var(--background); font-size: 11px; font-weight: 600; }
+[data-agent-surface-toolbar] button:hover { border-color: var(--ring); color: var(--primary); }
+[data-agent-surface-toolbar] svg { width: 14px; height: 14px; }
+[data-agent-shell][data-surface-layout="split"] { grid-template-areas: "conversation surface" "input surface"; grid-template-columns: minmax(320px, .72fr) minmax(540px, 1.28fr); grid-template-rows: minmax(0, 1fr) auto; gap: 0 20px; padding: 0 20px 18px; }
+[data-agent-shell][data-surface-layout="split"] > [data-agent-conversation] { grid-area: conversation; }
+[data-agent-shell][data-surface-layout="split"] > [data-agent-surface-dock] { grid-area: surface; width: 100%; max-height: none; height: 100%; margin: 0; padding: 0; border-left: 1px solid var(--border); background: var(--background); }
+[data-agent-shell][data-surface-layout="split"] > [data-agent-input-dock] { grid-area: input; width: 100%; }
+[data-agent-shell][data-surface-layout="split"] > [data-agent-review-required], [data-agent-shell][data-surface-layout="split"] > [data-agent-chat-error] { grid-column: 1; }
+[data-agent-shell][data-surface-layout="split"] [data-agent-surface] { padding: 0 0 24px 16px; }
 [data-agent-surface], [data-routedeck-surface-host], [data-routedeck-surface] { min-width: 0; }
 [data-routedeck-surface-host] { display: grid; gap: 16px; }
 [data-routedeck-surface] { border: 0; }
@@ -279,6 +290,9 @@ button, input, textarea { font: inherit; }
   [data-navgraph-mobile] { display: block; }
   [data-navgraph-mobile] > button > span { display: none; }
   [data-agent-shell] { padding: 0 12px 10px; }
+  [data-agent-shell][data-surface-layout="split"] { grid-template-areas: "surface" "conversation" "input"; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(360px, 58dvh) minmax(260px, 1fr) auto; padding-inline: 12px; }
+  [data-agent-shell][data-surface-layout="split"] > [data-agent-surface-dock] { border-left: 0; border-bottom: 1px solid var(--border); }
+  [data-agent-shell][data-surface-layout="split"] [data-agent-surface] { padding-left: 0; }
   [data-agent-conversation] { border-top: 0; scrollbar-gutter: auto; }
   [data-agent-conversation] > ol { gap: 22px; padding: 18px 1px 30px; }
   [data-agent-message], [data-agent-quick-actions] { width: 91%; }

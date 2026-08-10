@@ -16,7 +16,6 @@ import {
 
 it("uploads the optional description and exposes persisted failure retry", async () => {
   let listCount = 0;
-  const queued = sourceView("queued");
   const failed = sourceView("failed");
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -24,25 +23,52 @@ it("uploads the optional description and exposes persisted failure retry", async
       listCount += 1;
       return jsonResponse(listCount === 1 ? [] : [failed]);
     }
-    if (url === "/api/sources/api" && init?.method === "POST") {
+    if (url === "/api/sources/api/attachments" && init?.method === "POST") {
       const body = init.body as FormData;
       expect(body.get("file")).toMatchObject({ name: "widgets.yaml" });
       expect(body.get("description")).toMatchObject({ name: "widgets.md" });
-      return jsonResponse(queued, 201);
+      expect(new Headers(init.headers).get("X-Corpus-Conversation-ID")).toBe("conversation-test-01");
+      return jsonResponse({
+        attachment_id: "attachmentopaque1",
+        display_name: "Widget API",
+        filename: "widgets.yaml",
+        content_sha256: "a".repeat(64),
+        staged_at: "2026-08-07T10:00:00Z",
+        state: "staged",
+        source_id: null,
+        source_revision_id: null,
+      }, 201);
+    }
+    if (url === "/api/sources/api/attachments/current") {
+      return jsonResponse({
+        attachment_id: "attachmentopaque1",
+        display_name: "Widget API",
+        filename: "widgets.yaml",
+        content_sha256: "a".repeat(64),
+        staged_at: "2026-08-07T10:00:00Z",
+        state: "accepted",
+        source_id: failed.source_id,
+        source_revision_id: failed.revision.revision_id,
+      });
     }
     throw new Error(`Unexpected request: ${init?.method ?? "GET"} ${url}`);
   });
   const dispatchAffordance = vi.fn(async (id: string) =>
-    dispatchResult(id, id === "retry_processing" ? "queued" : "opened")
+    dispatchResult(
+      id,
+      id === "retry_processing" ? "queued" : id === "accept_staged_api" ? "accepted" : "opened",
+    )
   );
   const rendered = await renderSourceHub(
     dispatchAffordance,
     new SourceClient({ fetch: fetchMock }),
+    {
+      form_handle: "sources-api-connection",
+      mode: "create",
+    },
   );
 
-  expect(await screen.findByText("No API sources yet.")).toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: "Add API source" }));
-  await waitFor(() => expect(dispatchAffordance).toHaveBeenCalledWith("open_api_creation", {}));
+  expect(await screen.findByRole("heading", { name: "Add an API source" })).toBeVisible();
   fireEvent.change(screen.getByLabelText("Source name"), { target: { value: "Widget API" } });
   fireEvent.change(screen.getByLabelText("OpenAPI or Swagger definition"), {
     target: { files: [new File(["openapi: 3.0.3"], "widgets.yaml", { type: "application/yaml" })] },
@@ -51,7 +77,7 @@ it("uploads the optional description and exposes persisted failure retry", async
     target: { files: [new File(["# Widgets"], "widgets.md", { type: "text/markdown" })] },
   });
   fireEvent.submit(
-    screen.getByRole("button", { name: "Upload and process" }).closest("form")!,
+    screen.getByRole("button", { name: "Add API definition" }).closest("form")!,
   );
 
   expect(await screen.findByText("source_processing_failed")).toBeVisible();
@@ -62,6 +88,65 @@ it("uploads the optional description and exposes persisted failure retry", async
     "retry_processing", { source_id: "sourceopaque0001" },
   ));
   rendered.dispose();
+});
+
+
+it("keeps Source Hub as inventory and opens one exact API Source workflow", async () => {
+  const ready = sourceView("ready");
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    if (String(input) === "/api/sources") return jsonResponse([ready]);
+    throw new Error(`Unexpected request: ${String(input)}`);
+  });
+  const dispatchAffordance = vi.fn(async (id: string) => dispatchResult(id, "opened"));
+  const rendered = await renderSourceHub(
+    dispatchAffordance,
+    new SourceClient({ fetch: fetchMock }),
+    {},
+    "hub",
+  );
+
+  expect(await screen.findByRole("heading", { name: "Source Hub" })).toBeVisible();
+  expect(screen.getByRole("list", { name: "API sources" })).toBeVisible();
+  expect(screen.queryByRole("heading", { name: "Semantic graph" })).not.toBeInTheDocument();
+  await screen.findAllByText("Widget API");
+  fireEvent.click(screen.getAllByRole("button", { name: /Open API source/ }).at(-1)!);
+  await waitFor(() => expect(dispatchAffordance).toHaveBeenCalledWith("open_api_source", {
+    source_id: ready.source_id,
+    source_revision_id: ready.revision.revision_id,
+  }));
+  rendered.dispose();
+});
+
+it("offers explicit existing-or-new Agent continuation from an accepted API definition", async () => {
+  const accepted = sourceView("accepted");
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    if (String(input) === "/api/sources") return jsonResponse([accepted]);
+    throw new Error(`Unexpected request: ${String(input)}`);
+  });
+  const dispatchAffordance = vi.fn(async (id: string) => dispatchResult(id, "opened"));
+  const rendered = await renderSourceHub(
+    dispatchAffordance,
+    new SourceClient({ fetch: fetchMock }),
+  );
+
+  expect(await screen.findByText("Choose how to continue the Agent setup")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Use an existing Agent" }));
+  await waitFor(() => expect(dispatchAffordance).toHaveBeenCalledWith(
+    "open_agent_inventory", {},
+  ));
+  rendered.dispose();
+
+  const creationDispatch = vi.fn(async (id: string) => dispatchResult(id, "opened"));
+  const creationRendered = await renderSourceHub(
+    creationDispatch,
+    new SourceClient({ fetch: fetchMock }),
+  );
+  expect(await screen.findByText("Choose how to continue the Agent setup")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Create a new Agent" }));
+  await waitFor(() => expect(creationDispatch).toHaveBeenCalledWith(
+    "open_agent_creation", {},
+  ));
+  creationRendered.dispose();
 });
 
 
@@ -95,6 +180,7 @@ it("renders persisted semantic groups and inspects an exact recorded constructio
         ],
         edges: [
           {
+            id: "api_operation:catalog:listProducts|exposes|resource:products",
             source: "api_operation:catalog:listProducts",
             target: "resource:products",
             type: "exposes",
@@ -113,6 +199,28 @@ it("renders persisted semantic groups and inspects an exact recorded constructio
           { id: "ingest", status: "pass", metrics: { endpoint_count: 1 }, warning_codes: [] },
           { id: "connect", status: "pass", metrics: { edge_count: 1 }, warning_codes: [] },
         ],
+        trace: [
+          {
+            index: 0,
+            event_type: "operation_added",
+            active_endpoint_id: "catalog:listProducts",
+            added_node_ids: ["api_operation:catalog:listProducts"],
+            updated_node_ids: [],
+            added_edge_ids: [],
+            cumulative_nodes: 1,
+            cumulative_edges: 0,
+          },
+          {
+            index: 1,
+            event_type: "resource_connected",
+            active_endpoint_id: "catalog:listProducts",
+            added_node_ids: ["resource:products"],
+            updated_node_ids: [],
+            added_edge_ids: ["api_operation:catalog:listProducts|exposes|resource:products"],
+            cumulative_nodes: 2,
+            cumulative_edges: 1,
+          },
+        ],
       });
     }
     throw new Error(`Unexpected request: ${url}`);
@@ -127,13 +235,15 @@ it("renders persisted semantic groups and inspects an exact recorded constructio
 
   expect(await screen.findByRole("heading", { name: "Semantic graph" })).toBeVisible();
   expect(await screen.findByRole("img", { name: "Semantic graph visualization" })).toBeVisible();
-  const graph = screen.getByRole("img", { name: "Semantic graph visualization" });
-  await waitFor(() => {
-    expect(graph.querySelector("rect")).not.toBeNull();
-    expect(graph.textContent).toContain("GET /products");
-    expect(graph.textContent).toContain("api operation");
-  });
-  expect(screen.getByText(/selected semantic group and its direct relationships/)).toBeVisible();
+  expect(screen.getByText("ToolRouter graph construction")).toBeVisible();
+  expect(screen.getByText("Complete persisted graph · no sampling")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Accumulated graph" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Operation neighborhood" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Open graph full screen" })).toBeVisible();
+  expect(screen.getByText("2 seconds per frame at 1×")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Previous construction event" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Play construction replay" })).toBeVisible();
+  expect(screen.getByLabelText("Construction event")).toHaveValue("1");
   expect(await screen.findByText("2 nodes · 1 edges · resource_first_v1")).toBeVisible();
   expect(screen.getByRole("button", { name: "products1" })).toBeVisible();
   expect(screen.getByText("listProducts")).toBeVisible();
@@ -216,7 +326,7 @@ it("sends API secrets only through the private form and dispatches an empty oper
   expect(JSON.stringify(dispatchAffordance.mock.calls)).not.toContain(secret);
   expect(JSON.stringify(fetchMock.mock.calls)).not.toContain(secret);
   expect(await screen.findByText(
-    "Saved profile metadata is revision-bound. Credentials remain protected. No connection check was run.",
+    "Saved profile metadata is tied to this API version. Credentials remain protected. No connection check was run.",
   )).toBeVisible();
   expect(screen.getByText("Protected api key · credential v1")).toBeVisible();
   rendered.dispose();
@@ -272,7 +382,7 @@ it("prepares the exact selected ready revision without an API execution request"
     new SourceClient({ fetch: fetchMock }),
   );
 
-  fireEvent.click(await screen.findByRole("button", { name: "Prepare contract revision" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Review API changes" }));
   await waitFor(() => expect(dispatchAffordance).toHaveBeenCalledWith(
     "propose_contract_revision",
     { source_id: ready.source_id, revision_id: ready.revision.revision_id },
@@ -360,8 +470,8 @@ it("dispatches one exact safe check and renders only redacted persisted evidence
   expect(await screen.findByText("Connection check succeeded")).toBeVisible();
   expect(screen.getByText("GetProductTags · GET /store/product-tags")).toBeVisible();
   expect(screen.getByText("6fca793be700…")).toBeVisible();
-  expect(screen.getByText("Saved profile metadata and redacted check history are revision-bound. Credentials remain protected.")).toBeVisible();
-  expect(screen.queryByText("Saved profile metadata is revision-bound. Credentials remain protected. No connection check was run.")).not.toBeInTheDocument();
+  expect(screen.getByText("Saved profile metadata and redacted check history are tied to this API version. Credentials remain protected.")).toBeVisible();
+  expect(screen.queryByText("Saved profile metadata is tied to this API version. Credentials remain protected. No connection check was run.")).not.toBeInTheDocument();
   expect(JSON.stringify(dispatchAffordance.mock.calls)).not.toContain(secret);
   expect(document.body.textContent).not.toContain(secret);
   rendered.dispose();
@@ -372,7 +482,9 @@ async function renderSourceHub(
   dispatchAffordance: RouteDeckSurfaceComponentProps["dispatchAffordance"],
   sourceClient: SourceClient,
   values: RouteDeckSurfaceComponentProps["props"] = {},
+  view: "hub" | "api" = "api",
 ) {
+  sourceClient.selectConversation("conversation-test-01");
   return renderRouteDeckComponent(
     <PrivateFormGate formId="sources-api-connection">
       {(privateForm) => (
@@ -381,6 +493,7 @@ async function renderSourceHub(
           sourceClient={sourceClient}
           privateForm={privateForm}
           contractRevisionStore={new ContractRevisionStore(sourceClient)}
+          view={view}
         />
       )}
     </PrivateFormGate>,
@@ -403,6 +516,7 @@ function emptyGraph() {
     edges: [],
     semantic_groups: [],
     playback: [],
+    trace: [],
   };
 }
 
@@ -422,6 +536,10 @@ function surfaceProps(
       public_props_schema: {},
       affordances: [
         { id: "open_api_creation", event: "open", operation: { id: "sources.open_api_creation" } },
+        { id: "open_api_source", event: "open", operation: { id: "sources.open_api_source" } },
+        { id: "return_to_source_hub", event: "open", operation: { id: "sources.return_to_source_hub" } },
+        { id: "accept_staged_api", event: "submit", operation: { id: "sources.accept_staged_api" } },
+        { id: "process_api", event: "submit", operation: { id: "sources.process_api" } },
         { id: "retry_processing", event: "submit", operation: { id: "sources.retry_processing" } },
         { id: "select_graph_stage", event: "select", operation: { id: "sources.select_graph_stage" } },
         { id: "save_api_connection", event: "submit", operation: { id: "sources.save_api_connection" } },
@@ -437,7 +555,7 @@ function surfaceProps(
 }
 
 
-function sourceView(state: "queued" | "ready" | "failed", reviewed = false) {
+function sourceView(state: "accepted" | "queued" | "ready" | "failed", reviewed = false) {
   return {
     source_id: "sourceopaque0001",
     connector_key: "api",

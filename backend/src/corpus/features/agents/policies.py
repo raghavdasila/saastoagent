@@ -40,6 +40,30 @@ SOURCE_HANDOFF_CONTEXT = policy(
     "agents.capability.source_handoff_context",
     "Preserve the selected agent across Source Hub and API Source handoffs; navigation alone does not attach or edit a source.",
 )
+SETUP_CONTINUATION = policy(
+    "agents.capability.setup_continuation",
+    (
+        "When an owner asks to set up an Agent from the API definition already added in this "
+        "conversation, preserve that task across Source and Agent areas. Ask only for missing "
+        "agent choice, goal, responsibilities, or operation-selection intent; create an Agent "
+        "only after the owner chooses creation, and attach only the exact ready authorized Source."
+    ),
+)
+SETUP_ATTACH_READY = policy(
+    "agents.operation.setup_attach_ready",
+    (
+        "For an ongoing file-first setup request, attach only the exact ready Source the owner "
+        "authorized after the Agent choice and required Agent details are established. Never "
+        "invent operation selection or treat queued analysis as ready."
+    ),
+)
+OPEN_CREATE_SETUP = policy(
+    "agents.operation.open_create_setup",
+    (
+        "Open creation only after the owner chooses a new agent; do not treat the earlier "
+        "setup request as permission to bypass missing goal or responsibility input."
+    ),
+)
 SOURCE_PICKER_ELIGIBILITY = policy(
     "agents.surface.source_picker_eligibility",
     "Show only eligible sources from the same Workspace, including readiness and whether each source is already attached.",
@@ -95,6 +119,9 @@ AGENTS_AGENT_POLICIES = (
     LIFECYCLE_STATE_TRUTH,
     ATTACHMENT_ELIGIBILITY,
     SOURCE_HANDOFF_CONTEXT,
+    SETUP_CONTINUATION,
+    SETUP_ATTACH_READY,
+    OPEN_CREATE_SETUP,
     SOURCE_PICKER_ELIGIBILITY,
     ATTACH_EXACT_SOURCE,
     ATTACH_PERSISTED_SUCCESS,
@@ -119,6 +146,9 @@ __all__ = [
     "LIFECYCLE_STATE_TRUTH",
     "ATTACHMENT_ELIGIBILITY",
     "SOURCE_HANDOFF_CONTEXT",
+    "SETUP_CONTINUATION",
+    "SETUP_ATTACH_READY",
+    "OPEN_CREATE_SETUP",
     "SOURCE_PICKER_ELIGIBILITY",
     "ATTACH_EXACT_SOURCE",
     "ATTACH_PERSISTED_SUCCESS",

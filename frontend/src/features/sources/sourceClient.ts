@@ -1,5 +1,5 @@
 import type { AuthorizedTransport } from "@/app/transports";
-import type { ContractRevisionProposal, SourceView } from "./contracts";
+import type { ContractRevisionProposal, SourceView, StagedApiAttachment } from "./contracts";
 
 export type { SourceRevision, SourceState, SourceView } from "./contracts";
 export type { ContractRevisionProposal } from "./contracts";
@@ -13,6 +13,7 @@ export interface ApiGraphNode {
 }
 
 export interface ApiGraphEdge {
+  readonly id: string;
   readonly source: string;
   readonly target: string;
   readonly type: string;
@@ -33,6 +34,17 @@ export interface ApiGraphPlaybackStage {
   readonly warning_codes: readonly string[];
 }
 
+export interface ApiGraphTraceFrame {
+  readonly index: number;
+  readonly event_type: string;
+  readonly active_endpoint_id: string | null;
+  readonly added_node_ids: readonly string[];
+  readonly updated_node_ids: readonly string[];
+  readonly added_edge_ids: readonly string[];
+  readonly cumulative_nodes: number;
+  readonly cumulative_edges: number;
+}
+
 export interface ApiGraphView {
   readonly source_id: string;
   readonly revision_id: string;
@@ -44,6 +56,7 @@ export interface ApiGraphView {
   readonly edges: readonly ApiGraphEdge[];
   readonly semantic_groups: readonly ApiSemanticGroup[];
   readonly playback: readonly ApiGraphPlaybackStage[];
+  readonly trace: readonly ApiGraphTraceFrame[];
 }
 
 export type ApiAuthenticationMethod = "none" | "api_key" | "bearer";
@@ -372,15 +385,21 @@ export class SourceClient {
     );
   }
 
-  async uploadApi(name: string, file: File, description: File | null): Promise<SourceView> {
+  async stageApiDefinition(name: string, file: File, description: File | null): Promise<StagedApiAttachment> {
     const body = new FormData();
     body.set("name", name);
     body.set("file", file);
     if (description !== null) body.set("description", description);
-    return this.request<SourceView>("/api/sources/api", {
+    return this.routePlanRequest<StagedApiAttachment>("/api/sources/api/attachments", {
       method: "POST",
       body,
     });
+  }
+
+  async currentStagedApiDefinition(): Promise<StagedApiAttachment | null> {
+    return this.routePlanRequest<StagedApiAttachment | null>(
+      "/api/sources/api/attachments/current",
+    );
   }
 
   async retrieve(

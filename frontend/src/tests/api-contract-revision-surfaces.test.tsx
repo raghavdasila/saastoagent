@@ -40,7 +40,7 @@ it("renders exact hashes, all patches and BaseRegionCountry impact before review
   expect(screen.getByText("6435eb6c5861391b")).toBeVisible();
   expect(screen.getByText("6fca".repeat(16))).toBeVisible();
   expect(screen.getAllByRole("listitem")).toHaveLength(10);
-  fireEvent.click(screen.getByRole("button", { name: "Review this revision" }));
+  fireEvent.click(screen.getByRole("button", { name: "Review this API update" }));
   await waitFor(() => expect(dispatchAffordance).toHaveBeenCalledWith(
     "approve_contract_revision",
     { proposal_ref: PROPOSAL_REF },
@@ -74,13 +74,13 @@ it("accepts through durable RouteDeck review and signals Source inventory refres
   );
 
   expect(screen.getByText("Explicit shared-schema impact: 2")).toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: "Accept and create new revision" }));
+  fireEvent.click(screen.getByRole("button", { name: "Accept and create new version" }));
   await waitFor(() => expect(store.snapshot().approvalSequence).toBe(1));
   expect(store.snapshot().proposal?.state).toBe("approved");
   rendered.dispose();
 });
 
-it("keeps the current revision unchanged when durable review is rejected", async () => {
+it("keeps the current API version unchanged when durable review is rejected", async () => {
   const store = new ContractRevisionStore(sourceClient());
   await store.load(SOURCE_ID, PROPOSAL_REF);
   const rendered = await renderRouteDeckComponent(
@@ -104,7 +104,7 @@ it("keeps the current revision unchanged when durable review is rejected", async
     },
   );
 
-  fireEvent.click(screen.getByRole("button", { name: "Keep current revision unchanged" }));
+  fireEvent.click(screen.getByRole("button", { name: "Keep current version unchanged" }));
   await waitFor(() => expect(screen.queryByText("Keeping current revisionâ€¦")).toBeNull());
   expect(store.snapshot().proposal?.state).toBe("pending");
   expect(store.snapshot().approvalSequence).toBe(0);
@@ -136,7 +136,7 @@ it("shows the safe failure when review acceptance does not complete", async () =
     },
   );
 
-  fireEvent.click(screen.getByRole("button", { name: "Accept and create new revision" }));
+  fireEvent.click(screen.getByRole("button", { name: "Accept and create new version" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "The contract proposal changed. Reload its exact evidence before approval.",
   );
@@ -181,7 +181,7 @@ it("renders only the exact props-targeted review when proposal and routed-plan c
     { contract: frameworkContractFixture(), projection: frameworkProjectionFixture() },
   );
 
-  expect(screen.getByRole("heading", { name: "Create this immutable API contract revision?" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Create this immutable API version?" })).toBeVisible();
   expect(screen.queryByRole("heading", { name: "Send this routed API write?" })).toBeNull();
   rendered.rerender(
     <>
@@ -195,7 +195,7 @@ it("renders only the exact props-targeted review when proposal and routed-plan c
       />
     </>,
   );
-  expect(screen.queryByRole("heading", { name: "Create this immutable API contract revision?" })).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Create this immutable API version?" })).toBeNull();
   expect(screen.getByRole("heading", { name: "Send this routed API write?" })).toBeVisible();
   rendered.dispose();
 });

@@ -9,6 +9,7 @@ import type { DesignFeature, WorkbenchState } from "@/workbench/types"
 const lifecycleIds = new Set([
   "agents-attach-source",
   "agents-create-source",
+  "agents-setup-from-api-file",
   "agents-open-source",
   "agents-archive",
   "agents-delete",
@@ -48,6 +49,7 @@ describe("Agents lifecycle design gate", () => {
     expect(lifecycle(feature).map((story) => story.title)).toEqual([
       "Attach an existing source",
       "Create and attach a source",
+      "Set up an agent from an attached API definition",
       "Open an attached source",
       "Archive an agent",
       "Delete an agent",
@@ -98,5 +100,22 @@ describe("Agents lifecycle design gate", () => {
       "Attach newly created source",
     ])
     expect(attachExisting?.surfaces.map((surface) => surface.name)).toContain("Agent source picker")
+  })
+
+  it("keeps attached-file setup model-driven across existing product operations", () => {
+    const feature = agents(persistedDesignState as WorkbenchState)
+    const setup = feature.stories.find((story) => story.id === "agents-setup-from-api-file")
+
+    expect(setup?.status).toBe("approved")
+    expect(setup?.capabilities.map((capability) => capability.name)).toEqual(["Source attachments"])
+    expect(setup?.surfaces.map((surface) => surface.name)).toEqual(["Agent source picker"])
+    expect(setup?.operations.map((operation) => operation.name)).toEqual([
+      "Open agent creation",
+      "Attach source to agent",
+    ])
+    expect(setup?.expectedBehavior).toContain("Attaching the file only stages it")
+    expect(setup?.expectedBehavior).toContain("asks whether to use an existing agent or create one")
+    expect(setup?.expectedBehavior).toContain("never invents operation selections")
+    expect(JSON.stringify(setup)).not.toMatch(/workspace\.open_sources|sources\.accept_staged_api|sources\.process_api|agents\.create_agent/)
   })
 })

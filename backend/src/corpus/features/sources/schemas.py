@@ -11,6 +11,19 @@ class RetrySourceArguments(BaseModel):
     source_id: str = Field(min_length=16, max_length=16)
 
 
+class ProcessApiSourceArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_id: str | None = Field(default=None, min_length=16, max_length=16)
+
+
+class OpenApiSourceArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_id: str = Field(min_length=16, max_length=16)
+    source_revision_id: str | None = Field(default=None, min_length=16, max_length=16)
+
+
 class GraphStageArguments(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -124,6 +137,8 @@ __all__ = [
     "GraphStageArguments",
     "ExecuteRoutedApiArguments",
     "ProposeContractRevisionArguments",
+    "ProcessApiSourceArguments",
+    "OpenApiSourceArguments",
     "RetrySourceArguments",
     "SaveApiOperationCurationArguments",
     "save_api_operation_curation_arguments",

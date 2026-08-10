@@ -59,36 +59,58 @@ class SourceService:
             content=validated.content,
             description_filename=validated.description_filename,
             description_content=validated.description_content,
+            initial_state=SourceState.ACCEPTED,
+        )
+        return SourceView(
+            source_id=prepared.source.source_id,
+            connector_key=prepared.source.connector_key,
+            display_name=prepared.source.display_name,
+            created_at=prepared.source.created_at,
+            updated_at=prepared.source.updated_at,
+            revision=prepared.revision,
+        )
+
+    async def process_source(
+        self, *, owner_id: uuid.UUID, source_id: str
+    ) -> SourceView:
+        owner_key = str(owner_id)
+        source = self.repository.get(owner_key=owner_key, source_id=source_id)
+        if source.revision.state is not SourceState.ACCEPTED:
+            raise SourceNotReady("Only an accepted API version can begin analysis.")
+        queued = self.repository.mark_queued(
+            owner_key=owner_key,
+            source_id=source_id,
+            revision_id=source.revision.revision_id,
         )
         try:
             job = await self.jobs.enqueue(
                 owner_id=owner_id,
                 job_type="sources.process_api_revision",
                 payload={
-                    "source_id": prepared.source.source_id,
-                    "revision_id": prepared.revision.revision_id,
+                    "source_id": source.source_id,
+                    "revision_id": source.revision.revision_id,
                 },
                 max_attempts=3,
             )
         except DurableJobEnqueueError as error:
             self.repository.attach_job(
-                owner_key=str(owner_id),
-                source_id=prepared.source.source_id,
-                revision_id=prepared.revision.revision_id,
+                owner_key=owner_key,
+                source_id=source.source_id,
+                revision_id=source.revision.revision_id,
                 job_id=str(error.job_id),
             )
             self.repository.mark_failed(
-                owner_key=str(owner_id),
-                source_id=prepared.source.source_id,
-                revision_id=prepared.revision.revision_id,
+                owner_key=owner_key,
+                source_id=source.source_id,
+                revision_id=source.revision.revision_id,
                 failure_code="queue_unavailable",
                 failure_message="Source processing could not be queued.",
             )
             raise
         return self.repository.attach_job(
-            owner_key=str(owner_id),
-            source_id=prepared.source.source_id,
-            revision_id=prepared.revision.revision_id,
+            owner_key=owner_key,
+            source_id=source.source_id,
+            revision_id=source.revision.revision_id,
             job_id=str(job.id),
         )
 

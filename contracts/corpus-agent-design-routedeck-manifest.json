@@ -341,6 +341,16 @@
           }
         },
         {
+          "designBehavior": "Set up an agent from an attached API definition",
+          "node": "agents.home",
+          "capabilities": { "Source attachments": "agents.inventory" },
+          "surfaces": { "Agent source picker": "agents.home" },
+          "operations": {
+            "Open agent creation": "agents.open_create",
+            "Attach source to agent": "agents.attach_source"
+          }
+        },
+        {
           "designBehavior": "Open an attached source",
           "node": "agents.home",
           "capabilities": { "Source attachments": "agents.inventory" },
@@ -508,9 +518,12 @@
           "agents.node.lifecycle_state_truth",
           "agents.capability.attachment_eligibility",
           "agents.capability.source_handoff_context",
+          "agents.capability.setup_continuation",
           "agents.surface.source_picker_eligibility",
           "agents.operation.attach_exact_source",
           "agents.operation.attach_persisted_success",
+          "agents.operation.setup_attach_ready",
+          "agents.operation.open_create_setup",
           "agents.operation.source_creation_navigation",
           "agents.operation.attach_created_eligibility",
           "agents.operation.open_source_context"
@@ -587,6 +600,11 @@
           "setupAdapter": "agents.one_agent",
           "steps": {},
           "externalEvidenceOwner": "scripts/run_agents_lifecycle_journey.py"
+        },
+        "agents-setup-from-api-file-contract": {
+          "setupAdapter": "agents.one_agent",
+          "steps": {},
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
         },
         "agents-open-source-contract": {
           "setupAdapter": "agents.one_agent",
@@ -668,7 +686,7 @@
         "productOwnership": "Corpus owns agent/source/build identities, associations, dependency rules, lifecycle records, immutable lineage, persistence, DTOs, adapters, surfaces, evaluators, and evidence.",
         "frameworkOwnership": "RouteDeck owns legal Node and Transition navigation, scoped Capabilities and Surfaces, supervised Operations, private entity binding, context providers, guards, required review, session state, projections, recovery, and effects.",
         "suggestedActionBoundary": "Attach source and Add new source are not SuggestedActions. RouteDeck SuggestedActions carry compile-time literal arguments validated against the target Operation schema, while these behaviors require the runtime-selected agent_ref and, for existing attachment, source_id. The accepted behavior remains available through the selected-agent surface affordance and through the agent choosing the declared Operation from current owner-scoped entity context; no identifier is frozen into Studio design or a static suggestion.",
-        "evaluationTruth": "Every accepted Agents evaluation keeps its exact Studio definition ID and uses a registered setup adapter. The three delivered attachment/handoff definitions point to scripts/run_agents_lifecycle_journey.py as their external evidence owner; later exact definitions remain bound without claiming their runtime behavior is implemented.",
+        "evaluationTruth": "Every accepted Agents evaluation keeps its exact Studio definition ID and uses a registered setup adapter. Existing attachment/handoff definitions retain their lifecycle evidence owner, while attached-file guided setup is owned by scripts/run_horizontal_product_journey.py and remains unclaimed until replacement chat, surface, and hybrid evidence passes.",
         "frameworkGap": "No missing RouteDeck framework primitive was proven by the read-only audit. Every missing Step 5 behavior is Corpus-owned declaration, binding, domain, persistence, cross-feature adapter, frontend, evaluator, and evidence work. A later proven gap triggers the cross-repository stop condition.",
         "proofLock": "Attachment-specific evidence remains run 20260807T115259Z-ca04df5b57. Horizontal launch-baseline evidence is now independently retained as surface-only run 20260809T153004Z-7cd51d776b (24/24), ordinary-chat-only run 20260809T165131Z-63d1c6220b (24/24), and hybrid run 20260809T210136Z-853c33486c (25/25). Each is a normal-speed uncut local recording; the hybrid run visibly retains the semantic graph, Designer topology, compiled build/evaluation/deployment NavGraphs, Sandbox and public ToolRouter clarification, owner Operations evidence, restart persistence, and 390x844 rendering."
       }
@@ -846,7 +864,8 @@
         "Start adding an API description"
       ],
       "unmappedCompiledNodes": [
-        "sources.home"
+        "sources.home",
+        "sources.api"
       ],
       "behaviors": [],
       "currentRouteDeckContracts": {
@@ -860,13 +879,26 @@
             "contextProviders": [
               "corpus.owner_context"
             ]
+          },
+          "sources.api": {
+            "route": "/sources/api",
+            "kind": "workflow",
+            "parent": "sources.home",
+            "deepLinkPolicy": "session_bound",
+            "contextProviders": [
+              "corpus.owner_context"
+            ]
           }
         },
         "capabilities": {
           "sources.manage": {
             "operations": [
+              "sources.accept_staged_api",
               "sources.open_api_creation",
+              "sources.open_api_source",
+              "sources.process_api",
               "sources.retry_processing",
+              "sources.return_to_source_hub",
               "sources.return_to_home",
               "sources.select_graph_stage",
               "sources.inspect_current_api",
@@ -875,13 +907,25 @@
               "agents.return_from_source"
             ],
             "surfaces": [
-              "sources.home"
+              "sources.home",
+              "sources.api"
             ]
           }
         },
         "surfaces": {
           "sources.home": {
             "component": "sources.home",
+            "lifecycle": "stable",
+            "affordances": {
+              "open_api_creation": "sources.open_api_creation",
+              "open_api_source": "sources.open_api_source",
+              "return_to_home": "sources.return_to_home",
+              "attach_created_source": "agents.attach_created_source",
+              "return_to_agent": "agents.return_from_source"
+            }
+          },
+          "sources.api": {
+            "component": "sources.api",
             "lifecycle": "stable",
             "privateFormBinding": {
               "formIdProp": "form_handle",
@@ -897,9 +941,10 @@
               ]
             },
             "affordances": {
-              "open_api_creation": "sources.open_api_creation",
+              "accept_staged_api": "sources.accept_staged_api",
+              "process_api": "sources.process_api",
               "retry_processing": "sources.retry_processing",
-              "return_to_home": "sources.return_to_home",
+              "return_to_source_hub": "sources.return_to_source_hub",
               "select_graph_stage": "sources.select_graph_stage",
               "save_api_connection": "sources.save_api_connection",
               "attach_created_source": "agents.attach_created_source",
@@ -908,6 +953,19 @@
           }
         },
         "operations": {
+          "sources.accept_staged_api": {
+            "safetyClass": "draft",
+            "allowedSources": [
+              "agent",
+              "surface"
+            ],
+            "outcomes": {
+              "accepted": "sources.api"
+            },
+            "review": "none",
+            "inputKind": "empty",
+            "purpose": "Create one accepted API Source version from the exact file staged in the current authenticated conversation without starting analysis or attaching it to an Agent."
+          },
           "sources.return_to_home": {
             "safetyClass": "navigation",
             "allowedSources": [
@@ -926,9 +984,43 @@
               "surface"
             ],
             "outcomes": {
+              "opened": "sources.api"
+            },
+            "review": "none"
+          },
+          "sources.open_api_source": {
+            "safetyClass": "navigation",
+            "allowedSources": [
+              "agent",
+              "surface"
+            ],
+            "outcomes": {
+              "opened": "sources.api"
+            },
+            "review": "none"
+          },
+          "sources.return_to_source_hub": {
+            "safetyClass": "navigation",
+            "allowedSources": [
+              "agent",
+              "surface"
+            ],
+            "outcomes": {
               "opened": "sources.home"
             },
             "review": "none"
+          },
+          "sources.process_api": {
+            "safetyClass": "draft",
+            "allowedSources": [
+              "agent",
+              "surface"
+            ],
+            "outcomes": {
+              "queued": "sources.api"
+            },
+            "review": "none",
+            "purpose": "Explicitly queue the real ToolRouter pipeline for one accepted API version. Staging and Source acceptance do not invoke it."
           },
           "sources.retry_processing": {
             "safetyClass": "draft",
@@ -937,7 +1029,7 @@
               "surface"
             ],
             "outcomes": {
-              "queued": "sources.home"
+              "queued": "sources.api"
             },
             "review": "none"
           },
@@ -948,7 +1040,7 @@
               "surface"
             ],
             "outcomes": {
-              "selected": "sources.home"
+              "selected": "sources.api"
             },
             "review": "none"
           },
@@ -958,7 +1050,7 @@
               "agent"
             ],
             "outcomes": {
-              "inspected": "sources.home"
+              "inspected": "sources.api"
             },
             "review": "none"
           },
@@ -968,7 +1060,7 @@
               "surface"
             ],
             "outcomes": {
-              "saved": "sources.home"
+              "saved": "sources.api"
             },
             "review": "none"
           }
@@ -976,9 +1068,10 @@
         "agentPolicies": [
           "sources.feature_prompt",
           "sources.owner_scope",
-          "sources.processing_truth"
+          "sources.processing_truth",
+          "sources.staged_setup_continuation"
         ],
-        "reviewBehavior": "API-source intake is a direct authenticated upload because it carries files. Opening intake is navigation. Failed-step retry is draft class. Recorded-stage selection is state selection and validates the authenticated owner, exact source, exact revision, and membership in the persisted construction record. Connection save is surface-only credential class and loads secret material from the private form. No external API write is executed in this slice."
+        "reviewBehavior": "Source Hub is the inventory and guided entry point. The distinct API Source workflow owns definition intake, explicit analysis, the complete persisted ToolRouter semantic graph and exact recorded construction replay, exhaustive operation curation, connection setup and Agent attachment. API-source intake is a direct authenticated upload because it carries files; accepting that staged file never starts analysis. Failed-step retry is draft class. Recorded-stage selection validates the authenticated owner, exact source, exact revision and membership in persisted construction evidence. Connection save is surface-only credential class and loads secret material from the private form. No external API write is executed by graph inspection or setup."
       },
       "corpusImplementationOwners": {
         "existingDomainAndPersistence": [
@@ -1019,10 +1112,10 @@
         ]
       },
       "mappingStatus": {
-        "runtimeTruth": "Corpus has one owner-scoped Source inventory and immutable ToolRouter revision chain. API YAML plus optional Markdown intake persists a source/revision/job link, queues the real worker, exposes durable queued/running/ready/failed state, supports explicit failed-job retry, renders the persisted semantic graph and construction evidence, protects revision-bound connection profiles, curates exact operations, prepares and clarifies a route, and executes one reviewed or read-only routed operation with redacted immutable evidence. Agent-owned source selection and the create-and-return attachment handoff are implemented through the Agents feature.",
-        "notMapped": "Source Hub remains a partial mapping because existing-source selection is Agents-owned, API description bytes use authenticated Corpus HTTP, dependency-aware Source deletion is not implemented, and the detailed API Source design shares the compiled sources namespace through designOnlyMappings. These boundaries are explicit; the implemented inventory and intake runtime is not used to overstate the complete Source Hub behavior.",
-        "frameworkGap": "No missing RouteDeck framework primitive was proven. Dependency-aware Source deletion and ordered graph replay are Corpus-owned product gaps.",
-        "directHttpBoundary": "API definition and optional Markdown bytes use authenticated Corpus upload endpoints because they carry files. RouteDeck owns legal navigation, retry, stage selection, credential-form submission, curation, route preparation, reviewed execution, and cross-feature attachment handoff."
+        "runtimeTruth": "Corpus has one owner-scoped Source inventory and immutable ToolRouter revision chain. API YAML or JSON plus optional Markdown is first staged against the exact authenticated conversation and RouteDeck session. Staging creates no Source, job, ToolRouter run, or Agent attachment. The separate sources.accept_staged_api operation creates one accepted API version, and sources.process_api explicitly queues the real worker. Corpus exposes durable accepted/queued/running/ready/failed state, supports explicit failed-job retry, renders persisted semantic evidence, protects revision-bound connection profiles, curates exact operations, prepares and clarifies a route, and executes reviewed or read-only routed operations with redacted immutable evidence. Agent-owned source selection and attachment remain separate Agents operations.",
+        "notMapped": "Source Hub remains a partial mapping because existing-source selection for an Agent is Agents-owned, API description bytes use authenticated Corpus HTTP, and dependency-aware Source deletion is not implemented. These boundaries are explicit; the separate inventory and API workflow runtime is not used to overstate the complete Source Hub behavior.",
+        "frameworkGap": "No missing RouteDeck framework primitive was proven. Dependency-aware Source deletion remains a Corpus-owned product gap; complete graph visualization and recorded replay are implemented over persisted ToolRouter evidence.",
+        "directHttpBoundary": "API definition and optional Markdown bytes use one authenticated same-origin Corpus staging endpoint because they carry files. The staged record is bound to owner, public conversation and RouteDeck session. RouteDeck owns Source acceptance, explicit analysis, navigation, retry, graph-stage selection, credential-form submission, curation, route preparation, reviewed execution, and cross-feature attachment handoff."
       }
     },
     {
@@ -1418,6 +1511,17 @@
       "implementationStatus": "partial",
       "currentRouteDeckFeature": "sources",
       "mappingGateStatus": "approved_pre_runtime",
+      "stagedApiIntakeBoundary": {
+        "designBehavior": "Add an API definition file",
+        "binaryTransport": "POST /api/sources/api/attachments",
+        "binaryTransportSemantics": "Authenticated same-origin staging only, bound to owner, public conversation and RouteDeck session; creates no Source, job, analysis run or Agent attachment.",
+        "operations": {
+          "Add staged API definition": "sources.accept_staged_api",
+          "Analyze API operations": "sources.process_api"
+        },
+        "chatBoundary": "The Composer stages the selected bytes before sending one ordinary owner message that names the attached API definition. It performs no navigation, Source acceptance, processing wait or Agent attachment. The model selects subsequent legal operations.",
+        "surfaceBoundary": "The API intake form stages the selected bytes and then dispatches the explicit add operation from the owner's submit action. A separate visible Analyze API operations control dispatches processing."
+      },
       "evaluationBindings": {
         "api-curate-operations-contract": {
           "setupAdapter": "workspace.authenticated_owner",
@@ -1507,6 +1611,32 @@
         }
       ],
       "plannedSupportingContracts": {
+        "sources.accept_staged_api": {
+          "implementationStatus": "implemented_focused_behavior_validated",
+          "safetyClass": "draft",
+          "review": "none",
+          "allowedSources": [
+            "agent",
+            "surface"
+          ],
+          "outcomes": [
+            "accepted"
+          ],
+          "boundary": "Resolve only the exact staged attachment for the authenticated RouteDeck session and create one accepted API Source version. Repeated, missing, cross-owner, cross-conversation or corrupt staging fails without creating another Source."
+        },
+        "sources.process_api": {
+          "implementationStatus": "implemented_focused_behavior_validated",
+          "safetyClass": "draft",
+          "review": "none",
+          "allowedSources": [
+            "agent",
+            "surface"
+          ],
+          "outcomes": [
+            "queued"
+          ],
+          "boundary": "Queue ToolRouter only for one exact accepted API version after an explicit owner-authorized operation. A staged file or accepted version does not process automatically."
+        },
         "sources.test_api_connection": {
           "implementationStatus": "implemented_browser_behavior_validated_with_recorder_diagnostic_false_negative",
           "safetyClass": "read_external",
@@ -1780,10 +1910,10 @@
           ],
           "outcome": "saved"
         },
-        "surface": "sources.home",
+        "surface": "sources.api",
         "persistenceBoundary": "Corpus derives an exact inventory only from API operation nodes in the selected READY Source revision's existing ToolRouter artifact. Each save appends one immutable owner- and revision-bound record and advances its current pointer only after exact expected-current CAS validation under the existing Source lock. Historical records remain readable; a new Source revision never retargets or overwrites prior curation.",
         "failureBoundary": "Unknown, duplicate, overlapping, incomplete, stale-inventory, stale-current, foreign-owner, concurrent, corrupt-history, or persistence failures remain failures and leave the prior current record authoritative. Filtering and inspection never mutate selection. No credential is resolved and no API call or route plan is created.",
-        "suggestedActionBoundary": "The compiled sources.home affordance and agent operation are current. The Studio api-save-operations SuggestedAction is intentionally not compiled because its static empty arguments cannot truthfully identify the runtime-selected Source, revision, inventory and explicit decisions.",
+        "suggestedActionBoundary": "The compiled sources.api affordance and agent operation are current. The Studio api-save-operations SuggestedAction is intentionally not compiled because its static empty arguments cannot truthfully identify the runtime-selected Source, revision, inventory and explicit decisions.",
         "evaluatorBinding": "The exact Studio definition api-curate-operations-contract uses the registered workspace.authenticated_owner setup. Its real inventory/save/reload/restart behavior evidence is owned by scripts/run_api_operation_curation_journey.py and run 20260807T212855Z-f8596ef591 passed all nine assertions.",
         "evidenceStatus": "Run 20260807T212855Z-f8596ef591 passed 9/9 through a fresh Source Hub upload, real Huey/ToolRouter READY processing, exact inventory, non-mutating filtering, two immutable saves from distinct authenticated conversations, visible stale-CAS failure plus authoritative refetch, reload, 390x844 proof, backend restart and second-owner isolation. It retained eight inspected screenshots, a 62.16-second chronological video, two raw page clips and a 171-event header/body-free safe trace with zero unexpected product diagnostics and zero API execution calls. See docs/superpowers/validation/2026-08-08-api-operation-curation-phase-d.md."
       },
@@ -1851,13 +1981,15 @@
       ],
       "currentRouteDeckContracts": {
         "nodes": [
-          "sources.home"
+          "sources.home",
+          "sources.api"
         ],
         "capabilities": [
           "sources.manage"
         ],
         "surfaces": [
           "sources.home",
+          "sources.api",
           "sources.contract_revision_proposal",
           "sources.contract_revision_review",
           "sources.api_operation_test",
@@ -1876,12 +2008,15 @@
           "sources.test_routed_api_write"
         ],
         "affordances": {
-          "sources.home.select_graph_stage": "sources.select_graph_stage",
-          "sources.home.save_api_connection": "sources.save_api_connection",
-          "sources.home.test_api_connection": "sources.test_api_connection",
-          "sources.home.propose_contract_revision": "sources.propose_contract_revision",
-          "sources.home.save_api_operation_curation": "sources.save_api_operation_curation",
-          "sources.home.prepare_routed_api_test": "sources.prepare_routed_api_test",
+          "sources.home.open_api_creation": "sources.open_api_creation",
+          "sources.home.open_api_source": "sources.open_api_source",
+          "sources.api.return_to_source_hub": "sources.return_to_source_hub",
+          "sources.api.select_graph_stage": "sources.select_graph_stage",
+          "sources.api.save_api_connection": "sources.save_api_connection",
+          "sources.api.test_api_connection": "sources.test_api_connection",
+          "sources.api.propose_contract_revision": "sources.propose_contract_revision",
+          "sources.api.save_api_operation_curation": "sources.save_api_operation_curation",
+          "sources.api.prepare_routed_api_test": "sources.prepare_routed_api_test",
           "sources.api_operation_test.run_routed_api_read": "sources.test_routed_api_read",
           "sources.api_operation_test.review_routed_api_write": "sources.test_routed_api_write",
           "sources.contract_revision_proposal.approve_contract_revision": "sources.approve_contract_revision"
@@ -1890,13 +2025,14 @@
           "sources.feature_prompt",
           "sources.owner_scope",
           "sources.processing_truth",
+          "sources.staged_setup_continuation",
           "sources.contract_revision_truth",
           "sources.api_connection_check_truth",
           "sources.api_operation_curation_truth",
           "sources.api_route_planning_truth",
           "sources.api_routed_execution_truth"
         ],
-        "reviewBehavior": "Source Hub renders persisted semantic graph groups and supports read-only selection of a recorded stage only after validating the authenticated owner, exact source, exact revision, and stage membership. It does not implement ordered pause, resume, or step replay. Connection-profile credentials enter only through the projected sources-api-connection private form; the supervised public save Operation carries no secret arguments. Saving alone does not check connectivity. The explicit sources.test_api_connection read rechecks all owner/revision/profile/credential bindings, makes one validated GetProductTypes or GetProductTags call, never retries, and persists only redacted immutable evidence. API operation curation is a non-executing DRAFT save over the exact current READY revision and ToolRouter inventory; it requires exhaustive explicit include/exclude decisions and exact CAS, and stale or conflicting input never replaces the prior curation. The API contract proposal is a detail surface with exact immutable provenance and a structured observation that explicitly says no durable review has been staged. Asking what the proposal changes or what its consequences are remains read-only. Only an explicit later request to begin or open owner review invokes the required-review operation, whose successful staging alone creates the pending review; a separate explicit acceptance runs the handler. Owner-scoped entity binding and accept-time current-plan recheck remain required. Rejection does not mutate the Source, and acceptance creates a new revision rather than overwriting its parent."
+        "reviewBehavior": "Source Hub is the source inventory and guided entry point. The distinct API Source workflow renders the complete persisted ToolRouter semantic graph with no sampling and replays its exact ordered construction trace with scrub, previous, next, play, pause and speed controls after validating the authenticated owner, exact source and exact revision. Connection-profile credentials enter only through the projected sources-api-connection private form; the supervised public save Operation carries no secret arguments. Saving alone does not check connectivity. The explicit sources.test_api_connection read rechecks all owner/revision/profile/credential bindings, makes one validated GetProductTypes or GetProductTags call, never retries, and persists only redacted immutable evidence. API operation curation is a non-executing DRAFT save over the exact current READY revision and ToolRouter inventory; it requires exhaustive explicit include/exclude decisions and exact CAS, and stale or conflicting input never replaces the prior curation. The API version update proposal is a detail surface with exact immutable provenance and a structured observation that explicitly says no durable review has been staged. Asking what the proposal changes or what its consequences are remains read-only. Only an explicit later request to begin or open owner review invokes the required-review operation, whose successful staging alone creates the pending review; a separate explicit acceptance runs the handler. Owner-scoped entity binding and accept-time current-plan recheck remain required. Rejection does not mutate the Source, and acceptance creates a new revision rather than overwriting its parent."
       },
       "acceptedDesignBehaviors": [
         "Upload an API YAML file",

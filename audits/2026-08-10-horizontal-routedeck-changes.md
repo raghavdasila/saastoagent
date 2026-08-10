@@ -44,7 +44,27 @@ from that checkout before the accepted hybrid run.
      `docs/route-deck-reference.md` plus tests.
    - Purpose: navigation continues an unfinished multi-outcome owner request;
      a successful non-navigation result stops further tool calls only when the
-     entire current request is satisfied.
+   entire current request is satisfied.
+
+5. **Private journal versus public observation boundary**
+   - Files: `routedeck_core/contracts/operations.py`,
+     `routedeck_core/contracts/session.py`,
+     `routedeck_core/supervision/outcome_results.py`,
+     `routedeck_core/supervision/outcome_commits.py`, generated contracts,
+     tests and reference documentation.
+   - Purpose: keep executor/journal observations private by default. A product
+     must separately declare `public_outcome_schemas` and supply
+     `public_observation` before a value can enter an operation response,
+     model tool message or retained surface chronology. Replay preserves both
+     identities without projecting the private journal payload.
+
+6. **Terminal conversation replay deduplication**
+   - Files: `routedeck_fastapi/routes/conversation.py`, transport tests and
+     documentation.
+   - Purpose: terminal user-message replay returns the authoritative
+     conversation snapshot and terminal metadata without re-emitting finalized
+     user/assistant content as live message events. Assistant-initiated entry
+     replay retains its explicit assistant content result.
 
 ## Explicitly rejected/removed approach
 
@@ -54,11 +74,15 @@ return/navigation outcome. It is not part of the current RouteDeck behavior.
 
 ## Validation boundary
 
-- Chronology/prompt/model-context tests: 19 passed.
-- Medusa middleware/provider contract tests: 13 passed.
-- Broad RouteDeck run: 566 passed; one unrelated Medusa example assertion
-  remained red because that example exposes its private cart sentinel in a
-  runner result. No horizontal chronology file participates in that failure.
-- Corpus hybrid run `20260809T210136Z-853c33486c` passed 25/25 after rebuilding
-  backend/frontend/worker images from the modified RouteDeck checkout.
-
+- Full RouteDeck Python suite after the observation/replay correction:
+  602 passed with one dependency deprecation warning.
+- RouteDeck React: 24 passed; generated contracts and context architecture
+  checks passed.
+- The live Medusa cart and delivery tests now invoke user operations through
+  their declared `surface` source rather than the initializer-only `system`
+  source; both execute through the real local Medusa integration.
+- Corpus focused Source/Builder/horizontal-recorder suite against the corrected
+  local RouteDeck checkout: 157 passed with six dependency warnings; strict
+  frontend typecheck passed.
+- The prior hybrid run remains historical evidence only. Replacement browser
+  evidence is required after the broader Source-to-Agent behavior correction.

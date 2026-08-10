@@ -36,6 +36,10 @@ from .routed_executions import (
     ApiRoutedExecutionError,
     ApiRoutedExecutionService,
 )
+from .staged_attachments import (
+    ApiStagedAttachmentError,
+    ApiStagedAttachmentService,
+)
 
 
 class CreateApiRoutePlanRequest(BaseModel):
@@ -70,20 +74,29 @@ def create_api_source_router(
     operation_curation_service: ApiOperationCurationService,
     route_plan_service: ApiRoutePlanService,
     routed_execution_service: ApiRoutedExecutionService | None = None,
+    staged_attachment_service: ApiStagedAttachmentService | None = None,
 ) -> APIRouter:
     if max_upload_bytes <= 0:
         raise ValueError("API source upload limit must be positive.")
     router = APIRouter(prefix="/api/sources", tags=["owner-api-sources"])
 
-    @router.post("/api", status_code=201)
-    async def upload_api_source(
+    @router.post("/api/attachments", status_code=201)
+    async def stage_api_definition(
         request: Request,
         name: Annotated[str, Form(min_length=1, max_length=128)],
         file: Annotated[UploadFile, File()],
         description: Annotated[UploadFile | None, File()] = None,
     ):
+        if staged_attachment_service is None:
+            raise SourceHttpProblem(
+                500,
+                "staged_api_definition_unavailable",
+                "API definition staging is unavailable.",
+            )
         authorize_mutation(request, mutation_policy)
-        current_owner = await owner_key(request, auth_service, auth_settings)
+        current_owner, selected = await _planning_session(
+            request, auth_service, auth_settings
+        )
         content = await file.read(max_upload_bytes + 1)
         description_content: bytes | None = None
         description_filename: str | None = None
@@ -106,9 +119,10 @@ def create_api_source_router(
             )
         try:
             result = await call_source_service(
-                service.create_source,
-                owner_id=UUID(current_owner),
-                connector_key="api",
+                staged_attachment_service.stage,
+                owner_key=current_owner,
+                conversation_id=selected.public_id,
+                route_session_id=selected.route_session_id,
                 display_name=name,
                 upload=SourceUpload(
                     filename=file.filename or "",
@@ -127,7 +141,39 @@ def create_api_source_router(
                 "invalid_api_collection_upload",
                 str(error),
             ) from error
+        except ApiStagedAttachmentError as error:
+            raise SourceHttpProblem(
+                500,
+                "staged_api_definition_unavailable",
+                "The API definition could not be staged.",
+            ) from error
         return source_response(result, status_code=201)
+
+    @router.get("/api/attachments/current")
+    async def current_staged_api_definition(request: Request):
+        if staged_attachment_service is None:
+            raise SourceHttpProblem(
+                500,
+                "staged_api_definition_unavailable",
+                "The attached API definition is unavailable.",
+            )
+        current_owner, selected = await _planning_session(
+            request, auth_service, auth_settings
+        )
+        try:
+            result = await call_source_service(
+                staged_attachment_service.current,
+                owner_key=current_owner,
+                conversation_id=selected.public_id,
+                route_session_id=selected.route_session_id,
+            )
+        except ApiStagedAttachmentError as error:
+            raise SourceHttpProblem(
+                500,
+                "staged_api_definition_unavailable",
+                "The attached API definition is unavailable.",
+            ) from error
+        return source_response(result)
 
     @router.get("/{source_id}/graph")
     async def inspect_api_graph(source_id: str, request: Request):

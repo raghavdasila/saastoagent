@@ -106,7 +106,7 @@ it("reveals API attachment from live owner state after anonymous bootstrap", asy
       chatClient={idleChatClient}
       header={<strong>Corpus</strong>}
       onUploadApiSource={vi.fn(async () => ({
-        sourceId: "source-ready-001",
+        attachmentId: "attachment-0001",
         displayName: "catalog",
       }))}
     />,
@@ -154,7 +154,7 @@ it("reveals API attachment in authenticated Workspace without inventing an Agent
       chatClient={idleChatClient}
       header={<strong>Corpus</strong>}
       onUploadApiSource={vi.fn(async () => ({
-        sourceId: "source-ready-001",
+        attachmentId: "attachment-0001",
         displayName: "catalog",
       }))}
     />,
@@ -202,7 +202,7 @@ it("keeps standalone chat upload available in Source Hub without reusing a retai
       chatClient={idleChatClient}
       header={<strong>Corpus</strong>}
       onUploadApiSource={vi.fn(async () => ({
-        sourceId: "source-ready-001",
+        attachmentId: "attachment-0001",
         displayName: "catalog",
       }))}
     />,

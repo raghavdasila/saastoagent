@@ -114,8 +114,8 @@ it("keeps exact selected-agent context across the operations hub and immutable b
   );
 
   expect(await screen.findByRole("region", { name: "Agent Builds" })).toHaveTextContent(buildId);
-  expect(screen.getByText("Revision revision-ready01")).toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: "Open source revision" }));
+  expect(screen.getByText("API version revision-ready01")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Open API version" }));
   await waitFor(() => expect(dispatch).toHaveBeenCalledWith(
     "open_build_source_revision",
     {

@@ -271,6 +271,7 @@ def _operation_declaration(binding: BuilderSourceBinding, operation_id: str) -> 
         review_policy=review,
         outcomes=("observed",),
         outcome_schemas=FrozenJsonObject({"observed": _OBSERVED_SCHEMA}),
+        public_outcome_schemas=FrozenJsonObject({"observed": _OBSERVED_SCHEMA}),
         unknown_recovery_directive=(
             _UNKNOWN_WRITE_RECOVERY
             if safety is SafetyClass.WRITE_EXTERNAL else None

@@ -24,7 +24,7 @@ export interface ComposerProps {
 }
 
 export interface ChatSourceUpload {
-  readonly sourceId: string;
+  readonly attachmentId: string;
   readonly displayName: string;
 }
 
@@ -71,7 +71,7 @@ export function Composer({
           : await onUploadApiSource(definition);
         const message = uploaded === null
           ? draft.trim()
-          : `${draft.trim()}\n\nI attached the API definition "${uploaded.displayName}".`;
+          : `${draft.trim()}\n\nI attached the API definition "${uploaded.displayName}" to this conversation.`;
         await onSend(message);
         setDraft("");
         setDefinition(null);
@@ -198,7 +198,7 @@ export function Composer({
         ) : null}
       </div>
       {disabledReason === undefined ? null : <p data-composer-disabled-reason="">{disabledReason}</p>}
-      {uploading ? <p role="status">Uploading and processing the exact API Source before sending…</p> : null}
+      {uploading ? <p role="status">Adding the API definition to this conversation…</p> : null}
       {error === null ? null : (
         <p role="alert">Corpus could not complete that request. Try again.</p>
       )}

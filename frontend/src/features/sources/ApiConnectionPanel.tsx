@@ -144,7 +144,7 @@ export function ApiConnectionPanel({
     <section className="api-connection-panel" aria-labelledby="api-connection-title">
       <div className="api-connection-heading">
         <div>
-          <p>Revision-bound configuration</p>
+          <p>API version configuration</p>
           <h3 id="api-connection-title"><KeyRound aria-hidden="true" /> API connections</h3>
         </div>
         <span><ShieldCheck aria-hidden="true" /> Credentials are encrypted and never returned.</span>
@@ -155,8 +155,8 @@ export function ApiConnectionPanel({
       {profiles.length === 0 ? null : (
         <p role="status" className="source-ready">
           {checks.length === 0
-            ? "Saved profile metadata is revision-bound. Credentials remain protected. No connection check was run."
-            : "Saved profile metadata and redacted check history are revision-bound. Credentials remain protected."}
+            ? "Saved profile metadata is tied to this API version. Credentials remain protected. No connection check was run."
+            : "Saved profile metadata and redacted check history are tied to this API version. Credentials remain protected."}
         </p>
       )}
 
@@ -233,10 +233,10 @@ export function ApiConnectionPanel({
         <div>
           <p>Explicit safe read</p>
           <h4 id="api-connection-check-title"><TestTubeDiagonal aria-hidden="true" /> Test API connection</h4>
-          <span>One selected read, validated against this exact revision. No automatic retry.</span>
+          <span>One selected read, validated against this exact API version. No automatic retry.</span>
         </div>
         {!safeCheckEnabled ? (
-          <p>Approve the reviewed effective API contract before running a connection check.</p>
+          <p>Approve the validated API version before running a connection check.</p>
         ) : profiles.length === 0 ? (
           <p>Save a connection profile before running a check.</p>
         ) : (
@@ -281,7 +281,7 @@ export function ApiConnectionPanel({
                   <div><dt>HTTP calls</dt><dd>{check.http_call_count}</dd></div>
                   <div><dt>Status</dt><dd>{check.status_code ?? "Not sent"}</dd></div>
                   <div><dt>Validation issues</dt><dd>{check.validation_issue_count}</dd></div>
-                  <div><dt>Contract</dt><dd><code>{check.effective_contract_sha256.slice(0, 12)}…</code></dd></div>
+                  <div><dt>API definition</dt><dd><code>{check.effective_contract_sha256.slice(0, 12)}…</code></dd></div>
                 </dl>
                 {check.public_message === null ? null : <p>{check.public_message}</p>}
               </li>

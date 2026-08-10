@@ -1,15 +1,19 @@
 from routedeck_core.app import FeatureBindings
 
 from .declarations import (
+    ACCEPT_STAGED_API,
     APPROVE_CONTRACT_REVISION,
     CONTRACT_REVISION_CURRENT_GUARD,
     CONTRACT_REVISION_PROPOSAL_PROVIDER,
     INSPECT_CURRENT_API,
     OPEN_API_CREATION,
+    OPEN_API_SOURCE,
     PREPARE_ROUTED_API_TEST,
+    PROCESS_API,
     PROPOSE_CONTRACT_REVISION,
     RETRY_PROCESSING,
     RETURN_TO_HOME,
+    RETURN_TO_SOURCE_HUB,
     SELECT_GRAPH_STAGE,
     SAVE_API_CONNECTION,
     SAVE_API_OPERATION_CURATION,
@@ -22,6 +26,7 @@ from .declarations import (
     ROUTED_API_WRITE_CURRENT_GUARD,
 )
 from .operations import (
+    AcceptStagedApiHandler,
     ApproveContractRevisionHandler,
     GraphStageSelectionHandler,
     InspectCurrentApiHandler,
@@ -31,7 +36,10 @@ from .operations import (
     SaveApiOperationCurationHandler,
     TestApiConnectionHandler,
     SourcesNavigationHandler,
+    OpenApiCreationHandler,
+    OpenApiSourceHandler,
     OpenApiRoutePlanHandler,
+    ProcessApiHandler,
     RoutedApiExecutionHandler,
 )
 from .providers import ContractRevisionProposalProvider
@@ -55,14 +63,23 @@ def create_sources_bindings(
     connection_check_service,
     operation_curation_service,
     routed_execution_service=None,
+    staged_attachment_service=None,
 ) -> FeatureBindings:
     return FeatureBindings(
         handlers={
+            ACCEPT_STAGED_API.ref: AcceptStagedApiHandler(
+                staged_attachment_service, owner_scope
+            ),
             RETURN_TO_HOME.ref: SourcesNavigationHandler(RETURN_TO_HOME.id),
-            OPEN_API_CREATION.ref: SourcesNavigationHandler(
-                OPEN_API_CREATION.id
+            OPEN_API_CREATION.ref: OpenApiCreationHandler(),
+            OPEN_API_SOURCE.ref: OpenApiSourceHandler(service, owner_scope),
+            RETURN_TO_SOURCE_HUB.ref: SourcesNavigationHandler(
+                RETURN_TO_SOURCE_HUB.id
             ),
             PREPARE_ROUTED_API_TEST.ref: OpenApiRoutePlanHandler(),
+            PROCESS_API.ref: ProcessApiHandler(
+                service, staged_attachment_service, owner_scope
+            ),
             TEST_ROUTED_API_READ.ref: RoutedApiExecutionHandler(
                 routed_execution_service, owner_scope, "read"
             ),

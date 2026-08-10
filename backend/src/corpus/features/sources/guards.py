@@ -76,7 +76,7 @@ class ContractRevisionCurrentGuard:
                 _failure(
                     context,
                     "contract_revision_unavailable",
-                    "The reviewed contract proposal is unavailable.",
+                    "The reviewed API update is unavailable.",
                 )
             )
         return GuardDecision.allowed_result()

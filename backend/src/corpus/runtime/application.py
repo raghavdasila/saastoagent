@@ -126,6 +126,7 @@ async def open_live_corpus_application(
     source_connection_check_service,
     source_operation_curation_service,
     source_routed_execution_service,
+    source_staged_attachment_service=None,
 ) -> LiveRouteDeckApplication:
     configured = settings or CorpusRuntimeSettings.from_env()
     compiled = compile_corpus_app()
@@ -159,6 +160,7 @@ async def open_live_corpus_application(
             source_connection_check_service=source_connection_check_service,
             source_operation_curation_service=source_operation_curation_service,
             source_routed_execution_service=source_routed_execution_service,
+            source_staged_attachment_service=source_staged_attachment_service,
         )
 
     runtime = await open_sqlalchemy_routedeck_runtime(

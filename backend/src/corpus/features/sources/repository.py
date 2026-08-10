@@ -53,6 +53,7 @@ class LocalSourceRepository:
         content: bytes,
         description_filename: str | None = None,
         description_content: bytes | None = None,
+        initial_state: SourceState = SourceState.QUEUED,
     ) -> PreparedSource:
         if not owner_key.strip() or not connector_key.strip() or not display_name.strip():
             raise ValueError("Owner, connector, and source display name are required.")
@@ -85,7 +86,7 @@ class LocalSourceRepository:
                 if description_content is not None
                 else None
             ),
-            state=SourceState.QUEUED,
+            state=initial_state,
             created_at=now,
             updated_at=now,
         )
@@ -132,6 +133,20 @@ class LocalSourceRepository:
             source_id=source_id,
             revision_id=revision_id,
             updates={"job_id": job_id, "updated_at": utc_now()},
+        )
+
+    def mark_queued(
+        self, *, owner_key: str, source_id: str, revision_id: str
+    ) -> SourceView:
+        return self._transition(
+            owner_key=owner_key,
+            source_id=source_id,
+            revision_id=revision_id,
+            from_states={SourceState.ACCEPTED},
+            state=SourceState.QUEUED,
+            summary={},
+            failure_code=None,
+            failure_message=None,
         )
 
     def mark_running(
@@ -306,7 +321,7 @@ class LocalSourceRepository:
             for item in source.contract_revision_proposals
         ):
             raise ContractRevisionConflict(
-                "This exact contract revision was already proposed for the Source."
+                "This exact API version was already proposed for the Source."
             )
         proposal_dir = self._proposal_dir(
             owner_key, proposal.source_id, proposal.proposal_id
@@ -429,11 +444,11 @@ class LocalSourceRepository:
             candidate_bytes = candidate_path.read_bytes()
         except OSError as error:
             raise SourceRepositoryError(
-                "The reviewed contract candidate is unavailable."
+                "The reviewed API update is unavailable."
             ) from error
         if hashlib.sha256(candidate_bytes).hexdigest() != proposal.final_canonical_sha256:
             raise ContractRevisionConflict(
-                "The reviewed contract candidate no longer matches its recorded hash."
+                "The reviewed API update no longer matches its recorded hash."
             )
         revision_dir = self._revision_dir(owner_key, source_id, revision_id)
         if revision_dir.exists():
