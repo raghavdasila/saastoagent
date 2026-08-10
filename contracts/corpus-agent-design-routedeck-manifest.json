@@ -283,13 +283,13 @@
       "designFeature": "Agents",
       "routeDeckFeature": "agents",
       "implementationStatus": "partial",
+      "runtimeImplementationStatus": "complete",
       "featurePromptPolicy": "agents.feature.prompt",
       "unmappedDesignBehaviors": [
-        "Attach an existing source",
-        "Create and attach a source",
-        "Open an attached source",
         "Archive an agent",
-        "Delete an agent"
+        "Delete an agent",
+        "Use selected-agent operations",
+        "Inspect historical build source references"
       ],
       "unmappedCompiledNodes": [],
       "behaviors": [
@@ -320,9 +320,208 @@
           "capabilities": { "Agent configuration": "agents.inventory" },
           "surfaces": { "Agent detail edit": "agents.home" },
           "operations": { "Save agent changes": "agents.save_changes" }
+        },
+        {
+          "designBehavior": "Attach an existing source",
+          "node": "agents.home",
+          "capabilities": { "Source attachments": "agents.inventory" },
+          "surfaces": { "Agent source picker": "agents.home" },
+          "operations": {
+            "Attach source to agent": "agents.attach_source"
+          }
+        },
+        {
+          "designBehavior": "Create and attach a source",
+          "node": "agents.home",
+          "capabilities": { "Source attachments": "agents.inventory" },
+          "surfaces": {},
+          "operations": {
+            "Open source creation": "agents.open_source_creation",
+            "Attach newly created source": "agents.attach_created_source"
+          }
+        },
+        {
+          "designBehavior": "Open an attached source",
+          "node": "agents.home",
+          "capabilities": { "Source attachments": "agents.inventory" },
+          "surfaces": {},
+          "operations": {
+            "Open attached source": "agents.open_attached_source"
+          }
         }
       ],
+      "currentCompiledBehaviors": [
+        {
+          "designBehavior": "Archive an agent",
+          "node": "agents.home",
+          "capabilities": { "Agent lifecycle": "agents.inventory" },
+          "surfaces": { "Agent lifecycle review": "agents.archive_review" },
+          "operations": { "Archive agent": "agents.archive_agent" }
+        },
+        {
+          "designBehavior": "Delete an agent",
+          "node": "agents.home",
+          "capabilities": { "Agent lifecycle": "agents.inventory" },
+          "surfaces": { "Agent lifecycle review": "agents.delete_review" },
+          "operations": { "Delete agent": "agents.delete_agent" }
+        },
+        {
+          "designBehavior": "Use selected-agent operations",
+          "node": "agents.home",
+          "capabilities": { "Selected-agent operations": "agents.inventory" },
+          "surfaces": { "Selected-agent operations hub": "agents.home" },
+          "operations": {
+            "Open Agent Designer": "agents.open_designer",
+            "Open Agent Builds": "agents.open_builds",
+            "Open Agent Sandbox": "agents.open_sandbox",
+            "Open Agent Evaluation": "agents.open_evaluation",
+            "Open Agent Channels": "agents.open_channels",
+            "Open Agent Operations": "agents.open_operations"
+          }
+        },
+        {
+          "designBehavior": "Inspect historical build source references",
+          "node": "agents.home",
+          "capabilities": { "Build source lineage": "agents.inventory" },
+          "surfaces": { "Build source lineage": "agents.home" },
+          "operations": { "Open referenced source revision": "agents.open_build_source_revision" }
+        }
+      ],
+      "currentRouteDeckContracts": {
+        "feature": "agents",
+        "nodes": {
+          "agents.home": {
+            "route": "/agents",
+            "kind": "section",
+            "parent": "workspace.home",
+            "deepLinkPolicy": "session_bound",
+            "contextProviders": ["corpus.owner_context"]
+          },
+          "agents.create": {
+            "route": "/agents/new",
+            "kind": "section",
+            "parent": "agents.home",
+            "deepLinkPolicy": "session_bound",
+            "contextProviders": ["corpus.owner_context"]
+          }
+        },
+        "capabilities": {
+          "agents.inventory": {
+            "operations": [
+              "agents.open_create",
+              "agents.save_changes",
+              "agents.return_to_workspace",
+              "agents.select_agent",
+              "agents.attach_source",
+              "agents.open_source_creation",
+              "agents.attach_created_source",
+              "agents.open_attached_source",
+              "agents.archive_agent",
+              "agents.delete_agent",
+              "agents.open_operations",
+              "agents.open_designer",
+              "agents.open_builds",
+              "agents.open_sandbox",
+              "agents.open_evaluation",
+              "agents.open_channels",
+              "agents.open_build_source_revision"
+            ],
+            "surfaces": ["agents.home"]
+          },
+          "agents.creation": {
+            "operations": ["agents.create_agent", "agents.cancel_create"],
+            "surfaces": ["agents.create"]
+          }
+        },
+        "surfaces": {
+          "agents.home": {
+            "component": "agents.home",
+            "lifecycle": "stable",
+            "affordances": {
+              "open_create": "agents.open_create",
+              "save_changes": "agents.save_changes",
+              "return_to_workspace": "agents.return_to_workspace",
+              "select_agent": "agents.select_agent",
+              "attach_source": "agents.attach_source",
+              "open_source_creation": "agents.open_source_creation",
+              "open_attached_source": "agents.open_attached_source",
+              "archive_agent": "agents.archive_agent",
+              "delete_agent": "agents.delete_agent",
+              "open_operations": "agents.open_operations",
+              "open_designer": "agents.open_designer",
+              "open_builds": "agents.open_builds",
+              "open_sandbox": "agents.open_sandbox",
+              "open_evaluation": "agents.open_evaluation",
+              "open_channels": "agents.open_channels",
+              "open_build_source_revision": "agents.open_build_source_revision"
+            }
+          },
+          "agents.create": {
+            "component": "agents.create",
+            "lifecycle": "stable",
+            "affordances": {
+              "create_agent": "agents.create_agent",
+              "cancel_create": "agents.cancel_create"
+            }
+          },
+          "agents.archive_review": {
+            "component": "agents.lifecycle_review",
+            "lifecycle": "stable",
+            "affordances": {}
+          },
+          "agents.delete_review": {
+            "component": "agents.lifecycle_review",
+            "lifecycle": "stable",
+            "affordances": {}
+          }
+        },
+        "operations": {
+          "agents.open_create": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "agents.create" }, "review": "none" },
+          "agents.return_to_workspace": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "workspace.home" }, "review": "none" },
+          "agents.create_agent": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "outcomes": { "created": "agents.home" }, "review": "none" },
+          "agents.save_changes": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "outcomes": { "saved": "agents.home" }, "review": "none" },
+          "agents.cancel_create": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "agents.home" }, "review": "none" },
+          "agents.select_agent": { "safetyClass": "state_selection", "allowedSources": ["agent", "surface"], "outcomes": { "selected": "agents.home" }, "review": "none" },
+          "agents.attach_source": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "outcomes": { "attached": "agents.home" }, "review": "none" },
+          "agents.open_source_creation": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "sources.home" }, "review": "none" },
+          "agents.attach_created_source": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "outcomes": { "attached": "agents.home" }, "review": "none" },
+          "agents.open_attached_source": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "sources.home" }, "review": "none" },
+          "agents.return_from_source": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "agents.home" }, "review": "none" },
+          "agents.archive_agent": { "safetyClass": "destructive", "allowedSources": ["agent", "surface"], "outcomes": { "archived": "agents.home" }, "review": "required" },
+          "agents.delete_agent": { "safetyClass": "destructive", "allowedSources": ["agent", "surface"], "outcomes": { "deleted": "agents.home" }, "review": "required" },
+          "agents.return_to_hub": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "agents.home" }, "review": "none" },
+          "agents.open_operations": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "operations.home" }, "review": "none" },
+          "agents.open_designer": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "designer.home" }, "review": "none" },
+          "agents.open_builds": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "builder.home" }, "review": "none" },
+          "agents.open_sandbox": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "sandbox.home" }, "review": "none" },
+          "agents.open_evaluation": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "evaluation.home" }, "review": "none" },
+          "agents.open_channels": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "channels.home" }, "review": "none" },
+          "agents.open_build_source_revision": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "sources.home" }, "review": "none" }
+        },
+        "agentPolicies": [
+          "agents.feature.prompt",
+          "agents.feature.owner_scope",
+          "agents.feature.version_truth",
+          "agents.node.inventory_truth",
+          "agents.node.edit_conflict",
+          "agents.node.selected_agent_truth",
+          "agents.node.lifecycle_state_truth",
+          "agents.capability.attachment_eligibility",
+          "agents.capability.source_handoff_context",
+          "agents.surface.source_picker_eligibility",
+          "agents.operation.attach_exact_source",
+          "agents.operation.attach_persisted_success",
+          "agents.operation.source_creation_navigation",
+          "agents.operation.attach_created_eligibility",
+          "agents.operation.open_source_context"
+        ],
+        "reviewBehavior": "Current create and save are supervised draft operations with no review. The accepted lifecycle design requires new Corpus declarations: attachment as a draft change, archive and delete with explicit required review and dependency guards, owner-scoped private entity binding for the selected agent/source/build, and navigation transitions for the operations hub and exact historical source revision."
+      },
       "evaluationBindings": {
+        "agents-view-current-inventory": {
+          "setupAdapter": "agents.empty_workspace",
+          "steps": {}
+        },
         "agents-create-persisted-version": {
           "setupAdapter": "agents.empty_workspace",
           "steps": {
@@ -351,6 +550,10 @@
             }
           }
         },
+        "agents-inspect-current-configuration": {
+          "setupAdapter": "agents.one_agent",
+          "steps": {}
+        },
         "agents-edit-creates-next-version": {
           "setupAdapter": "agents.one_agent",
           "steps": {
@@ -374,8 +577,262 @@
               }
             }
           }
+        },
+        "agents-attach-source-contract": {
+          "setupAdapter": "agents.one_agent",
+          "steps": {},
+          "externalEvidenceOwner": "scripts/run_agents_lifecycle_journey.py"
+        },
+        "agents-create-source-contract": {
+          "setupAdapter": "agents.one_agent",
+          "steps": {},
+          "externalEvidenceOwner": "scripts/run_agents_lifecycle_journey.py"
+        },
+        "agents-open-source-contract": {
+          "setupAdapter": "agents.one_agent",
+          "steps": {},
+          "externalEvidenceOwner": "scripts/run_agents_lifecycle_journey.py"
+        },
+        "agents-archive-contract": {
+          "setupAdapter": "agents.one_agent",
+          "steps": {}
+        },
+        "agents-delete-contract": {
+          "setupAdapter": "agents.one_agent",
+          "steps": {}
+        },
+        "agents-operations-hub-contract": {
+          "setupAdapter": "agents.one_agent",
+          "steps": {}
+        },
+        "agents-build-source-lineage-contract": {
+          "setupAdapter": "agents.one_agent",
+          "steps": {}
+        },
+        "agents-lifecycle-mixed-continuation": {
+          "setupAdapter": "agents.one_agent",
+          "steps": {}
         }
+      },
+      "corpusImplementationOwners": {
+        "existingDomainAndPersistence": [
+          "backend/src/corpus/features/agents/domain.py",
+          "backend/src/corpus/features/agents/models.py",
+          "backend/src/corpus/features/agents/repository.py",
+          "backend/src/corpus/features/agents/service.py"
+        ],
+        "existingRouteDeckDeclarationsAndBindings": [
+          "backend/src/corpus/features/agents/contracts.py",
+          "backend/src/corpus/features/agents/declarations.py",
+          "backend/src/corpus/features/agents/feature.py",
+          "backend/src/corpus/features/agents/operations.py",
+          "backend/src/corpus/features/agents/bindings.py"
+        ],
+        "existingFrontend": [
+          "frontend/src/features/agents/**"
+        ],
+        "targetDomainServiceAndPersistence": [
+          "backend/src/corpus/features/agents/domain.py",
+          "backend/src/corpus/features/agents/models.py",
+          "backend/src/corpus/features/agents/ports.py",
+          "backend/src/corpus/features/agents/repository.py",
+          "backend/src/corpus/features/agents/schemas.py",
+          "backend/src/corpus/features/agents/service.py"
+        ],
+        "targetRouteDeckDeclarationBindingAndProjection": [
+          "backend/src/corpus/features/agents/contracts.py",
+          "backend/src/corpus/features/agents/declarations.py",
+          "backend/src/corpus/features/agents/feature.py",
+          "backend/src/corpus/features/agents/operations.py",
+          "backend/src/corpus/features/agents/bindings.py",
+          "backend/src/corpus/app/agents_adapters.py"
+        ],
+        "targetCrossFeatureContracts": [
+          "backend/src/corpus/features/sources/contracts.py",
+          "backend/src/corpus/features/sources/service.py"
+        ],
+        "targetHttpAndFrontend": [
+          "backend/src/corpus/features/agents/http.py",
+          "frontend/src/features/agents/**"
+        ],
+        "targetEvaluatorAndEvidence": [
+          "backend/tests/agents/**",
+          "frontend/src/tests/agents-surfaces.test.tsx",
+          "scripts/run_agents_lifecycle_journey.py",
+          ".runtime/evaluations/<agents-lifecycle-run-id>/**"
+        ]
+      },
+      "mappingStatus": {
+        "runtimeTruth": "Corpus persists owner-scoped Agents, immutable configuration versions, exact Source revision attachments, reviewed archive/delete lifecycle, immutable build lineage, and the selected-Agent hub that preserves exact context across Designer, Builds, Sandbox, Evaluation, Channels, and Operations.",
+        "unimplementedProductBehavior": "No behavior in the mapped horizontal Agent lifecycle remains unimplemented. Broader channel types and production operations policy remain later product scope.",
+        "productOwnership": "Corpus owns agent/source/build identities, associations, dependency rules, lifecycle records, immutable lineage, persistence, DTOs, adapters, surfaces, evaluators, and evidence.",
+        "frameworkOwnership": "RouteDeck owns legal Node and Transition navigation, scoped Capabilities and Surfaces, supervised Operations, private entity binding, context providers, guards, required review, session state, projections, recovery, and effects.",
+        "suggestedActionBoundary": "Attach source and Add new source are not SuggestedActions. RouteDeck SuggestedActions carry compile-time literal arguments validated against the target Operation schema, while these behaviors require the runtime-selected agent_ref and, for existing attachment, source_id. The accepted behavior remains available through the selected-agent surface affordance and through the agent choosing the declared Operation from current owner-scoped entity context; no identifier is frozen into Studio design or a static suggestion.",
+        "evaluationTruth": "Every accepted Agents evaluation keeps its exact Studio definition ID and uses a registered setup adapter. The three delivered attachment/handoff definitions point to scripts/run_agents_lifecycle_journey.py as their external evidence owner; later exact definitions remain bound without claiming their runtime behavior is implemented.",
+        "frameworkGap": "No missing RouteDeck framework primitive was proven by the read-only audit. Every missing Step 5 behavior is Corpus-owned declaration, binding, domain, persistence, cross-feature adapter, frontend, evaluator, and evidence work. A later proven gap triggers the cross-repository stop condition.",
+        "proofLock": "Attachment-specific evidence remains run 20260807T115259Z-ca04df5b57. Horizontal launch-baseline evidence is now independently retained as surface-only run 20260809T153004Z-7cd51d776b (24/24), ordinary-chat-only run 20260809T165131Z-63d1c6220b (24/24), and hybrid run 20260809T210136Z-853c33486c (25/25). Each is a normal-speed uncut local recording; the hybrid run visibly retains the semantic graph, Designer topology, compiled build/evaluation/deployment NavGraphs, Sandbox and public ToolRouter clarification, owner Operations evidence, restart persistence, and 390x844 rendering."
       }
+    },
+    {
+      "designFeature": "Agent Designer",
+      "routeDeckFeature": "designer",
+      "implementationStatus": "partial",
+      "runtimeImplementationStatus": "complete",
+      "unmappedDesignBehaviors": [
+        "Resolve deployed-agent clarification"
+      ],
+      "unmappedCompiledNodes": [],
+      "featurePromptPolicy": "designer.feature.prompt",
+      "studioBehaviors": [
+        "agent-designer-propose",
+        "agent-designer-customize",
+        "agent-designer-inspect-navgraph",
+        "agent-designer-review",
+        "agent-designer-request-build"
+      ],
+      "behaviors": [
+        {
+          "designBehavior": "Propose an Agent design",
+          "node": "designer.home",
+          "capabilities": { "Agent design authoring": "designer.authoring" },
+          "surfaces": {
+            "Agent Designer": "designer.home"
+          },
+          "operations": {
+            "Propose agent design": "designer.propose"
+          }
+        },
+        {
+          "designBehavior": "Customize an Agent design",
+          "node": "designer.home",
+          "capabilities": { "Agent design authoring": "designer.authoring" },
+          "surfaces": {
+            "Agent Designer": "designer.home"
+          },
+          "operations": {
+            "Save design customization": "designer.customize"
+          }
+        },
+        {
+          "designBehavior": "Inspect the proposed RouteDeck NavGraph",
+          "node": "designer.home",
+          "capabilities": { "Agent design authoring": "designer.authoring" },
+          "surfaces": {
+            "Agent Designer": "designer.home"
+          },
+          "operations": {}
+        },
+        {
+          "designBehavior": "Review and accept an Agent design",
+          "node": "designer.home",
+          "capabilities": { "Agent design authoring": "designer.authoring" },
+          "surfaces": {
+            "Agent Designer": "designer.home",
+            "Agent design review": "designer.review"
+          },
+          "operations": {
+            "Approve agent design": "designer.approve"
+          }
+        },
+        {
+          "designBehavior": "Request an Agent build",
+          "node": "designer.home",
+          "capabilities": { "Agent design authoring": "designer.authoring" },
+          "surfaces": {
+            "Agent Designer": "designer.home"
+          },
+          "operations": {
+            "Request agent build": "designer.request_build"
+          }
+        }
+      ],
+      "currentCompiledBehaviors": [
+        {
+          "designBehavior": "Resolve deployed-agent clarification",
+          "node": "sandbox.home",
+          "capabilities": { "Clarification resolution": "sandbox.execution" },
+          "surfaces": {
+            "Deployed agent conversation": "public hosted Web session",
+            "Operations clarification evidence": "operations.home"
+          },
+          "operations": {
+            "Continue waiting agent run": "sandbox.resume"
+          },
+          "publicRuntimeBoundary": "Hosted Web replies continue the same neutral runtime run through the owner-isolated agent-delivery boundary; public sessions do not compile a RouteDeck operation."
+        }
+      ],
+      "evaluationBindings": {
+        "agent-designer-propose-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "agent-designer-customize-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "agent-designer-inspect-navgraph-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "agent-designer-review-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "agent-designer-request-build-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "clarification-explicit-operation": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "clarification-parameter-provenance": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "clarification-material-ambiguity": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "clarification-unproven-values": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "clarification-safe-write-review": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "clarification-multicall-atomicity": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        }
+      },
+      "plannedRouteDeckContracts": {
+        "node": {
+          "id": "designer.home",
+          "route": "/agents/designer",
+          "kind": "section",
+          "parent": "agents.home",
+          "deepLinkPolicy": "session_bound",
+          "contextProviders": ["corpus.owner_context"],
+          "entityProvider": "agents.selected_agent"
+        },
+        "operations": {
+          "designer.propose": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "review": "none", "outcome": "proposed" },
+          "designer.customize": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "review": "none", "outcome": "customized" },
+          "designer.approve": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "review": "required", "outcome": "accepted" },
+          "designer.request_build": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "review": "none", "outcome": "requested" }
+        },
+        "persistence": "Corpus appends immutable owner-scoped design revisions, retains exact Agent version plus Source revision/curation identities, advances proposal and accepted pointers only under exact-current CAS, and appends one immutable build request for one accepted design revision.",
+        "boundary": "Designer performs no API call, credential resolution, build execution, Sandbox run, evaluation, deployment, or public-session work. RouteDeck owns operation legality, exact selected-Agent entity binding, required review, navigation, projection, and accept-time recheck.",
+        "topologyBoundary": "Corpus compiles one shared Designer topology from the immutable design revision. The Designer renders that exact topology and stable hash; Builder consumes the same topology to create the immutable per-build RouteDeck Application. The current executable Agent topology is one real runtime node with exact capabilities, curated operations, policies, clarification/status/delivery surfaces, and no decorative lifecycle nodes."
+      },
+      "corpusImplementationOwners": {
+        "backend": ["backend/src/corpus/features/designer/**", "backend/src/corpus/features/builder/navgraph.py", "backend/src/corpus/app/designer_adapters.py"],
+        "frontend": ["frontend/src/features/designer/**", "frontend/src/features/builder/BuildNavGraph.tsx"],
+        "tests": ["backend/tests/designer/**", "backend/tests/builder/test_agent_navgraph.py", "frontend/src/tests/designer-surfaces.test.tsx", "frontend/src/tests/build-navgraph.test.tsx"]
+      },
+      "evidenceStatus": "Shared Designer-to-Builder topology correspondence is focused-test and browser proven. Surface-only 20260809T153004Z-7cd51d776b, ordinary-chat-only 20260809T165131Z-63d1c6220b, and hybrid 20260809T210136Z-853c33486c retain normal-speed uncut evidence. Hybrid visibly proves the proposed Designer topology, compiled per-build NavGraph, Sandbox clarification, and the same deployed-agent clarification continuing through public delivery and owner Operations evidence."
     },
     {
       "designFeature": "Source Hub",
@@ -391,7 +848,1113 @@
       "unmappedCompiledNodes": [
         "sources.home"
       ],
-      "behaviors": []
+      "behaviors": [],
+      "currentRouteDeckContracts": {
+        "feature": "sources",
+        "nodes": {
+          "sources.home": {
+            "route": "/sources",
+            "kind": "section",
+            "parent": "workspace.home",
+            "deepLinkPolicy": "session_bound",
+            "contextProviders": [
+              "corpus.owner_context"
+            ]
+          }
+        },
+        "capabilities": {
+          "sources.manage": {
+            "operations": [
+              "sources.open_api_creation",
+              "sources.retry_processing",
+              "sources.return_to_home",
+              "sources.select_graph_stage",
+              "sources.inspect_current_api",
+              "sources.save_api_connection",
+              "agents.attach_created_source",
+              "agents.return_from_source"
+            ],
+            "surfaces": [
+              "sources.home"
+            ]
+          }
+        },
+        "surfaces": {
+          "sources.home": {
+            "component": "sources.home",
+            "lifecycle": "stable",
+            "privateFormBinding": {
+              "formIdProp": "form_handle",
+              "formId": "sources-api-connection",
+              "allowedFieldNames": [
+                "source_id",
+                "profile_name",
+                "environment",
+                "base_url",
+                "authentication_method",
+                "credential_name",
+                "credential_value"
+              ]
+            },
+            "affordances": {
+              "open_api_creation": "sources.open_api_creation",
+              "retry_processing": "sources.retry_processing",
+              "return_to_home": "sources.return_to_home",
+              "select_graph_stage": "sources.select_graph_stage",
+              "save_api_connection": "sources.save_api_connection",
+              "attach_created_source": "agents.attach_created_source",
+              "return_to_agent": "agents.return_from_source"
+            }
+          }
+        },
+        "operations": {
+          "sources.return_to_home": {
+            "safetyClass": "navigation",
+            "allowedSources": [
+              "agent",
+              "surface"
+            ],
+            "outcomes": {
+              "opened": "workspace.home"
+            },
+            "review": "none"
+          },
+          "sources.open_api_creation": {
+            "safetyClass": "navigation",
+            "allowedSources": [
+              "agent",
+              "surface"
+            ],
+            "outcomes": {
+              "opened": "sources.home"
+            },
+            "review": "none"
+          },
+          "sources.retry_processing": {
+            "safetyClass": "draft",
+            "allowedSources": [
+              "agent",
+              "surface"
+            ],
+            "outcomes": {
+              "queued": "sources.home"
+            },
+            "review": "none"
+          },
+          "sources.select_graph_stage": {
+            "safetyClass": "state_selection",
+            "allowedSources": [
+              "agent",
+              "surface"
+            ],
+            "outcomes": {
+              "selected": "sources.home"
+            },
+            "review": "none"
+          },
+          "sources.inspect_current_api": {
+            "safetyClass": "state_selection",
+            "allowedSources": [
+              "agent"
+            ],
+            "outcomes": {
+              "inspected": "sources.home"
+            },
+            "review": "none"
+          },
+          "sources.save_api_connection": {
+            "safetyClass": "credential",
+            "allowedSources": [
+              "surface"
+            ],
+            "outcomes": {
+              "saved": "sources.home"
+            },
+            "review": "none"
+          }
+        },
+        "agentPolicies": [
+          "sources.feature_prompt",
+          "sources.owner_scope",
+          "sources.processing_truth"
+        ],
+        "reviewBehavior": "API-source intake is a direct authenticated upload because it carries files. Opening intake is navigation. Failed-step retry is draft class. Recorded-stage selection is state selection and validates the authenticated owner, exact source, exact revision, and membership in the persisted construction record. Connection save is surface-only credential class and loads secret material from the private form. No external API write is executed in this slice."
+      },
+      "corpusImplementationOwners": {
+        "existingDomainAndPersistence": [
+          "backend/src/corpus/features/sources/models.py",
+          "backend/src/corpus/features/sources/repository.py",
+          "backend/src/corpus/features/sources/service.py"
+        ],
+        "existingApiConnectorAndHttp": [
+          "backend/src/corpus/features/sources/connectors/api/**",
+          "backend/src/corpus/features/sources/http.py",
+          "backend/src/corpus/features/sources/http_common.py"
+        ],
+        "existingFrontend": [
+          "frontend/src/features/sources/sourceClient.ts",
+          "frontend/src/features/sources/SourceHubSurface.tsx",
+          "frontend/src/features/sources/sources.css"
+        ],
+        "existingEvaluators": [
+          "backend/tests/sources/**",
+          "frontend/src/tests/source-debug-surface.test.tsx"
+        ],
+        "targetRouteDeckDeclarationsAndBindings": [
+          "backend/src/corpus/features/sources/declarations.py",
+          "backend/src/corpus/features/sources/feature.py",
+          "backend/src/corpus/features/sources/bindings.py"
+        ],
+        "targetLifecycleAdapters": [
+          "backend/src/corpus/jobs/**",
+          "backend/src/corpus/credentials/**",
+          "backend/src/corpus/integrations/api_execution/**"
+        ],
+        "targetFrontend": [
+          "frontend/src/features/sources/**"
+        ],
+        "targetEvaluatorAndEvidence": [
+          "scripts/record_source_hub_first_slice.py",
+          ".runtime/evaluations/<source-run-id>/**"
+        ]
+      },
+      "mappingStatus": {
+        "runtimeTruth": "Corpus has one owner-scoped Source inventory and immutable ToolRouter revision chain. API YAML plus optional Markdown intake persists a source/revision/job link, queues the real worker, exposes durable queued/running/ready/failed state, supports explicit failed-job retry, renders the persisted semantic graph and construction evidence, protects revision-bound connection profiles, curates exact operations, prepares and clarifies a route, and executes one reviewed or read-only routed operation with redacted immutable evidence. Agent-owned source selection and the create-and-return attachment handoff are implemented through the Agents feature.",
+        "notMapped": "Source Hub remains a partial mapping because existing-source selection is Agents-owned, API description bytes use authenticated Corpus HTTP, dependency-aware Source deletion is not implemented, and the detailed API Source design shares the compiled sources namespace through designOnlyMappings. These boundaries are explicit; the implemented inventory and intake runtime is not used to overstate the complete Source Hub behavior.",
+        "frameworkGap": "No missing RouteDeck framework primitive was proven. Dependency-aware Source deletion and ordered graph replay are Corpus-owned product gaps.",
+        "directHttpBoundary": "API definition and optional Markdown bytes use authenticated Corpus upload endpoints because they carry files. RouteDeck owns legal navigation, retry, stage selection, credential-form submission, curation, route preparation, reviewed execution, and cross-feature attachment handoff."
+      }
+    },
+    {
+      "designFeature": "Builder and Sandbox",
+      "routeDeckFeature": "builder+sandbox",
+      "implementationStatus": "partial",
+      "runtimeImplementationStatus": "complete",
+      "unmappedDesignBehaviors": [
+        "Control an Agent build runtime",
+        "Generate evaluation sets with an Agent build"
+      ],
+      "unmappedCompiledNodes": [],
+      "featurePromptPolicy": "builder.feature.prompt",
+      "behaviors": [
+        {
+          "designBehavior": "Assemble an immutable Agent build",
+          "node": "builder.home",
+          "capabilities": {
+            "Agent Builder": "builder.assembly"
+          },
+          "surfaces": {
+            "Agent Builds": "builder.home"
+          },
+          "operations": {
+            "Assemble accepted Agent build": "builder.assemble"
+          }
+        },
+        {
+          "designBehavior": "Observe durable Agent build status and lineage",
+          "node": "builder.home",
+          "capabilities": {
+            "Agent Builder": "builder.assembly"
+          },
+          "surfaces": {
+            "Agent Builds": "builder.home"
+          },
+          "operations": {}
+        },
+        {
+          "designBehavior": "Start an isolated Sandbox interaction",
+          "node": "sandbox.home",
+          "capabilities": {
+            "Agent Sandbox": "sandbox.execution"
+          },
+          "surfaces": {
+            "Agent Sandbox": "sandbox.home"
+          },
+          "operations": {
+            "Start Sandbox run": "sandbox.start"
+          }
+        },
+        {
+          "designBehavior": "Continue a waiting Sandbox clarification",
+          "node": "sandbox.home",
+          "capabilities": {
+            "Agent Sandbox": "sandbox.execution"
+          },
+          "surfaces": {
+            "Agent Sandbox": "sandbox.home"
+          },
+          "operations": {
+            "Continue waiting Agent run": "sandbox.resume"
+          }
+        },
+        {
+          "designBehavior": "Inspect Sandbox RouteDeck diagnostics",
+          "node": "sandbox.home",
+          "capabilities": {
+            "Agent Sandbox": "sandbox.execution"
+          },
+          "surfaces": {
+            "Agent Sandbox": "sandbox.home"
+          },
+          "operations": {}
+        },
+        {
+          "designBehavior": "Inspect Sandbox operation traces",
+          "node": "sandbox.home",
+          "capabilities": {
+            "Agent Sandbox": "sandbox.execution"
+          },
+          "surfaces": {
+            "Agent Sandbox": "sandbox.home"
+          },
+          "operations": {}
+        }
+      ],
+      "currentCompiledBehaviors": [],
+      "evaluationBindings": {
+        "builder-assemble-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "builder-observe-lifecycle-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "builder-control-runtime-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "builder-generate-evalset-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "sandbox-start-run-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "sandbox-continue-clarification-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "sandbox-inspect-routedeck-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "sandbox-inspect-operation-trace-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        }
+      },
+      "runtimeBoundary": "Corpus persists the full owner/design/Source-curation/profile binding in SQL and stores the neutral immutable build and run records through Corpus-owned runtime storage. Sandbox runs the exact build through curated subset routing, the owner vault and one response-validating API adapter; validated bodies remain memory-only while safe events and the response-derived final answer persist. When ToolRouter waits, Corpus binds exact natural candidate labels from the immutable compiled NavGraph into the persisted safe event and the RouteDeck tool observation so ordinary chat can resolve the same run without asking the user for an internal operation identity.",
+      "evidenceStatus": "Focused runtime gates pass. Surface-only 20260809T153004Z-7cd51d776b, ordinary-chat-only 20260809T165131Z-63d1c6220b, and hybrid 20260809T210136Z-853c33486c independently prove assembled-build and same-run ToolRouter clarification paths in normal-speed uncut recordings. Builder runtime-control and generated-evalset behaviors remain pending where their individual bindings still say pending_external_evidence."
+    },
+    {
+      "designFeature": "Evaluation",
+      "routeDeckFeature": "evaluation",
+      "implementationStatus": "partial",
+      "runtimeImplementationStatus": "complete",
+      "unmappedDesignBehaviors": [
+        "Edit or remove evaluation cases",
+        "Generate an evaluation set with ToolRouter"
+      ],
+      "unmappedCompiledNodes": [],
+      "featurePromptPolicy": "evaluation.feature.prompt",
+      "behaviors": [
+        {
+          "designBehavior": "Create a categorized evaluation case",
+          "node": "evaluation.home",
+          "capabilities": {
+            "Evaluation": "evaluation.manage"
+          },
+          "surfaces": {
+            "Evaluation": "evaluation.home"
+          },
+          "operations": {
+            "Create evaluation case": "evaluation.create_case"
+          }
+        },
+        {
+          "designBehavior": "Run evaluation against the exact Agent build",
+          "node": "evaluation.home",
+          "capabilities": {
+            "Evaluation": "evaluation.manage"
+          },
+          "surfaces": {
+            "Evaluation": "evaluation.home"
+          },
+          "operations": {
+            "Run evaluation case": "evaluation.run_case"
+          }
+        },
+        {
+          "designBehavior": "Observe durable evaluation status and eligibility",
+          "node": "evaluation.home",
+          "capabilities": {
+            "Evaluation": "evaluation.manage"
+          },
+          "surfaces": {
+            "Evaluation": "evaluation.home"
+          },
+          "operations": {
+          }
+        }
+      ],
+      "currentCompiledBehaviors": [],
+      "evaluationBindings": {
+        "evaluation-generate-evalset-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "evaluation-create-case-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "evaluation-manage-cases-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "evaluation-run-build-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "evaluation-observe-lifecycle-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        }
+      },
+      "runtimeBoundary": "Cases retain category, difficulty, exact build and immutable source interaction. Runs use the neutral Evaluation runtime and persist derived eligible or ineligible evidence without retargeting a later build.",
+      "evidenceStatus": "Focused runtime gates pass. Surface-only 20260809T153004Z-7cd51d776b, ordinary-chat-only 20260809T165131Z-63d1c6220b, and hybrid 20260809T210136Z-853c33486c independently prove case creation, evaluation, and eligibility derived from the exact successful Sandbox run. Generated-set and case-management depth remain pending."
+    },
+    {
+      "designFeature": "Channels and Deployment",
+      "routeDeckFeature": "channels",
+      "implementationStatus": "partial",
+      "runtimeImplementationStatus": "complete",
+      "unmappedDesignBehaviors": [
+        "Explore linking a custom domain",
+        "Use the hosted Web Agent"
+      ],
+      "unmappedCompiledNodes": [],
+      "featurePromptPolicy": "channels.feature.prompt",
+      "behaviors": [
+        {
+          "designBehavior": "Create a hosted Web channel",
+          "node": "channels.home",
+          "capabilities": {
+            "Channels and Deployment": "channels.manage"
+          },
+          "surfaces": {
+            "Channels and Deployment": "channels.home"
+          },
+          "operations": {
+            "Create hosted Web channel": "channels.create"
+          }
+        },
+        {
+          "designBehavior": "View the hosted address and active version",
+          "node": "channels.home",
+          "capabilities": {
+            "Channels and Deployment": "channels.manage"
+          },
+          "surfaces": {
+            "Channels and Deployment": "channels.home"
+          },
+          "operations": {}
+        },
+        {
+          "designBehavior": "Deploy an eligible Agent build",
+          "node": "channels.home",
+          "capabilities": {
+            "Channels and Deployment": "channels.manage"
+          },
+          "surfaces": {
+            "Channels and Deployment": "channels.home",
+            "Deployment review": "deployment.deploy_review"
+          },
+          "operations": {
+            "Deploy eligible Agent build": "deployment.deploy"
+          }
+        },
+        {
+          "designBehavior": "Observe durable deployment status",
+          "node": "channels.home",
+          "capabilities": {
+            "Channels and Deployment": "channels.manage"
+          },
+          "surfaces": {
+            "Channels and Deployment": "channels.home"
+          },
+          "operations": {}
+        },
+        {
+          "designBehavior": "Roll back the hosted Agent",
+          "node": "channels.home",
+          "capabilities": {
+            "Channels and Deployment": "channels.manage"
+          },
+          "surfaces": {
+            "Channels and Deployment": "channels.home",
+            "Rollback review": "deployment.rollback_review"
+          },
+          "operations": {
+            "Roll back hosted Agent": "deployment.rollback"
+          }
+        },
+        {
+          "designBehavior": "Change hosted Agent availability",
+          "node": "channels.home",
+          "capabilities": {
+            "Channels and Deployment": "channels.manage"
+          },
+          "surfaces": {
+            "Channels and Deployment": "channels.home",
+            "Channel availability review": "channels.availability_review"
+          },
+          "operations": {
+            "Set hosted Web channel availability": "channels.set_enabled"
+          }
+        }
+      ],
+      "currentCompiledBehaviors": [],
+      "evaluationBindings": {
+        "channels-create-hosted-web-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "channels-view-hosted-address-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "deployment-publish-eligible-build-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "deployment-observe-lifecycle-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "deployment-rollback-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "channels-set-availability-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "channels-use-hosted-agent-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        }
+      },
+      "runtimeBoundary": "Corpus SQL owns the exact owner/Agent/build/eligibility catalogue while Corpus-owned neutral delivery storage owns channel, deployment, activation, public-session and interaction records. Deployment publishes an exact eligible immutable build by activating it on a configured channel. Channel availability only enables or disables public access and never selects or activates a build, so it cannot substitute for deployment. Deploy, rollback, and availability changes are required-review WRITE_EXTERNAL operations with distinct consequence-specific review surfaces, fail-closed recovery, and no automatic retry. Every public session creation, read, and message rejects disabled channels. Public invocation restores exact durable build bindings after restart and runs through the same vault-aware execution adapter.",
+      "evidenceStatus": "Focused runtime gates pass. Surface-only 20260809T153004Z-7cd51d776b, ordinary-chat-only 20260809T165131Z-63d1c6220b, and hybrid 20260809T210136Z-853c33486c prove reviewed hosted deployment, restart persistence, natural same-run public clarification, and owner-only RouteDeck/NavGraph/ToolRouter evidence. Rollback and availability-change bindings remain pending."
+    },
+    {
+      "designFeature": "Operations",
+      "routeDeckFeature": "operations",
+      "implementationStatus": "partial",
+      "runtimeImplementationStatus": "complete",
+      "unmappedDesignBehaviors": [],
+      "unmappedCompiledNodes": [],
+      "featurePromptPolicy": "operations.feature.prompt",
+      "behaviors": [
+        {
+          "designBehavior": "View deployed Agent interactions",
+          "node": "operations.home",
+          "capabilities": {
+            "Operations": "operations.inspect"
+          },
+          "surfaces": {
+            "Operations": "operations.home"
+          },
+          "operations": {}
+        },
+        {
+          "designBehavior": "Inspect deployed result and decision evidence",
+          "node": "operations.home",
+          "capabilities": {
+            "Operations": "operations.inspect"
+          },
+          "surfaces": {
+            "Operations": "operations.home"
+          },
+          "operations": {}
+        },
+        {
+          "designBehavior": "Promote a deployed interaction to Evaluation",
+          "node": "operations.home",
+          "capabilities": {
+            "Operations": "operations.inspect"
+          },
+          "surfaces": {
+            "Operations": "operations.home"
+          },
+          "operations": {
+            "Promote interaction to Evaluation": "operations.promote_evaluation_case"
+          }
+        }
+      ],
+      "currentCompiledBehaviors": [],
+      "evaluationBindings": {
+        "operations-view-interactions-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "operations-inspect-evidence-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "operations-promote-evaluation-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        }
+      },
+      "runtimeBoundary": "Operations filters the neutral interaction inventory through Corpus-owned deployment lineage for the authenticated owner, exposes only allowlisted safe run events, and promotes only an explicit exact interaction into Evaluation.",
+      "evidenceStatus": "Focused runtime gates pass. Surface-only 20260809T153004Z-7cd51d776b, ordinary-chat-only 20260809T165131Z-63d1c6220b, and hybrid 20260809T210136Z-853c33486c prove chat-led and surface-led entry to deployed interaction evidence, desktop and 390x844 rendering, and exact redacted lineage. Promotion remains pending and was not invoked by read-only inspection."
     }
-  ]
+  ],
+  "designOnlyMappings": {
+    "API Source": {
+      "implementationStatus": "partial",
+      "currentRouteDeckFeature": "sources",
+      "mappingGateStatus": "approved_pre_runtime",
+      "evaluationBindings": {
+        "api-curate-operations-contract": {
+          "setupAdapter": "workspace.authenticated_owner",
+          "steps": {},
+          "externalEvidenceOwner": "scripts/run_api_operation_curation_journey.py",
+          "implementationStatus": "registered_setup_with_external_behavior_evidence_passed"
+        },
+        "api-test-operation-contract": {
+          "setupAdapter": "workspace.authenticated_owner",
+          "steps": {},
+          "externalEvidenceOwner": "scripts/run_api_route_planning_journey.py",
+          "implementationStatus": "registered_setup_with_external_pre_execution_evidence_passed",
+          "scopeBoundary": "The retained Phase E evidence validates only route preparation and same-lineage clarification with zero calls. The blocking Studio evaluation remains incomplete until the mapped read/write execution variants and real observed result/failure path are implemented."
+        }
+      },
+      "plannedOperationMappings": [
+        {
+          "designBehavior": "Route and test an API operation",
+          "operations": {
+            "Test routed API operation": {
+              "selector": "resolved_http_safety_v1",
+              "actionOperation": "sources.prepare_routed_api_test",
+              "suggestedActionId": "api-test-operation",
+              "variants": {
+                "read": "sources.test_routed_api_read",
+                "write": "sources.test_routed_api_write"
+              }
+            }
+          },
+          "suggestedActions": {
+            "api-test-operation": {
+              "operation": "sources.prepare_routed_api_test",
+              "arguments": {}
+            }
+          },
+          "currentContracts": {
+            "sources.prepare_routed_api_test": {
+              "implementationStatus": "implemented_browser_behavior_validated",
+              "safetyClass": "state_selection",
+              "review": "none",
+              "allowedSources": [
+                "agent",
+                "surface"
+              ],
+              "inputKind": "empty",
+              "outcomes": [
+                "opened"
+              ],
+              "externalExecution": false,
+              "purpose": "Give the static Studio SuggestedAction an empty-argument, non-executing target. It only opens the test-planning state and cannot route or call an API."
+            },
+            "sources.test_routed_api_read": {
+              "implementationStatus": "implemented_automated_e2e_pending",
+              "safetyClass": "read_external",
+              "review": "none",
+              "allowedSources": [
+                "agent",
+                "surface"
+              ],
+              "inputKind": "opaque_plan_id",
+              "outcomes": [
+                "observed"
+              ],
+              "externalExecution": true,
+              "purpose": "Execute only an immutable, owner- and revision-scoped plan already classified as a read by the non-executing Corpus planner."
+            },
+            "sources.test_routed_api_write": {
+              "implementationStatus": "implemented_automated_e2e_pending",
+              "safetyClass": "write_external",
+              "review": "required",
+              "allowedSources": [
+                "agent",
+                "surface"
+              ],
+              "inputKind": "opaque_plan_id",
+              "outcomes": [
+                "observed"
+              ],
+              "externalExecution": true,
+              "unknownRecoveryDirective": "Do not retry this write automatically. Preserve the redacted trace and verify the external system state before any explicit reconciliation or new reviewed attempt.",
+              "purpose": "Execute only an immutable, owner- and revision-scoped write plan after RouteDeck review. Possibly-sent or response-contract-unknown outcomes remain unknown and are never automatically retried."
+            }
+          },
+          "plannedContracts": {},
+          "dispatchBoundary": "The Source Hub surface first obtains a non-executing, persisted Corpus route plan containing ToolRouter evidence and resolved HTTP safety. Only then does it dispatch the exact read or write RouteDeck Operation with the opaque plan ID. A generic RouteDeck dispatcher never executes first. The later agent path must use the same immutable classifier before dispatch.",
+          "suggestedActionBoundary": "Studio SuggestedAction api-test-operation resolves only to sources.prepare_routed_api_test. It carries no unresolved dynamic arguments and never maps directly to either execution variant."
+        }
+      ],
+      "plannedSupportingContracts": {
+        "sources.test_api_connection": {
+          "implementationStatus": "implemented_browser_behavior_validated_with_recorder_diagnostic_false_negative",
+          "safetyClass": "read_external",
+          "review": "none",
+          "allowedSources": [
+            "agent",
+            "surface"
+          ],
+          "outcomes": [
+            "checked"
+          ],
+          "boundary": "Use one explicitly selected, fully resolved GetProductTypes or GetProductTags operation from the exact ready effective revision and saved profile. Corpus rechecks owner, Source, revision, profile and credential version, resolves the credential just in time, validates against the exact 6fca contract, makes one call without retry, and persists only redacted immutable identity. The Studio static SuggestedAction remains separately unmapped because it cannot carry unresolved dynamic inputs truthfully."
+        },
+        "sources.save_api_operation_curation": {
+          "implementationStatus": "implemented_browser_behavior_validated",
+          "safetyClass": "draft",
+          "review": "none",
+          "allowedSources": [
+            "agent",
+            "surface"
+          ],
+          "outcomes": [
+            "saved"
+          ],
+          "boundary": "Persist an append-only immutable record containing the exact included and excluded discovered operation IDs, Source revision, ToolRouter artifact identity and inventory fingerprint. The current pointer advances atomically under the Source lock and an exact expected-current CAS. Unknown, duplicate, incomplete, stale, unauthorized, concurrent, or silently broadened input leaves the prior curation authoritative."
+        }
+      },
+      "plannedExecutionBoundary": {
+        "routePlan": "A non-executing owner-authenticated Corpus endpoint uses the existing single ToolRouterApiSourceEngine retrieval chain and persists owner, session, source, revision, profile, curation, document, operation, HTTP method and safety, resolved parameter provenance, ranking and route evidence, expiry, and a plan fingerprint. Missing or ambiguous inputs retain the same plan lineage for one natural clarification and make zero API calls.",
+        "credentialResolution": "Resolve the saved credential reference and exact version just in time through the existing owner-bound CredentialVaultPort. No secret enters a plan, RouteDeck argument, trace, returned DTO, DOM, log, or artifact.",
+        "responseValidation": "Validate requests and responses against the exact effective contract. A read response mismatch fails. A write transport uncertainty or response mismatch is external_outcome_unknown and is never reported as success.",
+        "retry": "Reads and definitely-not-sent failures may be explicitly retried as a new request after revalidation. A write requires a new explicit review. Possibly-sent and response-contract-unknown writes cannot be automatically retried.",
+        "traceRedaction": "Persist only opaque IDs, method and path template, lifecycle phase, safe status or error and validation summaries, timings, and hashes. Exclude URL queries, Authorization, Cookie, API-key headers, credential values, secret-bearing request bodies, and unredacted responses."
+      },
+      "effectiveContractRevisionPlan": {
+        "label": "Corpus-reviewed effective contract for local Medusa 2.13.6 evidence",
+        "authorityBoundary": "This is a Corpus-reviewed derivative validated against local Medusa 2.13.6 evidence. It is not and must never be described as an official or version-pinned Medusa 2.13.6 contract.",
+        "source": {
+          "classification": "Medusa official-current Store API download retained by agent-core; not 2.13.6-version-pinned authority",
+          "path": "D:\\Dev\\AI Projects\\agent-core\\research\\openapi_toolrouter_benchmark\\data\\openapi\\medusa_store.yaml",
+          "openapi": "3.0.0",
+          "infoVersion": "2.0.0",
+          "rawSha256": "fd17273078c222a5632459f67204cbc9cf03cb925641d47669209baa9cc97fb6",
+          "canonicalDocumentHash": "a3dbb864bef80085e5600496784fc908bf3ea5791de97043f48397d812ad4f87"
+        },
+        "localTarget": {
+          "medusaVersion": "2.13.6",
+          "packageJsonSha256": "798ddcda5807af7667b0892586386056a9c1c1ec4367a085722385c5980a99ab",
+          "packageLockSha256": "540ad6d63416365a54a624302d17c9a544a57a16903d590cbcade8a46dae34e4"
+        },
+        "parentBoundary": "Run the canonical official-current source through the existing explicit ToolRouter remove-invalid-default repair first. That produces the validated repaired parent bc1b4b2456eefab4684a07ffa6e63f652118f5a705dd13eba5d77e74ab965c6e from one recorded repair. Apply the 10 reviewed cart patches to that exact parent. The earlier effective 5d4f8ef1cc7548c52aabe93b4250fe98d0f3f7449b484d2b2a47138db117655c revision is not the parent because its unrelated changes did not correct the 22 cart validation details.",
+        "normalizationRepair": {
+          "policy": "remove_invalid_defaults_only",
+          "count": 1,
+          "source": "medusa_store",
+          "action": "remove_invalid_default",
+          "jsonPointer": "/components/schemas/AdminProductVariantDeleteResponse/properties/deleted/default",
+          "manifestSha256": "dc712d7c172a8e6c3ee2fef8aa11c4f337d0c1622330df521dcf89c6fda19af2",
+          "repairedParentCanonicalSha256": "bc1b4b2456eefab4684a07ffa6e63f652118f5a705dd13eba5d77e74ab965c6e",
+          "auditPath": ".runtime/audits/20260807-api-execution-contract-chain/contract-chain-audit.json"
+        },
+        "evidence": {
+          "path": ".runtime/audits/20260807-api-execution-reference/cart-contract-validation-details.txt",
+          "sha256": "de4840c7056f1667d8ae381b17bf34739eed30c48bb2a07fa576795495d08892",
+          "validatorDetailCount": 22,
+          "reviewedPatchCount": 10
+        },
+        "approvedPatches": [
+          {
+            "patchId": "0e3ca203c694b3ea",
+            "kind": "set_nullable",
+            "schemaPointer": "/components/schemas/StoreCart/properties/billing_address",
+            "evidenceCount": 1
+          },
+          {
+            "patchId": "0b580a91a8f44b89",
+            "kind": "set_nullable",
+            "schemaPointer": "/components/schemas/StoreCart/properties/completed_at",
+            "evidenceCount": 1
+          },
+          {
+            "patchId": "79b18616b26c149a",
+            "kind": "set_nullable",
+            "schemaPointer": "/components/schemas/StoreCart/properties/customer_id",
+            "evidenceCount": 1
+          },
+          {
+            "patchId": "40e01e7194d00a7d",
+            "kind": "set_nullable",
+            "schemaPointer": "/components/schemas/StoreCart/properties/email",
+            "evidenceCount": 1
+          },
+          {
+            "patchId": "092ef91c4b3d772b",
+            "kind": "set_nullable",
+            "schemaPointer": "/components/schemas/StoreCart/properties/metadata",
+            "evidenceCount": 1
+          },
+          {
+            "patchId": "c974401b1bfc59b3",
+            "kind": "set_nullable",
+            "schemaPointer": "/components/schemas/StoreCart/properties/shipping_address",
+            "evidenceCount": 1
+          },
+          {
+            "patchId": "6435eb6c5861391b",
+            "kind": "remove_required",
+            "schemaPointer": "/components/schemas/BaseRegionCountry",
+            "fieldName": "id",
+            "evidenceCount": 7,
+            "impactCount": 2,
+            "reviewBoundary": "The shared-schema impact count must be visible and explicitly accepted before revision creation."
+          },
+          {
+            "patchId": "2e3008cbf6b3f5b2",
+            "kind": "remove_required",
+            "schemaPointer": "/components/schemas/StoreCart",
+            "fieldName": "original_subtotal",
+            "evidenceCount": 1
+          },
+          {
+            "patchId": "edcb5d80e92f57a1",
+            "kind": "remove_required",
+            "schemaPointer": "/components/schemas/StoreCart",
+            "fieldName": "gift_card_total",
+            "evidenceCount": 1
+          },
+          {
+            "patchId": "3f4de4aa354d0324",
+            "kind": "remove_required",
+            "schemaPointer": "/components/schemas/StoreCart",
+            "fieldName": "gift_card_tax_total",
+            "evidenceCount": 1
+          }
+        ],
+        "expectedCanonicalRevisionHash": "6fca793be700dfb8bf511c2217d72cf97abf2f6cba08fbc2cd26ef0369b8f3f6",
+        "storageBoundary": "Create a new reviewed Source Hub revision and canonical effective-6fca793be700.json input. Never overwrite the source revision. Persist source and parent revision IDs, source raw and canonical hashes, normalization-repair manifest hash, repaired-parent hash, derived hash, ordered patch IDs, owner approver and timestamp, evidence hash, and local target package hashes. The prior revision remains immutable."
+      },
+      "apiExecutionDependencyPlan": {
+        "python": ">=3.11,<3.12",
+        "openapi-core": "0.23.1",
+        "httpx": "0.28.1",
+        "openapi-spec-validator": "0.8.5",
+        "prance": "25.4.8.0",
+        "pranceExtraBoundary": "Use prance without the osv extra because the extra conflicts with the approved openapi-spec-validator 0.8.5 pin.",
+        "snapshotPackageVersion": "0.1.0",
+        "snapshotAuthorization": "Internal source snapshot. Owner-authorized for use within Corpus. Source: local sibling api-execution-runtime 0.1.0. No public redistribution license has been established for this snapshot; do not publish or redistribute it until licensing is resolved or it is replaced by an independently licensed implementation. httpx 0.28.1 and openapi-core 0.23.1 remain BSD-3-Clause dependencies under their own licenses.",
+        "snapshotTarget": "backend/src/corpus/integrations/api_execution/_snapshot",
+        "snapshotInitializerBoundary": "backend/src/corpus/integrations/api_execution/_snapshot/__init__.py is a new minimal Corpus-owned restricted initializer. It is not copied from the sibling and imports or exposes only the neutral modules included below. The sibling api_execution_runtime/__init__.py is excluded and has no snapshot source hash or provenance claim.",
+        "includedSourceHashes": {
+          "contracts.py": "109619f1f77a15c1db4a907f65919f08778456135c8217666315f7e657c19328",
+          "errors.py": "ab39e651e08490f4162bd9762b9df85b0c869e4187b3dae11a91dfec0064cd34",
+          "ports.py": "7716247c03aea2910fd72a8998af20325f7e56caa7073512bca7ad9f01c45b50",
+          "compiler.py": "969a9b02b74d227ae5cab2df426b33ff0b4e3dc966d95492fada82e82ec587f3",
+          "plugins.py": "40bd799130ee6b28241ff7ea39ec8690d7581a4a5baeae286e0763a4a2584199",
+          "security.py": "8bccdb4608f538343996e4b95504cdc22ff82fb7ea0fb6f4700fe0109432a852",
+          "validation.py": "5aae3c98d5d2c93d83710e5ca52d6d677c78449e3cc770e657dcff5f71bb631d",
+          "runtime.py": "00637c90cd679926808284a9341b28bbcf20e656d05c425dc90b403c7ef9d3c8",
+          "contract_revision.py": "36441a3d5758d5acff8538a395b97607b31d94c64a69725006b44d65f478c9a2"
+        },
+        "excludedSiblingHost": "Do not snapshot the sibling jobs, worker, SQLite contract store, demo, proof scripts, host state, or UI. Corpus owns adapters, persistence, jobs, redaction, and product orchestration."
+      },
+      "apiExecutionImplementationPlan": {
+        "modify": [
+          "backend/pyproject.toml",
+          "backend/src/corpus/features/sources/models.py",
+          "backend/src/corpus/features/sources/repository.py",
+          "backend/src/corpus/features/sources/service.py",
+          "backend/src/corpus/features/sources/contracts.py",
+          "backend/src/corpus/features/sources/schemas.py",
+          "backend/src/corpus/features/sources/declarations.py",
+          "backend/src/corpus/features/sources/policies.py",
+          "backend/src/corpus/features/sources/operations.py",
+          "backend/src/corpus/features/sources/bindings.py",
+          "backend/src/corpus/features/sources/feature.py",
+          "backend/src/corpus/features/sources/connectors/api/connections.py",
+          "backend/src/corpus/features/sources/connectors/api/engine.py",
+          "backend/src/corpus/features/sources/connectors/api/toolrouter.py",
+          "backend/src/corpus/features/sources/connectors/api/http.py",
+          "backend/src/corpus/features/sources/connectors/api/__init__.py",
+          "backend/src/corpus/app/source_composition.py",
+          "frontend/src/features/sources/contracts.ts",
+          "frontend/src/features/sources/sourceClient.ts",
+          "frontend/src/features/sources/ApiConnectionPanel.tsx",
+          "frontend/src/features/sources/SourceHubSurface.tsx",
+          "frontend/src/features/sources/sources.css"
+        ],
+        "add": [
+          "backend/src/corpus/integrations/api_execution/_snapshot/**",
+          "backend/src/corpus/integrations/api_execution/adapters.py",
+          "backend/src/corpus/integrations/api_execution/coordinator.py",
+          "backend/src/corpus/integrations/api_execution/provenance.py",
+          "backend/src/corpus/integrations/api_execution/redaction.py",
+          "backend/src/corpus/integrations/api_execution/store.py",
+          "backend/src/corpus/integrations/api_execution/PROVENANCE.md",
+          "backend/src/corpus/features/sources/connectors/api/operation_curation.py",
+          "backend/src/corpus/features/sources/connectors/api/route_plans.py",
+          "backend/src/corpus/features/sources/connectors/api/contract_revisions.py",
+          "backend/src/corpus/features/sources/connectors/api/execution.py",
+          "backend/src/corpus/features/sources/connectors/api/traces.py",
+          "frontend/src/features/sources/ApiOperationCurationPanel.tsx",
+          "frontend/src/features/sources/ApiOperationTestPanel.tsx",
+          "scripts/record_api_execution_slice.py"
+        ],
+        "tests": [
+          "backend/tests/sources/test_repository.py",
+          "backend/tests/sources/test_service.py",
+          "backend/tests/sources/test_feature.py",
+          "backend/tests/sources/test_http.py",
+          "backend/tests/sources/test_api_connections.py",
+          "backend/tests/sources/test_api_contract_revisions.py",
+          "backend/tests/sources/test_api_operation_curation.py",
+          "backend/tests/sources/test_api_route_plans.py",
+          "backend/tests/sources/test_api_execution.py",
+          "backend/tests/sources/test_api_execution_redaction.py",
+          "backend/tests/integrations/api_execution/test_snapshot_provenance.py",
+          "backend/tests/integrations/api_execution/test_compatibility.py",
+          "backend/tests/integrations/api_execution/test_runtime.py",
+          "frontend/src/tests/source-debug-surface.test.tsx"
+        ],
+        "evidence": "The real local Medusa 2.13.6 journey must prove the new derivative revision and hashes, GetProductTypes safe check, exact curation, ToolRouter route evidence, one real read, one reviewed cart write, validation against 6fca793be700dfb8bf511c2217d72cf97abf2f6cba08fbc2cd26ef0369b8f3f6, review rejection, invalid credential failure, ambiguous or missing input with zero calls, owner and revision isolation, secret-canary absence, restart and reload, and unknown-write no-retry. Retain desktop and 390x844 mobile screenshots for curation, clarification, review, success, failure and unknown trace; continuous video; exact IDs, hashes and call counts; and zero console, page, or product HTTP failures."
+      },
+      "phaseBContractRevisionRuntime": {
+        "implementationStatus": "implemented_browser_behavior_validated_post_fix_e2e_gap",
+        "operations": {
+          "sources.propose_contract_revision": {
+            "safetyClass": "draft",
+            "review": "none",
+            "outcome": "proposed",
+            "externalExecution": false
+          },
+          "sources.approve_contract_revision": {
+            "safetyClass": "draft",
+            "review": "required",
+            "outcome": "approved",
+            "externalExecution": false
+          }
+        },
+        "surfaces": {
+          "sources.contract_revision_proposal": "sources.home detail slot",
+          "sources.contract_revision_review": "sources.home review slot"
+        },
+        "persistenceBoundary": "Corpus persists one owner-scoped pending proposal and creates a new immutable Source revision only after required review. The prior current revision and historical Agent attachment identity remain unchanged. New Source revisions are durable before their discoverable Source pointer is published. Source-scoped thread and OS file locks serialize inventory and exact-revision reads with lifecycle, proposal, and approval mutations.",
+        "evidenceStatus": "Automated pointer-order, lifecycle read/write coherence, persistence, concurrency, owner, exact-plan, durable-review, reload and shell projection gates pass. Local Docker run 20260807T173632Z-466c48dc53 passed 8/8 with exact hashes, ten patches, impact 2, reject/accept, immutable child, reload/restart, mobile bounds, four bounded non-execution operations and zero diagnostics. Its nominal desktop proposal/review stills did not frame those panels, but three explicitly downscaled 1 fps frames derived from the unchanged continuous video now truthfully show the proposal heading/hashes, patch tail/impact/review control, and explicit owner review; they are not native screenshots or one-frame containment. Final visual attempt 20260807T175743Z-215fdca86b stopped at 1/8 because the tall proposal could not fit all requested evidence in one 1440x1000 frame and also exposed one real transient inventory 500 during Huey mark_running. Pointer-last publication and shared Source-lock coherence were fixed with RED/GREEN tests and approved review but were not browser-rerun, so post-coherence-fix E2E remains open."
+      },
+      "phaseCConnectionCheckRuntime": {
+        "implementationStatus": "implemented_eight_behavior_assertions_passed_recorder_status_failed",
+        "operation": {
+          "id": "sources.test_api_connection",
+          "safetyClass": "read_external",
+          "review": "none",
+          "allowedSources": [
+            "agent",
+            "surface"
+          ],
+          "outcome": "checked"
+        },
+        "executionBoundary": "The owner supplies exact Source, effective revision, saved profile and GetProductTypes or GetProductTags identity. Corpus rechecks every owner/revision/profile/credential-version binding, resolves the credential only inside the execution adapter, validates request and response against the exact effective contract, performs one call with no fallback or retry, and persists an immutable redacted success or failure record.",
+        "suggestedActionBoundary": "The runtime operation and sources.home affordance are implemented. No invalid static Studio SuggestedAction was added; the accepted action remains unmapped until a truthful empty-input planning or selection behavior exists.",
+        "evidenceStatus": "Run 20260807T201347Z-311a9da2f3 retained 8/8 passing behavior assertions, six inspected screenshots, continuous video, 208-event body/header-free Corpus trace, zero inventory 500s, exact call counts [1,1], restart persistence and second-owner isolation. Immutable result status remains failed solely because Playwright reported sign-out ERR_ABORTED after the backend logged the exact request as 204; the later public/second-owner path passed. The exact-204-correlated recorder-only fix is tested and independently approved but was not browser-rerun. See docs/superpowers/validation/2026-08-08-api-connection-check-phase-c.md."
+      },
+      "phaseDOperationCurationRuntime": {
+        "implementationStatus": "implemented_browser_behavior_validated",
+        "operation": {
+          "id": "sources.save_api_operation_curation",
+          "safetyClass": "draft",
+          "review": "none",
+          "allowedSources": [
+            "agent",
+            "surface"
+          ],
+          "outcome": "saved"
+        },
+        "surface": "sources.home",
+        "persistenceBoundary": "Corpus derives an exact inventory only from API operation nodes in the selected READY Source revision's existing ToolRouter artifact. Each save appends one immutable owner- and revision-bound record and advances its current pointer only after exact expected-current CAS validation under the existing Source lock. Historical records remain readable; a new Source revision never retargets or overwrites prior curation.",
+        "failureBoundary": "Unknown, duplicate, overlapping, incomplete, stale-inventory, stale-current, foreign-owner, concurrent, corrupt-history, or persistence failures remain failures and leave the prior current record authoritative. Filtering and inspection never mutate selection. No credential is resolved and no API call or route plan is created.",
+        "suggestedActionBoundary": "The compiled sources.home affordance and agent operation are current. The Studio api-save-operations SuggestedAction is intentionally not compiled because its static empty arguments cannot truthfully identify the runtime-selected Source, revision, inventory and explicit decisions.",
+        "evaluatorBinding": "The exact Studio definition api-curate-operations-contract uses the registered workspace.authenticated_owner setup. Its real inventory/save/reload/restart behavior evidence is owned by scripts/run_api_operation_curation_journey.py and run 20260807T212855Z-f8596ef591 passed all nine assertions.",
+        "evidenceStatus": "Run 20260807T212855Z-f8596ef591 passed 9/9 through a fresh Source Hub upload, real Huey/ToolRouter READY processing, exact inventory, non-mutating filtering, two immutable saves from distinct authenticated conversations, visible stale-CAS failure plus authoritative refetch, reload, 390x844 proof, backend restart and second-owner isolation. It retained eight inspected screenshots, a 62.16-second chronological video, two raw page clips and a 171-event header/body-free safe trace with zero unexpected product diagnostics and zero API execution calls. See docs/superpowers/validation/2026-08-08-api-operation-curation-phase-d.md."
+      },
+      "phaseERoutePlanningRuntime": {
+        "implementationStatus": "implemented_browser_behavior_validated",
+        "operation": {
+          "id": "sources.prepare_routed_api_test",
+          "safetyClass": "state_selection",
+          "review": "none",
+          "allowedSources": [
+            "agent",
+            "surface"
+          ],
+          "outcome": "opened"
+        },
+        "surface": "sources.api_operation_test",
+        "persistenceBoundary": "Corpus persists immutable exact-owner, conversation, RouteDeck-session, Source revision, artifact, effective document, saved profile identity, credential reference/version identity, current curation, inventory and curated ToolRouter subset records. Clarification appends a new record in the same plan lineage under exact current-record CAS. Credentials are never resolved and every record fixes api_call_count at zero.",
+        "routingBoundary": "The current curation becomes ToolRouter's retrieval corpus before unchanged routing: shared semantic context remains, excluded endpoint-bound nodes/cards and disconnected edges are removed in memory, embedding rows stay aligned, adjacency is rebuilt and the persisted artifact remains unchanged. Corpus does not post-filter rankings or replace ToolRouter's top endpoint.",
+        "clarificationBoundary": "Only explicit current-request values and answers already supplied in this exact plan lineage are resolved in the bounded Phase E runtime. Missing input or ambiguity stays waiting behind one natural product question. The draft deployed-agent clarification behavior, chat-history mining and autonomous lookup remain unimplemented. Read/write dispatch is owned separately by the bounded Phase F runtime.",
+        "evidenceStatus": "Run 20260808T000249Z-c67d5b0004 passed 13/13 through fresh Source processing and approval, exact two-operation curation, real ToolRouter ambiguity without preselection, typed same-lineage operation choice and id clarification, current-request provenance, unresolved multi-step atomic waiting, three-conversation isolation, reload, backend restart, strict 390x844 proof and second-owner isolation. It retained six inspected screenshots, a 143.760-second continuous video and a 293-event header/body/query-free safe trace with zero unexpected product diagnostics. All seven retained records fixed api_call_count at zero and no read/write execution variant was dispatched. This validates only non-executing route preparation and does not claim Phase F execution evidence. See docs/superpowers/validation/2026-08-08-api-route-planning-phase-e.md."
+      },
+      "phaseFRoutedApiExecutionRuntime": {
+        "implementationStatus": "implemented_automated_e2e_pending",
+        "operations": {
+          "read": {
+            "id": "sources.test_routed_api_read",
+            "safetyClass": "read_external",
+            "review": "none",
+            "allowedSources": [
+              "agent",
+              "surface"
+            ],
+            "outcome": "observed"
+          },
+          "write": {
+            "id": "sources.test_routed_api_write",
+            "safetyClass": "write_external",
+            "review": "required",
+            "allowedSources": [
+              "agent",
+              "surface"
+            ],
+            "outcome": "observed",
+            "unknownRecoveryDirective": "Do not retry this write automatically. Preserve the redacted trace and verify the external system state before any explicit reconciliation or new reviewed attempt."
+          }
+        },
+        "surfaces": [
+          "sources.api_operation_test",
+          "sources.routed_api_write_review"
+        ],
+        "executionBoundary": "Corpus executes only one fully resolved selected step from the exact current opaque Phase E plan. It rechecks owner, conversation, RouteDeck session, current Source revision, profile, credential version identity, curation, curated subset, effective 6fca contract and plan fingerprint immediately before an immutable single-use claim. There is no generic execution, fallback or automatic retry.",
+        "persistenceBoundary": "The exact plan plus RouteDeck request owns one create-only claim and one immutable terminal result under the Source revision lock. An identical RouteDeck request replays the retained terminal result without another call. A pending write recovered after process restart becomes POSSIBLY_SENT and outcome_unknown without another call; prior nondeterministic or unindexed plans are not scanned or migrated.",
+        "redactionBoundary": "Credentials resolve just in time inside the execution adapter. Persisted and public results retain only operation and contract identity, delivery, status, media type, response byte count and canonical body hash, validation summary, an exact zero/one call count when known or explicit unknown after interrupted-claim recovery, timestamps and allowlisted trace details; never headers, query values, request or response bodies, credentials or vault identifiers.",
+        "evidenceStatus": "Focused adapter, immutable claim/result, compiled RouteDeck and frontend tests are current. The unchanged official api-execution-runtime 0.1.0 Medusa acceptance passed against local Medusa 2.13.6 and the exact 6fca contract with six calls and one intentionally retained local cart. The real Corpus browser execution journey remains pending, so this is not a completed design-behavior claim."
+      },
+      "completedDesignBehaviors": [
+        "Upload an API YAML file",
+        "Add the API description during intake",
+        "Process the API through ToolRouter",
+        "Monitor API processing",
+        "Inspect the semantic graph",
+        "Configure the API connection",
+        "Curate API operations",
+        "Retry failed API processing without hiding the prior durable attempt"
+      ],
+      "currentRouteDeckContracts": {
+        "nodes": [
+          "sources.home"
+        ],
+        "capabilities": [
+          "sources.manage"
+        ],
+        "surfaces": [
+          "sources.home",
+          "sources.contract_revision_proposal",
+          "sources.contract_revision_review",
+          "sources.api_operation_test",
+          "sources.routed_api_write_review"
+        ],
+        "operations": [
+          "sources.select_graph_stage",
+          "sources.inspect_current_api",
+          "sources.save_api_connection",
+          "sources.test_api_connection",
+          "sources.propose_contract_revision",
+          "sources.approve_contract_revision",
+          "sources.save_api_operation_curation",
+          "sources.prepare_routed_api_test",
+          "sources.test_routed_api_read",
+          "sources.test_routed_api_write"
+        ],
+        "affordances": {
+          "sources.home.select_graph_stage": "sources.select_graph_stage",
+          "sources.home.save_api_connection": "sources.save_api_connection",
+          "sources.home.test_api_connection": "sources.test_api_connection",
+          "sources.home.propose_contract_revision": "sources.propose_contract_revision",
+          "sources.home.save_api_operation_curation": "sources.save_api_operation_curation",
+          "sources.home.prepare_routed_api_test": "sources.prepare_routed_api_test",
+          "sources.api_operation_test.run_routed_api_read": "sources.test_routed_api_read",
+          "sources.api_operation_test.review_routed_api_write": "sources.test_routed_api_write",
+          "sources.contract_revision_proposal.approve_contract_revision": "sources.approve_contract_revision"
+        },
+        "agentPolicies": [
+          "sources.feature_prompt",
+          "sources.owner_scope",
+          "sources.processing_truth",
+          "sources.contract_revision_truth",
+          "sources.api_connection_check_truth",
+          "sources.api_operation_curation_truth",
+          "sources.api_route_planning_truth",
+          "sources.api_routed_execution_truth"
+        ],
+        "reviewBehavior": "Source Hub renders persisted semantic graph groups and supports read-only selection of a recorded stage only after validating the authenticated owner, exact source, exact revision, and stage membership. It does not implement ordered pause, resume, or step replay. Connection-profile credentials enter only through the projected sources-api-connection private form; the supervised public save Operation carries no secret arguments. Saving alone does not check connectivity. The explicit sources.test_api_connection read rechecks all owner/revision/profile/credential bindings, makes one validated GetProductTypes or GetProductTags call, never retries, and persists only redacted immutable evidence. API operation curation is a non-executing DRAFT save over the exact current READY revision and ToolRouter inventory; it requires exhaustive explicit include/exclude decisions and exact CAS, and stale or conflicting input never replaces the prior curation. The API contract proposal is a detail surface with exact immutable provenance and a structured observation that explicitly says no durable review has been staged. Asking what the proposal changes or what its consequences are remains read-only. Only an explicit later request to begin or open owner review invokes the required-review operation, whose successful staging alone creates the pending review; a separate explicit acceptance runs the handler. Owner-scoped entity binding and accept-time current-plan recheck remain required. Rejection does not mutate the Source, and acceptance creates a new revision rather than overwriting its parent."
+      },
+      "acceptedDesignBehaviors": [
+        "Upload an API YAML file",
+        "Add or update the API description",
+        "Configure the API connection",
+        "Process the API through ToolRouter",
+        "Monitor API processing",
+        "Inspect the semantic graph",
+        "Replay graph construction",
+        "Curate API operations",
+        "Route and test an API operation",
+        "Recover from API processing failure"
+      ],
+      "corpusImplementationOwners": {
+        "existingSourceAuthority": [
+          "backend/src/corpus/features/sources/models.py",
+          "backend/src/corpus/features/sources/repository.py",
+          "backend/src/corpus/features/sources/service.py"
+        ],
+        "existingApiAndToolRouterBoundary": [
+          "backend/src/corpus/features/sources/connectors/api/**"
+        ],
+        "targetDurableJobs": [
+          "backend/src/corpus/jobs/**"
+        ],
+        "targetCredentialVault": [
+          "backend/src/corpus/credentials/**"
+        ],
+        "targetApiExecutionAdapter": [
+          "backend/src/corpus/integrations/api_execution/**"
+        ],
+        "targetFeatureDeclarationBindingAndPolicy": [
+          "backend/src/corpus/features/sources/declarations.py",
+          "backend/src/corpus/features/sources/feature.py",
+          "backend/src/corpus/features/sources/bindings.py"
+        ],
+        "targetFrontend": [
+          "frontend/src/features/sources/**"
+        ],
+        "targetEvaluatorAndEvidence": [
+          "backend/tests/sources/**",
+          "frontend/src/tests/source-debug-surface.test.tsx",
+          "frontend/src/tests/api-operation-curation.test.tsx",
+          "scripts/record_source_hub_first_slice.py",
+          "scripts/run_api_operation_curation_journey.py",
+          "scripts/run_api_route_planning_journey.py",
+          "artifacts/api-operation-curation/<run-id>/**",
+          "artifacts/api-route-planning/<run-id>/**"
+        ]
+      },
+      "unresolvedImplementationBlockers": [
+        "Recorded construction stages can be inspected individually, but ordered pause, resume, and step-through session replay is not implemented; Replay graph construction remains incomplete.",
+        "The compiled routed read/write execution variants, just-in-time binding, durable write review, redacted terminal result and one-call semantics are implemented with focused framework proof, but the real Corpus browser execution journey remains pending.",
+        "Dependency-aware source attachment and deletion are not implemented.",
+        "No separate API Source RouteDeck Node exists; the completed first intake/status/retry slice is presented within Source Hub.",
+        "The bounded Source slices have backend/worker/frontend tests plus local enqueue, terminal processing, owner isolation, failure/retry, restart reload, graph and recorded-stage inspection, protected profiles, safe GetProductTypes/GetProductTags checks, immutable redacted result identity, browser-validated exact operation curation with CAS conflict recovery, and browser-validated non-executing route preparation with same-lineage clarification. They do not yet have ordered replay controls/session state, deployed-agent clarification, compiled read/write execution, or unknown-write proof required for the complete API Source behavior."
+      ],
+      "frameworkGap": "No missing RouteDeck framework primitive was proven by the read-only audit. These are Corpus-owned declarations and implementations; any later proven upstream gap triggers the cross-repository stop condition."
+    }
+  }
 }

@@ -37,16 +37,7 @@ export function createAppRouteDeck(options: {
   const validatePublicRouteKey = (name: string, value: string) => {
     const projection = store?.getState().projection;
     if (projection === null || projection === undefined) return false;
-    return (
-      projection.current.route_params.some(
-        (parameter) => parameter.name === name && parameter.value === value,
-      ) ||
-      projection.entities.some((entity) =>
-        entity.values.some(
-          (item) => item.name === name && item.value === value,
-        ),
-      )
-    );
+    return projectionHasPublicRouteKey(projection, name, value);
   };
   const validateResumeCapability = (
     handle: string,
@@ -57,9 +48,7 @@ export function createAppRouteDeck(options: {
     return (
       projection !== null &&
       projection !== undefined &&
-      projection.navigation.resume_handle === handle &&
-      projection.current.node_id === nodeId &&
-      sameRouteParams(projection, params)
+      projectionMatchesResumeCapability(projection, handle, nodeId, params)
     );
   };
   const routes = createRouteDeckRouteCodec(contract, {
@@ -97,6 +86,36 @@ export function createAppRouteDeck(options: {
       abandonNavigation: store.abandonNavigation,
     },
   };
+}
+
+export function projectionHasPublicRouteKey(
+  projection: RouteDeckProjection,
+  name: string,
+  value: string,
+): boolean {
+  return (
+    projection.current.route_params.some(
+      (parameter) => parameter.name === name && parameter.value === value,
+    ) ||
+    projection.entities.some((entity) =>
+      entity.values.some(
+        (item) => item.name === name && item.value === value,
+      ),
+    )
+  );
+}
+
+export function projectionMatchesResumeCapability(
+  projection: RouteDeckProjection,
+  handle: string,
+  nodeId: string,
+  params: Readonly<Record<string, string>>,
+): boolean {
+  return (
+    projection.navigation.resume_handle === handle &&
+    projection.current.node_id === nodeId &&
+    sameRouteParams(projection, params)
+  );
 }
 
 function sameRouteParams(

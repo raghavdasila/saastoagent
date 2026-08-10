@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from importlib import import_module
+
 from alembic.runtime.migration import MigrationContext
 from sqlalchemy import event, inspect
 from sqlalchemy.ext.asyncio import (
@@ -16,6 +18,7 @@ class CorpusDatabase:
     """One database boundary for Corpus-owned identity and feature state."""
 
     def __init__(self, url: str) -> None:
+        _load_domain_models()
         self.url = url
         self.engine: AsyncEngine = create_async_engine(url)
         if url.startswith("sqlite"):
@@ -92,6 +95,24 @@ def _schema_error(sync_connection) -> str | None:
 
 class MigrationRevisionError(RuntimeError):
     pass
+
+
+def _load_domain_models() -> None:
+    """Register every Corpus-owned table on the shared metadata root."""
+
+    for module_name in (
+        "corpus.auth.models",
+        "corpus.features.agents.models",
+        "corpus.features.designer.models",
+        "corpus.features.builder.models",
+        "corpus.features.sandbox.models",
+        "corpus.features.evaluation.models",
+        "corpus.features.channels.models",
+        "corpus.features.deployment.models",
+        "corpus.jobs.models",
+        "corpus.credentials.models",
+    ):
+        import_module(module_name)
 
 
 __all__ = ["CorpusDatabase", "MigrationRevisionError"]

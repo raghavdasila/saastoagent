@@ -63,3 +63,37 @@ def test_compose_backend_gracefully_cancels_active_runs_before_docker_kill() -> 
     assert uvicorn_timeout == 5
     assert docker_stop_grace == 10
     assert uvicorn_timeout < docker_stop_grace
+
+
+def test_compose_keeps_live_sqlite_state_off_the_windows_bind_mount() -> None:
+    repository_root = Path(__file__).resolve().parents[3]
+    compose = yaml.safe_load(
+        (repository_root / "compose.yaml").read_text(encoding="utf-8")
+    )
+
+    assert "corpus-runtime-state" in compose["volumes"]
+    environment = compose["x-runtime-environment"]
+    assert environment["ROUTEDECK_DATABASE_URL"].endswith(
+        "/var/lib/corpus/routedeck.sqlite"
+    )
+    assert environment["CORPUS_DATABASE_URL"].endswith(
+        "/var/lib/corpus/corpus.sqlite3"
+    )
+    assert environment["CORPUS_JOB_QUEUE_PATH"] == (
+        "/var/lib/corpus/corpus-jobs.sqlite3"
+    )
+
+    for service_name in ("backend", "source-worker"):
+        mounts = compose["services"][service_name]["volumes"]
+        assert "corpus-runtime-state:/var/lib/corpus" in mounts
+        assert "./.runtime:/data" in mounts
+
+    serialized_environment = "\n".join(
+        str(environment[name])
+        for name in (
+            "ROUTEDECK_DATABASE_URL",
+            "CORPUS_DATABASE_URL",
+            "CORPUS_JOB_QUEUE_PATH",
+        )
+    )
+    assert "/data/" not in serialized_environment

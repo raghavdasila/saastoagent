@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections import defaultdict
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -133,11 +134,72 @@ def read_index(
     )
 
 
+def subset_index(
+    index: SemanticGraphIndex,
+    *,
+    allowed_endpoint_ids: tuple[str, ...],
+) -> SemanticGraphIndex:
+    """Build an in-memory retrieval corpus for the exact accepted endpoints."""
+
+    allowed = frozenset(allowed_endpoint_ids)
+    if not allowed:
+        raise ValueError("At least one allowed endpoint ID is required.")
+    if len(allowed) != len(allowed_endpoint_ids):
+        raise ValueError("Allowed endpoint IDs must be unique.")
+    available = {
+        card.endpoint_id for card in index.cards if card.endpoint_id is not None
+    }
+    if allowed - available:
+        raise ValueError("Allowed endpoint IDs must exist in the persisted index.")
+
+    nodes = [
+        node
+        for node in index.graph.nodes
+        if node.endpoint_id is None or node.endpoint_id in allowed
+    ]
+    node_ids = {node.id for node in nodes}
+    edges = [
+        edge
+        for edge in index.graph.edges
+        if edge.source in node_ids and edge.target in node_ids
+    ]
+    card_rows = [
+        row
+        for row, card in enumerate(index.cards)
+        if card.endpoint_id is None or card.endpoint_id in allowed
+    ]
+    cards = [index.cards[row] for row in card_rows]
+    if not cards:
+        raise ValueError("The allowed endpoint subset has no semantic cards.")
+
+    adjacency: dict[str, list[tuple[str, str, float]]] = defaultdict(list)
+    for edge in edges:
+        weight = index.edge_type_weights.get(edge.type, 0.25) * float(edge.confidence)
+        adjacency[edge.source].append((edge.target, edge.type, weight))
+        adjacency[edge.target].append(
+            (edge.source, f"reverse:{edge.type}", weight * 0.72)
+        )
+    graph = SemanticGraph(
+        nodes=nodes,
+        edges=edges,
+        cards=cards,
+        metadata=dict(index.graph.metadata),
+    )
+    return SemanticGraphIndex(
+        graph=graph,
+        cards=cards,
+        embeddings=np.asarray(index.embeddings[card_rows], dtype=np.float32),
+        embedding_provider=index.embedding_provider,
+        edge_type_weights=dict(index.edge_type_weights),
+        adjacency=dict(adjacency),
+    )
+
+
 __all__ = [
     "read_graph",
     "read_index",
+    "subset_index",
     "write_embeddings",
     "write_graph",
     "write_json_atomic",
 ]
-

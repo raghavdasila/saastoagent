@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import hashlib
 import re
+from dataclasses import replace
 from pathlib import Path
 from collections.abc import Callable, Mapping
 from typing import Any
@@ -14,6 +15,7 @@ from .contracts import (
     EvalsetResult,
     IngestRequest,
     IngestResult,
+    ManagedParameter,
     RankedEndpoint,
     RetrievalRequest,
     RetrievalResult,
@@ -48,6 +50,7 @@ from .errors import (
 )
 from .serialization import (
     read_index,
+    subset_index,
     write_embeddings,
     write_graph,
     write_json_atomic,
@@ -167,6 +170,7 @@ class ToolRouterAdapter:
             raise ToolRouterInputError("A retrieval query is required.")
         if request.top_k <= 0 or request.top_k > 25:
             raise ToolRouterInputError("Retrieval top_k must be between 1 and 25.")
+        managed_parameters = _managed_parameter_identities(request.managed_parameters)
         if request.trace_mode not in {"bounded", "full"}:
             raise ToolRouterInputError(
                 "Retrieval trace_mode must be 'bounded' or 'full'."
@@ -177,6 +181,15 @@ class ToolRouterAdapter:
             embeddings_path=graph_dir / "embeddings.npy",
             embedding_provider=self._provider(),
         )
+        if request.allowed_endpoint_ids is not None:
+            try:
+                index = subset_index(
+                    index,
+                    allowed_endpoint_ids=request.allowed_endpoint_ids,
+                )
+            except ValueError as error:
+                raise ToolRouterInputError(str(error)) from error
+        index = _managed_parameter_view(index, managed_parameters)
         try:
             plan = SemanticGRAGRouter(
                 index,
@@ -449,6 +462,58 @@ def _validation_status(manifest: dict[str, Any]) -> str:
     ):
         return "repaired"
     return "invalid"
+
+
+def _managed_parameter_identities(
+    values: tuple[ManagedParameter, ...],
+) -> tuple[tuple[str, str], ...]:
+    identities: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for value in values:
+        name = value.name.strip()
+        location = value.location.strip().casefold()
+        if not name or location not in {"header", "path", "query", "body"}:
+            raise ToolRouterInputError("Managed parameter identities are invalid.")
+        identity = (location, name.casefold())
+        if identity in seen:
+            raise ToolRouterInputError("Managed parameter identities must be unique.")
+        seen.add(identity)
+        identities.append((location, name))
+    return tuple(identities)
+
+
+def _managed_parameter_view(
+    index: SemanticGraphIndex,
+    managed_parameters: tuple[tuple[str, str], ...],
+) -> SemanticGraphIndex:
+    if not managed_parameters:
+        return index
+    managed = {
+        (location.casefold(), name.casefold())
+        for location, name in managed_parameters
+    }
+    cards = []
+    for card in index.cards:
+        required_inputs = card.facets.get("required_inputs")
+        if not isinstance(required_inputs, list):
+            cards.append(card)
+            continue
+        filtered = [
+            value
+            for value in required_inputs
+            if not isinstance(value, Mapping)
+            or (
+                str(value.get("location") or "").strip().casefold(),
+                str(value.get("name") or "").strip().casefold(),
+            )
+            not in managed
+        ]
+        cards.append(
+            card
+            if len(filtered) == len(required_inputs)
+            else replace(card, facets={**card.facets, "required_inputs": filtered})
+        )
+    return replace(index, cards=cards)
 
 
 SOURCE_GROUNDED_EVALSET_CATEGORIES = frozenset(

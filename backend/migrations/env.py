@@ -8,7 +8,15 @@ from sqlalchemy.sql.sqltypes import CHAR
 from fastapi_users_db_sqlalchemy import GUID
 
 from corpus.auth import models as _auth_models
+from corpus.credentials import models as _credential_models
 from corpus.features.agents import models as _agent_models
+from corpus.features.designer import models as _designer_models
+from corpus.features.builder import models as _builder_models
+from corpus.features.sandbox import models as _sandbox_models
+from corpus.features.evaluation import models as _evaluation_models
+from corpus.features.channels import models as _channel_models
+from corpus.features.deployment import models as _deployment_models
+from corpus.jobs import models as _job_models
 from corpus.persistence import Base, CorpusDatabaseSettings
 
 

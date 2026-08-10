@@ -1,5 +1,10 @@
 # Studio And Lounge Evaluation Authoring Implementation Plan
 
+> **Status:** Superseded on 2026-08-07 by
+> `docs/superpowers/plans/2026-08-07-corpus-horizontal-delivery.md`. Retained as
+> historical implementation evidence; do not use its unchecked items as the
+> active execution authority.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add intuitive, persisted behavior and conversation evaluation authoring to the Agent Design Studio and provide complete level-1 and level-2 Lounge evaluation definitions without claiming runtime proof.

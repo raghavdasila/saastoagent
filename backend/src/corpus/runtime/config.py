@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, SecretStr, model_validator
 
 from corpus.app.config import RouteDeckHostSettings
+from corpus.app.infrastructure import SharedInfrastructureSettings
 from corpus.auth.config import AuthSettings
 from corpus.features.sources.config import SourceSettings
 from corpus.features.sources.connectors.api.config import ApiSourceSettings
@@ -28,6 +29,7 @@ class CorpusRuntimeSettings(BaseModel):
     sources: SourceSettings
     api_sources: ApiSourceSettings = Field(default_factory=ApiSourceSettings)
     toolrouter: ToolRouterSettings = Field(default_factory=ToolRouterSettings)
+    infrastructure: SharedInfrastructureSettings
     model_provider: Literal["ollama", "openai"] = "ollama"
     ollama_base_url: AnyHttpUrl | None = None
     ollama_model: str | None = Field(default=None, min_length=1)
@@ -72,6 +74,7 @@ class CorpusRuntimeSettings(BaseModel):
                 "sources": SourceSettings.from_env(env_file),
                 "api_sources": ApiSourceSettings.from_env(env_file),
                 "toolrouter": ToolRouterSettings.from_env(env_file),
+                "infrastructure": SharedInfrastructureSettings.from_env(env_file),
                 "model_provider": values.get("CORPUS_MODEL_PROVIDER", "ollama"),
                 "ollama_base_url": values.get("OLLAMA_BASE_URL"),
                 "ollama_model": values.get("OLLAMA_MODEL"),

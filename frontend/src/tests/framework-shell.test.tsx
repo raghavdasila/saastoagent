@@ -1,9 +1,13 @@
-import { act, fireEvent, screen, within } from "@testing-library/react";
-import type { AgentChatClient, RouteDeckDispatchResult } from "@routedeck/core";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type {
+  AgentChatClient,
+  RouteDeckConversationClient,
+  RouteDeckDispatchResult,
+} from "@routedeck/core";
 import { defineRouteDeckSurfaceRegistry } from "@routedeck/react";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 
-import { AgentShell } from "../app/AgentShell";
+import { AgentShell, CorpusReviewRequiredNotice } from "../app/AgentShell";
 import { CorpusSuggestedActions } from "../app/CorpusSuggestedActions";
 import { NavgraphSidebar } from "../app/NavgraphSidebar";
 import {
@@ -23,6 +27,192 @@ const idleChatClient: AgentChatClient = Object.freeze({
 const testRegistry = defineRouteDeckSurfaceRegistry({
   "test.active": () => <section>Framework active surface</section>,
   "test.detail": () => <section>Framework detail surface</section>,
+});
+
+it("does not resume an entry request that already has a finalized assistant turn", async () => {
+  const projection = frameworkProjectionFixture();
+  projection.interaction = {
+    phase: "active",
+    owner: "chat",
+    request_id: "entry-completed",
+  };
+  const loadConversation = vi.fn(
+    () => new Promise<never>(() => undefined),
+  );
+  const client = {
+    ...idleChatClient,
+    loadConversation,
+  } as AgentChatClient;
+  const harness = await renderRouteDeckComponent(
+    <AgentShell
+      registry={testRegistry}
+      client={client}
+      initialConversation={[{
+        turn_id: "assistant-completed",
+        request_id: "entry-completed",
+        role: "assistant",
+        content: "Workspace is ready.",
+      }]}
+    />,
+    { contract: frameworkContractFixture(), projection },
+  );
+
+  expect(screen.getByRole("textbox", { name: "Message the assistant" })).toBeEnabled();
+  expect(screen.queryByRole("button", { name: "Stop response" })).not.toBeInTheDocument();
+  expect(loadConversation).not.toHaveBeenCalled();
+  harness.dispose();
+});
+
+it("recovers the authoritative conversation when an adopted entry run becomes idle", async () => {
+  const active = frameworkProjectionFixture();
+  active.interaction = {
+    phase: "active",
+    owner: "chat",
+    request_id: "entry-adopted",
+  };
+  let historyLoads = 0;
+  const loadConversation = vi.fn((signal?: AbortSignal) => {
+    historyLoads += 1;
+    if (historyLoads === 1) {
+      return new Promise<never>((_resolve, reject) => {
+        signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+      });
+    }
+    return Promise.resolve([{
+      turn_id: "assistant-adopted",
+      request_id: "entry-adopted",
+      role: "assistant" as const,
+      content: "Workspace is ready.",
+    }]);
+  });
+  const client = { ...idleChatClient, loadConversation } as AgentChatClient;
+  const harness = await renderRouteDeckComponent(
+    <AgentShell registry={testRegistry} client={client} />,
+    { contract: frameworkContractFixture(), projection: active },
+  );
+
+  expect(screen.getByRole("button", { name: "Stop response" })).toBeVisible();
+  const idle = frameworkProjectionFixture();
+  idle.session_version = 2;
+  idle.projection_version = 2;
+  harness.client.setProjection(idle);
+  await act(async () => {
+    await harness.store.resync();
+  });
+
+  await waitFor(() => {
+    expect(screen.getByRole("textbox", { name: "Message the assistant" })).toBeEnabled();
+  });
+  expect(screen.queryByRole("button", { name: "Stop response" })).not.toBeInTheDocument();
+  expect(screen.getByText("Workspace is ready.", { exact: true })).toBeVisible();
+  expect(loadConversation).toHaveBeenCalledTimes(2);
+  harness.dispose();
+});
+
+it("does not remount and abort a chat turn between assistant_end and stream_end", async () => {
+  let releaseStreamEnd!: () => void;
+  const streamEndGate = new Promise<void>((resolve) => {
+    releaseStreamEnd = resolve;
+  });
+  let streamSignal: AbortSignal | undefined;
+  let harness!: Awaited<ReturnType<typeof renderRouteDeckComponent>>;
+  const client = {
+    ...idleChatClient,
+    async *stream(request, signal) {
+      streamSignal = signal;
+      const active = frameworkProjectionFixture();
+      active.interaction = {
+        phase: "active",
+        owner: "chat",
+        request_id: request.request_id,
+      };
+      harness.client.setProjection(active);
+      await harness.store.resync();
+      yield {
+        type: "stream_start" as const,
+        request_id: request.request_id,
+        session_version: 1,
+      };
+      yield {
+        type: "user_message" as const,
+        request_id: request.request_id,
+        turn_id: "user-stream-boundary",
+        content: request.message,
+      };
+      yield {
+        type: "assistant_delta" as const,
+        request_id: request.request_id,
+        content: "The Source workspace is ready.",
+      };
+      const idle = frameworkProjectionFixture();
+      idle.session_version = 2;
+      idle.projection_version = 2;
+      harness.client.setProjection(idle);
+      yield {
+        type: "assistant_end" as const,
+        request_id: request.request_id,
+        session_version: 2,
+        projection_version: 2,
+        turn_id: "assistant-stream-boundary",
+      };
+      await streamEndGate;
+      yield {
+        type: "stream_end" as const,
+        request_id: request.request_id,
+        status: "completed" as const,
+      };
+    },
+    async loadConversation() {
+      return [{
+        turn_id: "assistant-stream-boundary",
+        request_id: "framework-request-1",
+        role: "assistant" as const,
+        content: "The Source workspace is ready.",
+      }];
+    },
+  } as AgentChatClient & RouteDeckConversationClient;
+  harness = await renderRouteDeckComponent(
+    <AgentShell registry={testRegistry} client={client} />,
+    {
+      contract: frameworkContractFixture(),
+      projection: frameworkProjectionFixture(),
+    },
+  );
+
+  fireEvent.change(
+    screen.getByRole("textbox", { name: "Message the assistant" }),
+    { target: { value: "Help me prepare the Source workspace." } },
+  );
+  const composer = screen.getByRole("textbox", { name: "Message the assistant" });
+  composer.focus();
+  fireEvent.keyDown(composer, { key: "Enter" });
+
+  await waitFor(() => {
+    expect(screen.getByText("The Source workspace is ready.", { exact: true })).toBeVisible();
+    expect(harness.store.getState().projection?.interaction.phase).toBe("idle");
+  });
+  expect(screen.getByRole("button", { name: "Stop response" })).toBeVisible();
+  expect(streamSignal?.aborted).toBe(false);
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+  releaseStreamEnd();
+  await waitFor(() => {
+    expect(screen.getByRole("textbox", { name: "Message the assistant" })).toBeEnabled();
+  });
+  expect(screen.getByRole("textbox", { name: "Message the assistant" })).toHaveFocus();
+  expect(streamSignal?.aborted).toBe(false);
+  expect(screen.queryByRole("button", { name: "Stop response" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  harness.dispose();
+});
+
+it("shows Corpus-owned review copy without internal operation identity", () => {
+  render(<CorpusReviewRequiredNotice />);
+
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "A consequential Corpus action is waiting for your explicit review.",
+  );
+  expect(screen.queryByText(/agents\.(archive|delete)_agent/)).not.toBeInTheDocument();
 });
 
 it("proves the test-only feature contract before product composition", () => {
@@ -85,6 +275,23 @@ it("renders the permanent chat, projected surface, and Navgraph slot", async () 
   expect(navgraph.querySelector(".corpus-navgraph-inspector")).toBeInTheDocument();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
+  harness.dispose();
+});
+
+it("renders a projected detail surface alongside the active product surface", async () => {
+  const projection = frameworkProjectionFixture();
+  projection.surfaces.detail = [{
+    surface_id: "test.detail",
+    component: "test.detail",
+    props: [],
+  }];
+  const harness = await renderRouteDeckComponent(
+    <AgentShell registry={testRegistry} client={idleChatClient} />,
+    { contract: frameworkContractFixture(), projection },
+  );
+
+  expect(screen.getByText("Framework active surface")).toBeVisible();
+  expect(screen.getByText("Framework detail surface")).toBeVisible();
   harness.dispose();
 });
 
@@ -168,6 +375,7 @@ it("shows the exact current agent context, effective policy prompts, and system 
         intentional_exclusions: ["private_form_values"],
       },
       invocation_traces: null,
+      recent_operations: [],
     },
   });
 
@@ -200,6 +408,7 @@ it("lays out and renders the invocation trace view as a first-class inspector ta
       diagnostics: {},
       agent_context: null,
       invocation_traces: { traces: [] },
+      recent_operations: [],
     },
   });
 

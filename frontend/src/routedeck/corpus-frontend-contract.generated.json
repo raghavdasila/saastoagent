@@ -37,7 +37,21 @@
       "operation_ids": [
         "agents.open_create",
         "agents.save_changes",
-        "agents.return_to_workspace"
+        "agents.return_to_workspace",
+        "agents.select_agent",
+        "agents.attach_source",
+        "agents.open_source_creation",
+        "agents.attach_created_source",
+        "agents.open_attached_source",
+        "agents.archive_agent",
+        "agents.delete_agent",
+        "agents.open_operations",
+        "agents.open_designer",
+        "agents.open_builds",
+        "agents.open_sandbox",
+        "agents.open_evaluation",
+        "agents.open_channels",
+        "agents.open_build_source_revision"
       ],
       "route_template": "/agents",
       "surfaces": {
@@ -48,10 +62,126 @@
         "form": [],
         "frame": [],
         "peer": [],
-        "review": [],
+        "review": [
+          "agents.archive_review",
+          "agents.delete_review"
+        ],
         "status": []
       },
       "title": "Agents"
+    },
+    "builder.home": {
+      "conversation_input": {
+        "disabled_message": null,
+        "enabled": true
+      },
+      "deep_link_policy": "session_bound",
+      "id": "builder.home",
+      "operation_ids": [
+        "agents.return_to_hub",
+        "builder.assemble"
+      ],
+      "route_template": "/agents/builds",
+      "surfaces": {
+        "active": "builder.home",
+        "detail": [],
+        "diagnostic": [],
+        "error": [],
+        "form": [],
+        "frame": [],
+        "peer": [],
+        "review": [],
+        "status": []
+      },
+      "title": "Agent Builds"
+    },
+    "channels.home": {
+      "conversation_input": {
+        "disabled_message": null,
+        "enabled": true
+      },
+      "deep_link_policy": "session_bound",
+      "id": "channels.home",
+      "operation_ids": [
+        "agents.return_to_hub",
+        "channels.create",
+        "channels.set_enabled",
+        "deployment.deploy",
+        "deployment.rollback"
+      ],
+      "route_template": "/agents/channels",
+      "surfaces": {
+        "active": "channels.home",
+        "detail": [],
+        "diagnostic": [],
+        "error": [],
+        "form": [],
+        "frame": [],
+        "peer": [],
+        "review": [
+          "deployment.deploy_review",
+          "deployment.rollback_review",
+          "channels.availability_review"
+        ],
+        "status": []
+      },
+      "title": "Channels and Deployment"
+    },
+    "designer.home": {
+      "conversation_input": {
+        "disabled_message": null,
+        "enabled": true
+      },
+      "deep_link_policy": "session_bound",
+      "id": "designer.home",
+      "operation_ids": [
+        "designer.propose",
+        "designer.customize",
+        "designer.approve",
+        "designer.request_build",
+        "designer.return_to_agent"
+      ],
+      "route_template": "/agents/designer",
+      "surfaces": {
+        "active": "designer.home",
+        "detail": [],
+        "diagnostic": [],
+        "error": [],
+        "form": [],
+        "frame": [],
+        "peer": [],
+        "review": [
+          "designer.review"
+        ],
+        "status": []
+      },
+      "title": "Agent Designer"
+    },
+    "evaluation.home": {
+      "conversation_input": {
+        "disabled_message": null,
+        "enabled": true
+      },
+      "deep_link_policy": "session_bound",
+      "id": "evaluation.home",
+      "operation_ids": [
+        "agents.return_to_hub",
+        "evaluation.create_case",
+        "evaluation.run_case"
+      ],
+      "route_template": "/agents/evaluation",
+      "surfaces": {
+        "active": "evaluation.home",
+        "detail": [],
+        "diagnostic": [],
+        "error": [],
+        "form": [],
+        "frame": [],
+        "peer": [],
+        "review": [],
+        "status": []
+      },
+      "title": "Evaluation"
     },
     "lounge.forgot_password": {
       "conversation_input": {
@@ -258,6 +388,57 @@
       },
       "title": "Confirm email verification"
     },
+    "operations.home": {
+      "conversation_input": {
+        "disabled_message": null,
+        "enabled": true
+      },
+      "deep_link_policy": "session_bound",
+      "id": "operations.home",
+      "operation_ids": [
+        "agents.return_to_hub",
+        "operations.promote_evaluation_case"
+      ],
+      "route_template": "/operations",
+      "surfaces": {
+        "active": "operations.home",
+        "detail": [],
+        "diagnostic": [],
+        "error": [],
+        "form": [],
+        "frame": [],
+        "peer": [],
+        "review": [],
+        "status": []
+      },
+      "title": "Operations"
+    },
+    "sandbox.home": {
+      "conversation_input": {
+        "disabled_message": null,
+        "enabled": true
+      },
+      "deep_link_policy": "session_bound",
+      "id": "sandbox.home",
+      "operation_ids": [
+        "agents.return_to_hub",
+        "sandbox.start",
+        "sandbox.resume"
+      ],
+      "route_template": "/agents/sandbox",
+      "surfaces": {
+        "active": "sandbox.home",
+        "detail": [],
+        "diagnostic": [],
+        "error": [],
+        "form": [],
+        "frame": [],
+        "peer": [],
+        "review": [],
+        "status": []
+      },
+      "title": "Agent Sandbox"
+    },
     "sources.home": {
       "conversation_input": {
         "disabled_message": null,
@@ -266,18 +447,38 @@
       "deep_link_policy": "session_bound",
       "id": "sources.home",
       "operation_ids": [
-        "sources.return_to_home"
+        "sources.open_api_creation",
+        "sources.inspect_current_api",
+        "sources.retry_processing",
+        "sources.return_to_home",
+        "sources.select_graph_stage",
+        "sources.save_api_connection",
+        "sources.test_api_connection",
+        "sources.save_api_operation_curation",
+        "sources.prepare_routed_api_test",
+        "sources.test_routed_api_read",
+        "sources.test_routed_api_write",
+        "sources.propose_contract_revision",
+        "sources.approve_contract_revision",
+        "agents.attach_created_source",
+        "agents.return_from_source"
       ],
       "route_template": "/sources",
       "surfaces": {
-        "active": "sources.debug",
-        "detail": [],
+        "active": "sources.home",
+        "detail": [
+          "sources.contract_revision_proposal",
+          "sources.api_operation_test"
+        ],
         "diagnostic": [],
         "error": [],
         "form": [],
         "frame": [],
         "peer": [],
-        "review": [],
+        "review": [
+          "sources.contract_revision_review",
+          "sources.routed_api_write_review"
+        ],
         "status": []
       },
       "title": "Sources"
@@ -310,6 +511,30 @@
     }
   },
   "surfaces": {
+    "agents.archive_review": {
+      "affordances": [],
+      "component": "agents.lifecycle_review",
+      "id": "agents.archive_review",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "review_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "state": {
+            "const": "pending",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
     "agents.create": {
       "affordances": [
         {
@@ -336,6 +561,30 @@
         "type": "object"
       }
     },
+    "agents.delete_review": {
+      "affordances": [],
+      "component": "agents.lifecycle_review",
+      "id": "agents.delete_review",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "review_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "state": {
+            "const": "pending",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
     "agents.home": {
       "affordances": [
         {
@@ -358,6 +607,97 @@
           "operation": {
             "id": "agents.return_to_workspace"
           }
+        },
+        {
+          "event": "select",
+          "id": "select_agent",
+          "operation": {
+            "id": "agents.select_agent"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "attach_source",
+          "operation": {
+            "id": "agents.attach_source"
+          }
+        },
+        {
+          "event": "open",
+          "id": "open_source_creation",
+          "operation": {
+            "id": "agents.open_source_creation"
+          }
+        },
+        {
+          "event": "open",
+          "id": "open_attached_source",
+          "operation": {
+            "id": "agents.open_attached_source"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "archive_agent",
+          "operation": {
+            "id": "agents.archive_agent"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "delete_agent",
+          "operation": {
+            "id": "agents.delete_agent"
+          }
+        },
+        {
+          "event": "open",
+          "id": "open_operations",
+          "operation": {
+            "id": "agents.open_operations"
+          }
+        },
+        {
+          "event": "open",
+          "id": "open_designer",
+          "operation": {
+            "id": "agents.open_designer"
+          }
+        },
+        {
+          "event": "open",
+          "id": "open_builds",
+          "operation": {
+            "id": "agents.open_builds"
+          }
+        },
+        {
+          "event": "open",
+          "id": "open_sandbox",
+          "operation": {
+            "id": "agents.open_sandbox"
+          }
+        },
+        {
+          "event": "open",
+          "id": "open_evaluation",
+          "operation": {
+            "id": "agents.open_evaluation"
+          }
+        },
+        {
+          "event": "open",
+          "id": "open_channels",
+          "operation": {
+            "id": "agents.open_channels"
+          }
+        },
+        {
+          "event": "open",
+          "id": "open_build_source_revision",
+          "operation": {
+            "id": "agents.open_build_source_revision"
+          }
         }
       ],
       "component": "agents.home",
@@ -365,7 +705,304 @@
       "lifecycle": "stable",
       "public_props_schema": {
         "additionalProperties": false,
-        "properties": {},
+        "properties": {
+          "selected_agent_area": {
+            "enum": [
+              "hub",
+              "designer",
+              "builds",
+              "sandbox",
+              "evaluation",
+              "channels"
+            ],
+            "type": "string"
+          },
+          "selected_agent_ref": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "builder.home": {
+      "affordances": [
+        {
+          "event": "open",
+          "id": "return_to_agent",
+          "operation": {
+            "id": "agents.return_to_hub"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "assemble",
+          "operation": {
+            "id": "builder.assemble"
+          }
+        }
+      ],
+      "component": "builder.home",
+      "id": "builder.home",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "selected_agent_ref": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "selected_agent_ref"
+        ],
+        "type": "object"
+      }
+    },
+    "channels.availability_review": {
+      "affordances": [],
+      "component": "channels.availability_review",
+      "id": "channels.availability_review",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "review_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "state": {
+            "const": "pending",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "channels.home": {
+      "affordances": [
+        {
+          "event": "open",
+          "id": "return_to_agent",
+          "operation": {
+            "id": "agents.return_to_hub"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "create",
+          "operation": {
+            "id": "channels.create"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "set_enabled",
+          "operation": {
+            "id": "channels.set_enabled"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "deploy",
+          "operation": {
+            "id": "deployment.deploy"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "rollback",
+          "operation": {
+            "id": "deployment.rollback"
+          }
+        }
+      ],
+      "component": "channels.home",
+      "id": "channels.home",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "selected_agent_ref": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "selected_agent_ref"
+        ],
+        "type": "object"
+      }
+    },
+    "deployment.deploy_review": {
+      "affordances": [],
+      "component": "deployment.deploy_review",
+      "id": "deployment.deploy_review",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "review_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "state": {
+            "const": "pending",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "deployment.rollback_review": {
+      "affordances": [],
+      "component": "deployment.rollback_review",
+      "id": "deployment.rollback_review",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "review_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "state": {
+            "const": "pending",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "designer.home": {
+      "affordances": [
+        {
+          "event": "submit",
+          "id": "propose",
+          "operation": {
+            "id": "designer.propose"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "customize",
+          "operation": {
+            "id": "designer.customize"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "approve",
+          "operation": {
+            "id": "designer.approve"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "request_build",
+          "operation": {
+            "id": "designer.request_build"
+          }
+        },
+        {
+          "event": "open",
+          "id": "return_to_agent",
+          "operation": {
+            "id": "designer.return_to_agent"
+          }
+        }
+      ],
+      "component": "designer.home",
+      "id": "designer.home",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "selected_agent_ref": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "selected_agent_ref"
+        ],
+        "type": "object"
+      }
+    },
+    "designer.review": {
+      "affordances": [],
+      "component": "designer.review",
+      "id": "designer.review",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "review_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "state": {
+            "const": "pending",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "evaluation.home": {
+      "affordances": [
+        {
+          "event": "open",
+          "id": "return_to_agent",
+          "operation": {
+            "id": "agents.return_to_hub"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "create_case",
+          "operation": {
+            "id": "evaluation.create_case"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "run_case",
+          "operation": {
+            "id": "evaluation.run_case"
+          }
+        }
+      ],
+      "component": "evaluation.home",
+      "id": "evaluation.home",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "selected_agent_ref": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "selected_agent_ref"
+        ],
         "type": "object"
       }
     },
@@ -593,7 +1230,166 @@
         "type": "object"
       }
     },
-    "sources.debug": {
+    "operations.home": {
+      "affordances": [
+        {
+          "event": "open",
+          "id": "return_to_agent",
+          "operation": {
+            "id": "agents.return_to_hub"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "promote",
+          "operation": {
+            "id": "operations.promote_evaluation_case"
+          }
+        }
+      ],
+      "component": "operations.home",
+      "id": "operations.home",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "selected_agent_ref": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "selected_agent_ref"
+        ],
+        "type": "object"
+      }
+    },
+    "sandbox.home": {
+      "affordances": [
+        {
+          "event": "open",
+          "id": "return_to_agent",
+          "operation": {
+            "id": "agents.return_to_hub"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "start",
+          "operation": {
+            "id": "sandbox.start"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "resume",
+          "operation": {
+            "id": "sandbox.resume"
+          }
+        }
+      ],
+      "component": "sandbox.home",
+      "id": "sandbox.home",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "selected_agent_ref": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "selected_agent_ref"
+        ],
+        "type": "object"
+      }
+    },
+    "sources.api_operation_test": {
+      "affordances": [
+        {
+          "event": "submit",
+          "id": "run_routed_api_read",
+          "operation": {
+            "id": "sources.test_routed_api_read"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "review_routed_api_write",
+          "operation": {
+            "id": "sources.test_routed_api_write"
+          }
+        }
+      ],
+      "component": "sources.api_operation_test",
+      "id": "sources.api_operation_test",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "open": {
+            "const": true,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "sources.contract_revision_proposal": {
+      "affordances": [
+        {
+          "event": "submit",
+          "id": "approve_contract_revision",
+          "operation": {
+            "id": "sources.approve_contract_revision"
+          }
+        }
+      ],
+      "component": "sources.contract_revision_proposal",
+      "id": "sources.contract_revision_proposal",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "proposal_ref": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "source_id": {
+            "maxLength": 16,
+            "minLength": 16,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "sources.contract_revision_review": {
+      "affordances": [],
+      "component": "sources.contract_revision_review",
+      "id": "sources.contract_revision_review",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "review_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "state": {
+            "const": "pending",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "sources.home": {
       "affordances": [
         {
           "event": "open",
@@ -601,14 +1397,137 @@
           "operation": {
             "id": "sources.return_to_home"
           }
+        },
+        {
+          "event": "submit",
+          "id": "propose_contract_revision",
+          "operation": {
+            "id": "sources.propose_contract_revision"
+          }
+        },
+        {
+          "event": "select",
+          "id": "select_graph_stage",
+          "operation": {
+            "id": "sources.select_graph_stage"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "save_api_connection",
+          "operation": {
+            "id": "sources.save_api_connection"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "test_api_connection",
+          "operation": {
+            "id": "sources.test_api_connection"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "save_api_operation_curation",
+          "operation": {
+            "id": "sources.save_api_operation_curation"
+          }
+        },
+        {
+          "event": "open",
+          "id": "prepare_routed_api_test",
+          "operation": {
+            "id": "sources.prepare_routed_api_test"
+          }
+        },
+        {
+          "event": "open",
+          "id": "open_api_creation",
+          "operation": {
+            "id": "sources.open_api_creation"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "retry_processing",
+          "operation": {
+            "id": "sources.retry_processing"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "attach_created_source",
+          "operation": {
+            "id": "agents.attach_created_source"
+          }
+        },
+        {
+          "event": "open",
+          "id": "return_to_agent",
+          "operation": {
+            "id": "agents.return_from_source"
+          }
         }
       ],
-      "component": "sources.debug",
-      "id": "sources.debug",
+      "component": "sources.home",
+      "id": "sources.home",
       "lifecycle": "stable",
       "public_props_schema": {
         "additionalProperties": false,
-        "properties": {},
+        "properties": {
+          "agent_handoff_mode": {
+            "enum": [
+              "create",
+              "inspect"
+            ],
+            "type": "string"
+          },
+          "form_handle": {
+            "const": "sources-api-connection",
+            "type": "string"
+          },
+          "return_agent_ref": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "selected_source_id": {
+            "maxLength": 16,
+            "minLength": 16,
+            "type": "string"
+          },
+          "selected_source_revision_id": {
+            "maxLength": 16,
+            "minLength": 16,
+            "type": "string"
+          }
+        },
+        "required": [
+          "form_handle"
+        ],
+        "type": "object"
+      }
+    },
+    "sources.routed_api_write_review": {
+      "affordances": [],
+      "component": "sources.routed_api_write_review",
+      "id": "sources.routed_api_write_review",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "review_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "state": {
+            "const": "pending",
+            "type": "string"
+          }
+        },
         "type": "object"
       }
     },
@@ -810,6 +1729,90 @@
       "target": "workspace.home"
     },
     {
+      "operation_id": "agents.select_agent",
+      "outcome": "selected",
+      "source": "agents.home",
+      "target": "agents.home"
+    },
+    {
+      "operation_id": "agents.attach_source",
+      "outcome": "attached",
+      "source": "agents.home",
+      "target": "agents.home"
+    },
+    {
+      "operation_id": "agents.open_source_creation",
+      "outcome": "opened",
+      "source": "agents.home",
+      "target": "sources.home"
+    },
+    {
+      "operation_id": "agents.attach_created_source",
+      "outcome": "attached",
+      "source": "agents.home",
+      "target": "agents.home"
+    },
+    {
+      "operation_id": "agents.open_attached_source",
+      "outcome": "opened",
+      "source": "agents.home",
+      "target": "sources.home"
+    },
+    {
+      "operation_id": "agents.archive_agent",
+      "outcome": "archived",
+      "source": "agents.home",
+      "target": "agents.home"
+    },
+    {
+      "operation_id": "agents.delete_agent",
+      "outcome": "deleted",
+      "source": "agents.home",
+      "target": "agents.home"
+    },
+    {
+      "operation_id": "agents.open_operations",
+      "outcome": "opened",
+      "source": "agents.home",
+      "target": "operations.home"
+    },
+    {
+      "operation_id": "agents.open_designer",
+      "outcome": "opened",
+      "source": "agents.home",
+      "target": "designer.home"
+    },
+    {
+      "operation_id": "agents.open_builds",
+      "outcome": "opened",
+      "source": "agents.home",
+      "target": "builder.home"
+    },
+    {
+      "operation_id": "agents.open_sandbox",
+      "outcome": "opened",
+      "source": "agents.home",
+      "target": "sandbox.home"
+    },
+    {
+      "operation_id": "agents.open_evaluation",
+      "outcome": "opened",
+      "source": "agents.home",
+      "target": "evaluation.home"
+    },
+    {
+      "operation_id": "agents.open_channels",
+      "outcome": "opened",
+      "source": "agents.home",
+      "target": "channels.home"
+    },
+    {
+      "operation_id": "agents.open_build_source_revision",
+      "outcome": "opened",
+      "source": "agents.home",
+      "target": "sources.home"
+    },
+    {
       "operation_id": "agents.create_agent",
       "outcome": "created",
       "source": "agents.create",
@@ -822,10 +1825,214 @@
       "target": "agents.home"
     },
     {
+      "operation_id": "designer.propose",
+      "outcome": "proposed",
+      "source": "designer.home",
+      "target": "designer.home"
+    },
+    {
+      "operation_id": "designer.customize",
+      "outcome": "customized",
+      "source": "designer.home",
+      "target": "designer.home"
+    },
+    {
+      "operation_id": "designer.approve",
+      "outcome": "accepted",
+      "source": "designer.home",
+      "target": "designer.home"
+    },
+    {
+      "operation_id": "designer.request_build",
+      "outcome": "requested",
+      "source": "designer.home",
+      "target": "designer.home"
+    },
+    {
+      "operation_id": "designer.return_to_agent",
+      "outcome": "opened",
+      "source": "designer.home",
+      "target": "agents.home"
+    },
+    {
+      "operation_id": "agents.return_to_hub",
+      "outcome": "opened",
+      "source": "builder.home",
+      "target": "agents.home"
+    },
+    {
+      "operation_id": "builder.assemble",
+      "outcome": "assembled",
+      "source": "builder.home",
+      "target": "builder.home"
+    },
+    {
+      "operation_id": "agents.return_to_hub",
+      "outcome": "opened",
+      "source": "sandbox.home",
+      "target": "agents.home"
+    },
+    {
+      "operation_id": "sandbox.start",
+      "outcome": "started",
+      "source": "sandbox.home",
+      "target": "sandbox.home"
+    },
+    {
+      "operation_id": "sandbox.resume",
+      "outcome": "resumed",
+      "source": "sandbox.home",
+      "target": "sandbox.home"
+    },
+    {
+      "operation_id": "agents.return_to_hub",
+      "outcome": "opened",
+      "source": "evaluation.home",
+      "target": "agents.home"
+    },
+    {
+      "operation_id": "evaluation.create_case",
+      "outcome": "created",
+      "source": "evaluation.home",
+      "target": "evaluation.home"
+    },
+    {
+      "operation_id": "evaluation.run_case",
+      "outcome": "evaluated",
+      "source": "evaluation.home",
+      "target": "evaluation.home"
+    },
+    {
+      "operation_id": "agents.return_to_hub",
+      "outcome": "opened",
+      "source": "channels.home",
+      "target": "agents.home"
+    },
+    {
+      "operation_id": "channels.create",
+      "outcome": "created",
+      "source": "channels.home",
+      "target": "channels.home"
+    },
+    {
+      "operation_id": "channels.set_enabled",
+      "outcome": "availability_set",
+      "source": "channels.home",
+      "target": "channels.home"
+    },
+    {
+      "operation_id": "deployment.deploy",
+      "outcome": "deployed",
+      "source": "channels.home",
+      "target": "channels.home"
+    },
+    {
+      "operation_id": "deployment.rollback",
+      "outcome": "rolled_back",
+      "source": "channels.home",
+      "target": "channels.home"
+    },
+    {
+      "operation_id": "agents.return_to_hub",
+      "outcome": "opened",
+      "source": "operations.home",
+      "target": "agents.home"
+    },
+    {
+      "operation_id": "operations.promote_evaluation_case",
+      "outcome": "promoted",
+      "source": "operations.home",
+      "target": "operations.home"
+    },
+    {
+      "operation_id": "sources.open_api_creation",
+      "outcome": "opened",
+      "source": "sources.home",
+      "target": "sources.home"
+    },
+    {
+      "operation_id": "sources.inspect_current_api",
+      "outcome": "inspected",
+      "source": "sources.home",
+      "target": "sources.home"
+    },
+    {
+      "operation_id": "sources.propose_contract_revision",
+      "outcome": "proposed",
+      "source": "sources.home",
+      "target": "sources.home"
+    },
+    {
+      "operation_id": "sources.approve_contract_revision",
+      "outcome": "approved",
+      "source": "sources.home",
+      "target": "sources.home"
+    },
+    {
+      "operation_id": "agents.attach_created_source",
+      "outcome": "attached",
+      "source": "sources.home",
+      "target": "agents.home"
+    },
+    {
+      "operation_id": "agents.return_from_source",
+      "outcome": "opened",
+      "source": "sources.home",
+      "target": "agents.home"
+    },
+    {
+      "operation_id": "sources.retry_processing",
+      "outcome": "queued",
+      "source": "sources.home",
+      "target": "sources.home"
+    },
+    {
       "operation_id": "sources.return_to_home",
       "outcome": "opened",
       "source": "sources.home",
       "target": "workspace.home"
+    },
+    {
+      "operation_id": "sources.select_graph_stage",
+      "outcome": "selected",
+      "source": "sources.home",
+      "target": "sources.home"
+    },
+    {
+      "operation_id": "sources.save_api_connection",
+      "outcome": "saved",
+      "source": "sources.home",
+      "target": "sources.home"
+    },
+    {
+      "operation_id": "sources.test_api_connection",
+      "outcome": "checked",
+      "source": "sources.home",
+      "target": "sources.home"
+    },
+    {
+      "operation_id": "sources.save_api_operation_curation",
+      "outcome": "saved",
+      "source": "sources.home",
+      "target": "sources.home"
+    },
+    {
+      "operation_id": "sources.prepare_routed_api_test",
+      "outcome": "opened",
+      "source": "sources.home",
+      "target": "sources.home"
+    },
+    {
+      "operation_id": "sources.test_routed_api_read",
+      "outcome": "observed",
+      "source": "sources.home",
+      "target": "sources.home"
+    },
+    {
+      "operation_id": "sources.test_routed_api_write",
+      "outcome": "observed",
+      "source": "sources.home",
+      "target": "sources.home"
     }
   ]
 }

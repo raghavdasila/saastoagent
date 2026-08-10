@@ -3,6 +3,7 @@ from .config import ApiSourceSettings
 from .connector import ApiSourceConnector
 from .engine import ApiSourceEngine
 from .http import create_api_source_router
+from .graph import ApiGraphPresenter, ApiGraphView
 from .intake import SourceUploadError, validate_api_upload
 
 __all__ = [
@@ -13,5 +14,7 @@ __all__ = [
     "SourceUploadError",
     "ValidatedSourceUpload",
     "create_api_source_router",
+    "ApiGraphPresenter",
+    "ApiGraphView",
     "validate_api_upload",
 ]

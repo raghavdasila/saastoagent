@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import base64
 from pathlib import Path
 import secrets
 import subprocess
@@ -15,6 +16,7 @@ MANAGED_SECRETS = (
     "ROUTEDECK_STATE_ENCRYPTION_KEY",
     "CORPUS_RESET_SECRET",
     "CORPUS_VERIFICATION_SECRET",
+    "CORPUS_CREDENTIAL_VAULT_KEY",
 )
 
 
@@ -34,6 +36,8 @@ def _read_managed_secrets(path: Path) -> dict[str, str]:
 def _new_secret(name: str) -> str:
     if name == "ROUTEDECK_STATE_ENCRYPTION_KEY":
         return Fernet.generate_key().decode("ascii")
+    if name == "CORPUS_CREDENTIAL_VAULT_KEY":
+        return base64.urlsafe_b64encode(secrets.token_bytes(32)).decode("ascii")
     return secrets.token_urlsafe(48)
 
 

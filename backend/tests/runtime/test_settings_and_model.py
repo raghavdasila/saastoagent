@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import base64
 
 import pytest
 from langchain_openai import ChatOpenAI
@@ -20,7 +21,7 @@ def write_runtime_env(path: Path, *, include_model: bool = True) -> None:
         "ROUTEDECK_WORKER_COUNT=1",
         "ROUTEDECK_BROWSER_ORIGINS=http://127.0.0.1:5199",
         "CORPUS_DATABASE_URL=sqlite+aiosqlite:///./corpus.sqlite3",
-        "CORPUS_MIGRATION_REVISION=0002_agents",
+        "CORPUS_MIGRATION_REVISION=0006_restrict_agent_attachment_delete",
         f"CORPUS_RESET_SECRET={'r' * 40}",
         f"CORPUS_VERIFICATION_SECRET={'v' * 40}",
         "CORPUS_AUTH_ACCESS_TOKEN_MINUTES=15",
@@ -28,6 +29,8 @@ def write_runtime_env(path: Path, *, include_model: bool = True) -> None:
         "CORPUS_AUTH_REFRESH_ABSOLUTE_DAYS=30",
         "CORPUS_PUBLIC_FRONTEND_URL=http://127.0.0.1:5199",
         f"CORPUS_SOURCE_DATA_ROOT={(path.parent / 'sources').as_posix()}",
+        f"CORPUS_JOB_QUEUE_PATH={(path.parent / 'jobs.sqlite3').as_posix()}",
+        "CORPUS_CREDENTIAL_VAULT_KEY=" + base64.urlsafe_b64encode(b"k" * 32).decode("ascii"),
         "OLLAMA_BASE_URL=http://127.0.0.1:11434",
     ]
     if include_model:

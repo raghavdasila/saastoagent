@@ -6,7 +6,7 @@ import {
 } from "@routedeck/react";
 
 import { Button } from "@/components/ui/button";
-import { PrivateFormGate, requireFormHandle } from "./PrivateFormGate";
+import { PrivateFormGate, requireFormHandle } from "../../routedeck/PrivateFormGate";
 import { useOwnerSession } from "../../auth/OwnerSessionContext";
 import { clearCapturedTokenFragment, useCapturedTokenFragment } from "./tokenFragment";
 import { publicOperationFailureMessage, requireCompletedOperation } from "./operationResult";

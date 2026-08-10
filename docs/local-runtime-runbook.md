@@ -17,6 +17,7 @@ Agent Design Studio.
 | Ollama | Windows host | `http://127.0.0.1:11434` | Required for the Ollama primary provider and current ToolRouter paths |
 | OpenAI API | Remote | `https://api.openai.com/v1` | Required only when the primary or evaluation provider is `openai` |
 | Corpus backend | Docker Compose | `http://127.0.0.1:8099` | Yes |
+| Corpus Source worker | Docker Compose, Huey | No HTTP surface | Yes for API-source processing |
 | Corpus frontend | Docker Compose | `http://127.0.0.1:5199` | Yes |
 | RouteDeck Agent Design Studio | Windows host, Vite | `http://127.0.0.1:8782` | When designing |
 | Standalone Source Hub backend | Windows host, FastAPI | `http://127.0.0.1:8870` | Optional isolated capability proof |
@@ -38,7 +39,7 @@ Do not treat the API-related modules as interchangeable:
 | --- | --- | --- | --- |
 | OpenAPI ingestion, semantic graph/grouping, GRAG routing candidates, reviewed evalset generation | ToolRouter snapshot behind the Corpus API Source connector | Source Hub, API Source, and the ToolRouter portion of Evaluation | Integrated in the Corpus backend |
 | Standalone source lifecycle, durable ToolRouter processing, encrypted connections, explicit real API execution, response-schema review and corrected OpenAPI schema lineage | `D:\Dev\AI Projects\source-hub-runtime`, using the sibling `api-execution-runtime` behind its executor adapter | Proven Source Hub/API Source behaviour plus foundations for future Evaluation, Sandbox and Operations | Proven separately; not imported into Corpus |
-| Low-level authorized and validated HTTP execution | `D:\Dev\AI Projects\api-execution-runtime` | Future Corpus execution adapter used by Agent Builds, Sandbox, deployed Channels and Operations | Consumed by the standalone Source Hub suite; not imported into Corpus |
+| Low-level authorized and validated HTTP execution | Private neutral `api-execution-runtime==0.1.0` snapshot under `corpus.integrations.api_execution._snapshot`; sibling remains read-only | Future Corpus execution adapter used by API Sources, Agent Builds, Sandbox, deployed Channels and Operations | Phase A dependency, provenance, import and compatibility foundation is integrated; no Corpus adapter or product path invokes it yet |
 | Immutable Agent Build, Ollama intent, ToolRouter routing, capability-scoped API execution, durable trace, evaluation, and eligibility | `D:\Dev\AI Projects\agent-execution-runtime` | Future Agent Builder, Sandbox, Evaluation, and Operations execution kernel | Proven separately; not imported into or invoked by Corpus |
 | Immutable deployment revisions, Web-channel activation/rollback, pinned public sessions, interaction evidence, and evaluation-candidate export | `D:\Dev\AI Projects\agent-delivery-runtime` | Future Channels/Web, Deployment, and deployed-agent Operations | Proven separately against RouteDeck Medusa and local Ollama; not imported into or invoked by Corpus |
 | Product behavior, RouteDeck configuration, policies, operations, and surfaces | RouteDeck Agent Design Studio | Agent Designer | Studio exists; compiled parity is a separate gate |
@@ -118,15 +119,16 @@ return synthetic success.
 In the second PowerShell terminal:
 
 ```powershell
-docker compose up --build -d backend frontend
+docker compose up --build -d backend source-worker frontend
 docker compose ps
 ```
 
-Specifying `backend frontend` is intentional: it excludes the stale Compose
+Specifying `backend source-worker frontend` is intentional: it includes the
+durable API-source consumer and excludes the stale Compose
 `notebook` service. For an ordinary restart when no image dependency changed:
 
 ```powershell
-docker compose up -d backend frontend
+docker compose up -d backend source-worker frontend
 ```
 
 ### 3. Start the authoritative Agent Design Studio
@@ -485,7 +487,7 @@ Diagnose failures in this order:
 After backend, frontend, Dockerfile, or sibling RouteDeck source changes:
 
 ```powershell
-docker compose up --build -d backend frontend
+docker compose up --build -d backend source-worker frontend
 ```
 
 Restart one service with `docker compose restart backend` or

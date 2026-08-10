@@ -1,0 +1,4 @@
+.evaluation-home { display: grid; gap: 1rem; }
+.evaluation-create { display: grid; gap: .75rem; max-width: 48rem; }
+.evaluation-home ul { display: grid; gap: .75rem; list-style: none; margin: 0; padding: 0; }
+.evaluation-home li { display: grid; gap: .4rem; }

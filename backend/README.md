@@ -10,6 +10,9 @@ backend/
 |-- src/corpus/
 |   |-- app/                         # host + concrete composition roots
 |   |-- auth/                        # owner identity/session/claims
+|   |-- credentials/                 # opaque encrypted credential references
+|   |-- jobs/                        # durable job port, state, Huey adapter
+|   |-- persistence/                 # central Corpus database and migrations
 |   |-- features/lounge/             # public Lounge + account journeys/policies
 |   |-- features/workspace/          # owner Workspace nodes and surfaces
 |   |-- features/sources/            # generic lifecycle + connectors/API
@@ -44,6 +47,14 @@ Source ingestion additionally requires the pinned local MiniLM revision;
 evalset generation requires the configured Gemma generator and Qwen reviewer
 with resolvable immutable Ollama digests. No parser/model/provider fallback is
 selected on failure.
+
+Shared infrastructure is available for mapped feature slices through
+`app/infrastructure.py`. Local configuration requires an explicit Huey SQLite
+path and a URL-safe base64 credential key that decodes to 32 bytes. Corpus job
+and lifecycle rows remain authoritative; queue failure is persisted and fails
+without inline execution. Credential metadata contains only an opaque
+owner-scoped reference, while PyNaCl SecretBox ciphertext remains in the
+central Corpus database.
 
 Source API paths are:
 

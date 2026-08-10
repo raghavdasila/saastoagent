@@ -7,6 +7,7 @@ from typing import Any, Mapping
 from corpus.integrations.toolrouter import (
     EvalsetRequest,
     IngestRequest,
+    ManagedParameter,
     RetrievalRequest,
     ToolRouterAdapter,
     ToolRouterArtifactError,
@@ -14,6 +15,7 @@ from corpus.integrations.toolrouter import (
     ToolRouterInputError,
     ToolRouterIntegrationError,
 )
+from corpus.integrations.toolrouter.engine.openapi_loader import load_openapi_specs
 
 from ...contracts import (
     SourceEvalsetResult,
@@ -28,6 +30,7 @@ from ...errors import (
     SourceInputError,
     SourceIntegrationError,
 )
+from .engine import SourceManagedParameter
 
 
 class ToolRouterApiSourceEngine:
@@ -60,6 +63,8 @@ class ToolRouterApiSourceEngine:
         top_k: int,
         trace_mode: SourceTraceMode,
         provided_params: Mapping[str, Any] | None,
+        allowed_endpoint_ids: tuple[str, ...] | None = None,
+        managed_parameters: tuple[SourceManagedParameter, ...] = (),
     ) -> SourceRetrievalResult:
         try:
             result = self.adapter.retrieve(
@@ -69,6 +74,11 @@ class ToolRouterApiSourceEngine:
                     top_k=top_k,
                     trace_mode=trace_mode,
                     provided_params=provided_params,
+                    allowed_endpoint_ids=allowed_endpoint_ids,
+                    managed_parameters=tuple(
+                        ManagedParameter(name=value.name, location=value.location)
+                        for value in managed_parameters
+                    ),
                 )
             )
         except ToolRouterIntegrationError as error:
@@ -151,4 +161,9 @@ def _source_error(error: ToolRouterIntegrationError) -> SourceIntegrationError:
     return SourceIntegrationError(str(error))
 
 
-__all__ = ["ToolRouterApiSourceEngine"]
+def load_api_contract_documents(input_path: Path):
+    """Keep ToolRouter normalization behind the one API connector bridge."""
+    return load_openapi_specs((input_path,))
+
+
+__all__ = ["ToolRouterApiSourceEngine", "load_api_contract_documents"]

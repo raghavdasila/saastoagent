@@ -28,7 +28,7 @@ from .repository import (
     SourceNotReady,
     SourceRepositoryError,
 )
-from .service import SourceService
+from .service import SourceJobProcessor, SourceService
 
 __all__ = [
     "LocalSourceRepository",
@@ -39,6 +39,7 @@ __all__ = [
     "SourceRepositoryError",
     "SourceRevisionRecord",
     "SourceService",
+    "SourceJobProcessor",
     "SourceSettings",
     "SourceEvalsetResult",
     "SourceArtifactError",

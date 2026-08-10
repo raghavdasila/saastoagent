@@ -67,7 +67,7 @@ function expectationIssues(
   return issues
 }
 
-export function getBehaviorEvalCaseIssues(story: DesignStory, evalCase: BehaviorEvalCase, index = 0): EvaluationIssue[] {
+export function getBehaviorEvalCaseIssues(story: DesignStory, evalCase: BehaviorEvalCase, index = 0, feature?: DesignFeature): EvaluationIssue[] {
   const prefix = `behavior-eval-${index}`
   const targetId = `behavior-eval-${index}`
   const issues: EvaluationIssue[] = []
@@ -78,19 +78,25 @@ export function getBehaviorEvalCaseIssues(story: DesignStory, evalCase: Behavior
   if (evalCase.requiredCriteria.every(blank) && evalCase.forbiddenCriteria.every(blank)) issues.push({ id: `${prefix}-criteria`, message: `${evalCase.title || `Eval case ${index + 1}`} needs required or forbidden semantic criteria.`, targetId })
   evalCase.requiredCriteria.forEach((item, criterionIndex) => { if (blank(item)) issues.push({ id: `${prefix}-required-${criterionIndex}`, message: `${evalCase.title || `Eval case ${index + 1}`} contains an empty required criterion.`, targetId }) })
   evalCase.forbiddenCriteria.forEach((item, criterionIndex) => { if (blank(item)) issues.push({ id: `${prefix}-forbidden-${criterionIndex}`, message: `${evalCase.title || `Eval case ${index + 1}`} contains an empty forbidden criterion.`, targetId }) })
-  issues.push(...expectationIssues(story, evalCase, prefix, targetId))
+  const scope = feature ? {
+    ...story,
+    operations: feature.stories.flatMap((item) => item.operations),
+    surfaces: feature.stories.flatMap((item) => item.surfaces),
+    suggestedActions: feature.stories.flatMap((item) => item.suggestedActions),
+  } : story
+  issues.push(...expectationIssues(scope, evalCase, prefix, targetId))
   issues.push(...actionPlanIssues(evalCase.actionPlan, {
     prefix,
     targetId,
-    actions: new Set(story.suggestedActions.map((item) => `${story.title}\u0000${item.label}`)),
-    surfaces: new Set(story.surfaces.map((item) => item.name)),
+    actions: new Set((feature?.stories ?? [story]).flatMap((item) => item.suggestedActions.map((action) => `${item.title}\u0000${action.label}`))),
+    surfaces: new Set((feature?.stories ?? [story]).flatMap((item) => item.surfaces.map((surface) => surface.name))),
     allowAdaptiveMessages: false,
   }))
   return issues
 }
 
-export function getBehaviorEvalReadiness(story: DesignStory): EvaluationReadiness {
-  const issues = story.behaviorEvals.flatMap((evalCase, index) => getBehaviorEvalCaseIssues(story, evalCase, index))
+export function getBehaviorEvalReadiness(story: DesignStory, feature?: DesignFeature): EvaluationReadiness {
+  const issues = story.behaviorEvals.flatMap((evalCase, index) => getBehaviorEvalCaseIssues(story, evalCase, index, feature))
   const duplicates = duplicateIds(story.behaviorEvals.map((item) => item.id))
   story.behaviorEvals.forEach((evalCase, index) => {
     if (duplicates.has(evalCase.id.trim())) issues.push({ id: `behavior-eval-${index}-duplicate-id`, message: `Eval ID “${evalCase.id}” is duplicated.`, targetId: `behavior-eval-${index}` })

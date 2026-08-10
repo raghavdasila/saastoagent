@@ -1,77 +1,91 @@
 # Corpus Current Context
 
-Updated: 2026-08-06
+Updated: 2026-08-10
 
 ## Current State
 
-Corpus is the authoritative checkout. Lounge, Workspace, and core Agents use
-the documented modular-monolith feature pattern: feature-owned domain and
-application layers, RouteDeck controllers, central composition/persistence,
-global owner identity, and frontend domain stores that do not copy RouteDeck
-interaction state.
+Corpus is the authoritative checkout. The horizontal Source -> Agent ->
+Designer -> Builder -> Sandbox -> Evaluation -> Channels/Deployment -> public
+session -> Operations launch baseline is implemented and accepted through
+independent ordinary-chat-only, surface-only, and hybrid evidence. The three
+recordings are normal-speed and uncut; chat uses ordinary owner language and the
+hybrid run proves surface-completed state continuing through later chat.
 
-The generic evaluator executes real setup and RouteDeck Operations, then checks
-bound outcomes, node transitions, domain state, and projection state. The
-public Lounge recorder also proves the combined chat -> Sign in -> Back to
-Lounge path. The linked RouteDeck Surface host keeps projected controls inert
-whenever its canonical store is not `live`.
+Architecture-visible product state now follows one exact lineage: Source Hub
+renders the persisted ToolRouter semantic graph; Designer renders the shared
+proposed topology; Builder compiles and renders the same topology as the
+immutable per-build RouteDeck NavGraph; Sandbox shows RouteDeck projection and
+ToolRouter clarification evidence; Evaluation and Channels show the exact build
+NavGraph; Operations shows the owner-only deployed NavGraph plus safe routing,
+clarification, and execution provenance. The public hosted Agent intentionally
+does not expose owner diagnostics.
 
-Source Hub/API Source internals remain outside this completed slice.
-`docs/corpus-agent-design/feature-behavior-notes.md` remains untouched and
-user-owned. `mockruns/` remains local reference-only material.
+The neutral Source, execution, and delivery runtimes remain behind
+Corpus-owned adapters. The user-owned
+`docs/corpus-agent-design/feature-behavior-notes.md` remains untouched.
 
 ## Current Evidence
 
-- Lounge aggregate: 8/8, run `20260806T062952Z-fac606911c`.
-- Workspace quick action and Agent create/edit action-state evaluations passed.
-- Rendered Workspace/Agents journey passed with one Agent, two immutable
-  versions, desktop/mobile proof, trace, and persisted current version 2:
-  `.runtime/evaluations/20260806T061531Z-bf0bc49c7c/result.json`.
-- Public privacy plus post-chat return passed 2/2 with zero HTTP, console, or
-  page errors:
-  `.runtime/evaluations/20260806T173245Z-898d846f57/result.json`.
-- Backend: 100 tests. Repository: 49 tests. Frontend: 58 tests plus strict
-  typecheck/build. Design Studio: 35 tests plus strict typecheck/build.
-- Architecture boundaries, Studio parity, generated frontend contracts, and
-  documentation ownership gates pass.
-- Linked RouteDeck React: 23 tests plus strict typecheck/build.
+- Surface-only run `20260809T153004Z-7cd51d776b` passed 24/24.
+- Ordinary-chat-only run `20260809T165131Z-63d1c6220b` passed 24/24 using the
+  configured OpenAI model and ordinary owner requests rather than feature,
+  operation, route, or UI instructions.
+- Hybrid run `20260809T210136Z-853c33486c` passed 25/25. It retained 18
+  screenshots, one 474.28-second raw 1x WebM, 968 allowlisted safe-trace events,
+  and zero unexpected HTTP, console, page, or request failures. The run visibly
+  includes the Source semantic graph, Designer topology, compiled build,
+  Evaluation and deployed NavGraphs, Sandbox and public ToolRouter
+  clarification, owner-only Operations evidence, restart persistence, and
+  390x844 rendering.
+- Fresh backend: 421 passed with 6 dependency deprecation warnings.
+- Fresh frontend: 25 files / 121 passed; strict typecheck and production build
+  passed with the existing large-chunk warning.
+- Design Studio: 9 files / 58 passed; strict typecheck passed.
+- Generated contract, Studio parity, architecture boundaries, shared
+  Designer/Builder topology, and deployed runtime evidence gates are green.
 
-Exact commands, runtime ports, diagnostics, and changed-file ownership are in
-`logs/20260806_2350_post_chat_lifecycle_closeout.md`.
-
-## Git Publication
-
-- Corpus implementation and closeout commit `755b4b9` is published on
-  `origin/main`.
-- RouteDeck Surface synchronization commit `54b687e` is published on the
-  sibling repository's `origin/main`.
-- Only reference-only `mockruns/` remains untracked locally.
+The horizontal launch-baseline evidence requirement is closed. Later feature
+depth must retain the same evidence discipline: normal-speed uncut recording,
+ordinary owner-language chat, direct surfaces, mixed continuation, and omission
+only for sensitive credential entry.
 
 ## Runtime
 
-- Normal local stack: `docker compose up --build -d backend frontend`.
+- Start the model-backed local stack with
+  `docker compose up -d backend frontend source-worker`.
 - Corpus: `http://127.0.0.1:5199/`.
 - Backend readiness: `http://127.0.0.1:8099/readyz`.
-- Design Studio: `http://127.0.0.1:8782/`.
-- The post-chat acceptance run used isolated local ports `5339`/`8239` and
-  disposable SQLite state.
+- Local Medusa: `http://127.0.0.1:9100/health`.
+- Horizontal chat evidence used the configured OpenAI provider. There is no
+  model fallback in the accepted run.
+- Configured migration head: `0012_builder_navgraph`. Runtime current must be
+  rechecked before the next browser campaign.
 
 ## Remaining Product Work
 
-The architecture audit still has three product-governance items: Studio
-blocking completeness/readiness, stale Lounge availability guidance, and
-Studio current-result selection. Resolve those before claiming the broader
-Agents lifecycle release-ready. Agent archive/delete, Source attachment,
-Designer, Sandbox, deployment, and execution runtime remain outside this core
-slice.
+Proceed to individual behavior-note depth without reopening the accepted
+horizontal baseline. Explicit follow-ups include Builder runtime controls,
+ToolRouter-generated evaluation CRUD, channel rollback/availability changes,
+Operations promotion, and any other binding still marked
+`pending_external_evidence`. Do not weaken validation or replace any path with
+fixtures or fallbacks.
+
+## Boundaries
+
+- No Git operation was performed.
+- RouteDeck changes were made only for proven framework gaps and are recorded in
+  `audits/2026-08-10-horizontal-routedeck-changes.md`.
+- No user-owned behavior note was modified.
+- This is validated local-product evidence, not a production deployment or
+  service-level claim.
 
 ## Restart Owners
 
-- Checkpoint: `context_checkpoints/2026-08-06-post-chat-lifecycle-closeout.md`
-- Session log: `logs/20260806_2350_post_chat_lifecycle_closeout.md`
-- Architecture: `architecture/components/corpus-feature-architecture.md`
-- Corpus/RouteDeck boundary: `architecture/components/corpus-routedeck-boundary.md`
-- Source ownership: `architecture/code-map.md`
+- Active plan: `plans/2026-08-09-designer-navgraph-alignment.md`
+- Superseded baseline checkpoint: `context_checkpoints/2026-08-08-horizontal-product-completion.md`
+- Accepted horizontal checkpoint: `context_checkpoints/2026-08-10-horizontal-evidence-closeout.md`
+- Current validation: `docs/superpowers/validation/2026-08-10-horizontal-chat-surface-hybrid.md`
+- Historical validation log: `logs/20260808_horizontal_product_completion.md`
+- Architecture: `architecture/code-map.md`
 - Runtime flows: `SYSTEM_FLOW_INDEX.md`
 - Validation meaning: `test_index/README.md`
-- Audit: `audits/2026-08-06-implemented-feature-architecture-report.md`

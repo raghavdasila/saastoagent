@@ -22,8 +22,16 @@ from corpus.app.host import LiveRouteDeckApplication
 from corpus.bindings import bind_corpus_app
 from corpus.composition import compile_corpus_app
 from corpus.features.agents.service import AgentService
+from corpus.features.designer.service import DesignerService
+from corpus.features.builder.service import BuilderService
+from corpus.features.sandbox.service import SandboxService
+from corpus.features.evaluation.service import EvaluationService
+from corpus.features.channels.service import ChannelService
+from corpus.features.deployment.service import DeploymentService
+from corpus.features.operations.service import OperationsService
 from corpus.features.workspace.service import WorkspaceService
-from corpus.session import create_guest_session, initialize_guest_session
+from corpus.features.sources.service import SourceService
+from corpus.session import create_principal_session_factory, initialize_guest_session
 
 from .agent import create_corpus_agent, create_corpus_entry_agent
 from .config import CorpusRuntimeSettings
@@ -103,7 +111,21 @@ async def open_live_corpus_application(
     auth_mail,
     credential_transition,
     agent_service: AgentService,
+    designer_service: DesignerService,
+    builder_service: BuilderService,
+    sandbox_service: SandboxService,
+    evaluation_service: EvaluationService,
+    channel_service: ChannelService,
+    deployment_service: DeploymentService,
+    operations_service: OperationsService,
     workspace_service: WorkspaceService,
+    source_service: SourceService,
+    source_graph_presenter,
+    source_connection_service,
+    source_contract_revision_service,
+    source_connection_check_service,
+    source_operation_curation_service,
+    source_routed_execution_service,
 ) -> LiveRouteDeckApplication:
     configured = settings or CorpusRuntimeSettings.from_env()
     compiled = compile_corpus_app()
@@ -122,13 +144,32 @@ async def open_live_corpus_application(
             private_form_codec=resources.codec,
             credential_transition=credential_transition,
             agent_service=agent_service,
+            designer_service=designer_service,
+            builder_service=builder_service,
+            sandbox_service=sandbox_service,
+            evaluation_service=evaluation_service,
+            channel_service=channel_service,
+            deployment_service=deployment_service,
+            operations_service=operations_service,
             workspace_service=workspace_service,
+            source_service=source_service,
+            source_graph_presenter=source_graph_presenter,
+            source_connection_service=source_connection_service,
+            source_contract_revision_service=source_contract_revision_service,
+            source_connection_check_service=source_connection_check_service,
+            source_operation_curation_service=source_operation_curation_service,
+            source_routed_execution_service=source_routed_execution_service,
         )
 
     runtime = await open_sqlalchemy_routedeck_runtime(
         compiled_app=compiled,
         application_factory=application_factory,
-        session_factory=create_guest_session,
+        session_factory=create_principal_session_factory(
+            auth_service,
+            resume_ttl=timedelta(
+                seconds=configured.host.routedeck_resume_capability_ttl_seconds
+            ),
+        ),
         session_initializer=initialize_guest_session,
         public_key_validator_factory=lambda _session: None,
         agent_driver_factory=RouteDeckLangGraphDriverFactory(

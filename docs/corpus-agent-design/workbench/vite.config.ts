@@ -1,6 +1,5 @@
 import { promises as fs } from "node:fs"
 import type { IncomingMessage, ServerResponse } from "node:http"
-import { createHash } from "node:crypto"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -44,15 +43,9 @@ function designStatePlugin(): Plugin {
             return
           }
           try {
-            const [contents, designContents] = await Promise.all([
-              fs.readFile(evaluationResultsPath, "utf8"),
-              fs.readFile(designStatePath),
-            ])
+            const contents = await fs.readFile(evaluationResultsPath, "utf8")
             const parsed = JSON.parse(contents) as Record<string, unknown>
-            sendJson(response, 200, {
-              ...parsed,
-              currentDesignSha256: createHash("sha256").update(designContents).digest("hex"),
-            })
+            sendJson(response, 200, parsed)
           } catch (error) {
             if ((error as NodeJS.ErrnoException).code === "ENOENT") {
               sendJson(response, 404, { code: "evaluation_results_not_found" })

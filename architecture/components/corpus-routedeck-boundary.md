@@ -29,12 +29,16 @@ public conversations, persistence, revocation, and ownership claims stay in
 - `backend/src/corpus/features/lounge/**` - public Lounge, account journeys,
   bindings, and scoped AgentPolicies
 - `backend/src/corpus/features/workspace/**` - Workspace declarations/bindings
+- `backend/src/corpus/features/agents/**`, `designer/**`, `builder/**`,
+  `sandbox/**`, `evaluation/**`, `channels/**`, `deployment/**`, and
+  `operations/**` - owner product domains and their compiled RouteDeck feature
+  declarations
 - `backend/src/corpus/features/sources/**` - generic Sources lifecycle and
   transport plus connector-owned configuration, HTTP, ports, and bridges
 - `backend/src/corpus/integrations/toolrouter/**` - private copied engine and
   replaceable adapter used only by the API Source connector
-- `backend/src/corpus/composition.py` - selects Lounge, Workspace, Sources,
-  and the Lounge entry
+- `backend/src/corpus/composition.py` - selects all nine host features and the
+  Lounge entry
 - `frontend/src/app/**` - generic permanent chat shell and Navgraph slot
 - `frontend/src/routedeck/**` - client and surface-registry bridge
 - `frontend/src/components/ui/**`, `frontend/src/lib/**` - generic shadcn/ui
@@ -53,9 +57,15 @@ public conversations, persistence, revocation, and ownership claims stay in
   active surface slot.
 - Eight Lounge nodes cover public arrival, product help, sign-in, registration,
   forgot/reset, verification confirmation, and signed-in verification delivery.
-- One session-bound `workspace.home` node owns authenticated Home; one
-  session-bound `sources.home` node renders `sources.debug`. The current
-  live application contains ten nodes.
+- Ten session-bound private product nodes cover Workspace, Agents, Designer,
+  Sources, Builder, Sandbox, Evaluation, Channels, and Operations. Together
+  with the eight Lounge nodes, the current host application contains 18 nodes.
+- Every immutable Agent build owns a separate compiled RouteDeck Application.
+  Its real executable topology is one `agent_runtime.home` node with the exact
+  Designer topology hash, capability-to-curated-operation membership, policies,
+  and clarification, ToolRouter-status, and delivery-status surfaces. It is
+  persisted and reconstructed by exact build identity; it is not copied into
+  the owner host application's navigation graph.
 - Account creation and sign-in are supervised Lounge Operations that read
   encrypted RouteDeck private forms, atomically adopt the selected public
   conversation, and publish owner bearer credential transitions through the
@@ -71,7 +81,12 @@ public conversations, persistence, revocation, and ownership claims stay in
   `RouteDeckRuntime.provision_session(...)`. RouteDeck owns session factory
   execution, canonical durable creation replay/collision, product
   initialization, declared entry-run attachment, and the returned current
-  snapshot. Corpus releases the reservation if provisioning fails; it does not
+  snapshot. The Corpus-supplied session factory resolves the exact persisted
+  conversation principal before creation: anonymous sessions use the compiled
+  `lounge.home` entry, while authenticated owner sessions start at the existing
+  `workspace.home` node with only its node-scoped public surfaces and an exact
+  resume capability. Missing or internally inconsistent principal mappings fail
+  closed. Corpus releases the reservation if provisioning fails; it does not
   duplicate that framework control flow.
 - `POST /api/conversations/{public_id}/replacement` is a Corpus-owned anonymous
   lifecycle operation. Corpus verifies that the active mapping belongs to the
@@ -119,7 +134,11 @@ public conversations, persistence, revocation, and ownership claims stay in
   active. Once creation succeeds, the shell mounts a fresh conversation-scoped
   transport, RouteDeck store, private-form state, and chat history before it
   disposes the previous client runtime. Owner identity and bearer-only product
-  clients remain mounted across that switch.
+  clients remain mounted across that switch. Before selecting the replacement,
+  Corpus fetches its exact authoritative projection and uses a RouteDeck codec
+  bound to that projection to validate and encode the canonical URL. This keeps
+  session-bound resume validation strict without letting the previous
+  conversation's browser path influence the new session bootstrap.
 - Browser history is bound per tab to the selected opaque Corpus conversation.
   Before bootstrap, Corpus discards a RouteDeck history entry owned by another
   conversation and aligns to the selected conversation's authoritative
@@ -221,8 +240,14 @@ service.
   after a successful real STARTTLS reference. Verification fails visibly with
   503 when delivery is unavailable; reset remains generic 202 and logs the
   failure. No alternate provider or synthetic success exists.
-- The broader proposed 53-node product Navgraph is not implemented. The live
-  contract intentionally contains eight Lounge nodes, Workspace Home, and Sources.
+- The broader proposed 53-node notebook Navgraph remains a design artifact, not
+  a runtime claim. The live owner application contains 18 product nodes, while
+  each immutable Agent build has its own one-node executable RouteDeck
+  Application with exact capabilities and surfaces derived from the accepted
+  Designer topology.
+- Corpus has used explicit, user-authorized RouteDeck fixes where a framework
+  contract gap was proven. Each change and purpose is retained under `audits/`;
+  the Designer topology alignment required no new RouteDeck modification.
 - The ignored Corpus benchmark remains evidence only and is never an import,
   build, runtime, or test dependency. Separately, the ToolRouter sibling was
   used as the verified source of a namespaced, hash-manifested engine snapshot;

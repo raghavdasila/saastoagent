@@ -1,13 +1,20 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Protocol
+from typing import Any, Literal, Mapping, Protocol
 
 from ...contracts import (
     SourceEvalsetResult,
     SourceRetrievalResult,
     SourceTraceMode,
 )
+
+
+@dataclass(frozen=True)
+class SourceManagedParameter:
+    name: str
+    location: Literal["header", "path", "query", "body"]
 
 
 class ApiSourceEngine(Protocol):
@@ -28,6 +35,8 @@ class ApiSourceEngine(Protocol):
         top_k: int,
         trace_mode: SourceTraceMode,
         provided_params: Mapping[str, Any] | None,
+        allowed_endpoint_ids: tuple[str, ...] | None = None,
+        managed_parameters: tuple[SourceManagedParameter, ...] = (),
     ) -> SourceRetrievalResult: ...
 
     def generate_evalset(
@@ -42,4 +51,4 @@ class ApiSourceEngine(Protocol):
     ) -> SourceEvalsetResult: ...
 
 
-__all__ = ["ApiSourceEngine"]
+__all__ = ["ApiSourceEngine", "SourceManagedParameter"]

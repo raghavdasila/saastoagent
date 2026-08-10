@@ -1,10 +1,12 @@
 import {
   useCallback,
+  useEffect,
+  useRef,
   useState,
   type FormEvent,
   type KeyboardEvent,
 } from "react";
-import { ArrowUp, Square } from "lucide-react";
+import { ArrowUp, Paperclip, Square } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,9 +16,16 @@ export interface ComposerProps {
   showCancel?: boolean;
   disabledReason?: string;
   onSend(message: string): Promise<void>;
+  onUploadApiSource?: (file: File) => Promise<ChatSourceUpload>;
   onCancel(): void;
   onRetry?: () => Promise<void>;
   onDiscardPending?: () => Promise<void>;
+  onKeyboardSend?: () => void;
+}
+
+export interface ChatSourceUpload {
+  readonly sourceId: string;
+  readonly displayName: string;
 }
 
 export function Composer({
@@ -24,12 +33,31 @@ export function Composer({
   showCancel = disabled,
   disabledReason,
   onSend,
+  onUploadApiSource,
   onCancel,
   onRetry,
   onDiscardPending,
+  onKeyboardSend,
 }: ComposerProps) {
   const [draft, setDraft] = useState("");
+  const [definition, setDefinition] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const restoreKeyboardFocusRef = useRef(false);
+
+  useEffect(() => {
+    if (
+      restoreKeyboardFocusRef.current &&
+      !disabled &&
+      !uploading &&
+      onRetry === undefined
+    ) {
+      textareaRef.current?.focus();
+      restoreKeyboardFocusRef.current = false;
+    }
+  }, [disabled, draft, onRetry, uploading]);
 
   const submit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -37,17 +65,26 @@ export function Composer({
       if (disabled || onRetry !== undefined || !draft.trim()) return;
       setError(null);
       try {
-        await onSend(draft.trim());
+        setUploading(definition !== null);
+        const uploaded = definition === null || onUploadApiSource === undefined
+          ? null
+          : await onUploadApiSource(definition);
+        const message = uploaded === null
+          ? draft.trim()
+          : `${draft.trim()}\n\nI attached the API definition "${uploaded.displayName}".`;
+        await onSend(message);
         setDraft("");
+        setDefinition(null);
+        if (fileRef.current !== null) fileRef.current.value = "";
       } catch (caught) {
         setError(
           caught instanceof Error
             ? caught
             : new Error("The chat message could not be sent."),
         );
-      }
+      } finally { setUploading(false); }
     },
-    [disabled, draft, onRetry, onSend],
+    [definition, disabled, draft, onRetry, onSend, onUploadApiSource],
   );
 
   const retry = useCallback(async () => {
@@ -89,9 +126,11 @@ export function Composer({
         return;
       }
       event.preventDefault();
+      restoreKeyboardFocusRef.current = true;
+      onKeyboardSend?.();
       event.currentTarget.form?.requestSubmit();
     },
-    [],
+    [onKeyboardSend],
   );
 
   return (
@@ -100,22 +139,38 @@ export function Composer({
         Message the assistant
       </label>
       <Textarea
+        ref={textareaRef}
         id="routedeck-agent-message"
         name="message"
         value={draft}
-        disabled={disabled || onRetry !== undefined}
+        disabled={disabled || uploading || onRetry !== undefined}
         rows={1}
         placeholder="Message the assistant"
         aria-invalid={error !== null}
         onChange={(event) => setDraft(event.currentTarget.value)}
         onKeyDown={submitOnEnter}
       />
+      {onUploadApiSource === undefined ? null : (
+        <label data-chat-source-upload="">
+          <Paperclip aria-hidden="true" />
+          <strong>Attach API definition</strong>
+          <input
+            ref={fileRef}
+            type="file"
+            aria-label="Attach API definition"
+            accept=".json,.yaml,.yml,application/json,application/yaml,text/yaml"
+            disabled={disabled || uploading || onRetry !== undefined}
+            onChange={(event) => setDefinition(event.currentTarget.files?.[0] ?? null)}
+          />
+          <span>{definition?.name ?? "No API file attached"}</span>
+        </label>
+      )}
       <div>
         {onRetry === undefined ? (
           <Button
             type="submit"
             size="icon-lg"
-            disabled={disabled || !draft.trim()}
+            disabled={disabled || uploading || !draft.trim()}
             aria-label="Send message"
           >
             <ArrowUp data-icon="inline-start" />
@@ -143,6 +198,7 @@ export function Composer({
         ) : null}
       </div>
       {disabledReason === undefined ? null : <p data-composer-disabled-reason="">{disabledReason}</p>}
+      {uploading ? <p role="status">Uploading and processing the exact API Source before sending…</p> : null}
       {error === null ? null : (
         <p role="alert">Corpus could not complete that request. Try again.</p>
       )}

@@ -7,7 +7,12 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from .ports import AgentNotFound, AgentOwnerScopeGateway, AgentOwnerScopeUnavailable
+from .ports import (
+    AgentNotFound,
+    AgentOwnerScopeGateway,
+    AgentOwnerScopeUnavailable,
+    AgentSourceAttachmentUnavailable,
+)
 from .service import AgentService
 
 
@@ -48,6 +53,39 @@ def create_agents_router(
         organization_id = await _organization_id(request, owner_scope)
         try:
             result = await service.get(organization_id, agent_id)
+        except AgentNotFound as error:
+            raise AgentsHttpProblem(404, "agent_unavailable", str(error)) from error
+        return _json(result)
+
+    @router.get("/{agent_id}/sources")
+    async def list_agent_sources(agent_id: uuid.UUID, request: Request):
+        organization_id = await _organization_id(request, owner_scope)
+        try:
+            result = await service.list_source_attachments(organization_id, agent_id)
+        except AgentNotFound as error:
+            raise AgentsHttpProblem(404, "agent_unavailable", str(error)) from error
+        except AgentSourceAttachmentUnavailable as error:
+            raise AgentsHttpProblem(
+                409,
+                "source_attachment_unavailable",
+                str(error),
+            ) from error
+        return _json(result)
+
+    @router.get("/{agent_id}/dependencies")
+    async def inspect_agent_dependencies(agent_id: uuid.UUID, request: Request):
+        organization_id = await _organization_id(request, owner_scope)
+        try:
+            result = await service.inspect_dependencies(organization_id, agent_id)
+        except AgentNotFound as error:
+            raise AgentsHttpProblem(404, "agent_unavailable", str(error)) from error
+        return _json(result)
+
+    @router.get("/{agent_id}/builds")
+    async def list_agent_builds(agent_id: uuid.UUID, request: Request):
+        organization_id = await _organization_id(request, owner_scope)
+        try:
+            result = await service.list_build_lineages(organization_id, agent_id)
         except AgentNotFound as error:
             raise AgentsHttpProblem(404, "agent_unavailable", str(error)) from error
         return _json(result)

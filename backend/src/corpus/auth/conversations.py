@@ -172,6 +172,7 @@ async def _summary(
         if error.code not in {
             SessionStoreErrorCode.SESSION_NOT_FOUND,
             SessionStoreErrorCode.SESSION_EXPIRED,
+            SessionStoreErrorCode.SESSION_UPGRADE_REQUIRED,
         }:
             raise
         raise ConversationBackingSessionUnavailable from error

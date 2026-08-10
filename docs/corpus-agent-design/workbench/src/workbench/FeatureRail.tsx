@@ -194,7 +194,7 @@ export function FeatureRail({
           </div>
           <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
             {selectedFeature.stories.map((story) => {
-              const readiness = getStoryReadiness(story)
+              const readiness = getStoryReadiness(story, selectedFeature)
               const StatusIcon = statusIcon[story.status]
               const selected = selectedView === "behavior" && story.id === selectedStoryId
               const stateLabel = readiness.isReady ? story.status : `${readiness.blockers.length} blocking issues`

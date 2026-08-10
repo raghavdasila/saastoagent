@@ -8,9 +8,10 @@ import { AgentPolicyList } from "@/workbench/AgentPolicyList"
 import { BehaviorEvalEditor } from "@/workbench/BehaviorEvalEditor"
 import { OperationInventory } from "@/workbench/OperationInventory"
 import { StudioSection } from "@/workbench/StudioSection"
-import type { CapabilityDesign, DesignStory, SuggestedActionDesign, SurfaceDesign } from "@/workbench/types"
+import type { CapabilityDesign, DesignFeature, DesignStory, SuggestedActionDesign, SurfaceDesign } from "@/workbench/types"
 
-export function BehaviorDesignEditor({ story, disabled, onChange }: {
+export function BehaviorDesignEditor({ feature, story, disabled, onChange }: {
+  feature: DesignFeature
   story: DesignStory
   disabled: boolean
   onChange: (patch: Partial<DesignStory>) => void
@@ -145,7 +146,7 @@ export function BehaviorDesignEditor({ story, disabled, onChange }: {
       </StudioSection>
 
       <StudioSection id="behavior-evals-heading" title="Evals" description="Prove this behavior semantically and through product-state expectations. Runtime results remain external to design state.">
-        <BehaviorEvalEditor story={story} disabled={disabled} onChange={onChange} />
+        <BehaviorEvalEditor feature={feature} story={story} disabled={disabled} onChange={onChange} />
       </StudioSection>
     </div>
   )

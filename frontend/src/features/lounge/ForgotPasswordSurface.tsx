@@ -9,7 +9,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { PrivateFormGate, requireFormHandle } from "./PrivateFormGate";
+import { PrivateFormGate, requireFormHandle } from "../../routedeck/PrivateFormGate";
 import { useInitialFieldFocus } from "./useInitialFieldFocus";
 import { publicOperationFailureMessage, requireCompletedOperation } from "./operationResult";
 

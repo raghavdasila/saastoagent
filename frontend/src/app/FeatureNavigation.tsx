@@ -13,7 +13,7 @@ const NODE_PRESENTATION = Object.freeze({
   "workspace.home": { icon: House, detail: "Owner Workspace" },
   "agents.home": { icon: Bot, detail: "Agent inventory" },
   "agents.create": { icon: Bot, detail: "Create an agent" },
-  "sources.home": { icon: DatabaseZap, detail: "Connector debug" },
+  "sources.home": { icon: DatabaseZap, detail: "Source inventory" },
 });
 
 const PUBLIC_LOUNGE_NODES = new Set(["lounge.home", "lounge.product_help"]);

@@ -131,7 +131,7 @@ def create_isolated_runtime(*, port: int = 0) -> IsolatedRuntime:
             "ROUTEDECK_BROWSER_ORIGINS": origin,
             "ROUTEDECK_WORKER_COUNT": "1",
             "CORPUS_DATABASE_URL": _sqlite_url(database_path, driver="aiosqlite"),
-            "CORPUS_MIGRATION_REVISION": "0002_agents",
+            "CORPUS_MIGRATION_REVISION": "0006_restrict_agent_attachment_delete",
             "CORPUS_RESET_SECRET": Fernet.generate_key().decode("ascii"),
             "CORPUS_VERIFICATION_SECRET": Fernet.generate_key().decode("ascii"),
             "CORPUS_PUBLIC_FRONTEND_URL": origin,

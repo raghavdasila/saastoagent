@@ -113,7 +113,7 @@ export default function App() {
   const state = loaded.state
   const selectedFeature = state.features.find((feature) => feature.id === selectedFeatureId) ?? state.features[0]
   const selectedStory = selectedFeature.stories.find((story) => story.id === selectedStoryId) ?? selectedFeature.stories[0]
-  const selectedReadiness = getStoryReadiness(selectedStory)
+  const selectedReadiness = getStoryReadiness(selectedStory, selectedFeature)
 
   function commit(nextState: WorkbenchState) {
     setLoaded({ ok: true, state: nextState, source: "saved" })
@@ -303,8 +303,8 @@ export default function App() {
             <div className="studio-design-grid" data-workspace-panel={workspacePanel}>
               <div data-editor-pane className="studio-editor-pane" data-active={workspacePanel === "design"}>
                 <div data-editor-scroll className="studio-editor-scroll studio-behavior-document px-4 py-5 sm:px-5">
-                  <StoryEditor story={selectedStory} disabled={selectedStory.status !== "draft"} onChange={updateStory} />
-                  <BehaviorDesignEditor story={selectedStory} disabled={selectedStory.status !== "draft"} onChange={updateStory} />
+                  <StoryEditor story={selectedStory} readiness={selectedReadiness} disabled={selectedStory.status !== "draft"} onChange={updateStory} />
+                  <BehaviorDesignEditor feature={selectedFeature} story={selectedStory} disabled={selectedStory.status !== "draft"} onChange={updateStory} />
                 </div>
                 <div className="studio-review-bar">
                   <ReviewControls

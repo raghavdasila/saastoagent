@@ -1,0 +1,29 @@
+.designer-home,
+.designer-review {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.designer-home > header,
+.designer-home > div,
+.designer-review > div {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.designer-home dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+}
+
+.designer-blueprint{display:grid!important;gap:1rem!important;align-items:stretch!important;border:1px solid var(--border);border-radius:1rem;padding:1rem;background:color-mix(in srgb,var(--card) 94%,var(--primary))}.designer-blueprint>header{display:flex;align-items:end;justify-content:space-between;gap:1rem}.designer-blueprint>header p,.designer-blueprint>header h2{margin:0}.designer-blueprint>header span{border:1px solid var(--border);border-radius:999px;padding:.35rem .65rem;color:var(--muted-foreground)}.designer-blueprint__flow{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);align-items:stretch;gap:.75rem}.designer-blueprint__rails{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}.designer-blueprint__column{display:grid;align-content:start;gap:.6rem;min-width:0;border:1px solid var(--border);border-radius:.75rem;padding:.8rem;background:var(--background)}.designer-blueprint__column h3,.designer-blueprint__column ul,.designer-blueprint>article h3,.designer-blueprint>article p{margin:0}.designer-blueprint__column ul{display:grid;gap:.4rem;padding:0;list-style:none}.designer-blueprint__column li{border-left:3px solid var(--primary);border-radius:.35rem;padding:.45rem .55rem;background:color-mix(in srgb,var(--accent) 60%,transparent);overflow-wrap:anywhere}.designer-blueprint__column--policy li{border-left-color:var(--destructive)}.designer-blueprint__column--behavior li{border-left-color:var(--chart-2)}.designer-blueprint__arrow{display:grid;place-content:center;text-align:center;color:var(--muted-foreground)}.designer-blueprint__arrow b{font-size:1.5rem;color:var(--primary)}.designer-blueprint>article{display:grid;gap:.35rem;border-top:1px solid var(--border);padding-top:.8rem}@media(max-width:800px){.designer-blueprint__flow{grid-template-columns:1fr}.designer-blueprint__arrow{display:none}.designer-blueprint__rails{grid-template-columns:1fr}}
+
+.designer-blueprint__arrow{justify-items:center}.designer-blueprint__lineage{display:grid;gap:.65rem}.designer-blueprint__lineage h3,.designer-blueprint__lineage p{margin:0}.designer-blueprint__lineage>div{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:.65rem}.designer-blueprint__lineage article{display:grid;gap:.3rem;border:1px solid var(--border);border-radius:.75rem;padding:.75rem;background:var(--background);overflow-wrap:anywhere}.designer-blueprint__lineage span{font-family:var(--font-mono);font-size:.78rem;color:var(--muted-foreground)}.designer-blueprint__lineage p{padding-top:.35rem;border-top:1px solid var(--border)}
+
+.designer-navgraph{display:grid;gap:.75rem;border:1px solid var(--border);border-radius:.9rem;padding:.85rem;background:var(--background)}.designer-navgraph>header{display:flex;align-items:start;justify-content:space-between;gap:1rem;flex-wrap:wrap;min-width:0}.designer-navgraph>header>div{min-width:0}.designer-navgraph>header p,.designer-navgraph>header h3{margin:0}.designer-navgraph>header code{max-width:100%;overflow-wrap:anywhere;font-size:.78rem}.designer-navgraph svg{width:100%;min-height:190px;border-radius:.75rem;background:color-mix(in srgb,var(--muted) 55%,transparent)}.designer-navgraph svg rect{fill:var(--card);stroke:var(--primary);stroke-width:2}.designer-navgraph svg text{fill:var(--muted-foreground);font-size:14px}.designer-navgraph svg .designer-navgraph__title{fill:var(--foreground);font-size:18px;font-weight:700}.designer-navgraph>div{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.65rem}.designer-navgraph article{display:grid;gap:.4rem;border:1px solid var(--border);border-radius:.7rem;padding:.7rem}.designer-navgraph article h4,.designer-navgraph article ul{margin:0}.designer-navgraph article code{overflow-wrap:anywhere;font-size:.72rem}.designer-navgraph article ul{display:grid;gap:.25rem;padding-left:1.15rem}
+.designer-navgraph foreignObject .designer-navgraph__title{display:-webkit-box;overflow:hidden;color:var(--foreground);font-size:18px;font-weight:700;line-height:1.2;overflow-wrap:anywhere;-webkit-box-orient:vertical;-webkit-line-clamp:2}

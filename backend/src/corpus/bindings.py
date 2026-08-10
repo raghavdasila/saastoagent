@@ -12,14 +12,30 @@ from .app.lounge_adapters import (
     AuthLoungeMailDelivery,
     AuthLoungeRateLimiter,
 )
+from .app.source_adapters import AuthSourceOwnerScopeGateway
 from .auth.routedeck import OWNER_CONTEXT_PROVIDER, OwnerContextProvider
 from .features.agents.bindings import create_agents_bindings
 from .features.agents.service import AgentService
+from .features.designer.bindings import create_designer_bindings
+from .features.designer.service import DesignerService
+from .features.builder.bindings import create_builder_bindings
+from .features.builder.service import BuilderService
+from .features.sandbox.bindings import create_sandbox_bindings
+from .features.sandbox.service import SandboxService
+from .features.evaluation.bindings import create_evaluation_bindings
+from .features.evaluation.service import EvaluationService
+from .features.channels.bindings import create_channel_bindings
+from .features.channels.service import ChannelService
+from .features.deployment.bindings import create_deployment_bindings
+from .features.deployment.service import DeploymentService
+from .features.operations.bindings import create_operations_bindings
+from .features.operations.service import OperationsService
 from .features.lounge.bindings import create_lounge_bindings
 from .features.lounge.private_forms import EncryptedLoungePrivateFormReader
 from .features.workspace.bindings import create_workspace_bindings
 from .features.workspace.service import WorkspaceService
 from .features.sources.bindings import create_sources_bindings
+from .shared.private_forms import EncryptedPrivateFormReader
 
 
 def bind_corpus_app(
@@ -34,7 +50,21 @@ def bind_corpus_app(
     private_form_codec,
     credential_transition,
     agent_service: AgentService,
+    designer_service: DesignerService,
+    builder_service: BuilderService,
+    sandbox_service: SandboxService,
+    evaluation_service: EvaluationService,
+    channel_service: ChannelService,
+    deployment_service: DeploymentService,
+    operations_service: OperationsService,
     workspace_service: WorkspaceService,
+    source_service,
+    source_graph_presenter,
+    source_connection_service,
+    source_contract_revision_service,
+    source_connection_check_service,
+    source_operation_curation_service,
+    source_routed_execution_service=None,
 ) -> BoundApplication:
     lounge = create_lounge_bindings(
         account=AuthLoungeAccountGateway(auth_service),
@@ -54,7 +84,28 @@ def bind_corpus_app(
         agent_service,
         AuthAgentOwnerScopeGateway(auth_service),
     )
-    sources = create_sources_bindings()
+    designer = create_designer_bindings(
+        designer_service,
+        agent_service,
+        AuthAgentOwnerScopeGateway(auth_service),
+    )
+    builder = create_builder_bindings(builder_service, AuthAgentOwnerScopeGateway(auth_service))
+    sandbox = create_sandbox_bindings(sandbox_service, AuthAgentOwnerScopeGateway(auth_service))
+    evaluation = create_evaluation_bindings(evaluation_service, AuthAgentOwnerScopeGateway(auth_service))
+    channels = create_channel_bindings(channel_service, AuthAgentOwnerScopeGateway(auth_service))
+    deployments = create_deployment_bindings(deployment_service, AuthAgentOwnerScopeGateway(auth_service))
+    operations = create_operations_bindings(operations_service, AuthAgentOwnerScopeGateway(auth_service))
+    sources = create_sources_bindings(
+        source_service,
+        AuthSourceOwnerScopeGateway(auth_service),
+        source_graph_presenter,
+        source_connection_service,
+        EncryptedPrivateFormReader(private_form_store, private_form_codec),
+        source_contract_revision_service,
+        source_connection_check_service,
+        source_operation_curation_service,
+        source_routed_execution_service,
+    )
     return bind_app(
         app,
         FeatureBindings(
@@ -62,6 +113,13 @@ def bind_corpus_app(
                 **lounge.handlers,
                 **workspace.handlers,
                 **agents.handlers,
+                **designer.handlers,
+                **builder.handlers,
+                **sandbox.handlers,
+                **evaluation.handlers,
+                **channels.handlers,
+                **deployments.handlers,
+                **operations.handlers,
                 **sources.handlers,
             },
             providers={
@@ -70,11 +128,25 @@ def bind_corpus_app(
                 ),
                 **workspace.providers,
                 **agents.providers,
+                **designer.providers,
+                **builder.providers,
+                **sandbox.providers,
+                **evaluation.providers,
+                **channels.providers,
+                **deployments.providers,
+                **operations.providers,
                 **sources.providers,
             },
             guards={
                 **workspace.guards,
                 **agents.guards,
+                **designer.guards,
+                **builder.guards,
+                **sandbox.guards,
+                **evaluation.guards,
+                **channels.guards,
+                **deployments.guards,
+                **operations.guards,
                 **sources.guards,
             },
         ),

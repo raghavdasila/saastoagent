@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 from pathlib import Path
 
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 
 from corpus.app.config import RouteDeckHostSettings
+from corpus.app.infrastructure import SharedInfrastructureSettings
+from corpus.credentials import CredentialVaultSettings
+from corpus.jobs import DurableJobSettings
 from corpus.auth.config import AuthSettings
 from corpus.persistence.migrations import upgrade_database
 from corpus.persistence import CorpusDatabaseSettings
@@ -39,7 +43,7 @@ def test_live_http_app_serves_a_bearer_selected_conversation(
         ),
         database=CorpusDatabaseSettings(
             url=database_url,
-            migration_revision="0002_agents",
+            migration_revision="0012_builder_navgraph",
         ),
         auth=AuthSettings(
             reset_secret="r" * 40,
@@ -47,6 +51,12 @@ def test_live_http_app_serves_a_bearer_selected_conversation(
             public_frontend_url="http://127.0.0.1:5199",
         ),
         sources=SourceSettings(data_root=tmp_path / "sources"),
+        infrastructure=SharedInfrastructureSettings(
+            jobs=DurableJobSettings(sqlite_path=tmp_path / "jobs.sqlite3"),
+            credentials=CredentialVaultSettings(
+                encoded_key=base64.urlsafe_b64encode(b"k" * 32).decode("ascii")
+            ),
+        ),
         ollama_base_url="http://127.0.0.1:11434",
         ollama_model="gemma4:latest",
     )

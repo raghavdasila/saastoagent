@@ -13,6 +13,8 @@ from typing import Any, Awaitable, Callable
 from urllib.parse import urlparse
 from uuid import uuid4
 
+from .evidence_index import update_latest_evidence
+
 from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
 from .mailbox import MailTmMailbox
@@ -505,16 +507,12 @@ def _update_latest(
     artifact_path: Path,
 ) -> None:
     latest_path = repository / ".runtime" / "evaluations" / "latest.json"
-    latest = json.loads(latest_path.read_text(encoding="utf-8")) if latest_path.exists() else {"schema": "corpus.self-evaluation.latest.v1", "evaluations": {}}
-    for result in artifact["results"]:
-        latest["evaluations"][result["evaluationId"]] = {
-            "status": result["status"],
-            "runId": artifact["runId"],
-            "completedAt": artifact["completedAt"],
-            "definitionSha256": result["definitionSha256"],
-            "artifact": str(artifact_path.relative_to(repository)),
-        }
-    latest_path.write_text(json.dumps(latest, indent=2) + "\n", encoding="utf-8")
+    update_latest_evidence(
+        repository=repository,
+        latest_path=latest_path,
+        artifact=artifact,
+        artifact_path=artifact_path,
+    )
 
 
 def _sqlite_path(database_url: str) -> Path:

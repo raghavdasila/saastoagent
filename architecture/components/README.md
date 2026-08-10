@@ -6,6 +6,9 @@ and known risks.
 
 Current component:
 
+- `corpus-shared-infrastructure.md` - Corpus-owned durable job, lifecycle,
+  encrypted credential, persistence, configuration, and dependency boundary.
+
 - `corpus-routedeck-boundary.md` — ownership boundary between Corpus product
   behavior and RouteDeck interaction state.
 

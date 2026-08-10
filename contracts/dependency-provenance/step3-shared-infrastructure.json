@@ -1,0 +1,28 @@
+{
+  "recorded_at": "2026-08-07",
+  "runtime": "Windows Python 3.11",
+  "artifact_root": ".runtime/reference-workflows/step3-dependencies",
+  "dependencies": [
+    {
+      "name": "huey",
+      "version": "3.2.1",
+      "license": "MIT",
+      "source": "https://github.com/coleifer/huey",
+      "package": "https://pypi.org/project/huey/3.2.1/",
+      "wheel": "huey-3.2.1-py3-none-any.whl",
+      "sha256": "da9e004b80941a718f33f9714697a67e6d5cf12e0707fc4f3dbb5d9c796e7224",
+      "reference_result": "passed_immediate_task_and_sqlite_storage_queue_round_trips"
+    },
+    {
+      "name": "PyNaCl",
+      "version": "1.6.2",
+      "license": "Apache-2.0",
+      "source": "https://github.com/pyca/pynacl",
+      "package": "https://pypi.org/project/PyNaCl/1.6.2/",
+      "wheel": "pynacl-1.6.2-cp38-abi3-win_amd64.whl",
+      "sha256": "62985f233210dee6548c223301b6c25440852e13d59a8b81490203c3227c5ba0",
+      "reference_result": "passed_secretbox_round_trip_and_tamper_rejection"
+    }
+  ],
+  "imported_source_snapshots": []
+}

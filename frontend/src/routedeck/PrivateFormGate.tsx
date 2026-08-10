@@ -4,6 +4,7 @@ import {
 } from "@routedeck/react";
 import type { ReactNode } from "react";
 
+
 export function PrivateFormGate({
   formId,
   children,
@@ -21,7 +22,7 @@ export function PrivateFormGate({
             </section>
           ) : (
             <section className="workspace-auth" role="alert">
-              Corpus could not load this form. Try again.
+              Corpus could not load this protected form. Try again.
             </section>
           );
         }
@@ -35,7 +36,7 @@ export function PrivateFormGate({
 export function requireFormHandle(props: Readonly<Record<string, unknown>>): string {
   const value = props.form_handle;
   if (typeof value !== "string" || value.length === 0) {
-    throw new Error("The Lounge surface requires a projected private-form handle.");
+    throw new Error("This surface requires a projected private-form handle.");
   }
   return value;
 }

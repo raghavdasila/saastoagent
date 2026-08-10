@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from .evidence_index import update_latest_evidence
+
 import httpx
 from langchain_openai import ChatOpenAI
 from ollama import Client
@@ -596,19 +598,12 @@ class FeatureEvaluationRunner:
 
     def _update_latest(self, artifact: dict[str, Any], artifact_path: Path) -> None:
         latest_path = self.results_root / "latest.json"
-        latest = _load_json(latest_path) if latest_path.exists() else {"schema": "corpus.self-evaluation.latest.v1", "evaluations": {}}
-        for result in artifact["results"]:
-            latest["evaluations"][result["evaluationId"]] = {
-                "status": result["status"],
-                "runId": artifact["runId"],
-                "completedAt": artifact["completedAt"],
-                "designSha256": artifact["identities"]["designSha256"],
-                "artifact": str(artifact_path.relative_to(self.repository)).replace("\\", "/"),
-            }
-        temporary = latest_path.with_suffix(".tmp")
-        temporary.parent.mkdir(parents=True, exist_ok=True)
-        temporary.write_text(json.dumps(latest, indent=2) + "\n", encoding="utf-8")
-        temporary.replace(latest_path)
+        update_latest_evidence(
+            repository=self.repository,
+            latest_path=latest_path,
+            artifact=artifact,
+            artifact_path=artifact_path,
+        )
 
 
 def _deterministic_assertions(

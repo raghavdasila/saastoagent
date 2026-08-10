@@ -57,12 +57,13 @@ def create_sources_router(
         return source_response(result)
 
     @router.get("/{source_id}")
-    async def get_source(source_id: str, request: Request):
+    async def get_source(source_id: str, request: Request, revision_id: str | None = None):
         current_owner = await owner_key(request, auth_service, auth_settings)
         result = await call_source_service(
             service.get_source,
             owner_key=current_owner,
             source_id=source_id,
+            revision_id=revision_id,
         )
         return source_response(result)
 

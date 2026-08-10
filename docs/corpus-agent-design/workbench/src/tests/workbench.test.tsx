@@ -49,7 +49,7 @@ describe("RouteDeck Agent Design Studio", () => {
 
     await user.click(screen.getByRole("button", { name: "Feature rules" }))
     expect(screen.getByRole("heading", { name: "Feature rules" })).toBeInTheDocument()
-    expect(screen.getAllByLabelText(/^Lounge feature rule /)).toHaveLength(7)
+    expect(screen.getAllByLabelText(/^Lounge feature rule /)).toHaveLength(6)
     expect(screen.queryByRole("heading", { name: "Capabilities" })).not.toBeInTheDocument()
     expect(screen.queryByRole("heading", { name: "Operations" })).not.toBeInTheDocument()
 
@@ -119,9 +119,10 @@ describe("RouteDeck Agent Design Studio", () => {
     expect(featureNavigation.querySelectorAll("svg")).toHaveLength(0)
     expect(screen.getByRole("button", { name: "Lounge 8" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Workspace 6" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Agents 9" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Agents 11" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Agent Designer 6" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Source Hub 5" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "API Source 9" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "API Source 10" })).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: /^Ask Lounge for product help/ }))
     expect((screen.getByLabelText("Expected behavior") as HTMLTextAreaElement).value).toContain(
       "Corpus answers only about the product from current knowledge",
@@ -153,6 +154,20 @@ describe("RouteDeck Agent Design Studio", () => {
     expect(screen.getByText("Describe the user intent.")).toBeInTheDocument()
     expect(screen.getByText("Describe the outcome Corpus is responsible for.")).toBeInTheDocument()
     expect(screen.getByText("Describe the observable behavior and completion state.")).toBeInTheDocument()
+  })
+
+  it("never presents a saved invalid approval as valid", async () => {
+    const state = createSeedState()
+    state.features[0].stories[0].status = "approved"
+    state.features[0].stories[0].behaviorEvals = []
+    setDesignStateFile(JSON.stringify(state))
+
+    await renderWorkbench()
+
+    expect(screen.getAllByText("Approval invalid")).not.toHaveLength(0)
+    expect(screen.getByText(/saved approval has .* blocking issues/i)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Reopen draft" })).toBeEnabled()
+    expect(screen.queryByText(/^Approved$/)).not.toBeInTheDocument()
   })
 
   it("opens one focused Operation contract from the compact inventory", async () => {
@@ -310,10 +325,19 @@ describe("RouteDeck Agent Design Studio", () => {
     const agents = createSeedState().features.find((feature) => feature.id === "agents")!
     const serializedAgents = JSON.stringify(agents).toLowerCase()
 
-    expect(agents.stories).toHaveLength(9)
+    expect(agents.stories).toHaveLength(11)
     expect(agents.stories.map((item) => item.id)).toContain("agents-create")
     expect(serializedAgents).not.toContain("draft agent")
     expect(serializedAgents).not.toContain("agent draft")
+  })
+
+  it("keeps Lounge availability aligned with the implemented horizontal lifecycle", () => {
+    const lounge = createSeedState().features.find((feature) => feature.id === "lounge")!
+    const guidance = JSON.stringify(lounge)
+
+    expect(guidance).toContain("validated local product path connects and curates API Sources")
+    expect(guidance).toContain("validated in the current local build")
+    expect(guidance).not.toContain("remaining agent lifecycle is designed but is not yet operational anywhere")
   })
 
   it("persists slate dark mode as a browser-only preference", async () => {

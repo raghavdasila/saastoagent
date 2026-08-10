@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "sync-design-state": "node scripts/sync-design-state.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

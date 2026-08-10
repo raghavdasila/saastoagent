@@ -14,3 +14,9 @@ def test_runtime_prompt_defers_product_scope_to_active_agent_context() -> None:
     assert "does not\nprovide" in CORPUS_AGENT_PROMPT
     assert "experimental Sources/API path" not in CORPUS_AGENT_PROMPT
     assert "not currently available" not in CORPUS_AGENT_PROMPT
+
+
+def test_runtime_prompt_routes_ordinary_intent_without_manual_surface_handoff() -> None:
+    assert "safe navigation tools" in CORPUS_AGENT_PROMPT
+    assert "continue toward the requested outcome" in CORPUS_AGENT_PROMPT
+    assert "Do not ask the user to open a product surface" in CORPUS_AGENT_PROMPT

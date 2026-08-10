@@ -21,10 +21,14 @@ export function ReviewControls({ story, readiness, canDelete, onChange, onDelete
   const [isDeleting, setIsDeleting] = useState(false)
 
   if (story.status !== "draft") {
+    const invalidApproval = story.status === "approved" && !readiness.isReady
     return (
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold">{story.status === "approved" ? "Approved" : "Rejected"}</p>
+          <p className={invalidApproval ? "text-sm font-semibold text-[var(--studio-warning)]" : "text-sm font-semibold"}>
+            {invalidApproval ? "Approval invalid" : story.status === "approved" ? "Approved" : "Rejected"}
+          </p>
+          {invalidApproval && <p className="mt-1 text-xs text-[var(--studio-warning)]">This saved approval has {readiness.blockers.length} blocking {readiness.blockers.length === 1 ? "issue" : "issues"}. Reopen it before editing or approving again.</p>}
           {story.status === "rejected" && <p className="mt-1 text-sm text-muted-foreground">{story.rejectionReason}</p>}
         </div>
         <Button variant="ghost" onClick={() => onChange({ status: "draft", rejectionReason: "" }, true)}>

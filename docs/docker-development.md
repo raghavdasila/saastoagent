@@ -7,7 +7,7 @@ is [`local-runtime-runbook.md`](local-runtime-runbook.md).
 Use that runbook to run:
 
 - Ollama on the Windows host;
-- Corpus `backend` and `frontend` through Docker Compose; and
+- Corpus `backend`, durable `source-worker`, and `frontend` through Docker Compose; and
 - the correct RouteDeck Agent Design Studio workbench on port `8782`.
 
 The Compose `notebook` service on port `8771` is a stale legacy notebook. It is

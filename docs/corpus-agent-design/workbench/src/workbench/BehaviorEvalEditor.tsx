@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { EVAL_COVERAGE, getBehaviorEvalCaseIssues, getBehaviorEvalReadiness } from "@/workbench/evaluationReadiness"
 import { EvaluationStatus } from "@/workbench/EvaluationStatus"
 import { EvaluationActionPlanEditor } from "@/workbench/EvaluationActionPlanEditor"
-import type { BehaviorEvalCase, DesignStory, DeterministicExpectations } from "@/workbench/types"
+import type { BehaviorEvalCase, DesignFeature, DesignStory, DeterministicExpectations } from "@/workbench/types"
 
 function emptyExpectations(story: DesignStory): DeterministicExpectations {
   return {
@@ -47,15 +47,19 @@ function newCase(story: DesignStory): BehaviorEvalCase {
   }
 }
 
-export function BehaviorEvalEditor({ story, disabled, onChange }: {
+export function BehaviorEvalEditor({ feature, story, disabled, onChange }: {
+  feature: DesignFeature
   story: DesignStory
   disabled: boolean
   onChange: (patch: Partial<DesignStory>) => void
 }) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
-  const readiness = getBehaviorEvalReadiness(story)
+  const readiness = getBehaviorEvalReadiness(story, feature)
   const activeCase = activeIndex === null ? null : story.behaviorEvals[activeIndex]
   const covered = new Set(story.behaviorEvals.filter((item) => item.enabled).flatMap((item) => item.coverage))
+  const featureOperations = feature.stories.flatMap((item) => item.operations.map((operation) => operation.name))
+  const featureSurfaces = feature.stories.flatMap((item) => item.surfaces.map((surface) => surface.name))
+  const featureActions = feature.stories.flatMap((item) => item.suggestedActions.map((action) => ({ behavior: item.title, label: action.label })))
 
   function updateCase(index: number, patch: Partial<BehaviorEvalCase>) {
     onChange({ behaviorEvals: story.behaviorEvals.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item) })
@@ -87,13 +91,13 @@ export function BehaviorEvalEditor({ story, disabled, onChange }: {
         <div className="studio-eval-inventory" role="list" aria-label="Behavior evals">
           <div className="studio-eval-columns" aria-hidden="true"><span>Case</span><span>Coverage</span><span>Status</span><span>Result</span></div>
           {story.behaviorEvals.map((evalCase, index) => {
-            const issues = getBehaviorEvalCaseIssues(story, evalCase, index)
+            const issues = getBehaviorEvalCaseIssues(story, evalCase, index, feature)
             return (
               <button key={evalCase.id || index} id={`behavior-eval-${index}`} type="button" className="studio-eval-row" onClick={() => setActiveIndex(index)}>
                 <span className="studio-eval-name">{evalCase.title || `Eval case ${index + 1}`}<small>{evalCase.blocking ? "Blocking" : "Optional"}</small></span>
                 <span className="studio-eval-coverage">{evalCase.coverage.map((tag) => tag[0].toUpperCase() + tag.slice(1)).join(" · ") || "No coverage"}</span>
                 <span className={issues.length === 0 ? "studio-contract-ready" : "studio-contract-incomplete"}>{issues.length === 0 ? <CheckCircle2 /> : <CircleAlert />}{issues.length === 0 ? "Complete" : `${issues.length} issues`}</span>
-                <EvaluationStatus compact evaluationId={evalCase.id} />
+                <EvaluationStatus compact definition={evalCase} evaluationId={evalCase.id} />
               </button>
             )
           })}
@@ -113,25 +117,25 @@ export function BehaviorEvalEditor({ story, disabled, onChange }: {
             <div className="studio-toggle-row">
               <label><input type="checkbox" checked={activeCase.enabled} disabled={disabled} onChange={(event) => updateCase(activeIndex, { enabled: event.target.checked })} /> Enabled</label>
               <label><input type="checkbox" checked={activeCase.blocking} disabled={disabled} onChange={(event) => updateCase(activeIndex, { blocking: event.target.checked })} /> Blocks implementation readiness</label>
-              <EvaluationStatus compact evaluationId={activeCase.id} />
+              <EvaluationStatus compact definition={activeCase} evaluationId={activeCase.id} />
             </div>
             <fieldset><legend className="text-xs font-medium">Coverage</legend><div className="studio-association-list">{EVAL_COVERAGE.map((category) => { const active = activeCase.coverage.includes(category.id); return <button key={category.id} type="button" aria-pressed={active} disabled={disabled} onClick={() => updateCase(activeIndex, { coverage: active ? activeCase.coverage.filter((item) => item !== category.id) : [...activeCase.coverage, category.id] })}>{active && <Check />}{category.label}</button> })}</div></fieldset>
             <Field><FieldLabel htmlFor={`eval-input-${activeIndex}`}>User input</FieldLabel><Textarea id={`eval-input-${activeIndex}`} className="min-h-24" value={activeCase.input} disabled={disabled} onChange={(event) => updateCase(activeIndex, { input: event.target.value })} /></Field>
             <Field><FieldLabel htmlFor={`eval-reference-${activeIndex}`}>Reference response (optional)</FieldLabel><Textarea id={`eval-reference-${activeIndex}`} className="min-h-20" value={activeCase.referenceResponse} disabled={disabled} onChange={(event) => updateCase(activeIndex, { referenceResponse: event.target.value })} /><FieldDescription>Semantic direction for the judge. Wording is never matched exactly.</FieldDescription></Field>
             <StringList title="Required meaning" values={activeCase.requiredCriteria} disabled={disabled} onChange={(requiredCriteria) => updateCase(activeIndex, { requiredCriteria })} />
             <StringList title="Forbidden meaning" values={activeCase.forbiddenCriteria} disabled={disabled} onChange={(forbiddenCriteria) => updateCase(activeIndex, { forbiddenCriteria })} />
-            <EvaluationActionPlanEditor plan={activeCase.actionPlan} actionOptions={story.suggestedActions.map((item) => ({ behavior: story.title, label: item.label }))} surfaceOptions={story.surfaces.map((item) => item.name)} allowAdaptiveMessages={false} disabled={disabled} onChange={(actionPlan) => updateCase(activeIndex, { actionPlan })} />
+            <EvaluationActionPlanEditor plan={activeCase.actionPlan} actionOptions={featureActions} surfaceOptions={featureSurfaces} allowAdaptiveMessages={false} disabled={disabled} onChange={(actionPlan) => updateCase(activeIndex, { actionPlan })} />
             <div className="studio-eval-subsection"><h3>Runtime facts</h3><p>Product-semantic expectations only. The external runner resolves these through the implementation manifest.</p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field><FieldLabel htmlFor={`eval-start-${activeIndex}`}>Starting behavior</FieldLabel><Input id={`eval-start-${activeIndex}`} value={activeCase.expectations.startingBehavior} disabled={disabled} onChange={(event) => updateCase(activeIndex, { expectations: { ...activeCase.expectations, startingBehavior: event.target.value } })} /></Field>
                 <Field><FieldLabel htmlFor={`eval-final-${activeIndex}`}>Final behavior</FieldLabel><Input id={`eval-final-${activeIndex}`} value={activeCase.expectations.finalBehavior} disabled={disabled} onChange={(event) => updateCase(activeIndex, { expectations: { ...activeCase.expectations, finalBehavior: event.target.value } })} /></Field>
               </div>
               <Field><FieldLabel htmlFor={`eval-auth-${activeIndex}`}>Authentication state</FieldLabel><select id={`eval-auth-${activeIndex}`} className="studio-select" value={activeCase.expectations.authentication} disabled={disabled} onChange={(event) => updateCase(activeIndex, { expectations: { ...activeCase.expectations, authentication: event.target.value as DeterministicExpectations["authentication"] } })}><option value="unchanged">Unchanged</option><option value="public">Public</option><option value="authenticated">Authenticated</option></select></Field>
-              <EvaluationAssociation title="Required Operations" options={story.operations.map((item) => item.name)} selected={activeCase.expectations.requiredOperations} disabled={disabled} onChange={(requiredOperations) => updateCase(activeIndex, { expectations: { ...activeCase.expectations, requiredOperations } })} />
-              <EvaluationAssociation title="Allowed Operations" options={story.operations.map((item) => item.name)} selected={activeCase.expectations.allowedOperations} disabled={disabled} onChange={(allowedOperations) => updateCase(activeIndex, { expectations: { ...activeCase.expectations, allowedOperations } })} />
-              <EvaluationAssociation title="Forbidden Operations" options={story.operations.map((item) => item.name)} selected={activeCase.expectations.forbiddenOperations} disabled={disabled} onChange={(forbiddenOperations) => updateCase(activeIndex, { expectations: { ...activeCase.expectations, forbiddenOperations } })} />
-              <EvaluationAssociation title="Required Surfaces" options={story.surfaces.map((item) => item.name)} selected={activeCase.expectations.requiredSurfaces} disabled={disabled} onChange={(requiredSurfaces) => updateCase(activeIndex, { expectations: { ...activeCase.expectations, requiredSurfaces } })} />
-              <EvaluationAssociation title="Required SuggestedActions" options={story.suggestedActions.map((item) => item.label)} selected={activeCase.expectations.requiredSuggestedActions} disabled={disabled} onChange={(requiredSuggestedActions) => updateCase(activeIndex, { expectations: { ...activeCase.expectations, requiredSuggestedActions } })} />
+              <EvaluationAssociation title="Required Operations" options={featureOperations} selected={activeCase.expectations.requiredOperations} disabled={disabled} onChange={(requiredOperations) => updateCase(activeIndex, { expectations: { ...activeCase.expectations, requiredOperations } })} />
+              <EvaluationAssociation title="Allowed Operations" options={featureOperations} selected={activeCase.expectations.allowedOperations} disabled={disabled} onChange={(allowedOperations) => updateCase(activeIndex, { expectations: { ...activeCase.expectations, allowedOperations } })} />
+              <EvaluationAssociation title="Forbidden Operations" options={featureOperations} selected={activeCase.expectations.forbiddenOperations} disabled={disabled} onChange={(forbiddenOperations) => updateCase(activeIndex, { expectations: { ...activeCase.expectations, forbiddenOperations } })} />
+              <EvaluationAssociation title="Required Surfaces" options={featureSurfaces} selected={activeCase.expectations.requiredSurfaces} disabled={disabled} onChange={(requiredSurfaces) => updateCase(activeIndex, { expectations: { ...activeCase.expectations, requiredSurfaces } })} />
+              <EvaluationAssociation title="Required SuggestedActions" options={featureActions.map((item) => item.label)} selected={activeCase.expectations.requiredSuggestedActions} disabled={disabled} onChange={(requiredSuggestedActions) => updateCase(activeIndex, { expectations: { ...activeCase.expectations, requiredSuggestedActions } })} />
               <StringList title="Forbidden runtime outcomes" values={activeCase.expectations.forbiddenOutcomes} disabled={disabled} onChange={(forbiddenOutcomes) => updateCase(activeIndex, { expectations: { ...activeCase.expectations, forbiddenOutcomes } })} />
             </div>
           </div>

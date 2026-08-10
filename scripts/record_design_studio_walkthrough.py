@@ -67,52 +67,112 @@ async def main() -> None:
                 await page.get_by_role(
                     "heading", name="RouteDeck Agent Design Studio"
                 ).wait_for(timeout=30_000)
+                await page.get_by_role("status", name="Saved").wait_for(timeout=30_000)
                 await _capture(page, repository, directory, screenshots, "01-studio-overview")
                 _record(
                     assertions,
                     "the repository-owned Studio state loads without the invalid-state alert",
                     await page.get_by_text("The saved studio data is invalid.").count() == 0
-                    and await page.get_by_text("Saved", exact=True).is_visible(),
+                    and await page.get_by_role("status", name="Saved").is_visible(),
                     {"url": page.url},
                 )
 
                 await page.get_by_role("button", name="Agents 9", exact=True).click()
-                await page.get_by_role("button", name="View agents · 10 blocking issues").wait_for()
+                await page.get_by_role("button", name="View agents · approved").wait_for()
                 await _capture(page, repository, directory, screenshots, "02-studio-agents-boundary")
                 _record(
                     assertions,
-                    "the Agents feature exposes nine product behaviors in the Studio",
-                    await page.get_by_text("Agents · 9 behaviors", exact=True).is_visible(),
-                    {"feature": "Agents", "behaviorCount": 9},
+                    "the four implemented Agents behaviors are approved without readiness blockers",
+                    all(
+                        [
+                            await page.get_by_role(
+                                "button", name=f"{title} · approved", exact=True
+                            ).is_visible()
+                            for title in (
+                                "View agents",
+                                "Create an agent",
+                                "Inspect an agent",
+                                "Edit an agent",
+                            )
+                        ]
+                    ),
+                    {
+                        "feature": "Agents",
+                        "approvedBehaviors": [
+                            "View agents",
+                            "Create an agent",
+                            "Inspect an agent",
+                            "Edit an agent",
+                        ],
+                    },
                 )
 
                 await page.get_by_role(
-                    "button", name="Create an agent · 10 blocking issues", exact=True
+                    "button", name="Create an agent · approved", exact=True
                 ).click()
                 await page.get_by_role("heading", name="Create an agent", exact=True).first.wait_for()
                 await _capture(page, repository, directory, screenshots, "03-studio-create-agent")
+                _record(
+                    assertions,
+                    "approved Agent creation displays complete product-semantic evaluation coverage",
+                    await page.get_by_text("Coverage complete", exact=True).is_visible()
+                    and await page.get_by_text("Approved", exact=True).last.is_visible(),
+                    {"behavior": "Create an agent"},
+                )
+
+                await page.get_by_role("button", name="Agent Designer 1", exact=True).click()
+                await page.get_by_role(
+                    "heading", name="Resolve deployed-agent clarification", exact=True
+                ).first.wait_for()
+                await _capture(page, repository, directory, screenshots, "04-studio-clarification-contract")
+                _record(
+                    assertions,
+                    "clarification is an explicit design-only contract and not a runtime claim",
+                    await page.get_by_text(
+                        "This design is not yet a runtime availability claim.", exact=False
+                    ).is_visible()
+                    and await page.get_by_role(
+                        "button", name="Approve behavior", exact=True
+                    ).is_enabled(),
+                    {"feature": "Agent Designer", "status": "draft", "readiness": "ready"},
+                )
 
                 eval_region = page.get_by_role("region", name="Evals")
                 await eval_region.scroll_into_view_if_needed()
                 await page.wait_for_timeout(500)
-                await _capture(page, repository, directory, screenshots, "04-studio-state-evaluator")
-                state_case = page.get_by_role(
-                    "button",
-                    name="Create persists one Agent and configuration version 1 Blocking Normal · State 6 issues Stale",
-                    exact=True,
+                await _capture(page, repository, directory, screenshots, "05-studio-clarification-evals")
+                _record(
+                    assertions,
+                    "clarification has six complete product-semantic evaluation definitions",
+                    await page.get_by_text("6 cases · design definitions only", exact=True).is_visible()
+                    and await page.get_by_text("Complete", exact=True).count() == 6,
+                    {
+                        "feature": "Agent Designer",
+                        "behavior": "Resolve deployed-agent clarification",
+                        "caseCount": 6,
+                    },
+                )
+
+                await page.set_viewport_size({"width": 390, "height": 844})
+                await page.get_by_role(
+                    "heading", name="Resolve deployed-agent clarification", exact=True
+                ).first.scroll_into_view_if_needed()
+                await page.wait_for_timeout(500)
+                await _capture(
+                    page,
+                    repository,
+                    directory,
+                    screenshots,
+                    "06-studio-clarification-mobile-390x844",
                 )
                 _record(
                     assertions,
-                    "the implemented create behavior has an explicit Normal and State evaluator definition",
-                    await state_case.is_visible(),
-                    {
-                        "case": "Create persists one Agent and configuration version 1",
-                        "coverage": ["normal", "state"],
-                    },
+                    "the clarification design remains usable at the representative mobile viewport",
+                    await page.get_by_role(
+                        "heading", name="Resolve deployed-agent clarification", exact=True
+                    ).first.is_visible(),
+                    {"viewport": {"width": 390, "height": 844}},
                 )
-                await state_case.click()
-                await page.wait_for_timeout(400)
-                await _capture(page, repository, directory, screenshots, "05-studio-state-eval-case")
             except Exception as caught:
                 error = f"{type(caught).__name__}: {caught}"
             finally:
@@ -137,7 +197,7 @@ async def main() -> None:
     passed = (
         error is None
         and not blocking_diagnostics
-        and len(assertions) == 3
+        and len(assertions) == 6
         and all(bool(item["passed"]) for item in assertions)
     )
     artifact = {

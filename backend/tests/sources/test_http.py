@@ -6,6 +6,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 from uuid import UUID
+import uuid
+from datetime import UTC, datetime
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -19,18 +21,29 @@ from corpus.auth.config import AuthSettings
 from corpus.auth.service import SessionUnavailable
 from corpus.features.sources import LocalSourceRepository, SourceService
 from corpus.features.sources.connectors.api import (
+    ApiGraphPresenter,
     ApiSourceConnector,
 )
 from corpus.features.sources.connectors.api.toolrouter import (
     ToolRouterApiSourceEngine,
 )
+from corpus.features.sources.connectors.api.connections import (
+    ApiConnectionProfileRepository,
+)
+from corpus.features.sources.connectors.api.contract_revisions import (
+    ApiContractRevisionService,
+)
 from corpus.features.sources.connectors.api.http import create_api_source_router
+from corpus.features.sources.connectors.api.operation_curation import (
+    ApiOperationCurationService,
+)
 from corpus.features.sources.http import (
     SourceHttpProblem,
     create_sources_router,
     source_problem_response,
 )
 from corpus.integrations.toolrouter import ToolRouterAdapter, ToolRouterSettings
+from corpus.jobs import DurableJobRecord, DurableJobState
 
 
 class OwnerResolver:
@@ -43,7 +56,26 @@ class OwnerResolver:
             user_id = owners[auth_token]
         except KeyError as error:
             raise SessionUnavailable from error
-        return SimpleNamespace(user_id=user_id)
+        return SimpleNamespace(user_id=user_id, organization_id=user_id)
+
+
+class RecordingJobs:
+    async def enqueue(self, **kwargs):
+        now = datetime.now(UTC)
+        return DurableJobRecord(
+            id=uuid.uuid4(), owner_id=kwargs["owner_id"],
+            job_type=kwargs["job_type"], state=DurableJobState.QUEUED,
+            payload=kwargs["payload"], attempt_count=0,
+            max_attempts=kwargs["max_attempts"], error_code=None,
+            error_message=None, result=None, created_at=now, updated_at=now,
+            started_at=None, completed_at=None,
+        )
+
+    async def status(self, **kwargs):
+        raise NotImplementedError
+
+    async def retry(self, **kwargs):
+        raise NotImplementedError
 
 
 def _candidate_id(payload: dict[str, Any]) -> str:
@@ -138,6 +170,7 @@ def test_owner_authenticated_sources_http_path_uploads_retrieves_and_generates(
                 max_upload_bytes=20 * 1024 * 1024,
             ),
         ),
+        jobs=RecordingJobs(),
     )
     settings = _auth_settings()
     app = FastAPI()
@@ -161,6 +194,12 @@ def test_owner_authenticated_sources_http_path_uploads_retrieves_and_generates(
                 trusted_origins=frozenset({"http://127.0.0.1:5199"})
             ),
             max_upload_bytes=20 * 1024 * 1024,
+            graph_presenter=ApiGraphPresenter(service.repository),
+            connection_profiles=ApiConnectionProfileRepository(service.repository),
+                contract_revision_service=ApiContractRevisionService(service.repository),
+                connection_check_service=object(),  # endpoint is covered by the Phase C HTTP tests
+                operation_curation_service=ApiOperationCurationService(service.repository),
+                route_plan_service=object(),
         )
     )
     source_file = write_openapi_fixture(tmp_path / "widgets.json")
@@ -176,46 +215,33 @@ def test_owner_authenticated_sources_http_path_uploads_retrieves_and_generates(
                     "widgets.json",
                     source_file.read_bytes(),
                     "application/json",
-                )
+                ),
+                "description": (
+                    "widgets.md",
+                    b"# Widget API\nOwner supplied notes.",
+                    "text/markdown",
+                ),
             },
         )
         assert uploaded.status_code == 201, uploaded.text
         source_id = uploaded.json()["source_id"]
         assert uploaded.json()["connector_key"] == "api"
-        assert uploaded.json()["revision"]["state"] == "ready"
+        assert uploaded.json()["revision"]["state"] == "queued"
+        assert uploaded.json()["revision"]["job_id"]
+        assert uploaded.json()["revision"]["description_filename"] == "widgets.md"
 
         listed = client.get("/api/sources")
         assert listed.status_code == 200
         assert [item["source_id"] for item in listed.json()] == [source_id]
-
-        retrieved = client.post(
-            f"/api/sources/{source_id}/retrieve",
-            headers={"Origin": "http://127.0.0.1:5199"},
-            json={"query": "list widgets", "top_k": 3, "trace_mode": "bounded"},
-        )
-        assert retrieved.status_code == 200, retrieved.text
-        assert retrieved.json()["steps"][0]["ranked_items"][0][
-            "item_id"
-        ].endswith("listWidgets")
-
-        evalset = client.post(
-            f"/api/sources/{source_id}/evalsets",
-            headers={"Origin": "http://127.0.0.1:5199"},
-            json={
-                "evalset_id": "paraphrase-smoke",
-                "categories": ["paraphrase"],
-                "tasks_per_category": 1,
-                "max_generation_attempts": 1,
-                "max_review_attempts": 1,
-            },
-        )
-        assert evalset.status_code == 200, evalset.text
-        assert evalset.json()["status"] == "ready", evalset.text
-        assert evalset.json()["accepted_count"] == 1
+        proposals = client.get(f"/api/sources/{source_id}/contract-revisions")
+        assert proposals.status_code == 200
+        assert proposals.json() == []
 
         client.headers.update({"Authorization": "Bearer owner-b"})
         hidden = client.get(f"/api/sources/{source_id}")
         assert hidden.status_code == 404
+        hidden_proposals = client.get(f"/api/sources/{source_id}/contract-revisions")
+        assert hidden_proposals.status_code == 404
 
         rejected = client.post(
             "/api/sources/api",

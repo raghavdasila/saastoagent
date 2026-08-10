@@ -39,6 +39,7 @@ export class ConversationLifecycle {
     private readonly browser: Window,
     private readonly authorized: AuthorizedTransport,
     private readonly conversations: ConversationMutations,
+    private readonly onConversationMounted: (conversationId: string) => void = () => undefined,
   ) {}
 
   async mount(
@@ -65,25 +66,30 @@ export class ConversationLifecycle {
       await settleConversationRun(chatClient, summary.active_run.request_id);
     }
     const routeDeck = await loadRouteDeck(this.browser, routeDeckClient);
-    const mustLoadCanonicalPath =
-      handoff || historyNeedsReconciliation(this.browser, summary.id);
-    if (mustLoadCanonicalPath) {
-      const projection = await routeDeck.client.getSession();
-      const canonicalPath = projectionPath(routeDeck.routes, projection);
-      if (handoff) {
-        commitConversationHandoff(
-          this.browser,
-          summary,
-          handoffPath ?? canonicalPath,
-        );
-      } else {
-        reconcileConversationHistory(this.browser, summary.id, canonicalPath);
-      }
-    } else {
-      reconcileConversationHistory(this.browser, summary.id, "");
-    }
     try {
+      const mustLoadCanonicalPath =
+        handoff || historyNeedsReconciliation(this.browser, summary.id);
+      const canonicalPath = mustLoadCanonicalPath
+        ? projectionPath(
+            routeDeck.contract,
+            await routeDeck.client.getSession(),
+          )
+        : null;
       const initialConversation = await chatClient.loadConversation();
+      if (canonicalPath !== null) {
+        if (handoff) {
+          commitConversationHandoff(
+            this.browser,
+            summary,
+            handoffPath ?? canonicalPath,
+          );
+        } else {
+          reconcileConversationHistory(this.browser, summary.id, canonicalPath);
+        }
+      } else {
+        reconcileConversationHistory(this.browser, summary.id, "");
+      }
+      this.onConversationMounted(summary.id);
       return Object.freeze({ summary, routeDeck, chatClient, initialConversation });
     } catch (error) {
       routeDeck.privateForms.dispose();

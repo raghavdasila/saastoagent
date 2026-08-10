@@ -187,6 +187,13 @@ button, input, textarea { font: inherit; }
 [data-agent-composer] > textarea { min-height: 42px; max-height: 132px; flex: 1; resize: none; border: 0; background: transparent; box-shadow: none; }
 [data-agent-composer] > textarea:focus-visible { border: 0; box-shadow: none; }
 [data-agent-composer] > div { display: flex; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+[data-chat-source-upload] { grid-column: 1 / -1; display: grid; min-width: 0; grid-template-columns: 16px auto minmax(0, 1fr); align-items: center; gap: 7px; width: fit-content; max-width: 100%; padding: 6px 9px; border: 1px solid var(--border); border-radius: 9px; color: var(--foreground); background: var(--muted); cursor: pointer; font-size: 12px; }
+[data-chat-source-upload]:hover { border-color: var(--ring); background: color-mix(in oklch, var(--muted) 75%, var(--background)); }
+[data-chat-source-upload]:focus-within { outline: 2px solid var(--ring); outline-offset: 2px; }
+[data-chat-source-upload] > svg { width: 15px; height: 15px; }
+[data-chat-source-upload] > input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; }
+[data-chat-source-upload] > span { min-width: 0; overflow: hidden; color: var(--muted-foreground); text-overflow: ellipsis; white-space: nowrap; }
+[data-agent-composer] > [role="status"] { grid-column: 1 / -1; width: 100%; margin: 0; color: var(--muted-foreground); font-size: 12px; }
 [data-agent-composer] > [data-composer-disabled-reason] { grid-column: 1 / -1; margin: 0 4px 2px; color: var(--muted-foreground); font-size: 12px; line-height: 1.4; }
 [data-agent-composer] > [role="alert"] { grid-column: 1 / -1; width: 100%; margin: 0; color: var(--destructive); font-size: 12px; }
 

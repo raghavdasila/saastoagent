@@ -39,6 +39,14 @@ class Agent(Base):
         back_populates="agent",
         cascade="all, delete-orphan",
     )
+    source_attachments: Mapped[list[AgentSourceAttachment]] = relationship(
+        back_populates="agent",
+        passive_deletes=True,
+    )
+    build_lineages: Mapped[list[AgentBuildLineage]] = relationship(
+        back_populates="agent",
+        passive_deletes=True,
+    )
 
 
 class AgentVersion(Base):
@@ -61,4 +69,69 @@ class AgentVersion(Base):
     agent: Mapped[Agent] = relationship(back_populates="versions")
 
 
-__all__ = ["Agent", "AgentVersion"]
+class AgentSourceAttachment(Base):
+    __tablename__ = "agent_source_attachments"
+    __table_args__ = (
+        UniqueConstraint("agent_id", "source_id", name="uq_agent_source_attachment"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    agent_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("agents.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_id: Mapped[str] = mapped_column(String(16), nullable=False)
+    source_revision_id: Mapped[str] = mapped_column(String(16), nullable=False)
+    attached_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    agent: Mapped[Agent] = relationship(back_populates="source_attachments")
+
+
+class AgentBuildLineage(Base):
+    __tablename__ = "agent_build_lineages"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "build_id", name="uq_agent_build_lineage_build"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    agent_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("agents.id", ondelete="RESTRICT"), nullable=False
+    )
+    build_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    agent_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    agent: Mapped[Agent] = relationship(back_populates="build_lineages")
+    source_references: Mapped[list[AgentBuildSourceReference]] = relationship(
+        back_populates="lineage",
+        cascade="all, delete-orphan",
+    )
+
+
+class AgentBuildSourceReference(Base):
+    __tablename__ = "agent_build_source_references"
+    __table_args__ = (
+        UniqueConstraint("build_lineage_id", "source_id", name="uq_agent_build_source_reference"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    build_lineage_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("agent_build_lineages.id", ondelete="CASCADE"), nullable=False
+    )
+    source_id: Mapped[str] = mapped_column(String(16), nullable=False)
+    source_revision_id: Mapped[str] = mapped_column(String(16), nullable=False)
+    lineage: Mapped[AgentBuildLineage] = relationship(back_populates="source_references")
+
+
+__all__ = [
+    "Agent",
+    "AgentBuildLineage",
+    "AgentBuildSourceReference",
+    "AgentSourceAttachment",
+    "AgentVersion",
+]

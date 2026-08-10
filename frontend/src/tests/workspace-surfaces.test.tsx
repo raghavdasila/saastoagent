@@ -57,17 +57,32 @@ const FORM_HANDLES: Readonly<Record<string, string>> = Object.freeze({
 });
 
 
-it("registers Lounge, Workspace, Agents, and Sources surfaces", () => {
+it("registers the complete Corpus lifecycle surface set", () => {
   expect(Object.keys(surfaceRegistry()).sort()).toEqual([
     "agents.create",
     "agents.home",
+    "agents.lifecycle_review",
+    "builder.home",
+    "channels.availability_review",
+    "channels.home",
+    "deployment.deploy_review",
+    "deployment.rollback_review",
+    "designer.home",
+    "designer.review",
+    "evaluation.home",
     "lounge.forgot_password",
     "lounge.home",
     "lounge.register",
     "lounge.reset_password",
     "lounge.sign_in",
     "lounge.verify_email",
-    "sources.debug",
+    "operations.home",
+    "sandbox.home",
+    "sources.api_operation_test",
+    "sources.contract_revision_proposal",
+    "sources.contract_revision_review",
+    "sources.home",
+    "sources.routed_api_write_review",
     "workspace.home",
   ]);
 });

@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-08-07",
+  "source_repository": "D:\\Dev\\AI Projects\\api-execution-runtime",
+  "source_package": "api-execution-runtime",
+  "source_package_version": "0.1.0",
+  "snapshot_authorization": "Internal source snapshot. Owner-authorized for use within Corpus. Source: local sibling api-execution-runtime 0.1.0. No public redistribution license has been established for this snapshot; do not publish or redistribute it until licensing is resolved or it is replaced by an independently licensed implementation. httpx 0.28.1 and openapi-core 0.23.1 remain BSD-3-Clause dependencies under their own licenses.",
+  "corpus_initializer": "_snapshot/__init__.py is Corpus-owned and is not copied from the sibling.",
+  "excluded": [
+    "api_execution_runtime/__init__.py",
+    "api_execution_runtime/adapters.py",
+    "api_execution_runtime/codec.py",
+    "api_execution_runtime/contract_store.py",
+    "api_execution_runtime/jobs.py",
+    "api_execution_runtime/worker.py",
+    "demo",
+    "scripts"
+  ],
+  "files": [
+    {
+      "source_path": "src/api_execution_runtime/contracts.py",
+      "source_sha256": "109619f1f77a15c1db4a907f65919f08778456135c8217666315f7e657c19328",
+      "vendored_path": "contracts.py",
+      "vendored_sha256": "109619f1f77a15c1db4a907f65919f08778456135c8217666315f7e657c19328"
+    },
+    {
+      "source_path": "src/api_execution_runtime/errors.py",
+      "source_sha256": "ab39e651e08490f4162bd9762b9df85b0c869e4187b3dae11a91dfec0064cd34",
+      "vendored_path": "errors.py",
+      "vendored_sha256": "ab39e651e08490f4162bd9762b9df85b0c869e4187b3dae11a91dfec0064cd34"
+    },
+    {
+      "source_path": "src/api_execution_runtime/ports.py",
+      "source_sha256": "7716247c03aea2910fd72a8998af20325f7e56caa7073512bca7ad9f01c45b50",
+      "vendored_path": "ports.py",
+      "vendored_sha256": "7716247c03aea2910fd72a8998af20325f7e56caa7073512bca7ad9f01c45b50"
+    },
+    {
+      "source_path": "src/api_execution_runtime/compiler.py",
+      "source_sha256": "969a9b02b74d227ae5cab2df426b33ff0b4e3dc966d95492fada82e82ec587f3",
+      "vendored_path": "compiler.py",
+      "vendored_sha256": "969a9b02b74d227ae5cab2df426b33ff0b4e3dc966d95492fada82e82ec587f3"
+    },
+    {
+      "source_path": "src/api_execution_runtime/plugins.py",
+      "source_sha256": "40bd799130ee6b28241ff7ea39ec8690d7581a4a5baeae286e0763a4a2584199",
+      "vendored_path": "plugins.py",
+      "vendored_sha256": "40bd799130ee6b28241ff7ea39ec8690d7581a4a5baeae286e0763a4a2584199"
+    },
+    {
+      "source_path": "src/api_execution_runtime/security.py",
+      "source_sha256": "8bccdb4608f538343996e4b95504cdc22ff82fb7ea0fb6f4700fe0109432a852",
+      "vendored_path": "security.py",
+      "vendored_sha256": "8bccdb4608f538343996e4b95504cdc22ff82fb7ea0fb6f4700fe0109432a852"
+    },
+    {
+      "source_path": "src/api_execution_runtime/validation.py",
+      "source_sha256": "5aae3c98d5d2c93d83710e5ca52d6d677c78449e3cc770e657dcff5f71bb631d",
+      "vendored_path": "validation.py",
+      "vendored_sha256": "5aae3c98d5d2c93d83710e5ca52d6d677c78449e3cc770e657dcff5f71bb631d"
+    },
+    {
+      "source_path": "src/api_execution_runtime/runtime.py",
+      "source_sha256": "00637c90cd679926808284a9341b28bbcf20e656d05c425dc90b403c7ef9d3c8",
+      "vendored_path": "runtime.py",
+      "vendored_sha256": "00637c90cd679926808284a9341b28bbcf20e656d05c425dc90b403c7ef9d3c8"
+    },
+    {
+      "source_path": "src/api_execution_runtime/contract_revision.py",
+      "source_sha256": "36441a3d5758d5acff8538a395b97607b31d94c64a69725006b44d65f478c9a2",
+      "vendored_path": "contract_revision.py",
+      "vendored_sha256": "36441a3d5758d5acff8538a395b97607b31d94c64a69725006b44d65f478c9a2"
+    }
+  ]
+}
+

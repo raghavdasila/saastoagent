@@ -86,7 +86,7 @@ export function SourceDebugSurface({
     setBusy("upload");
     setError(null);
     try {
-      const created = await sourceClient.uploadApi(sourceName.trim(), sourceFile);
+      const created = await sourceClient.uploadApi(sourceName.trim(), sourceFile, null);
       setSources((current) => [...current, created]);
       setSelectedId(created.source_id);
       setSourceName("");

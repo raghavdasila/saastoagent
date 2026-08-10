@@ -1,6 +1,16 @@
 *
 !saastoagent-v0.1/
 !routedeck/
+!agent-execution-runtime/
+!agent-delivery-runtime/
+
+agent-execution-runtime/*
+!agent-execution-runtime/pyproject.toml
+!agent-execution-runtime/src/
+
+agent-delivery-runtime/*
+!agent-delivery-runtime/pyproject.toml
+!agent-delivery-runtime/src/
 
 saastoagent-v0.1/*
 !saastoagent-v0.1/backend/

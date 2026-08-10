@@ -38,6 +38,24 @@ class FailureGroup:
     title: str
 
 
+@dataclass(frozen=True)
+class OperationMapping:
+    """One Studio operation mapped to one legacy ID or safety-selected IDs."""
+
+    action_id: str
+    variants: Mapping[str, str]
+    selector: str | None = None
+    suggested_action_id: str | None = None
+
+    @property
+    def compiled_ids(self) -> tuple[str, ...]:
+        return tuple(dict.fromkeys((self.action_id, *self.variants.values())))
+
+    @property
+    def is_variant(self) -> bool:
+        return self.selector is not None
+
+
 FAILURE_GROUPS = (
     FailureGroup("feature_coverage", "Feature manifest coverage"),
     FailureGroup("behavior_node", "Behavior-to-Node boundary"),
@@ -93,6 +111,63 @@ def _required_mapping(
     ):
         raise ParityInputError(f"{owner} requires string-to-string object {key!r}")
     return dict(candidate)
+
+
+def _required_operation_mapping(
+    value: Mapping[str, Any], key: str, owner: str
+) -> dict[str, OperationMapping]:
+    candidate = value.get(key)
+    if not isinstance(candidate, dict):
+        raise ParityInputError(f"{owner} requires object {key!r}")
+    result: dict[str, OperationMapping] = {}
+    for name, raw_mapping in candidate.items():
+        item_owner = f"{owner}.{key}[{name!r}]"
+        if not isinstance(name, str) or not name.strip():
+            raise ParityInputError(f"{owner}.{key} requires non-empty string keys")
+        if isinstance(raw_mapping, str) and raw_mapping.strip():
+            result[name] = OperationMapping(
+                action_id=raw_mapping,
+                variants={},
+            )
+            continue
+        if not isinstance(raw_mapping, dict):
+            raise ParityInputError(
+                f"{item_owner} must be a RouteDeck operation ID or variant object"
+            )
+        if set(raw_mapping) != {
+            "selector",
+            "actionOperation",
+            "suggestedActionId",
+            "variants",
+        }:
+            raise ParityInputError(
+                f"{item_owner} variant requires only selector, actionOperation, "
+                "suggestedActionId, and variants"
+            )
+        selector = _required_string(raw_mapping, "selector", item_owner)
+        if selector != "resolved_http_safety_v1":
+            raise ParityInputError(
+                f"{item_owner}.selector must be 'resolved_http_safety_v1'"
+            )
+        action_id = _required_string(raw_mapping, "actionOperation", item_owner)
+        suggested_action_id = _required_string(
+            raw_mapping, "suggestedActionId", item_owner
+        )
+        variants = _required_mapping(raw_mapping, "variants", item_owner)
+        if set(variants) != {"read", "write"}:
+            raise ParityInputError(
+                f"{item_owner}.variants must contain exactly read and write"
+            )
+        identifiers = (action_id, variants["read"], variants["write"])
+        if len(set(identifiers)) != len(identifiers):
+            raise ParityInputError(f"{item_owner} operation IDs must be unique")
+        result[name] = OperationMapping(
+            action_id=action_id,
+            variants=variants,
+            selector=selector,
+            suggested_action_id=suggested_action_id,
+        )
+    return result
 
 
 def _named(items: Sequence[Any], key: str, owner: str) -> dict[str, dict[str, Any]]:
@@ -182,6 +257,444 @@ def _require_compiled_object(
     return value
 
 
+def _operation_source_label(operation: Any) -> str:
+    runtime_sources = {source.value for source in operation.allowed_sources}
+    if runtime_sources == {"agent", "surface"}:
+        return "both"
+    if runtime_sources == {"agent"}:
+        return "chat"
+    if runtime_sources == {"surface"}:
+        return "product-surface"
+    return "invalid"
+
+
+def _check_compiled_operation_variant(
+    failures: list[str],
+    mapping: OperationMapping,
+    operations: Mapping[str, Any],
+    label: str,
+) -> None:
+    if not mapping.is_variant:
+        return
+    action = operations.get(mapping.action_id)
+    read = operations.get(mapping.variants["read"])
+    write = operations.get(mapping.variants["write"])
+    if action is not None:
+        schema = action.input_schema_value()
+        if (
+            action.safety_class.value != "state_selection"
+            or action.review_policy.value != "none"
+            or action.outcomes != ("opened",)
+            or schema.get("type") != "object"
+            or schema.get("properties") != {}
+            or schema.get("required", [])
+            or schema.get("additionalProperties") is not False
+        ):
+            failures.append(
+                f"{label}: variant action operation must be empty-input "
+                "state_selection with no review and only the opened outcome"
+            )
+    if read is not None and (
+        read.safety_class.value != "read_external"
+        or read.review_policy.value != "none"
+        or read.outcomes != ("observed",)
+        or not _is_opaque_plan_id_schema(read.input_schema_value())
+    ):
+        failures.append(
+            f"{label}: read variant must be read_external with no review, "
+            "one required opaque plan_id, and only the observed outcome"
+        )
+    if write is not None and (
+        write.safety_class.value != "write_external"
+        or write.review_policy.value != "required"
+        or write.outcomes != ("observed",)
+        or not _is_opaque_plan_id_schema(write.input_schema_value())
+        or not write.unknown_recovery_directive
+    ):
+        failures.append(
+            f"{label}: write variant must be write_external with required review "
+            "and unknown recovery directive, one required opaque plan_id, "
+            "and only the observed outcome"
+        )
+
+
+def _is_opaque_plan_id_schema(schema: Mapping[str, Any]) -> bool:
+    properties = schema.get("properties")
+    required = schema.get("required")
+    if (
+        schema.get("type") != "object"
+        or not isinstance(properties, dict)
+        or set(properties) != {"plan_id"}
+        or required != ["plan_id"]
+        or schema.get("additionalProperties") is not False
+    ):
+        return False
+    plan_id = properties["plan_id"]
+    return (
+        isinstance(plan_id, dict)
+        and set(plan_id) == {"type", "minLength"}
+        and plan_id.get("type") == "string"
+        and plan_id.get("minLength") == 1
+    )
+
+
+def _require_variant_studio_suggested_action(
+    design_feature: Mapping[str, Any],
+    *,
+    behavior_name: str,
+    operation_name: str,
+    mapping: OperationMapping,
+    owner: str,
+) -> Mapping[str, Any]:
+    action_id = mapping.suggested_action_id
+    if not mapping.is_variant or action_id is None:
+        raise ParityInputError(f"{owner} requires a variant SuggestedAction ID")
+    matches: list[tuple[str, Mapping[str, Any]]] = []
+    for story_index, raw_story in enumerate(
+        _required_list(design_feature, "stories", owner)
+    ):
+        if not isinstance(raw_story, dict):
+            raise ParityInputError(f"{owner}.stories[{story_index}] must be an object")
+        story_name = _required_string(
+            raw_story, "title", f"{owner}.stories[{story_index}]"
+        )
+        for action_index, raw_action in enumerate(
+            _required_list(raw_story, "suggestedActions", story_name)
+        ):
+            if not isinstance(raw_action, dict):
+                raise ParityInputError(
+                    f"Studio behavior {story_name!r}.suggestedActions[{action_index}] "
+                    "must be an object"
+                )
+            if raw_action.get("id") == action_id:
+                matches.append((story_name, raw_action))
+    if len(matches) != 1:
+        raise ParityInputError(
+            f"{owner} SuggestedAction {action_id!r} must exist exactly once "
+            "in the owning Studio feature"
+        )
+    action_behavior, action = matches[0]
+    if action_behavior != behavior_name:
+        raise ParityInputError(
+            f"{owner} SuggestedAction {action_id!r} belongs to another behavior"
+        )
+    if action.get("operationName") != operation_name:
+        raise ParityInputError(
+            f"{owner} SuggestedAction {action_id!r} must target Studio operation "
+            f"{operation_name!r}"
+        )
+    if action.get("arguments", {}) != {}:
+        raise ParityInputError(
+            f"{owner} SuggestedAction {action_id!r} must have empty arguments"
+        )
+    return action
+
+
+def _check_compiled_variant_suggested_action(
+    failures: list[str],
+    mapping: OperationMapping,
+    suggested_actions: Sequence[Any],
+    label: str,
+) -> None:
+    if not mapping.is_variant or mapping.suggested_action_id is None:
+        return
+    matches = tuple(
+        action
+        for action in suggested_actions
+        if action.id == mapping.suggested_action_id
+    )
+    if len(matches) != 1:
+        failures.append(
+            f"{label}: compiled SuggestedAction {mapping.suggested_action_id!r} "
+            "must exist exactly once"
+        )
+        return
+    action = matches[0]
+    if action.operation_id != mapping.action_id or action.arguments_value() != {}:
+        failures.append(
+            f"{label}: compiled SuggestedAction must resolve only to actionOperation "
+            "with empty arguments"
+        )
+
+
+def _planned_contract(
+    raw_contracts: Mapping[str, Any], identifier: str, owner: str
+) -> Mapping[str, Any]:
+    contract = raw_contracts.get(identifier)
+    if not isinstance(contract, dict):
+        raise ParityInputError(f"{owner} requires planned contract {identifier!r}")
+    if contract.get("implementationStatus") != "planned":
+        raise ParityInputError(
+            f"{owner} planned contract {identifier!r} must remain explicitly planned"
+        )
+    return contract
+
+
+def _current_contract(
+    raw_contracts: Mapping[str, Any], identifier: str, owner: str
+) -> Mapping[str, Any]:
+    contract = raw_contracts.get(identifier)
+    if not isinstance(contract, dict):
+        raise ParityInputError(f"{owner} requires current contract {identifier!r}")
+    implementation_status = contract.get("implementationStatus")
+    if not isinstance(implementation_status, str) or not implementation_status.startswith(
+        "implemented_"
+    ):
+        raise ParityInputError(
+            f"{owner} current contract {identifier!r} must remain explicitly implemented"
+        )
+    return contract
+
+
+def _check_planned_contract_shape(
+    contract: Mapping[str, Any],
+    *,
+    role: str,
+    expected_sources: set[str],
+    owner: str,
+) -> None:
+    allowed_sources = contract.get("allowedSources")
+    if (
+        not isinstance(allowed_sources, list)
+        or any(not isinstance(source, str) for source in allowed_sources)
+        or set(allowed_sources) != expected_sources
+    ):
+        raise ParityInputError(
+            f"{owner}.allowedSources must match the Studio invocation path"
+        )
+    outcomes = contract.get("outcomes")
+    input_kind = contract.get("inputKind")
+    if role == "action":
+        valid = (
+            contract.get("safetyClass") == "state_selection"
+            and contract.get("review") == "none"
+            and input_kind == "empty"
+            and outcomes == ["opened"]
+            and contract.get("externalExecution") is False
+        )
+    elif role == "read":
+        valid = (
+            contract.get("safetyClass") == "read_external"
+            and contract.get("review") == "none"
+            and input_kind == "opaque_plan_id"
+            and outcomes == ["observed"]
+            and contract.get("externalExecution") is True
+        )
+    else:
+        directive = contract.get("unknownRecoveryDirective")
+        valid = (
+            contract.get("safetyClass") == "write_external"
+            and contract.get("review") == "required"
+            and input_kind == "opaque_plan_id"
+            and outcomes == ["observed"]
+            and contract.get("externalExecution") is True
+            and isinstance(directive, str)
+            and bool(directive.strip())
+        )
+    if not valid:
+        raise ParityInputError(f"{owner} has an invalid planned {role} contract")
+
+
+def _check_planned_operation_mappings(
+    manifest: Mapping[str, Any],
+    design_features: Mapping[str, Mapping[str, Any]],
+    compiled: Any,
+) -> None:
+    raw_design_only = manifest.get("designOnlyMappings", {})
+    if not isinstance(raw_design_only, dict):
+        raise ParityInputError("manifest.designOnlyMappings must be an object")
+    for feature_name, raw_feature in raw_design_only.items():
+        if not isinstance(feature_name, str) or not isinstance(raw_feature, dict):
+            raise ParityInputError(
+                "manifest.designOnlyMappings requires named feature objects"
+            )
+        raw_plans = raw_feature.get("plannedOperationMappings")
+        if raw_plans is None:
+            continue
+        if not isinstance(raw_plans, list):
+            raise ParityInputError(
+                f"designOnlyMappings[{feature_name!r}].plannedOperationMappings "
+                "must be an array"
+            )
+        design_feature = design_features.get(feature_name)
+        if design_feature is None:
+            raise ParityInputError(
+                f"planned operation mappings reference unknown Studio feature {feature_name!r}"
+            )
+        design_behaviors = _named(
+            _required_list(design_feature, "stories", feature_name),
+            "title",
+            f"Studio feature {feature_name!r} behaviors",
+        )
+        for index, raw_plan in enumerate(raw_plans):
+            owner = (
+                f"designOnlyMappings[{feature_name!r}]."
+                f"plannedOperationMappings[{index}]"
+            )
+            if not isinstance(raw_plan, dict):
+                raise ParityInputError(f"{owner} must be an object")
+            behavior_name = _required_string(raw_plan, "designBehavior", owner)
+            design_behavior = design_behaviors.get(behavior_name)
+            if design_behavior is None:
+                raise ParityInputError(
+                    f"{owner} references unknown Studio behavior {behavior_name!r}"
+                )
+            design_operations = _named(
+                _required_list(design_behavior, "operations", behavior_name),
+                "name",
+                f"Studio behavior {behavior_name!r} operations",
+            )
+            operation_mapping = _required_operation_mapping(
+                raw_plan, "operations", owner
+            )
+            if set(operation_mapping) - set(design_operations):
+                raise ParityInputError(
+                    f"{owner} references an unknown Studio operation"
+                )
+            required_actions: dict[str, tuple[str, OperationMapping]] = {}
+            for operation_name, mapping in operation_mapping.items():
+                if not mapping.is_variant or mapping.suggested_action_id is None:
+                    raise ParityInputError(
+                        f"{owner}.operations[{operation_name!r}] must use a "
+                        "variant mapping with suggestedActionId"
+                    )
+                _require_variant_studio_suggested_action(
+                    design_feature,
+                    behavior_name=behavior_name,
+                    operation_name=operation_name,
+                    mapping=mapping,
+                    owner=owner,
+                )
+                if mapping.suggested_action_id in required_actions:
+                    raise ParityInputError(
+                        f"{owner} cannot reuse one SuggestedAction across variants"
+                    )
+                required_actions[mapping.suggested_action_id] = (
+                    operation_name,
+                    mapping,
+                )
+            raw_action_bindings = raw_plan.get("suggestedActions")
+            if not isinstance(raw_action_bindings, dict):
+                raise ParityInputError(f"{owner} requires object 'suggestedActions'")
+            if set(raw_action_bindings) != set(required_actions):
+                raise ParityInputError(
+                    f"{owner}.suggestedActions must exactly cover mapped Studio suggestions"
+                )
+            for action_id, (_, mapping) in required_actions.items():
+                binding = raw_action_bindings.get(action_id)
+                action_owner = f"{owner}.suggestedActions[{action_id!r}]"
+                if not isinstance(binding, dict) or set(binding) != {
+                    "operation",
+                    "arguments",
+                }:
+                    raise ParityInputError(
+                        f"{action_owner} requires only operation and arguments"
+                    )
+                if binding.get("operation") != mapping.action_id:
+                    raise ParityInputError(
+                        f"{action_owner} must resolve only to actionOperation"
+                    )
+                if binding.get("arguments") != {}:
+                    raise ParityInputError(
+                        f"{action_owner} cannot carry dynamic or unresolved arguments"
+                    )
+            raw_contracts = raw_plan.get("plannedContracts")
+            if not isinstance(raw_contracts, dict):
+                raise ParityInputError(f"{owner} requires object 'plannedContracts'")
+            raw_current_contracts = raw_plan.get("currentContracts", {})
+            if not isinstance(raw_current_contracts, dict):
+                raise ParityInputError(f"{owner}.currentContracts must be an object")
+            expected_planned_contracts: set[str] = set()
+            expected_current_contracts: set[str] = set()
+            for operation_name, mapping in operation_mapping.items():
+                if not mapping.is_variant:
+                    raise ParityInputError(
+                        f"{owner}.operations[{operation_name!r}] must use a variant mapping"
+                    )
+                design_operation = design_operations[operation_name]
+                designed_source = _required_string(
+                    design_operation,
+                    "availableThrough",
+                    f"Studio operation {operation_name!r}",
+                )
+                expected_sources = {
+                    "both": {"agent", "surface"},
+                    "chat": {"agent"},
+                    "product-surface": {"surface"},
+                }.get(designed_source)
+                if expected_sources is None:
+                    raise ParityInputError(
+                        f"Studio operation {operation_name!r} has invalid availableThrough"
+                    )
+                roles = {
+                    mapping.action_id: "action",
+                    mapping.variants["read"]: "read",
+                    mapping.variants["write"]: "write",
+                }
+                for identifier, role in roles.items():
+                    if identifier in compiled.operations:
+                        expected_current_contracts.add(identifier)
+                        contract = _current_contract(
+                            raw_current_contracts, identifier, owner
+                        )
+                    else:
+                        expected_planned_contracts.add(identifier)
+                        contract = _planned_contract(raw_contracts, identifier, owner)
+                    _check_planned_contract_shape(
+                        contract,
+                        role=role,
+                        expected_sources=expected_sources,
+                        owner=(
+                            f"{owner}.currentContracts[{identifier!r}]"
+                            if identifier in compiled.operations
+                            else f"{owner}.plannedContracts[{identifier!r}]"
+                        ),
+                    )
+                mapped_operations = {
+                    identifier: compiled.operations[identifier]
+                    for identifier in roles
+                    if identifier in compiled.operations
+                }
+                for identifier, operation in mapped_operations.items():
+                    runtime_sources = {
+                        source.value for source in operation.allowed_sources
+                    }
+                    if runtime_sources != expected_sources:
+                        raise ParityInputError(
+                            f"{owner} current operation {identifier!r} allowed_sources "
+                            "must match the Studio invocation path"
+                        )
+                compiled_operation_failures: list[str] = []
+                _check_compiled_operation_variant(
+                    compiled_operation_failures, mapping, mapped_operations, owner
+                )
+                if compiled_operation_failures:
+                    raise ParityInputError(compiled_operation_failures[0])
+                all_suggested_actions = tuple(
+                    action
+                    for node in compiled.nodes.values()
+                    for action in node.suggested_actions
+                )
+                if mapping.action_id in compiled.operations:
+                    suggested_action_failures: list[str] = []
+                    _check_compiled_variant_suggested_action(
+                        suggested_action_failures,
+                        mapping,
+                        all_suggested_actions,
+                        owner,
+                    )
+                    if suggested_action_failures:
+                        raise ParityInputError(suggested_action_failures[0])
+            if set(raw_contracts) != expected_planned_contracts:
+                raise ParityInputError(
+                    f"{owner}.plannedContracts must exactly cover uncompiled operation IDs"
+                )
+            if set(raw_current_contracts) != expected_current_contracts:
+                raise ParityInputError(
+                    f"{owner}.currentContracts must exactly cover compiled operation IDs"
+                )
+
+
 def _check_evaluation_bindings(
     failures: list[str],
     design_feature: Mapping[str, Any],
@@ -232,13 +745,17 @@ def _check_evaluation_bindings(
         mapping = behavior_mappings.get(behavior_name)
         if mapping is None:
             continue
-        operation_mapping = _required_mapping(
+        operation_mapping = _required_operation_mapping(
             mapping, "operations", f"{feature_label} / {behavior_name}"
         )
         surface_mapping = _required_mapping(
             mapping, "surfaces", f"{feature_label} / {behavior_name}"
         )
-        feature_operation_ids.update(operation_mapping.values())
+        feature_operation_ids.update(
+            identifier
+            for operation in operation_mapping.values()
+            for identifier in operation.compiled_ids
+        )
         for surface_name, surface_id in surface_mapping.items():
             surface_ids.setdefault(surface_name, set()).add(surface_id)
         for raw_action in _required_list(
@@ -250,15 +767,27 @@ def _check_evaluation_bindings(
                 )
             label = _required_string(raw_action, "label", feature_label)
             operation_name = _required_string(raw_action, "operationName", feature_label)
-            operation_id = operation_mapping.get(operation_name)
-            if operation_id is not None:
+            operation_mapping_value = operation_mapping.get(operation_name)
+            if operation_mapping_value is not None:
                 action_operations.setdefault(f"{behavior_name}\0{label}", set()).add(
-                    operation_id
+                    operation_mapping_value.action_id
                 )
 
     for evaluation_id, evaluation in evaluation_design.items():
         raw_binding = raw_bindings.get(evaluation_id)
         if not isinstance(raw_binding, dict):
+            continue
+        if raw_binding.get("implementationStatus") == "pending_external_evidence":
+            _required_string(
+                raw_binding,
+                "externalEvidenceOwner",
+                f"{feature_label} / Eval {evaluation_id}",
+            )
+            if "setupAdapter" in raw_binding or "steps" in raw_binding:
+                raise ParityInputError(
+                    f"{feature_label} / Eval {evaluation_id} pending external evidence "
+                    "must not declare executable setup or step bindings"
+                )
             continue
         _required_string(raw_binding, "setupAdapter", f"{feature_label} / Eval {evaluation_id}")
         behavior_nodes = raw_binding.get("behaviorNodes", {})
@@ -641,7 +1170,7 @@ def check_parity(
             surface_mapping = _required_mapping(
                 behavior_mapping, "surfaces", behavior_label
             )
-            operation_mapping = _required_mapping(
+            operation_mapping = _required_operation_mapping(
                 behavior_mapping, "operations", behavior_label
             )
             _compare_ids(
@@ -677,7 +1206,11 @@ def check_parity(
             compare_ids(
                 failures,
                 f"{behavior_label} Node Operations",
-                operation_mapping.values(),
+                (
+                    identifier
+                    for mapping in operation_mapping.values()
+                    for identifier in mapping.compiled_ids
+                ),
                 (operation.id for operation in node.operations),
             )
 
@@ -713,7 +1246,9 @@ def check_parity(
                             f"Operation {name!r}"
                         )
                     else:
-                        expected_operation_ids.append(operation_mapping[name])
+                        expected_operation_ids.extend(
+                            operation_mapping[name].compiled_ids
+                        )
                 expected_surface_ids: list[str] = []
                 for name in _required_list(
                     design_capability, "surfaceNames", capability_label
@@ -757,33 +1292,39 @@ def check_parity(
                         _policy_instructions(compiled, surface.policy_refs),
                     )
 
-            for design_operation_name, operation_id in operation_mapping.items():
+            for design_operation_name, mapping in operation_mapping.items():
                 design_operation = design_operations.get(design_operation_name)
                 if design_operation is None:
                     continue
-                operation = _require_compiled_object(
-                    failures,
-                    compiled.operations,
-                    operation_id,
-                    f"{behavior_label} / Operation {design_operation_name!r}",
+                operation_label = (
+                    f"{behavior_label} / Operation {design_operation_name!r}"
                 )
-                if operation is not None:
-                    operation_label = (
-                        f"{behavior_label} / Operation {design_operation_name!r}"
+                if mapping.is_variant:
+                    _require_variant_studio_suggested_action(
+                        design_feature,
+                        behavior_name=behavior_name,
+                        operation_name=design_operation_name,
+                        mapping=mapping,
+                        owner=operation_label,
                     )
-                    designed_source = _required_string(
-                        design_operation, "availableThrough", operation_label
+                designed_source = _required_string(
+                    design_operation, "availableThrough", operation_label
+                )
+                mapped_operations: dict[str, Any] = {}
+                for operation_id in mapping.compiled_ids:
+                    operation = _require_compiled_object(
+                        failures,
+                        compiled.operations,
+                        operation_id,
+                        operation_label,
                     )
-                    runtime_sources = {source.value for source in operation.allowed_sources}
-                    runtime_source = (
-                        "both"
-                        if runtime_sources == {"agent", "surface"}
-                        else "chat"
-                        if runtime_sources == {"agent"}
-                        else "product-surface"
-                        if runtime_sources == {"surface"}
-                        else "invalid"
-                    )
+                    if operation is None:
+                        continue
+                    mapped_operations[operation_id] = operation
+                    runtime_sources = {
+                        source.value for source in operation.allowed_sources
+                    }
+                    runtime_source = _operation_source_label(operation)
                     if designed_source != runtime_source:
                         failures.append(
                             f"{operation_label}: Studio invocation path "
@@ -796,6 +1337,18 @@ def check_parity(
                         _required_list(design_operation, "policies", operation_label),
                         _policy_instructions(compiled, operation.policy_refs),
                     )
+                _check_compiled_operation_variant(
+                    failures,
+                    mapping,
+                    mapped_operations,
+                    operation_label,
+                )
+                _check_compiled_variant_suggested_action(
+                    failures,
+                    mapping,
+                    node.suggested_actions,
+                    operation_label,
+                )
 
             expected_actions: Counter[tuple[str, str]] = Counter()
             for raw_action in _required_list(
@@ -809,14 +1362,14 @@ def check_parity(
                 operation_name = _required_string(
                     raw_action, "operationName", behavior_label
                 )
-                operation_id = operation_mapping.get(operation_name)
-                if operation_id is None:
+                mapping = operation_mapping.get(operation_name)
+                if mapping is None:
                     failures.append(
                         f"{behavior_label} / Suggested Action {label!r}: "
                         f"Operation {operation_name!r} has no manifest mapping"
                     )
                     continue
-                expected_actions[(label, operation_id)] += 1
+                expected_actions[(label, mapping.action_id)] += 1
             actual_actions = Counter(
                 (action.label, action.operation_id) for action in node.suggested_actions
             )
@@ -847,6 +1400,7 @@ def check_parity(
             "Implementation manifest maps uncompiled RouteDeck features: "
             + ", ".join(unknown_feature_mappings)
         )
+    _check_planned_operation_mappings(manifest, design_features, compiled)
     declared_unimplemented = set(
         _required_list(manifest, "unimplementedDesignFeatures", "manifest")
     )

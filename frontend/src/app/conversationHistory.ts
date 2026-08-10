@@ -1,6 +1,14 @@
-import type { RouteDeckProjection, RouteDeckRouteCodec } from "@routedeck/core";
+import {
+  createRouteDeckRouteCodec,
+  type FrontendContract,
+  type RouteDeckProjection,
+} from "@routedeck/core";
 
 import { rememberConversation, type ConversationStorage, type ConversationSummary } from "./conversations";
+import {
+  projectionHasPublicRouteKey,
+  projectionMatchesResumeCapability,
+} from "./createRouteDeck";
 
 export const HISTORY_CONVERSATION_KEY = "corpus.history-conversation.v1";
 
@@ -41,9 +49,20 @@ export function commitConversationHandoff(
 }
 
 export function projectionPath(
-  routes: RouteDeckRouteCodec,
+  contract: FrontendContract,
   projection: RouteDeckProjection,
 ): string {
+  const routes = createRouteDeckRouteCodec(contract, {
+    validatePublicRouteKey: (name, value) =>
+      projectionHasPublicRouteKey(projection, name, value),
+    validateResumeCapability: (handle, nodeId, params) =>
+      projectionMatchesResumeCapability(
+        projection,
+        handle,
+        nodeId,
+        params,
+      ),
+  });
   const params: Record<string, string> = {};
   for (const parameter of projection.current.route_params) {
     if (typeof parameter.value !== "string") {

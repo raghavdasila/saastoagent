@@ -1,4 +1,10 @@
-import type { AgentListView, AgentView } from "./models";
+import type {
+  AgentDependencyView,
+  AgentBuildLineageListView,
+  AgentListView,
+  AgentSourceAttachmentListView,
+  AgentView,
+} from "./models";
 
 export interface AgentAuthorizedTransport {
   fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
@@ -25,6 +31,24 @@ export class AgentClient {
   async get(agentId: string): Promise<AgentView> {
     return this.request<AgentView>(
       `/api/agents/${encodeURIComponent(agentId)}`,
+    );
+  }
+
+  async listSources(agentId: string): Promise<AgentSourceAttachmentListView> {
+    return this.request<AgentSourceAttachmentListView>(
+      `/api/agents/${encodeURIComponent(agentId)}/sources`,
+    );
+  }
+
+  async inspectDependencies(agentId: string): Promise<AgentDependencyView> {
+    return this.request<AgentDependencyView>(
+      `/api/agents/${encodeURIComponent(agentId)}/dependencies`,
+    );
+  }
+
+  async listBuilds(agentId: string): Promise<AgentBuildLineageListView> {
+    return this.request<AgentBuildLineageListView>(
+      `/api/agents/${encodeURIComponent(agentId)}/builds`,
     );
   }
 

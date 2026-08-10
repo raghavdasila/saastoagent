@@ -123,4 +123,16 @@ describe("behavior readiness", () => {
     expect(lounge.stories.every((story) => story.status === "draft")).toBe(true)
     expect(blockers).toEqual([])
   })
+
+  it("keeps the accepted core Agents behaviors free of blocking completeness issues", () => {
+    const agents = (persistedDesignState as WorkbenchState).features.find((feature) => feature.id === "agents")!
+    const acceptedIds = new Set(["agents-view", "agents-create", "agents-inspect", "agents-edit"])
+    const accepted = agents.stories.filter((story) => acceptedIds.has(story.id))
+
+    expect(accepted).toHaveLength(4)
+    for (const story of accepted) {
+      expect(story.status, story.title).toBe("approved")
+      expect(getStoryReadiness(story, agents).blockers, story.title).toEqual([])
+    }
+  })
 })

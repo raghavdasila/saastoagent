@@ -16,6 +16,9 @@ class SourceUpload:
     filename: str
     content_type: str
     content: bytes
+    description_filename: str | None = None
+    description_content_type: str | None = None
+    description_content: bytes | None = None
 
 
 @dataclass(frozen=True)
@@ -23,6 +26,9 @@ class ValidatedSourceUpload:
     filename: str
     content_type: str
     content: bytes
+    description_filename: str | None = None
+    description_content_type: str | None = None
+    description_content: bytes | None = None
 
 
 class SourceConnector(Protocol):

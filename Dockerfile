@@ -26,7 +26,16 @@ RUN python -m pip install \
 
 COPY routedeck /workspace/routedeck
 RUN python -m pip install \
-    -e "/workspace/routedeck[fastapi,langgraph,persistence,testing]"
+    -e "/workspace/routedeck[fastapi,persistence,testing]"
+
+COPY agent-execution-runtime/pyproject.toml /workspace/agent-execution-runtime/pyproject.toml
+COPY agent-execution-runtime/src /workspace/agent-execution-runtime/src
+COPY agent-delivery-runtime/pyproject.toml /workspace/agent-delivery-runtime/pyproject.toml
+COPY agent-delivery-runtime/src /workspace/agent-delivery-runtime/src
+RUN python -m pip install \
+    /workspace/agent-execution-runtime \
+    /workspace/agent-delivery-runtime \
+    && python -c "from importlib.metadata import version; assert version('agent-execution-runtime') == '0.1.0'; assert version('agent-delivery-runtime') == '0.1.0'"
 
 COPY saastoagent-v0.1/backend /workspace/corpus/backend
 RUN python -m pip install -e "/workspace/corpus/backend[testing]"

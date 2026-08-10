@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+import base64
 
 import pytest
 from cryptography.fernet import Fernet
 
 from corpus.app.config import RouteDeckHostSettings
+from corpus.app.infrastructure import SharedInfrastructureSettings
+from corpus.credentials import CredentialVaultSettings
+from corpus.jobs import DurableJobSettings
 from corpus.auth.config import AuthSettings
 from corpus.auth.operation_http import HttpCredentialTransition
 from corpus.runtime.application import open_live_corpus_application
@@ -45,7 +49,7 @@ async def test_live_runtime_opens_workspace_and_proves_ollama_readiness(
         ),
         database=CorpusDatabaseSettings(
             url=f"sqlite+aiosqlite:///{(tmp_path / 'corpus-domain.sqlite3').as_posix()}",
-            migration_revision="0002_agents",
+            migration_revision="0012_builder_navgraph",
         ),
         auth=AuthSettings(
             reset_secret="r" * 40,
@@ -53,6 +57,12 @@ async def test_live_runtime_opens_workspace_and_proves_ollama_readiness(
             public_frontend_url="http://127.0.0.1:5199",
         ),
         sources=SourceSettings(data_root=tmp_path / "sources"),
+        infrastructure=SharedInfrastructureSettings(
+            jobs=DurableJobSettings(sqlite_path=tmp_path / "jobs.sqlite3"),
+            credentials=CredentialVaultSettings(
+                encoded_key=base64.urlsafe_b64encode(b"k" * 32).decode("ascii")
+            ),
+        ),
         ollama_base_url="http://127.0.0.1:11434",
         ollama_model="gemma4:latest",
     )
@@ -65,7 +75,21 @@ async def test_live_runtime_opens_workspace_and_proves_ollama_readiness(
         auth_mail=object(),
         credential_transition=HttpCredentialTransition(),
         agent_service=object(),
+        designer_service=object(),
+        builder_service=object(),
+        sandbox_service=object(),
+        evaluation_service=object(),
+        channel_service=object(),
+        deployment_service=object(),
+        operations_service=object(),
         workspace_service=object(),
+        source_service=object(),
+        source_graph_presenter=object(),
+        source_connection_service=object(),
+        source_contract_revision_service=object(),
+        source_connection_check_service=object(),
+        source_operation_curation_service=object(),
+        source_routed_execution_service=object(),
     )
     try:
         assert live.runtime.services.app.app.frontend_contract.entry_node_id == (

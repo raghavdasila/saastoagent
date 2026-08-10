@@ -1,4 +1,4 @@
-import type { DesignStory } from "@/workbench/types"
+import type { DesignFeature, DesignStory } from "@/workbench/types"
 import { getBehaviorEvalReadiness } from "@/workbench/evaluationReadiness"
 
 export type ReadinessSection = "behavior" | "capabilities" | "surfaces" | "operations" | "suggested-actions" | "rules" | "preview" | "evals"
@@ -31,7 +31,7 @@ function duplicateNames(values: string[]): Set<string> {
   return new Set([...counts].filter(([, count]) => count > 1).map(([name]) => name))
 }
 
-export function getStoryReadiness(story: DesignStory): StoryReadiness {
+export function getStoryReadiness(story: DesignStory, feature?: DesignFeature): StoryReadiness {
   const issues: ReadinessIssue[] = []
   const block = (id: string, section: ReadinessSection, message: string, targetId?: string) => {
     issues.push({ id, severity: "blocking", section, message, targetId })
@@ -112,7 +112,7 @@ export function getStoryReadiness(story: DesignStory): StoryReadiness {
     warn("preview-missing", "preview", "No interaction preview is defined. This is valid when a preview would not improve review.", "interaction-preview")
   }
 
-  for (const issue of getBehaviorEvalReadiness(story).issues) {
+  for (const issue of getBehaviorEvalReadiness(story, feature).issues) {
     block(`eval-${issue.id}`, "evals", issue.message, issue.targetId)
   }
 

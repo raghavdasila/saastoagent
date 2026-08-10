@@ -38,9 +38,11 @@ if (-not (Test-Path -LiteralPath $EnvironmentPath)) {
     $EncryptionKey = & $PythonExecutable -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
     $DatabasePath = (Join-Path $RuntimeDirectory "routedeck.sqlite").Replace("\", "/")
     $CorpusDatabasePath = (Join-Path $RuntimeDirectory "corpus.sqlite3").Replace("\", "/")
+    $JobQueuePath = (Join-Path $RuntimeDirectory "corpus-jobs.sqlite3").Replace("\", "/")
     $SourceDataPath = (Join-Path $RuntimeDirectory "sources").Replace("\", "/")
     $ResetSecret = & $PythonExecutable -c "import secrets; print(secrets.token_urlsafe(48))"
     $VerificationSecret = & $PythonExecutable -c "import secrets; print(secrets.token_urlsafe(48))"
+    $CredentialVaultKey = & $PythonExecutable -c "import base64; from nacl.secret import SecretBox; from nacl.utils import random; print(base64.urlsafe_b64encode(random(SecretBox.KEY_SIZE)).decode())"
     $EnvironmentLines = @(
         "ROUTEDECK_DATABASE_URL=sqlite+pysqlite:///$DatabasePath"
         "ROUTEDECK_STATE_ENCRYPTION_KEY=$EncryptionKey"
@@ -63,7 +65,9 @@ if (-not (Test-Path -LiteralPath $EnvironmentPath)) {
         "CORPUS_TOOLROUTER_REVIEWER_MODEL=qwen2.5-coder:7b"
         "CORPUS_TOOLROUTER_EVALSET_TIMEOUT_SECONDS=240"
         "CORPUS_DATABASE_URL=sqlite+aiosqlite:///$CorpusDatabasePath"
-        "CORPUS_MIGRATION_REVISION=0002_agents"
+        "CORPUS_MIGRATION_REVISION=0006_restrict_agent_attachment_delete"
+        "CORPUS_JOB_QUEUE_PATH=$JobQueuePath"
+        "CORPUS_CREDENTIAL_VAULT_KEY=$CredentialVaultKey"
         "CORPUS_RESET_SECRET=$ResetSecret"
         "CORPUS_VERIFICATION_SECRET=$VerificationSecret"
         "CORPUS_AUTH_ACCESS_TOKEN_MINUTES=15"
@@ -82,6 +86,17 @@ if (-not (Test-Path -LiteralPath $EnvironmentPath)) {
     )
     [IO.File]::WriteAllLines($EnvironmentPath, $EnvironmentLines)
 } else {
+    $CurrentEnvironmentLines = [IO.File]::ReadAllLines($EnvironmentPath)
+    $CurrentEnvironmentLines = @(
+        foreach ($Line in $CurrentEnvironmentLines) {
+            if ($Line -match '^\s*CORPUS_MIGRATION_REVISION=') {
+                "CORPUS_MIGRATION_REVISION=0006_restrict_agent_attachment_delete"
+            } else {
+                $Line
+            }
+        }
+    )
+    [IO.File]::WriteAllLines($EnvironmentPath, [string[]]$CurrentEnvironmentLines)
     $ExistingNames = @{}
     foreach ($Line in [IO.File]::ReadAllLines($EnvironmentPath)) {
         if ($Line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)=') {
@@ -89,12 +104,16 @@ if (-not (Test-Path -LiteralPath $EnvironmentPath)) {
         }
     }
     $CorpusDatabasePath = (Join-Path $RuntimeDirectory "corpus.sqlite3").Replace("\", "/")
+    $JobQueuePath = (Join-Path $RuntimeDirectory "corpus-jobs.sqlite3").Replace("\", "/")
     $SourceDataPath = (Join-Path $RuntimeDirectory "sources").Replace("\", "/")
     $ResetSecret = & $PythonExecutable -c "import secrets; print(secrets.token_urlsafe(48))"
     $VerificationSecret = & $PythonExecutable -c "import secrets; print(secrets.token_urlsafe(48))"
+    $CredentialVaultKey = & $PythonExecutable -c "import base64; from nacl.secret import SecretBox; from nacl.utils import random; print(base64.urlsafe_b64encode(random(SecretBox.KEY_SIZE)).decode())"
     $RequiredRuntimeLines = [ordered]@{
         CORPUS_DATABASE_URL = "sqlite+aiosqlite:///$CorpusDatabasePath"
-        CORPUS_MIGRATION_REVISION = "0002_agents"
+        CORPUS_MIGRATION_REVISION = "0006_restrict_agent_attachment_delete"
+        CORPUS_JOB_QUEUE_PATH = $JobQueuePath
+        CORPUS_CREDENTIAL_VAULT_KEY = $CredentialVaultKey
         CORPUS_RESET_SECRET = $ResetSecret
         CORPUS_VERIFICATION_SECRET = $VerificationSecret
         CORPUS_AUTH_ACCESS_TOKEN_MINUTES = "15"

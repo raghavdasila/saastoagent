@@ -7,6 +7,8 @@ import {
 import { expect, it, vi } from "vitest";
 
 import { ApplicationShell } from "../app/ApplicationShell";
+import { useOwnerSession } from "../auth/OwnerSessionContext";
+import { configureOwnerAuthClient } from "../auth/authClient";
 import { BootstrapLoadingShell } from "../app/BootstrapLoadingShell";
 import { CorpusRecoveryCoordinator } from "../app/CorpusRecoveryCoordinator";
 import { loadRouteDeck } from "../app/loadRouteDeck";
@@ -28,6 +30,28 @@ const registry = defineRouteDeckSurfaceRegistry({
   "test.detail": () => <section>Loaded detail surface</section>,
 });
 
+function AuthTransitionSurface() {
+  const { loading, setSession } = useOwnerSession();
+  return (
+    <button
+      type="button"
+      disabled={loading}
+      onClick={() => setSession({
+        type: "owner",
+        owner: {
+          email: "owner@example.test",
+          display_name: "Owner",
+          is_verified: true,
+        },
+        organization: { name: "Owner Workspace", slug: "owner-workspace" },
+        membership: { role: "owner" },
+      })}
+    >
+      Authenticate owner
+    </button>
+  );
+}
+
 it("loads the server contract into the product-neutral RouteDeck host", async () => {
   const contract = frameworkContractFixture();
   const client = new TestRouteDeckClient(frameworkProjectionFixture(), contract);
@@ -45,6 +69,149 @@ it("loads the server contract into the product-neutral RouteDeck host", async ()
 
   expect(screen.getByText("Injected product header")).toBeVisible();
   expect(screen.getByText("Loaded feature surface")).toBeVisible();
+  routeDeck.store.dispose();
+});
+
+it("reveals API attachment from live owner state after anonymous bootstrap", async () => {
+  configureOwnerAuthClient({
+    transport: {
+      fetch: vi.fn(async () => new Response(
+        JSON.stringify({ type: "anonymous" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )),
+    },
+    signOut: vi.fn(async () => undefined),
+  });
+  const contract = frameworkContractFixture();
+  const projection = frameworkProjectionFixture();
+  projection.entities = [{ entity_kind: "agent", handle: "agent-current", values: [] }];
+  projection.legal_operations = [{
+    operation_id: "agents.open_source_creation",
+    title: "Create and attach a Source",
+    safety_class: "navigation",
+    allowed_sources: ["surface", "agent"],
+  }];
+  const client = new TestRouteDeckClient(projection, contract);
+  const routeDeck = await loadRouteDeck(window, client);
+  await routeDeck.store.bootstrap();
+  const authRegistry = defineRouteDeckSurfaceRegistry({
+    "test.active": AuthTransitionSurface,
+    "test.detail": () => <section>Loaded detail surface</section>,
+  });
+
+  render(
+    <ApplicationShell
+      routeDeck={routeDeck}
+      registry={authRegistry}
+      chatClient={idleChatClient}
+      header={<strong>Corpus</strong>}
+      onUploadApiSource={vi.fn(async () => ({
+        sourceId: "source-ready-001",
+        displayName: "catalog",
+      }))}
+    />,
+  );
+
+  const authenticate = await screen.findByRole("button", { name: "Authenticate owner" });
+  await waitFor(() => expect(authenticate).toBeEnabled());
+  expect(screen.queryByLabelText("Attach API definition")).not.toBeInTheDocument();
+  fireEvent.click(authenticate);
+  expect(await screen.findByLabelText("Attach API definition")).toBeVisible();
+  routeDeck.store.dispose();
+});
+
+it("reveals API attachment in authenticated Workspace without inventing an Agent binding", async () => {
+  configureOwnerAuthClient({
+    transport: {
+      fetch: vi.fn(async () => new Response(
+        JSON.stringify({ type: "anonymous" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )),
+    },
+    signOut: vi.fn(async () => undefined),
+  });
+  const contract = frameworkContractFixture();
+  const projection = frameworkProjectionFixture();
+  projection.entities = [];
+  projection.legal_operations = [{
+    operation_id: "workspace.open_sources",
+    title: "Open Sources",
+    safety_class: "navigation",
+    allowed_sources: ["surface", "agent"],
+  }];
+  const client = new TestRouteDeckClient(projection, contract);
+  const routeDeck = await loadRouteDeck(window, client);
+  await routeDeck.store.bootstrap();
+  const authRegistry = defineRouteDeckSurfaceRegistry({
+    "test.active": AuthTransitionSurface,
+    "test.detail": () => <section>Loaded detail surface</section>,
+  });
+
+  render(
+    <ApplicationShell
+      routeDeck={routeDeck}
+      registry={authRegistry}
+      chatClient={idleChatClient}
+      header={<strong>Corpus</strong>}
+      onUploadApiSource={vi.fn(async () => ({
+        sourceId: "source-ready-001",
+        displayName: "catalog",
+      }))}
+    />,
+  );
+
+  const authenticate = await screen.findByRole("button", { name: "Authenticate owner" });
+  await waitFor(() => expect(authenticate).toBeEnabled());
+  expect(screen.queryByLabelText("Attach API definition")).not.toBeInTheDocument();
+  fireEvent.click(authenticate);
+  expect(await screen.findByLabelText("Attach API definition")).toBeVisible();
+  routeDeck.store.dispose();
+});
+
+it("keeps standalone chat upload available in Source Hub without reusing a retained Agent binding", async () => {
+  configureOwnerAuthClient({
+    transport: {
+      fetch: vi.fn(async () => new Response(
+        JSON.stringify({ type: "anonymous" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )),
+    },
+    signOut: vi.fn(async () => undefined),
+  });
+  const contract = frameworkContractFixture();
+  const projection = frameworkProjectionFixture();
+  projection.entities = [{ entity_kind: "agent", handle: "agent-retained", values: [] }];
+  projection.legal_operations = [{
+    operation_id: "sources.open_api_creation",
+    title: "Add API Source",
+    safety_class: "navigation",
+    allowed_sources: ["surface", "agent"],
+  }];
+  const client = new TestRouteDeckClient(projection, contract);
+  const routeDeck = await loadRouteDeck(window, client);
+  await routeDeck.store.bootstrap();
+  const authRegistry = defineRouteDeckSurfaceRegistry({
+    "test.active": AuthTransitionSurface,
+    "test.detail": () => <section>Loaded detail surface</section>,
+  });
+
+  render(
+    <ApplicationShell
+      routeDeck={routeDeck}
+      registry={authRegistry}
+      chatClient={idleChatClient}
+      header={<strong>Corpus</strong>}
+      onUploadApiSource={vi.fn(async () => ({
+        sourceId: "source-ready-001",
+        displayName: "catalog",
+      }))}
+    />,
+  );
+
+  const authenticate = await screen.findByRole("button", { name: "Authenticate owner" });
+  await waitFor(() => expect(authenticate).toBeEnabled());
+  fireEvent.click(authenticate);
+  expect(await screen.findByLabelText("Attach API definition")).toBeVisible();
   routeDeck.store.dispose();
 });
 

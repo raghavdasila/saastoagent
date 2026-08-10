@@ -1,7 +1,7 @@
 import type { RouteDeckSurfaceComponentProps } from "@routedeck/react";
 
 import { AuthSurface } from "./AuthSurface";
-import { PrivateFormGate, requireFormHandle } from "./PrivateFormGate";
+import { PrivateFormGate, requireFormHandle } from "../../routedeck/PrivateFormGate";
 
 export function SignInSurface({
   dispatchAffordance,

@@ -112,14 +112,30 @@ export class TestRouteDeckClient implements RouteDeckClient {
     _reviewId: string,
     _request: RouteDeckReviewRequest,
   ): Promise<RouteDeckDispatchResult> {
-    throw new Error("No review is configured for this framework test.");
+    if (this.dispatchResult === null) {
+      throw new Error("No review is configured for this framework test.");
+    }
+    this.projection = {
+      ...this.projection,
+      session_version: this.dispatchResult.session_version,
+      projection_version: this.dispatchResult.projection_version,
+    };
+    return structuredClone(this.dispatchResult);
   }
 
   async rejectReview(
     _reviewId: string,
     _request: RouteDeckReviewRequest,
   ): Promise<RouteDeckDispatchResult> {
-    throw new Error("No review is configured for this framework test.");
+    if (this.dispatchResult === null) {
+      throw new Error("No review is configured for this framework test.");
+    }
+    this.projection = {
+      ...this.projection,
+      session_version: this.dispatchResult.session_version,
+      projection_version: this.dispatchResult.projection_version,
+    };
+    return structuredClone(this.dispatchResult);
   }
 
   async inspect(): Promise<RouteDeckInspection> {

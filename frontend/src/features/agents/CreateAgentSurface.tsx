@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import type { FormEvent } from "react";
 import type { RouteDeckSurfaceComponentProps } from "@routedeck/react";
 import { ArrowLeft, Bot, Plus } from "lucide-react";
@@ -14,27 +14,27 @@ export function CreateAgentSurface({
   dispatchAffordance,
   store,
 }: RouteDeckSurfaceComponentProps & { store: AgentStore }) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [instructions, setInstructions] = useState("");
+  const draft = useSyncExternalStore(store.subscribe, store.createDraft);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const values = new FormData(event.currentTarget);
     setBusy(true);
     setError(null);
     try {
       const result = await dispatchAffordance("create_agent", {
-        name: name.trim(),
-        description: description.trim(),
-        instructions: instructions.trim(),
+        name: String(values.get("name") ?? "").trim(),
+        description: String(values.get("description") ?? "").trim(),
+        instructions: String(values.get("instructions") ?? "").trim(),
       });
       const failure = completedOutcome(result, "created");
       if (failure !== null) {
         setError(failure);
         setBusy(false);
       } else {
+        store.clearCreateDraft();
         await store.refresh();
       }
     } catch (caught) {
@@ -52,6 +52,8 @@ export function CreateAgentSurface({
       if (failure !== null) {
         setError(failure);
         setBusy(false);
+      } else {
+        store.clearCreateDraft();
       }
     } catch (caught) {
       setError(errorMessage(caught));
@@ -77,16 +79,25 @@ export function CreateAgentSurface({
         <FieldGroup>
           <Field>
             <FieldLabel htmlFor="agent-create-name">Name</FieldLabel>
-            <Input id="agent-create-name" required maxLength={120} value={name} placeholder="Research Agent" onChange={(event) => setName(event.target.value)} />
+            <Input id="agent-create-name" name="name" required maxLength={120} value={draft.name} placeholder="Research Agent" onInput={(event) => {
+              const next = event.currentTarget.value;
+              store.updateCreateDraft({ name: next });
+            }} />
           </Field>
           <Field>
             <FieldLabel htmlFor="agent-create-description">Description</FieldLabel>
-            <Input id="agent-create-description" maxLength={500} value={description} placeholder="What this agent is responsible for" onChange={(event) => setDescription(event.target.value)} />
+            <Input id="agent-create-description" name="description" maxLength={500} value={draft.description} placeholder="What this agent is responsible for" onInput={(event) => {
+              const next = event.currentTarget.value;
+              store.updateCreateDraft({ description: next });
+            }} />
           </Field>
           <Field>
             <FieldLabel htmlFor="agent-create-instructions">Instructions</FieldLabel>
-            <Textarea id="agent-create-instructions" required maxLength={12000} value={instructions} placeholder="Define the agent's operating instructions and boundaries." onChange={(event) => setInstructions(event.target.value)} />
-            <FieldDescription>Source attachments and deployments are outside this core slice.</FieldDescription>
+            <Textarea id="agent-create-instructions" name="instructions" required maxLength={12000} value={draft.instructions} placeholder="Define the agent's operating instructions and boundaries." onInput={(event) => {
+              const next = event.currentTarget.value;
+              store.updateCreateDraft({ instructions: next });
+            }} />
+            <FieldDescription>Source attachments can be added after the Agent is created.</FieldDescription>
           </Field>
           <Button type="submit" disabled={busy}>
             <Plus data-icon="inline-start" />{busy ? "Creating…" : "Create agent"}

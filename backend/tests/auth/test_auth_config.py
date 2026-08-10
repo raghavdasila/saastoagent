@@ -12,7 +12,7 @@ def test_auth_settings_load_explicit_bearer_lifetimes(tmp_path: Path) -> None:
         "\n".join(
             (
                 "CORPUS_DATABASE_URL=sqlite+aiosqlite:///./corpus.sqlite3",
-                "CORPUS_MIGRATION_REVISION=0002_agents",
+                "CORPUS_MIGRATION_REVISION=0006_restrict_agent_attachment_delete",
                 "CORPUS_RESET_SECRET=r" * 1 + "r" * 39,
                 "CORPUS_VERIFICATION_SECRET=v" * 1 + "v" * 39,
                 "CORPUS_AUTH_ACCESS_TOKEN_MINUTES=15",
@@ -27,7 +27,7 @@ def test_auth_settings_load_explicit_bearer_lifetimes(tmp_path: Path) -> None:
     database = CorpusDatabaseSettings.from_env(env)
 
     assert database.url.endswith("corpus.sqlite3")
-    assert database.migration_revision == "0002_agents"
+    assert database.migration_revision == "0006_restrict_agent_attachment_delete"
     assert settings.access_token_minutes == 15
     assert settings.idle_session_days == 7
     assert settings.absolute_session_days == 30

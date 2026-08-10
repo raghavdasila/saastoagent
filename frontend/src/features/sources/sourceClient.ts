@@ -1,27 +1,209 @@
 import type { AuthorizedTransport } from "@/app/transports";
+import type { ContractRevisionProposal, SourceView } from "./contracts";
 
-export type SourceState = "processing" | "ready" | "failed";
+export type { SourceRevision, SourceState, SourceView } from "./contracts";
+export type { ContractRevisionProposal } from "./contracts";
 
-export interface SourceRevision {
-  readonly revision_id: string;
-  readonly source_id: string;
-  readonly original_filename: string;
-  readonly content_sha256: string;
-  readonly state: SourceState;
-  readonly created_at: string;
-  readonly updated_at: string;
-  readonly summary: Readonly<Record<string, unknown>>;
-  readonly failure_code: string | null;
-  readonly failure_message: string | null;
+export interface ApiGraphNode {
+  readonly id: string;
+  readonly node_type: string;
+  readonly label: string;
+  readonly endpoint_id: string | null;
+  readonly facets: Readonly<Record<string, string>>;
 }
 
-export interface SourceView {
+export interface ApiGraphEdge {
+  readonly source: string;
+  readonly target: string;
+  readonly type: string;
+  readonly status: string;
+  readonly confidence: number;
+}
+
+export interface ApiSemanticGroup {
+  readonly id: string;
+  readonly label: string;
+  readonly operation_ids: readonly string[];
+}
+
+export interface ApiGraphPlaybackStage {
+  readonly id: string;
+  readonly status: string;
+  readonly metrics: Readonly<Record<string, string | number | boolean>>;
+  readonly warning_codes: readonly string[];
+}
+
+export interface ApiGraphView {
   readonly source_id: string;
-  readonly connector_key: string;
-  readonly display_name: string;
+  readonly revision_id: string;
+  readonly artifact_revision_id: string;
+  readonly assembler: string;
+  readonly total_nodes: number;
+  readonly total_edges: number;
+  readonly nodes: readonly ApiGraphNode[];
+  readonly edges: readonly ApiGraphEdge[];
+  readonly semantic_groups: readonly ApiSemanticGroup[];
+  readonly playback: readonly ApiGraphPlaybackStage[];
+}
+
+export type ApiAuthenticationMethod = "none" | "api_key" | "bearer";
+
+export interface ApiConnectionProfile {
+  readonly id: string;
+  readonly source_id: string;
+  readonly revision_id: string;
+  readonly profile_name: string;
+  readonly environment: string;
+  readonly base_url: string;
+  readonly authentication_method: ApiAuthenticationMethod;
+  readonly credential_name: string | null;
+  readonly credential_reference_id: string | null;
+  readonly credential_version: number | null;
   readonly created_at: string;
   readonly updated_at: string;
-  readonly revision: SourceRevision;
+}
+
+export interface ApiConnectionCheckRecord {
+  readonly id: string;
+  readonly execution_id: string;
+  readonly source_id: string;
+  readonly source_revision_id: string;
+  readonly connection_profile_id: string;
+  readonly credential_reference_id: string | null;
+  readonly credential_version: number | null;
+  readonly operation_id: "GetProductTypes" | "GetProductTags";
+  readonly method: string;
+  readonly path_template: string;
+  readonly effective_contract_sha256: string;
+  readonly status: "succeeded" | "failed";
+  readonly status_code: number | null;
+  readonly error_code: string | null;
+  readonly public_message: string | null;
+  readonly validation_issue_count: number;
+  readonly validation_phases: readonly string[];
+  readonly http_call_count: number;
+  readonly started_at: string;
+  readonly finished_at: string;
+  readonly traces: readonly {
+    readonly event: string;
+    readonly occurred_at: string;
+    readonly safe_details: Readonly<Record<string, string | number | boolean | null>>;
+  }[];
+}
+
+export interface ApiOperationInventoryItem {
+  readonly operation_id: string;
+  readonly graph_node_id: string;
+  readonly method: string;
+  readonly path_template: string;
+  readonly operation_class: string;
+}
+
+export interface ApiOperationCurationRecord {
+  readonly schema_version: number;
+  readonly id: string;
+  readonly source_id: string;
+  readonly source_revision_id: string;
+  readonly artifact_revision_id: string;
+  readonly inventory_fingerprint: string;
+  readonly included_operation_ids: readonly string[];
+  readonly excluded_operation_ids: readonly string[];
+  readonly selected_by_owner_id: string;
+  readonly selected_at: string;
+  readonly previous_curation_id: string | null;
+}
+
+export interface ApiOperationCurationView {
+  readonly source_id: string;
+  readonly source_revision_id: string;
+  readonly artifact_revision_id: string;
+  readonly inventory_fingerprint: string;
+  readonly operations: readonly ApiOperationInventoryItem[];
+  readonly current: ApiOperationCurationRecord | null;
+  readonly history: readonly ApiOperationCurationRecord[];
+}
+
+export type ApiRoutePlanState =
+  | "ready"
+  | "needs_input"
+  | "needs_operation_choice"
+  | "not_routable";
+
+export interface ApiRoutePlanView {
+  readonly plan_id: string;
+  readonly record_id: string;
+  readonly previous_record_id: string | null;
+  readonly source_id: string;
+  readonly source_revision_id: string;
+  readonly profile_id: string;
+  readonly curation_id: string;
+  readonly inventory_fingerprint: string;
+  readonly subset_fingerprint: string;
+  readonly request_text: string;
+  readonly state: ApiRoutePlanState;
+  readonly steps: readonly {
+    readonly query: string;
+    readonly ranked_operations: readonly {
+      readonly operation_id: string;
+      readonly endpoint_id: string;
+      readonly score: number;
+    }[];
+    readonly selected_operation_id: string | null;
+    readonly method: string | null;
+    readonly path_template: string | null;
+    readonly http_safety: "read" | "write" | null;
+  }[];
+  readonly missing_inputs: readonly string[];
+  readonly input_provenance: readonly {
+    readonly name: string;
+    readonly value: string | number | boolean;
+    readonly source: "current_request" | "user_clarification";
+  }[];
+  readonly managed_parameters: readonly {
+    readonly name: string;
+    readonly location: "header";
+    readonly authentication_method: "api_key";
+    readonly source: "managed_by_profile";
+  }[];
+  readonly operation_choice: {
+    readonly operation_id: string;
+    readonly source: "user_clarification";
+  } | null;
+  readonly clarification_prompt: string | null;
+  readonly created_at: string;
+  readonly expires_at: string;
+  readonly plan_fingerprint: string;
+  readonly api_call_count: 0;
+}
+
+export interface ApiRoutedExecutionView {
+  readonly result_id: string;
+  readonly plan_id: string;
+  readonly source_id: string;
+  readonly source_revision_id: string;
+  readonly operation_id: string;
+  readonly method: string;
+  readonly path_template: string;
+  readonly safety: "read" | "write";
+  readonly status: "succeeded" | "failed" | "outcome_unknown";
+  readonly delivery: "not_sent" | "response_received" | "possibly_sent";
+  readonly status_code: number | null;
+  readonly response_media_type: string | null;
+  readonly response_byte_count: number;
+  readonly response_body_sha256: string | null;
+  readonly error_code: string | null;
+  readonly public_message: string | null;
+  readonly validation_issue_count: number;
+  readonly validation_phases: readonly string[];
+  readonly outcome_verified: boolean | null;
+  readonly http_call_count: number | null;
+  readonly started_at: string;
+  readonly finished_at: string;
+  readonly traces: readonly {
+    readonly event: string;
+    readonly occurred_at: string;
+    readonly safe_details: Readonly<Record<string, string | number | boolean | null>>;
+  }[];
 }
 
 export interface RankedSourceItem {
@@ -74,16 +256,127 @@ export class SourceClientError extends Error {
 }
 
 export class SourceClient {
+  private conversationId: string | null = null;
+
   constructor(private readonly transport: AuthorizedTransport) {}
+
+  selectConversation(conversationId: string): void {
+    if (!conversationId) {
+      throw new Error("Conversation ID must be non-empty.");
+    }
+    this.conversationId = conversationId;
+  }
+
+  clearConversation(): void {
+    this.conversationId = null;
+  }
 
   async list(): Promise<readonly SourceView[]> {
     return this.request<readonly SourceView[]>("/api/sources");
   }
 
-  async uploadApi(name: string, file: File): Promise<SourceView> {
+  async get(sourceId: string, revisionId?: string): Promise<SourceView> {
+    const query = revisionId === undefined
+      ? ""
+      : `?${new URLSearchParams({ revision_id: revisionId }).toString()}`;
+    return this.request<SourceView>(
+      `/api/sources/${encodeURIComponent(sourceId)}${query}`,
+    );
+  }
+
+  async inspectApiGraph(sourceId: string): Promise<ApiGraphView> {
+    return this.request<ApiGraphView>(
+      `/api/sources/${encodeURIComponent(sourceId)}/graph`,
+    );
+  }
+
+  async listApiConnections(sourceId: string): Promise<readonly ApiConnectionProfile[]> {
+    return this.request<readonly ApiConnectionProfile[]>(
+      `/api/sources/${encodeURIComponent(sourceId)}/connections`,
+    );
+  }
+
+  async listApiConnectionChecks(
+    sourceId: string,
+    revisionId: string,
+  ): Promise<readonly ApiConnectionCheckRecord[]> {
+    const query = new URLSearchParams({ revision_id: revisionId });
+    return this.request<readonly ApiConnectionCheckRecord[]>(
+      `/api/sources/${encodeURIComponent(sourceId)}/connection-checks?${query.toString()}`,
+    );
+  }
+
+  async listContractRevisions(sourceId: string): Promise<readonly ContractRevisionProposal[]> {
+    return this.request<readonly ContractRevisionProposal[]>(
+      `/api/sources/${encodeURIComponent(sourceId)}/contract-revisions`,
+    );
+  }
+
+  async inspectApiOperationCuration(
+    sourceId: string,
+    revisionId: string,
+  ): Promise<ApiOperationCurationView> {
+    const query = new URLSearchParams({ revision_id: revisionId });
+    return this.request<ApiOperationCurationView>(
+      `/api/sources/${encodeURIComponent(sourceId)}/operation-curation?${query.toString()}`,
+    );
+  }
+
+  async currentApiRoutePlan(
+    sourceId: string,
+    revisionId: string,
+  ): Promise<ApiRoutePlanView | null> {
+    const query = new URLSearchParams({ revision_id: revisionId });
+    return this.routePlanRequest<ApiRoutePlanView | null>(
+      `/api/sources/${encodeURIComponent(sourceId)}/route-plans/current?${query.toString()}`,
+    );
+  }
+
+  async createApiRoutePlan(
+    sourceId: string,
+    body: {
+      readonly source_revision_id: string;
+      readonly profile_id: string;
+      readonly curation_id: string;
+      readonly request_text: string;
+      readonly provided_inputs: Readonly<Record<string, string | number | boolean>>;
+    },
+  ): Promise<ApiRoutePlanView> {
+    return this.routePlanRequest<ApiRoutePlanView>(
+      `/api/sources/${encodeURIComponent(sourceId)}/route-plans`,
+      jsonRequest(body),
+    );
+  }
+
+  async clarifyApiRoutePlan(
+    sourceId: string,
+    planId: string,
+    body: {
+      readonly source_revision_id: string;
+      readonly expected_record_id: string;
+      readonly answers: Readonly<Record<string, string | number | boolean>>;
+    },
+  ): Promise<ApiRoutePlanView> {
+    return this.routePlanRequest<ApiRoutePlanView>(
+      `/api/sources/${encodeURIComponent(sourceId)}/route-plans/${encodeURIComponent(planId)}/clarifications`,
+      jsonRequest(body),
+    );
+  }
+
+  async currentRoutedApiExecution(
+    sourceId: string,
+    planId: string,
+  ): Promise<ApiRoutedExecutionView | null> {
+    return this.routePlanRequest<ApiRoutedExecutionView | null>(
+      `/api/sources/${encodeURIComponent(sourceId)}/route-plans/${encodeURIComponent(planId)}/execution`,
+    );
+  }
+
+  async uploadApi(name: string, file: File, description: File | null): Promise<SourceView> {
     const body = new FormData();
     body.set("name", name);
     body.set("file", file);
+    if (description !== null) body.set("description", description);
     return this.request<SourceView>("/api/sources/api", {
       method: "POST",
       body,
@@ -141,6 +434,22 @@ export class SourceClient {
       );
     }
     return response.json() as Promise<T>;
+  }
+
+  private async routePlanRequest<T>(
+    url: string,
+    init: RequestInit = {},
+  ): Promise<T> {
+    if (this.conversationId === null) {
+      throw new SourceClientError(
+        "Corpus has not selected a conversation for route preparation.",
+        "source_conversation_required",
+        0,
+      );
+    }
+    const headers = new Headers(init.headers);
+    headers.set("X-Corpus-Conversation-ID", this.conversationId);
+    return this.request<T>(url, { ...init, headers });
   }
 }
 

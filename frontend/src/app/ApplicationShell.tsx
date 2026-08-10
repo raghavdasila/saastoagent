@@ -6,13 +6,17 @@ import {
   RouteDeckProvider,
   type RouteDeckSurfaceRegistry,
 } from "@routedeck/react";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 import { AgentShell } from "./AgentShell";
+import type { ChatSourceUpload } from "./Composer";
 import { ApplicationNavigationDrawer } from "./ApplicationNavigationDrawer";
 import type { AppRouteDeck } from "./createRouteDeck";
 import { NavgraphSidebar } from "./NavgraphSidebar";
-import { OwnerSessionProvider } from "../auth/OwnerSessionContext";
+import {
+  OwnerSessionProvider,
+  useOwnerSession,
+} from "../auth/OwnerSessionContext";
 
 export interface ApplicationShellProps {
   routeDeck: AppRouteDeck;
@@ -22,6 +26,7 @@ export interface ApplicationShellProps {
   mainHeader?: ReactNode;
   chatClient?: AgentChatClient;
   initialConversation?: readonly AgentHistoryTurn[];
+  onUploadApiSource?: (file: File) => Promise<ChatSourceUpload>;
 }
 
 export function ApplicationShell({
@@ -32,6 +37,7 @@ export function ApplicationShell({
   mainHeader,
   chatClient,
   initialConversation = [],
+  onUploadApiSource,
 }: ApplicationShellProps) {
   const conversationKey =
     initialConversation.at(-1)?.turn_id ?? "empty-conversation";
@@ -60,11 +66,12 @@ export function ApplicationShell({
               {mainHeader === undefined ? null : (
                 <header data-application-main-header="">{mainHeader}</header>
               )}
-              <AgentShell
+              <AuthenticatedAgentShell
                 key={conversationKey}
                 registry={registry}
                 initialConversation={initialConversation}
                 {...(chatClient === undefined ? {} : { client: chatClient })}
+                {...(onUploadApiSource === undefined ? {} : { onUploadApiSource })}
               />
             </section>
             <NavgraphSidebar />
@@ -72,5 +79,22 @@ export function ApplicationShell({
         </div>
       </OwnerSessionProvider>
     </RouteDeckProvider>
+  );
+}
+
+function AuthenticatedAgentShell({
+  onUploadApiSource,
+  ...props
+}: Omit<ComponentProps<typeof AgentShell>, "onUploadApiSource"> & {
+  onUploadApiSource?: (file: File) => Promise<ChatSourceUpload>;
+}) {
+  const { session } = useOwnerSession();
+  return (
+    <AgentShell
+      {...props}
+      {...(session === null || onUploadApiSource === undefined
+        ? {}
+        : { onUploadApiSource })}
+    />
   );
 }

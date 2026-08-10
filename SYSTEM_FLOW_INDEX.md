@@ -3,6 +3,42 @@
 These are product/runtime relationships, not Navgraphs. The proposed RouteDeck
 Navgraph is maintained separately in the design notebook.
 
+## Validated Horizontal Product Lifecycle
+
+```text
+owner creates and approves one API Source revision
+  -> saves one protected profile and exact operation curation
+  -> creates an Agent pinned to the exact Source revision
+  -> Designer appends, reviews, accepts, and requests one build
+  -> Builder materializes one immutable model/source/profile/curation binding
+  -> Sandbox runs the exact build through the neutral execution adapter
+  -> Evaluation promotes the immutable interaction and derives eligibility
+  -> Channels creates hosted Web; Deployment requires explicit review
+  -> backend/worker restart restores exact build and delivery bindings
+  -> public hosted session invokes that deployment
+  -> Operations shows owner-scoped redacted interaction evidence and promotion
+```
+
+The complete local path is independently retained through direct surfaces
+(`20260809T153004Z-7cd51d776b`, 24/24), ordinary owner-language chat
+(`20260809T165131Z-63d1c6220b`, 24/24), and one continuing hybrid conversation
+(`20260809T210136Z-853c33486c`, 25/25). The hybrid recording is raw, uncut,
+normal-speed, and includes the semantic graph, Designer topology, compiled
+build/evaluation/deployment NavGraphs, ToolRouter clarification before and after
+deployment, restart, Operations evidence, and 390x844 rendering.
+
+The accepted Designer revision now compiles one shared product-owned topology.
+Designer visibly renders its stable topology hash, executable node, exact
+capabilities, curated operations, policies, and runtime surfaces. Builder uses
+that same topology to compile the immutable per-build RouteDeck Application;
+the built NavGraph displays the same identity. The current runtime graph is one
+real Agent node, not a decorative lifecycle diagram.
+
+Run `20260808T100957Z-f63809ea83` passed this flow 13/13 locally with
+desktop/mobile screenshots, video, and zero unexpected browser diagnostics.
+RouteDeck owns legality, review, transitions, and projection. Corpus owns every
+domain identity, adapter, persistence record, public route, and product surface.
+
 ## Docker Development Startup
 
 ```text
@@ -21,6 +57,27 @@ Compose owns only local process lifecycle, health, networking, and mounts.
 Sources, ToolRouter, RouteDeck, and owner identity retain their documented
 product and framework ownership. Missing Ollama/models or failed migrations
 remain visible failures.
+
+## Shared Durable Work And Credentials
+
+```text
+feature-owned service
+  -> DurableJobPort commits queued Corpus job + lifecycle event
+  -> Huey SQLite queue receives only the opaque job UUID
+  -> feature-owned task records running then succeeded or failed
+  -> owner-scoped status and explicit retry read central Corpus truth
+
+private credential surface
+  -> SecretBox vault creates an opaque owner-scoped reference
+  -> authenticated ciphertext persists in central Corpus database
+  -> execution adapter resolves plaintext only at the call boundary
+  -> wrong owner, wrong key, tamper, or invalid binding fails closed
+```
+
+Huey does not replace Corpus lifecycle persistence, and queue rejection never
+falls back to inline execution. The vault key is environment-supplied and is
+not stored in Corpus data. No product feature consumes these seams until its
+own mapped slice wires an explicit task and credential purpose.
 
 ## Corpus Interaction
 
@@ -59,7 +116,9 @@ browser issues or refreshes an anonymous bearer identity
   -> Corpus authorizes bearer + X-Corpus-Conversation-ID
   -> Corpus reserves the opaque public-to-internal conversation mapping
   -> RouteDeckRuntime.provision_session centrally creates/replays the session
-  -> RouteDeck enters lounge.home and durably claims its declared welcome run
+  -> Corpus resolves the persisted conversation principal for that exact internal session
+     -> anonymous enters lounge.home and durably claims its declared welcome run
+     -> authenticated owner enters workspace.home with its node-scoped public surfaces
   -> projection interaction.request_id identifies the active run generically
   -> SSE subscribers may disconnect and reconnect from a monotonic run cursor
   -> completed history remains canonical RouteDeck state
@@ -74,9 +133,11 @@ New conversation is a Corpus shell lifecycle:
 header action (disabled during an active RouteDeck interaction)
   -> anonymous: verify current public mapping, provision fresh RouteDeck session
      -> atomically archive old mapping and bind replacement
-  -> owner: create an additional public conversation and retain earlier ones
+  -> owner: create an additional public conversation at workspace.home and retain earlier ones
+  -> fetch the new conversation's exact authoritative projection
+  -> validate and encode its canonical URL with a RouteDeck codec bound to that projection
   -> select the new opaque public ID in tab storage
-  -> mount fresh RouteDeck/chat/private-form clients
+  -> mount and bootstrap fresh RouteDeck/chat/private-form clients on that canonical URL
   -> dispose the previous client runtime
 ```
 
@@ -108,6 +169,7 @@ refresh credential is read inside the cross-tab lock
   -> only a 401 invalid/expired refresh clears local credentials
   -> client issues a fresh anonymous bearer when no valid refresh exists
   -> selected tab conversation is validated against the authorized catalog
+  -> a missing, expired, or stale-contract backing session releases only its unusable Corpus mapping
   -> missing catalog creates a new public conversation
   -> RouteDeckBootstrapBoundary resumes that already selected session
   -> active interaction.request_id reconnects the generic run subscriber
@@ -118,6 +180,9 @@ Corpus does not infer entry request IDs, reset authentication on conversation
 failure, or impose a client convergence timeout. RouteDeck owns durable turn
 authority, restart interruption, cursor replay, and terminal history. Corpus
 owns bearer identity, public conversation authorization, and client storage.
+Corpus does not expose the backing framework error when a saved contract is no
+longer usable; it removes that conversation from the authorized catalog and
+allows the client to create a fresh current-contract conversation.
 
 ## Implemented Corpus Owner Authentication
 
@@ -162,6 +227,12 @@ authenticated workspace.home
   -> agents.open_create commits agents.create
   -> agents.create_agent validates and persists Agent identity + immutable v1
   -> agents.save_changes checks expected_version and appends immutable v2+
+  -> agents.select_agent binds the exact owner-scoped Agent privately
+  -> agents.attach_source validates and pins a READY current Source revision
+  -> agents.open_source_creation retains the Agent across the real Source Hub path
+  -> agents.attach_created_source pins the returned revision and returns
+  -> attachment reads resolve display data from the owner-scoped Source gateway
+  -> agents.open_attached_source revalidates the persisted exact revision
   -> Workspace reload reports the persisted Agent count
 ```
 
@@ -169,24 +240,60 @@ Agent mutations exist only as supervised RouteDeck Operations. Agent HTTP is
 read-only. The frontend Agent store owns domain query/loading/error state but
 never copies current node, legal operations, projection versions, review, or
 recovery state from RouteDeck. Cross-feature navigation references are
-injected through declared contracts at application composition.
+injected through declared contracts at application composition. Agents owns
+only the immutable association identities and attachment timestamp; Source
+display data, inventory, processing jobs and ToolRouter revision artifacts
+remain in their existing owners. Attachment DTOs resolve the current display
+name through the exact owner-scoped Source revision or fail truthfully if it is
+unavailable. Reattaching a Source after its current revision changes is a
+conflict, never an overwrite.
 
-## Implemented Sources And API Connector Debug Path
+## Implemented Source Hub API Intake And Durable Processing Path
 
 ```text
 owner Home -> workspace.open_sources
-  -> RouteDeck commits sources.home and projects sources.debug
-  -> evidence rail exposes API collection -> graph/index -> retrieval -> reviewed evalset
-  -> API connector-owned authenticated same-origin upload route
-  -> SourceService creates one owner-scoped immutable revision in processing
-  -> API connector validates JSON/YAML and calls its ApiSourceEngine port
-  -> explicit API/ToolRouter bridge invokes ToolRouterAdapter
+  -> RouteDeck commits sources.home and projects sources.home
+  -> Source Hub lists the authenticated Workspace inventory
+  -> sources.open_api_creation exposes API YAML plus optional Markdown intake
+  -> API connector-owned authenticated same-origin upload route validates bytes
+  -> SourceService persists one owner-scoped revision and durable job link
+  -> repository publishes revision metadata before the discoverable Source pointer
+  -> Source-scoped cross-process lock keeps inventory reads coherent with lifecycle mutations
+  -> Huey queues only the opaque durable job ID; no in-process fallback exists
+  -> source-worker marks queued -> running and invokes the registered connector
+  -> explicit API/ToolRouter bridge invokes ToolRouterAdapter for that revision
   -> normalized OpenAPI bundle + resource_first_v1 graph + MiniLM index persist
-  -> revision becomes ready or records an explicit failed state
-  -> retrieval reloads graph/embeddings and returns a neutral Source decision
-  -> optional evalset run invokes local Gemma generation
-  -> deterministic validation -> independent local Qwen review
-  -> accepted reviewed-candidate export or explicit quarantine/failure
+  -> revision and durable job become ready/succeeded or failed with evidence
+  -> Source Hub polling reloads the persisted terminal state
+  -> ready revision presents persisted semantic groups and individually selectable recorded stages
+  -> projected sources-api-connection private form accepts credential material
+  -> sources.save_api_connection carries no public secret arguments
+  -> encrypted vault record + revision-bound non-secret profile metadata persist
+  -> owner explicitly selects the exact effective revision, saved profile, and GetProductTypes or GetProductTags
+  -> sources.test_api_connection rechecks owner/source/revision/profile/credential version
+  -> credential resolves just in time inside the API execution adapter
+  -> exact 6fca contract validates one request and response; no retry or fallback exists
+  -> immutable redacted success or failure identity persists without headers, bodies, query values, or secrets
+  -> sources.propose_contract_revision reproduces the accepted repaired-parent + ten-patch chain without transport
+  -> owner-scoped proposal persists exact hashes, patch records, local target and evidence
+  -> proposal projects through the RouteDeck detail slot while Source Hub stays active
+  -> sources.approve_contract_revision stages durable required review from an opaque proposal entity
+  -> accept-time guard/service recheck the exact owner, current parent and complete persisted plan
+  -> acceptance creates a READY immutable child revision; rejection leaves the parent current
+  -> READY revision's existing ToolRouter artifact yields one exact API-operation inventory
+  -> owner explicitly classifies every discovered operation include or exclude
+  -> sources.save_api_operation_curation appends an immutable record under exact expected-current CAS
+  -> stale/concurrent input remains failed; Source Hub refetches the authoritative selection
+  -> curation history/current pointer survive reload and backend restart without executing an API
+  -> sources.prepare_routed_api_test opens a stable non-executing detail surface from agent or surface
+  -> server binds planning to the exact authenticated owner, conversation and RouteDeck session
+  -> current curation becomes ToolRouter's retrieval corpus before unchanged routing
+  -> ambiguity exposes candidates without preselection; an exact typed choice reroutes one endpoint
+  -> missing non-secret input appends same-lineage records under exact current-record CAS
+  -> profile-managed authentication contributes only non-secret parameter identity
+  -> ready, waiting and unresolved multi-step plans persist with api_call_count fixed at zero
+  -> reload/backend restart retain the exact plan; other conversations and owners remain isolated
+  -> explicit sources.retry_processing requeues only the failed linked job
 ```
 
 Source identity, revisions, tenancy, RouteDeck behavior, and list/get/retrieve/
@@ -197,12 +304,29 @@ between the API engine port and the replaceable
 The private ToolRouter engine owns OpenAPI/graph/retrieval/evalset algorithms;
 it owns no product node or owner/session behavior.
 
-The live product now has twelve nodes: eight `lounge.*` nodes, one
-`workspace.home` node, two `agents.*` nodes, and one `sources.home` node. The Sources surface is an authenticated experimental debug
-surface, not Agent Designer, an execution Sandbox, or a public deployed Web
-channel. The four evidence stages are UI state derived from the Source,
-retrieval, and evalset results; they are not additional product or RouteDeck
-nodes.
+The live product has twelve nodes: eight `lounge.*` nodes, one
+`workspace.home` node, two `agents.*` nodes, and one `sources.home` node. The
+Source Hub surface includes inventory, API YAML/optional Markdown intake,
+durable status, detail, semantic graph groups, exact recorded-stage inspection,
+  protected revision-bound connection-profile saving, explicit one-call safe
+  GetProductTypes/GetProductTags checks, immutable redacted check history,
+  transport-free immutable contract proposal/required-review behavior, exact
+  non-executing operation curation with immutable CAS history,
+  conversation-bound non-executing route preparation and clarification, and
+  explicit retry. Phase C retained 8/8 passing browser assertions including
+  real Medusa success/failure, reload/restart, owner isolation, desktop/mobile
+  evidence and a safe trace; its immutable recorder status remains failed only
+  for a sign-out abort diagnostic after the backend logged 204. Phase D run
+  `20260807T212855Z-f8596ef591` passed 9/9 with fresh processing, exact
+  inventory, explicit decisions, visible stale-CAS recovery, reload/restart,
+  owner isolation, desktop/mobile evidence, continuous video and safe trace.
+  Phase E run `20260808T000249Z-c67d5b0004` passed 13/13 with real curated
+  ToolRouter ambiguity, typed same-lineage clarification, current-request and
+  managed-profile provenance, zero calls, reload/restart, three-conversation
+  isolation, second-owner isolation, desktop/mobile evidence, continuous
+  video and safe trace. Ordered pause/resume/step graph replay, compiled
+  read/write execution, deployed-agent clarification, unknown-write recovery,
+  Source deletion, and later lifecycle features remain outside these slices.
 
 ## Feature Evaluation Evidence
 
@@ -217,7 +341,13 @@ Studio-owned behavior, action plan, or adaptive conversation definition
   -> deterministic bound outcome and checkpoint assertions
   -> semantic judge only for conversational plans
   -> immutable .runtime/evaluations result artifact
+  -> atomic latest-evidence index entry keyed by evaluation ID
+  -> Studio compares that entry with the current definition hash
 ```
+
+Each definition therefore reports its own current, stale, failed, or not-run
+state. Running one evaluator definition never displaces the latest evidence for
+an unrelated definition.
 
 Product-journey evaluation exercises the rendered product separately:
 
@@ -239,6 +369,10 @@ resynchronization. The artifact retains browser errors and aborted transport
 requests separately so navigation/teardown cancellation cannot masquerade as a
 successful application response.
 
+The Design Studio walkthrough separately proves governance and authoring UX at
+desktop and representative mobile dimensions. Its current Step 2 validation is
+recorded in `docs/superpowers/validation/2026-08-07-step2-studio-governance.md`.
+
 The product runner owns isolated ports and databases and removes its runtime
 after execution. It does not mutate normal development databases, invent mail
 delivery, or turn a failed user-visible outcome into success.
@@ -248,9 +382,10 @@ delivery, or turn a failed user-visible outcome into success.
 ```text
 source manifests + owner intent
   -> Agent Designer
-  -> accepted design
-  -> Agent Builder
-  -> draft agent revision
+  -> immutable design revision plus visible shared topology/hash
+  -> accepted design and build request
+  -> Agent Builder compiles the same topology into an immutable RouteDeck Application
+  -> exact runtime build and NavGraph
   -> Sandbox
   -> Evaluation and evalsets
   -> Channels and deployment configuration

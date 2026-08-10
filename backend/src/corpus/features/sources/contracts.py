@@ -5,6 +5,7 @@ from typing import Any, Literal
 
 
 SourceTraceMode = Literal["bounded", "full"]
+API_CONNECTION_FORM_ID = "sources-api-connection"
 
 
 @dataclass(frozen=True)
@@ -52,6 +53,7 @@ class SourceEvalsetResult:
 
 
 __all__ = [
+    "API_CONNECTION_FORM_ID",
     "SourceEvalsetResult",
     "SourceRankedItem",
     "SourceRetrievalResult",

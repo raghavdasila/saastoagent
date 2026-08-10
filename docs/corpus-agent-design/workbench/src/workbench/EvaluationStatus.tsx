@@ -1,26 +1,33 @@
 import { CheckCircle2, Clock3, RefreshCcw, XCircle } from "lucide-react"
 import { useEffect, useState } from "react"
 
-type ResultState = "loading" | "not-run" | "passed" | "failed" | "stale"
+import {
+  evaluationDefinitionSha256,
+  resolveEvaluationResultState,
+  type EvaluationEvidence,
+  type EvaluationResultState,
+} from "@/workbench/evaluationEvidence"
 
-export function EvaluationStatus({ compact = false, evaluationId }: { compact?: boolean; evaluationId?: string }) {
-  const [state, setState] = useState<ResultState>(evaluationId ? "loading" : "not-run")
+export function EvaluationStatus({ compact = false, definition, evaluationId }: { compact?: boolean; definition?: unknown; evaluationId?: string }) {
+  const [state, setState] = useState<EvaluationResultState>(evaluationId ? "loading" : "not-run")
+  const definitionFingerprint = definition === undefined ? "" : JSON.stringify(definition)
 
   useEffect(() => {
-    if (!evaluationId) return
+    if (!evaluationId || definition === undefined) return
     let active = true
-    void fetch("/__design-studio/evaluation-results", { cache: "no-store" }).then(async (response) => {
+    setState("loading")
+    void Promise.all([
+      fetch("/__design-studio/evaluation-results", { cache: "no-store" }),
+      evaluationDefinitionSha256(definition),
+    ]).then(async ([response, currentDefinitionSha256]) => {
       if (!active) return
       if (response.status === 404) { setState("not-run"); return }
       if (!response.ok) throw new Error("evaluation results unavailable")
-      const payload = await response.json() as { currentDesignSha256: string; evaluations?: Record<string, { status: string; designSha256: string }> }
-      const result = payload.evaluations?.[evaluationId]
-      if (!result) setState("not-run")
-      else if (result.designSha256 !== payload.currentDesignSha256) setState("stale")
-      else setState(result.status === "passed" ? "passed" : "failed")
+      const payload = await response.json() as { evaluations?: Record<string, EvaluationEvidence> }
+      setState(resolveEvaluationResultState(payload.evaluations?.[evaluationId], currentDefinitionSha256))
     }).catch(() => { if (active) setState("not-run") })
     return () => { active = false }
-  }, [evaluationId])
+  }, [definitionFingerprint, evaluationId])
 
   const label = state === "loading" ? "Loading" : state === "not-run" ? "Not run" : state[0].toUpperCase() + state.slice(1)
   const Icon = state === "passed" ? CheckCircle2 : state === "failed" ? XCircle : state === "stale" ? RefreshCcw : Clock3

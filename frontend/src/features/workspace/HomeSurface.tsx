@@ -78,7 +78,7 @@ export function HomeSurface({
       )}
       <div className="workspace-auth-actions">
         <Button type="button" disabled={busy} onClick={() => void openAgents()}><Bot data-icon="inline-start" />Open Agents</Button>
-        <Button type="button" disabled={busy} onClick={() => void openSources()}><DatabaseZap data-icon="inline-start" />Open Sources debug</Button>
+        <Button type="button" disabled={busy} onClick={() => void openSources()}><DatabaseZap data-icon="inline-start" />Open Sources</Button>
         {session.owner.is_verified ? null : <Button type="button" variant="outline" disabled={busy} onClick={() => void openVerification()}>Manage verification</Button>}
         <Button type="button" variant="outline" disabled={busy} onClick={() => void logout()}><LogOut data-icon="inline-start" />Sign out</Button>
       </div>

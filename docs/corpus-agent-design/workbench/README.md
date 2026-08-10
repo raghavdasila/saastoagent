@@ -22,12 +22,21 @@ account entry or recovery. Its eight behaviors now carry complete, explicit
 operation contracts and are drafts awaiting renewed review after that design
 change. **Workspace** is the authenticated owner home; its sign-out story
 is also implementation-backed and approved. **Agents** owns agent identity,
-configuration overview, source handoffs, and lifecycle actions without a
-product-level draft-agent concept. **Source Hub** owns source inventory and the
+configuration overview, source handoffs, lifecycle actions, a selected-agent
+Designer/Builds/Sandbox/Evaluation hub, and immutable historical
+build-to-source-revision lineage without a product-level draft-agent concept.
+The seven Step 5 lifecycle behaviors are accepted design contracts only: the
+implementation manifest records their exact future Corpus owners and keeps them
+unmapped until real runtime declarations, persistence, surfaces, and evidence
+exist. **Source Hub** owns source inventory and the
 only launch entry into **API Source**, which owns OpenAPI intake, connection
-configuration, ToolRouter processing, graph inspection and replay, operation
-curation, and explicit recovery. Approved stories lock current-product behavior
-only; **Reopen draft** remains the explicit way to reconsider one.
+configuration, durable ToolRouter processing, graph and semantic-group inspection,
+recorded construction replay, operation curation, routed real-operation testing,
+and explicit recovery. These Source Hub and API Source stories are accepted
+product contracts, not runtime-completion claims: the implementation manifest
+records the exact small compiled Sources boundary and keeps the remaining
+behaviors explicitly unmapped or unimplemented. **Reopen draft** remains the
+explicit way to reconsider an accepted behavior.
 
 Each behavior keeps the review unit deliberately small:
 

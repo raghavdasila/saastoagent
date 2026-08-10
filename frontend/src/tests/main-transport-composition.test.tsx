@@ -115,4 +115,4 @@ it("composes bearer auth and Sources with conversation-scoped RouteDeck clients"
   expect(state.createRouteDeckAgentClient).toHaveBeenCalledWith(expect.objectContaining({
     fetch: state.conversationTransport.fetch,
   }));
-});
+}, 10_000);

@@ -1,24 +1,320 @@
 from __future__ import annotations
 
 from routedeck_core.contracts.navigation import NodeRef
-from routedeck_core.contracts.operations import Operation, OperationSource, SafetyClass
+from routedeck_core.contracts.operations import (
+    EntityInput,
+    EntityProvider,
+    Guard,
+    Operation,
+    OperationSource,
+    ReviewPolicy,
+    SafetyClass,
+)
 from routedeck_core.contracts.projection import FrozenJsonObject
 
 from corpus.shared.schemas import EMPTY_OBJECT_SCHEMA
+from corpus.auth.contracts import OWNER_CONTEXT_PROVIDER
+from . import policies
+from .contracts import API_CONNECTION_FORM_ID
+from .schemas import (
+    ApproveContractRevisionArguments,
+    GraphStageArguments,
+    ProposeContractRevisionArguments,
+    RetrySourceArguments,
+    SaveApiOperationCurationArguments,
+    TestApiConnectionArguments,
+)
 
 
-RETURN_TO_HOME = Operation(
-    id="sources.return_to_home",
-    title="Return Home",
-    description="Return from Sources to the authenticated owner home.",
-    input_schema=FrozenJsonObject(EMPTY_OBJECT_SCHEMA),
-    safety_class=SafetyClass.NAVIGATION,
-    allowed_sources=frozenset({OperationSource.SURFACE}),
-    outcomes=("opened",),
-    outcome_schemas=FrozenJsonObject({"opened": EMPTY_OBJECT_SCHEMA}),
+def operation(
+    operation_id: str,
+    title: str,
+    description: str,
+    outcome: str,
+    *,
+    input_schema: dict = EMPTY_OBJECT_SCHEMA,
+    safety_class: SafetyClass = SafetyClass.NAVIGATION,
+    sources: frozenset[OperationSource] = frozenset(
+        {OperationSource.AGENT, OperationSource.SURFACE}
+    ),
+    entity_inputs: tuple[EntityInput, ...] = (),
+    review_policy: ReviewPolicy = ReviewPolicy.NONE,
+    guard_refs=(),
+    policy_refs=(),
+    public_metadata: dict | None = None,
+    unknown_recovery_directive: str | None = None,
+    outcome_schema: dict = EMPTY_OBJECT_SCHEMA,
+) -> Operation:
+    return Operation(
+        id=operation_id,
+        title=title,
+        description=description,
+        input_schema=FrozenJsonObject(input_schema),
+        safety_class=safety_class,
+        allowed_sources=sources,
+        outcomes=(outcome,),
+        outcome_schemas=FrozenJsonObject({outcome: outcome_schema}),
+        provider_refs=(OWNER_CONTEXT_PROVIDER.ref,),
+        entity_inputs=entity_inputs,
+        review_policy=review_policy,
+        guard_refs=guard_refs,
+        policy_refs=policy_refs,
+        public_metadata=FrozenJsonObject(public_metadata or {}),
+        unknown_recovery_directive=unknown_recovery_directive,
+    )
+
+
+CONTRACT_REVISION_PROPOSAL_PROVIDER = EntityProvider(
+    id="sources.contract_revision_proposal",
+    entity_kind="contract_revision_proposal",
+    description="The exact owner-scoped persisted API contract proposal retained in this session.",
+    output_schema=FrozenJsonObject(EMPTY_OBJECT_SCHEMA),
+)
+CONTRACT_REVISION_CURRENT_GUARD = Guard(
+    id="sources.contract_revision_current",
+    description="Requires the reviewed contract proposal and exact parent Source revision to remain current at acceptance time.",
+)
+API_CONNECTION_CHECK_CURRENT_GUARD = Guard(
+    id="sources.api_connection_check_current",
+    description="Requires the exact owner Source revision, saved profile, credential version and safe read operation to remain executable.",
+)
+API_OPERATION_CURATION_CURRENT_GUARD = Guard(
+    id="sources.api_operation_curation_current",
+    description="Requires the exact owner Source revision and discovered operation inventory to remain current before saving explicit inclusion decisions.",
+)
+ROUTED_API_READ_CURRENT_GUARD = Guard(
+    id="sources.routed_api_read_current",
+    description="Requires one exact current owner plan with one fully resolved read operation and no prior execution claim.",
+)
+ROUTED_API_WRITE_CURRENT_GUARD = Guard(
+    id="sources.routed_api_write_current",
+    description="Rechecks one exact current owner plan with one fully resolved write operation and no prior execution claim at review acceptance time.",
+)
+
+
+RETURN_TO_HOME = operation(
+    "sources.return_to_home",
+    "Return Home",
+    "Return from Sources to the authenticated owner home.",
+    "opened",
+    sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
+)
+OPEN_API_CREATION = operation(
+    "sources.open_api_creation",
+    "Open API source creation",
+    "Open the API source intake within the current Workspace.",
+    "opened",
+)
+RETRY_PROCESSING = operation(
+    "sources.retry_processing",
+    "Retry API processing",
+    "Explicitly queue another durable attempt for a failed API source revision.",
+    "queued",
+    input_schema=RetrySourceArguments.model_json_schema(),
+    safety_class=SafetyClass.DRAFT,
+)
+SELECT_GRAPH_STAGE = operation(
+    "sources.select_graph_stage",
+    "Inspect recorded graph stage",
+    "Select one stage from the exact owner-scoped persisted ToolRouter construction record.",
+    "selected",
+    input_schema=GraphStageArguments.model_json_schema(),
+    safety_class=SafetyClass.STATE_SELECTION,
+)
+INSPECT_CURRENT_API = operation(
+    "sources.inspect_current_api",
+    "Inspect current API architecture",
+    "Read the one exact current ready API Source, its semantic groups, operations, saved profile count, and current curation before choosing a follow-up action.",
+    "inspected",
+    safety_class=SafetyClass.STATE_SELECTION,
+    sources=frozenset({OperationSource.AGENT}),
+    policy_refs=(policies.PROCESSING_TRUTH.ref, policies.API_OPERATION_CURATION_TRUTH.ref),
+    outcome_schema={
+        "type": "object",
+        "properties": {
+            "source_id": {"type": "string", "minLength": 16, "maxLength": 16},
+            "source_revision_id": {"type": "string", "minLength": 16, "maxLength": 16},
+            "revision_kind": {"type": "string"},
+            "semantic_groups": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "label": {"type": "string"},
+                        "operation_ids": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "required": ["label", "operation_ids"],
+                    "additionalProperties": False,
+                },
+            },
+            "operations": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "operation_id": {"type": "string"},
+                        "method": {"type": "string"},
+                        "path_template": {"type": "string"},
+                    },
+                    "required": ["operation_id", "method", "path_template"],
+                    "additionalProperties": False,
+                },
+            },
+            "saved_profile_count": {"type": "integer", "minimum": 0},
+            "current_included_operation_ids": {
+                "type": "array", "items": {"type": "string"}
+            },
+        },
+        "required": [
+            "source_id", "source_revision_id", "revision_kind", "semantic_groups",
+            "operations", "saved_profile_count", "current_included_operation_ids"
+        ],
+        "additionalProperties": False,
+    },
+)
+SAVE_API_CONNECTION = operation(
+    "sources.save_api_connection",
+    "Save API connection",
+    "Persist one revision-bound API connection profile from the protected surface.",
+    "saved",
+    safety_class=SafetyClass.CREDENTIAL,
+    sources=frozenset({OperationSource.SURFACE}),
+)
+TEST_API_CONNECTION = operation(
+    "sources.test_api_connection",
+    "Test API connection",
+    "Run one explicitly selected safe read through the exact approved API contract and saved profile.",
+    "checked",
+    input_schema=TestApiConnectionArguments.model_json_schema(),
+    safety_class=SafetyClass.READ_EXTERNAL,
+    guard_refs=(API_CONNECTION_CHECK_CURRENT_GUARD.ref,),
+    policy_refs=(policies.API_CONNECTION_CHECK_TRUTH.ref,),
+)
+SAVE_API_OPERATION_CURATION = operation(
+    "sources.save_api_operation_curation",
+    "Save operation curation",
+    (
+        "Persist the owner's explicit operation selection for the exact current API inventory. "
+        "For an agent call, pass only included_operation_ids explicitly named by the user; "
+        "Corpus resolves the current Source identity and classifies every other discovered "
+        "operation as excluded. Never enumerate or invent server-owned inventory identity."
+    ),
+    "saved",
+    input_schema=SaveApiOperationCurationArguments.model_json_schema(),
+    safety_class=SafetyClass.DRAFT,
+    guard_refs=(API_OPERATION_CURATION_CURRENT_GUARD.ref,),
+    policy_refs=(policies.API_OPERATION_CURATION_TRUTH.ref,),
+)
+PREPARE_ROUTED_API_TEST = operation(
+    "sources.prepare_routed_api_test",
+    "Prepare routed API test",
+    "Open a non-executing route-planning surface for the current Source context.",
+    "opened",
+    safety_class=SafetyClass.STATE_SELECTION,
+    policy_refs=(policies.API_ROUTE_PLANNING_TRUTH.ref,),
+)
+OPAQUE_PLAN_ID_SCHEMA = {
+    "type": "object",
+    "properties": {"plan_id": {"type": "string", "minLength": 1}},
+    "required": ["plan_id"],
+    "additionalProperties": False,
+}
+
+TEST_ROUTED_API_READ = operation(
+    "sources.test_routed_api_read",
+    "Run routed API read",
+    "Execute the one fully resolved read operation from the exact current opaque route plan.",
+    "observed",
+    input_schema=OPAQUE_PLAN_ID_SCHEMA,
+    safety_class=SafetyClass.READ_EXTERNAL,
+    guard_refs=(ROUTED_API_READ_CURRENT_GUARD.ref,),
+    policy_refs=(policies.API_ROUTED_EXECUTION_TRUTH.ref,),
+)
+TEST_ROUTED_API_WRITE = operation(
+    "sources.test_routed_api_write",
+    "Run reviewed routed API write",
+    "Execute the one fully resolved write operation only after explicit durable owner review.",
+    "observed",
+    input_schema=OPAQUE_PLAN_ID_SCHEMA,
+    safety_class=SafetyClass.WRITE_EXTERNAL,
+    review_policy=ReviewPolicy.REQUIRED,
+    guard_refs=(ROUTED_API_WRITE_CURRENT_GUARD.ref,),
+    policy_refs=(policies.API_ROUTED_EXECUTION_TRUTH.ref,),
+    public_metadata={"review_surface_id": "sources.routed_api_write_review"},
+    unknown_recovery_directive=(
+        "Do not retry this write automatically. Preserve the redacted trace and verify "
+        "the external system state before any explicit reconciliation or new reviewed attempt."
+    ),
+)
+PROPOSE_CONTRACT_REVISION = operation(
+    "sources.propose_contract_revision",
+    "Prepare API contract revision proposal",
+    (
+        "Validate and persist the exact local Medusa contract proposal without calling the API. "
+        "This prepares evidence only; it does not stage the required owner review."
+    ),
+    "proposed",
+    input_schema=ProposeContractRevisionArguments.model_json_schema(),
+    safety_class=SafetyClass.DRAFT,
+    policy_refs=(policies.CONTRACT_REVISION_TRUTH.ref,),
+    outcome_schema={
+        "type": "object",
+        "properties": {
+            "proposal_state": {"const": "proposal_prepared"},
+            "review_staged": {"const": False},
+            "next_owner_decision": {"const": "request_owner_review"},
+        },
+        "required": [
+            "proposal_state",
+            "review_staged",
+            "next_owner_decision",
+        ],
+        "additionalProperties": False,
+    },
+)
+APPROVE_CONTRACT_REVISION = operation(
+    "sources.approve_contract_revision",
+    "Review API contract revision",
+    (
+        "Stage the durable owner review for creating one immutable API Source revision. "
+        "Staging is not approval; only a later explicit acceptance creates the revision."
+    ),
+    "approved",
+    input_schema=ApproveContractRevisionArguments.model_json_schema(),
+    safety_class=SafetyClass.DRAFT,
+    entity_inputs=(
+        EntityInput(
+            argument_name="proposal_ref",
+            entity_kind="contract_revision_proposal",
+        ),
+    ),
+    review_policy=ReviewPolicy.REQUIRED,
+    guard_refs=(CONTRACT_REVISION_CURRENT_GUARD.ref,),
+    policy_refs=(policies.CONTRACT_REVISION_TRUTH.ref,),
+    public_metadata={"review_surface_id": "sources.contract_revision_review"},
 )
 
 SOURCES_HOME_REF = NodeRef(id="sources.home")
-
-
-__all__ = ["RETURN_TO_HOME", "SOURCES_HOME_REF"]
+__all__ = [
+    "APPROVE_CONTRACT_REVISION",
+    "CONTRACT_REVISION_CURRENT_GUARD",
+    "CONTRACT_REVISION_PROPOSAL_PROVIDER",
+    "INSPECT_CURRENT_API",
+    "OPEN_API_CREATION",
+    "PREPARE_ROUTED_API_TEST",
+    "TEST_ROUTED_API_READ",
+    "TEST_ROUTED_API_WRITE",
+    "ROUTED_API_READ_CURRENT_GUARD",
+    "ROUTED_API_WRITE_CURRENT_GUARD",
+    "PROPOSE_CONTRACT_REVISION",
+    "API_CONNECTION_FORM_ID",
+    "API_CONNECTION_CHECK_CURRENT_GUARD",
+    "API_OPERATION_CURATION_CURRENT_GUARD",
+    "RETRY_PROCESSING",
+    "RETURN_TO_HOME",
+    "SELECT_GRAPH_STAGE",
+    "SAVE_API_CONNECTION",
+    "SAVE_API_OPERATION_CURATION",
+    "TEST_API_CONNECTION",
+    "SOURCES_HOME_REF",
+]

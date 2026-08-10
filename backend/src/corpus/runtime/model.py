@@ -14,6 +14,7 @@ def create_chat_model(settings: CorpusRuntimeSettings) -> BaseChatModel:
         return ChatOllama(
             model=settings.ollama_model,
             base_url=str(settings.ollama_base_url).rstrip("/"),
+            temperature=0,
         )
 
     assert settings.openai_api_key is not None

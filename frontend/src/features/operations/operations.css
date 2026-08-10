@@ -1,0 +1,12 @@
+.operations-home { display: grid; gap: 1rem; }
+.operations-promotion-controls { display: grid; gap: .75rem; max-width: 42rem; }
+.operations-home ol { display: grid; gap: .75rem; list-style: none; margin: 0; padding: 0; }
+.operations-home li { display: grid; gap: .4rem; }
+.operations-home code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.deployed-runtime { display: grid; gap: 1rem; padding: 1rem; border: 1px solid var(--border); border-radius: 1rem; background: color-mix(in srgb, var(--card) 94%, var(--primary) 6%); }
+.deployed-runtime > header, .deployed-runtime__router > header { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
+.deployed-runtime header p, .deployed-runtime header h3, .deployed-runtime header h4 { margin: 0; }
+.deployed-runtime__router { display: grid; gap: .75rem; }
+.deployed-runtime__router ol { display: grid; gap: .5rem; }
+.deployed-runtime__router li { grid-template-columns: auto minmax(10rem, .4fr) minmax(0, 1fr); align-items: start; }
+@media (max-width: 640px) { .deployed-runtime > header, .deployed-runtime__router > header { display: grid; } .deployed-runtime__router li { grid-template-columns: 1fr; } }

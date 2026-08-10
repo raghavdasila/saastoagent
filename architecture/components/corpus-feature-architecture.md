@@ -36,6 +36,10 @@ versions, and operation recovery.
   state. Lounge uses them but does not own them.
 - `corpus.persistence` owns database lifecycle and generic persistence
   primitives. Feature tables and repository behavior remain feature-owned.
+- `corpus.jobs` owns the product-neutral durable-job contract, SQLAlchemy job
+  truth/lifecycle events, and Huey adapter. A consuming feature owns its task.
+- `corpus.credentials` owns opaque owner-scoped references and authenticated
+  encrypted payloads. Feature code never owns vault key material.
 - `corpus.shared` and `frontend/src/shared` contain only stable, product-neutral
   primitives. They do not import features.
 - Cross-feature navigation is injected by the application composition root.
@@ -67,3 +71,27 @@ feature-to-application imports, concrete auth imports, cross-feature internal
 imports, frontend feature-store coupling, and shared-layer dependencies on
 product subsystems. Sources remains outside this enforcement set until its
 separate implementation lane is reconciled.
+
+## Agent Source attachment boundary
+
+Agents owns `AgentSourceAttachment`, including organization scope, exact
+`source_id` plus immutable `source_revision_id`, uniqueness and conflict
+semantics. Its persisted row contains identities and attachment time only; it
+does not copy the Source display name. The application adapter reads the one
+owner-scoped Source inventory and revision chain through `SourceService` and
+enriches the attachment display name at read time. If that exact Source
+revision is unavailable, the attachment read fails truthfully rather than
+returning stale copied data. Agents does not copy Source, job, ToolRouter or
+session state. RouteDeck owns the selected-Agent private entity binding and
+rotates its legal operation allowlist with each `agents.home` / `sources.home`
+transition. Corpus revalidates owner, READY/current revision and the persisted
+exact attachment before every attach or open behavior.
+
+The cross-feature seam is explicit: backend Agents imports only the public
+`sources.contracts` values used by the handoff, and frontend Agents depends on
+the public `SourceInventoryClient` / `SourceView` contract rather than the
+Sources client implementation. The compiled Agents Node, attachment
+Capability, picker Surface and lifecycle Operations activate the exact
+accepted Studio policies. Internal selection and return Operations remain
+current RouteDeck contracts without being presented as Studio-authored
+product Operations.

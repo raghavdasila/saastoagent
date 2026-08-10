@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from typing import Protocol
 
 from fastapi import Request
@@ -70,9 +71,9 @@ async def owner_key(
         current = await service.resolve_access_token(auth_token)
     except SessionUnavailable as error:
         raise unauthorized() from error
-    if current.user_id is None:
+    if current.user_id is None or current.organization_id is None:
         raise unauthorized()
-    return str(current.user_id)
+    return str(current.organization_id)
 
 
 def authorize_mutation(
@@ -91,6 +92,8 @@ def authorize_mutation(
 
 async def call_source_service(function, **kwargs):
     try:
+        if inspect.iscoroutinefunction(function):
+            return await function(**kwargs)
         return await run_in_threadpool(function, **kwargs)
     except SourceNotFound as error:
         raise SourceHttpProblem(

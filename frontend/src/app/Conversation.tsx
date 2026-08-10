@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useLayoutEffect, useRef, type ReactNode } from "react";
 import type {
   AgentConversationMessage,
   AgentStreamStatus,
@@ -10,14 +10,30 @@ export interface ConversationProps {
   messages: readonly AgentConversationMessage[];
   status: AgentStreamStatus;
   suggestedActions: ReactNode;
+  scrollState?: ConversationScrollState;
 }
+
+export interface ConversationScrollState {
+  pinnedToBottom: boolean;
+  scrollTop: number;
+}
+
+const BOTTOM_PROXIMITY_PX = 80;
 
 export function Conversation({
   messages,
   status,
   suggestedActions,
+  scrollState: suppliedScrollState,
 }: ConversationProps) {
-  const activityAnchor = useRef<HTMLLIElement>(null);
+  const conversationRef = useRef<HTMLDivElement>(null);
+  const localScrollState = useRef<ConversationScrollState>({
+    pinnedToBottom: true,
+    scrollTop: 0,
+  });
+  const scrollState = suppliedScrollState ?? localScrollState.current;
+  const previousStatusRef = useRef(status);
+  const previousLastMessageIdRef = useRef(messages.at(-1)?.id ?? null);
   const hasStreamingAssistant = messages.some(
     (message) =>
       message.role === "assistant" && message.status === "streaming",
@@ -29,14 +45,51 @@ export function Conversation({
     -1,
   );
 
-  useEffect(() => {
-    if (status === "streaming") {
-      activityAnchor.current?.scrollIntoView?.({ block: "nearest" });
+  const updateBottomPin = useCallback(() => {
+    const conversation = conversationRef.current;
+    if (conversation === null) return;
+    const distanceFromBottom =
+      conversation.scrollHeight - conversation.scrollTop - conversation.clientHeight;
+    scrollState.scrollTop = conversation.scrollTop;
+    scrollState.pinnedToBottom = distanceFromBottom <= BOTTOM_PROXIMITY_PX;
+  }, [scrollState]);
+
+  useLayoutEffect(() => {
+    const conversation = conversationRef.current;
+    if (conversation === null) return;
+    const lastMessage = messages.at(-1);
+    const startedStreaming =
+      status === "streaming" && previousStatusRef.current !== "streaming";
+    const userMessageWasAppended =
+      lastMessage?.role === "user" &&
+      lastMessage.id !== previousLastMessageIdRef.current;
+    if (startedStreaming || userMessageWasAppended) {
+      scrollState.pinnedToBottom = true;
     }
-  }, [messages.length, status]);
+    const maximumScrollTop = Math.max(
+      0,
+      conversation.scrollHeight - conversation.clientHeight,
+    );
+    if (scrollState.pinnedToBottom) {
+      conversation.scrollTop = Math.max(
+        0,
+        conversation.scrollHeight - conversation.clientHeight,
+      );
+    } else {
+      conversation.scrollTop = Math.min(scrollState.scrollTop, maximumScrollTop);
+    }
+    scrollState.scrollTop = conversation.scrollTop;
+    previousStatusRef.current = status;
+    previousLastMessageIdRef.current = lastMessage?.id ?? null;
+  }, [messages, scrollState, status]);
 
   return (
-    <div aria-busy={status === "streaming"} data-agent-conversation="">
+    <div
+      ref={conversationRef}
+      aria-busy={status === "streaming"}
+      data-agent-conversation=""
+      onScroll={updateBottomPin}
+    >
       <ol aria-live="polite" aria-relevant="additions text">
         {messages.map((message, index) => (
           <li key={message.id} data-agent-turn="">
@@ -69,7 +122,7 @@ export function Conversation({
             </article>
           </li>
         ) : null}
-        <li ref={activityAnchor} aria-hidden="true" data-agent-activity-anchor="" />
+        <li aria-hidden="true" data-agent-activity-anchor="" />
       </ol>
     </div>
   );

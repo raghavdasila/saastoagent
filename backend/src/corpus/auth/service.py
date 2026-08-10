@@ -495,6 +495,31 @@ class AuthService:
                 is_verified=user.is_verified,
             )
 
+    async def route_principal_kind(
+        self,
+        route_session_id: str,
+    ) -> Literal["anonymous", "owner"]:
+        async with self.database.session() as session:
+            row = (
+                await session.execute(
+                    select(
+                        CorpusConversation.anonymous_session_id,
+                        CorpusConversation.owner_user_id,
+                    ).where(
+                        CorpusConversation.route_session_id == route_session_id,
+                        CorpusConversation.archived_at.is_(None),
+                    )
+                )
+            ).one_or_none()
+            if row is None:
+                raise SessionUnavailable("The route session is unavailable.")
+            anonymous_session_id, owner_user_id = row
+            if owner_user_id is not None and anonymous_session_id is None:
+                return "owner"
+            if anonymous_session_id is not None and owner_user_id is None:
+                return "anonymous"
+            raise SessionUnavailable("The route session principal is invalid.")
+
     async def sign_out(self, access_token: str) -> None:
         now = datetime.now(UTC)
         async with self.database.session() as session:

@@ -34,7 +34,15 @@ def test_api_source_settings_own_the_api_upload_limit(
     monkeypatch,
 ) -> None:
     monkeypatch.setenv("CORPUS_API_SOURCE_MAX_UPLOAD_BYTES", "4096")
+    monkeypatch.setenv(
+        "CORPUS_API_CHECK_ALLOWED_BASE_URLS",
+        "http://127.0.0.1:9100, http://host.docker.internal:9100",
+    )
 
     settings = ApiSourceSettings.from_env(tmp_path / "missing.env")
 
     assert settings.max_upload_bytes == 4096
+    assert settings.safe_check_allowed_base_urls == (
+        "http://127.0.0.1:9100",
+        "http://host.docker.internal:9100",
+    )

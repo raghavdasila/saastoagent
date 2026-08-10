@@ -10,6 +10,11 @@ not prescribe handlers, files, transports, storage, or other implementation
 choices; `scripts/check_agent_design_parity.py` uses it only to inspect product
 shape and boundary parity.
 
+`dependency-provenance/` contains machine-readable records for approved,
+exactly pinned product dependencies. These manifests record source, license,
+version, wheel hash, local reference evidence, and whether any source snapshot
+was imported; they are not runtime configuration or a dependency resolver.
+
 The central aggregate is the versioned **Agent Configuration**:
 
 ```text

@@ -1,0 +1,809 @@
+{
+  "schema": "corpus.playwright-trace-security-removal.v1",
+  "generatedAtUtc": "2026-08-07T14:50:35.497Z",
+  "removalStatus": "removed",
+  "removalTimestampUtc": "2026-08-07T14:51:45.944Z",
+  "evidenceRoots": [
+    "artifacts",
+    ".runtime/evaluations"
+  ],
+  "scanMethod": "Inspected Playwright trace.trace and trace.network metadata for non-empty Authorization, Cookie, API-key, proxy-authorization, and credential-query fields; no credential values were printed or retained.",
+  "retainedArchiveDeepScan": "After removal, all four retained archives were additionally scanned across trace metadata and text/JSON/HTML resources for non-empty password, access-token, refresh-token, authorization, cookie, API-key, client-secret, verification-token, and reset-token fields. No credential value was found or printed.",
+  "reason": "Raw Playwright trace archives can retain authenticated request credentials and are not safe evidence artifacts.",
+  "scannedCount": 100,
+  "sensitiveCount": 96,
+  "sensitiveBytes": 945644637,
+  "retainedCount": 4,
+  "sensitiveArchives": [
+    {
+      "path": "artifacts/agents-archive-delete/20260807T131929Z-17e26c6a33/browser-trace.zip",
+      "bytes": 10739715,
+      "sha256": "1345cb17747f0294599716475fb3696ce46f963a5aadbd426f40456fe66c930c",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": "artifacts/agents-archive-delete/20260807T132448Z-938c2f878e/browser-trace.zip",
+      "bytes": 9726306,
+      "sha256": "cdbb50dea5160093cce4acfff2c726c9fbeea8bf1e405a874129ac026fcc3f46",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": "artifacts/agents-archive-delete/20260807T132759Z-d86454bd84/browser-trace.zip",
+      "bytes": 37118829,
+      "sha256": "242b5c22fd18806c052dc0b210492b0cd118d3bb34a5dea1ec8ee1df1cce40cc",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": "artifacts/agents-archive-delete/20260807T143014Z-4533d14d8c/browser-trace.zip",
+      "bytes": 76912088,
+      "sha256": "ded7d63554c6c6f9d0aa87be94bb3d8e87d370bdd325a6d7111ee2b33afe1a96",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": "artifacts/agents-lifecycle/20260807T094312Z-2d6d6df014/browser-trace.zip",
+      "bytes": 25981397,
+      "sha256": "396af803250847033b6ac7be18974b9dac2f7730e8141d582066e4bd9ec043a3",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": "artifacts/agents-lifecycle/20260807T115259Z-ca04df5b57/browser-trace.zip",
+      "bytes": 30596046,
+      "sha256": "b8aad92bb279ab71c0fef59600b3a9cc015c20f1979c1932e12fdde62cb8f5c4",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T141656Z-a7e3cb74f3/lounge-journey-register-sign-in/trace.zip",
+      "bytes": 4039679,
+      "sha256": "f28c6b4c4aaa9ae3fc2dd80ee276618344d867238b8cb956320399b34d5fe4a9",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T141751Z-e986e0b919/lounge-journey-register-sign-in/trace.zip",
+      "bytes": 5861385,
+      "sha256": "d5501390f7c0aa974fa1b5db1706ce56d31798d81831c457be152fc19ad15f3e",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T141858Z-10626f5f6e/lounge-journey-register-sign-in/trace.zip",
+      "bytes": 5142517,
+      "sha256": "245737bcbf709ee23bc3904d050969d20b196bc9a3709a250a7fcabcf69a0b2e",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T141945Z-84b64983e0/lounge-journey-duplicate-registration/trace.zip",
+      "bytes": 5318589,
+      "sha256": "49381e5a66567285749c17a9391b213c7e611f205d8e78757fabdfb122bf515b",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T141945Z-84b64983e0/lounge-journey-email-verification/trace.zip",
+      "bytes": 3531617,
+      "sha256": "5ec6339435f7cf3f7b3bb133caebed4e42a12ad621e91b53d398a72c8fccfe15",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T141945Z-84b64983e0/lounge-journey-invalid-verification/trace.zip",
+      "bytes": 2679323,
+      "sha256": "224cacbef29762bbdab63e582787cc4dd39d765eabe2970e356d605726bac72c",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T141945Z-84b64983e0/lounge-journey-password-reset/trace.zip",
+      "bytes": 16676339,
+      "sha256": "b757155ea212874ee678c79bec8cea4eb59b40f3bf06a9c5f6edde0b7ef04c97",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T141945Z-84b64983e0/lounge-journey-register-sign-in/trace.zip",
+      "bytes": 5333981,
+      "sha256": "0f281c639c54d9015ecafedf47f7227708aec96220f9aea4b15f81c17f50c501",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T141945Z-84b64983e0/lounge-journey-unknown-reset/trace.zip",
+      "bytes": 4124059,
+      "sha256": "f45d6be3a6b9536948257e68d085a909affc920088d5a878552b1233ac1a1f48",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T141945Z-84b64983e0/lounge-journey-verification-rate-limit/trace.zip",
+      "bytes": 2463163,
+      "sha256": "865e5271a111944645299b99a2cf602f76c5b6e6abd2f5cecf159b4ee5647d23",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T142618Z-6d7d17ba1b/lounge-journey-password-reset/trace.zip",
+      "bytes": 6622100,
+      "sha256": "32d49770cdcbed2481d27036b08539ace4b575dc05fc5539c69c0999b62f030f",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T142802Z-3f560646d3/lounge-journey-duplicate-registration/trace.zip",
+      "bytes": 7617122,
+      "sha256": "7e8db887e0403b5d8135391f2413e36554fede4787aea6c746b5019422676606",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T142918Z-4fc25a7849/lounge-journey-unknown-reset/trace.zip",
+      "bytes": 3372105,
+      "sha256": "558a41e4ac1dff88321ef9396c43d14d05eaf15de2a1e7e93b39e65cc5662351",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T142954Z-b80f7097f1/lounge-journey-mail-outage/trace.zip",
+      "bytes": 1947760,
+      "sha256": "f575246efb65f6bbe0dee5b105c093516741ee420fda790b86cb9582cfda3483",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T143105Z-d455d57a46/lounge-journey-email-verification/trace.zip",
+      "bytes": 4101620,
+      "sha256": "ca0007b6d495e14127ab26026341b0f66b240777c7f2c298e2a76f6cee353a6a",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T143500Z-2ef6016adb/lounge-journey-email-verification/trace.zip",
+      "bytes": 2581172,
+      "sha256": "7d095c0e134a829c75b6d4e800943bfe7031637d20cf4f24f8425feec39a5b0b",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T143624Z-cec1e4cc52/lounge-journey-email-verification/trace.zip",
+      "bytes": 6412046,
+      "sha256": "3b00a89bf74f3f12d84ad7b99fea5d4123196ae50e469fb96879cb95a5a94801",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T143746Z-7d1ef1d50f/lounge-journey-email-verification/trace.zip",
+      "bytes": 9881801,
+      "sha256": "c6f13851554b51eb725d1bdcddc325fc6c8183e7d316794d08aac207e6d3cc80",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T143833Z-9e73f7bede/lounge-journey-verification-rate-limit/trace.zip",
+      "bytes": 2940733,
+      "sha256": "155b04941a1b33ad4e6e818c2adb2449eb55e2ba6e5ee15d69068c6754f3a96f",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T144002Z-f2e8df1199/lounge-journey-invalid-verification/trace.zip",
+      "bytes": 3596310,
+      "sha256": "f8a43e0f07653ba244010a3ad37c7814039f3d292cdc2f3fd2ad2cd73d006f09",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T144054Z-2ea148f657/lounge-journey-mail-outage/trace.zip",
+      "bytes": 5888176,
+      "sha256": "7431ae3d53a6f8986ad4ad0777acffbc02756ef7986b2fb853ae538a2c0b9707",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T144213Z-fb5e930538/lounge-journey-invalid-verification/trace.zip",
+      "bytes": 3278077,
+      "sha256": "0c31aa94b5950c5323b9a9f59d3837460488a8a508af30c8c0b375406a466cf7",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T192900Z-4953990a87/lounge-journey-duplicate-registration/trace.zip",
+      "bytes": 5253827,
+      "sha256": "bf336753c4e3a0e3581bb717ed7c4ff07bbaa35fef3c331ae51cad000d7c9c38",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T192940Z-109cb49e91/lounge-journey-mail-outage/trace.zip",
+      "bytes": 5480233,
+      "sha256": "2aad65a4426885c3d0a4132f24fd15f02dde6c7520e3bf70ad1afe71eee2e33d",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260805T193320Z-71251b2f54/lounge-journey-mail-outage/trace.zip",
+      "bytes": 6430600,
+      "sha256": "c03b463faf174fb415495cbeeacf4ff8a2db7d4e5dfd8a6c74c4af88949e3afc",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T043450Z-e7260e76ca/lounge-journey-mail-outage/trace.zip",
+      "bytes": 5936648,
+      "sha256": "a1e3dd7408d9136e8944a66a8799d3dd165a8d39b2dee51cb990f5d9baa29de3",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T043535Z-d73d207641/lounge-journey-verification-rate-limit/trace.zip",
+      "bytes": 2805289,
+      "sha256": "c25cbd6338654316944419ab7eb8ecb83d5be4303ea1e93e88ec3122ac461a3e",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T043614Z-adb2675519/lounge-journey-password-reset/trace.zip",
+      "bytes": 8540050,
+      "sha256": "403d8fe0623d373199f012d07a9ffdbf2403937b8b3d049ac591c88c9dd58623",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T044412Z-4103ff843b/lounge-journey-password-reset/trace.zip",
+      "bytes": 8663127,
+      "sha256": "8bf304a08edad3cb60f38fd8aa5b50114ea9cc2424dbf57d0ff6e1ebec0c379a",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T044759Z-35ff2c0185/lounge-journey-password-reset/trace.zip",
+      "bytes": 5235512,
+      "sha256": "e6dc76e3878d8147095a2aa36fe41ea964ff7f330e577b52e68c8eda52b9fbc9",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T044958Z-5fd6132412/lounge-journey-password-reset/trace.zip",
+      "bytes": 1441050,
+      "sha256": "21dfcf7ee195612ee8ae3a370318c6a77f519a1649ee11d810e05ab6b489b462",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T045110Z-88d9725f37/lounge-journey-password-reset/trace.zip",
+      "bytes": 1406941,
+      "sha256": "71523fc35a775a31ec9cf7dbe786a73fa7def7ea6d8958614343299ca4f7affc",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T045221Z-8f7d9cffc7/lounge-journey-password-reset/trace.zip",
+      "bytes": 7588304,
+      "sha256": "91b2555d55db5502dd3dc2e3a11e81786b9ebd9f121df630a009ecb483a7162b",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T045406Z-ab958f01d9/lounge-journey-duplicate-registration/trace.zip",
+      "bytes": 4979562,
+      "sha256": "115a06d793395ed811992600e597fc648f2ec9d250e68005b78403d1b7a22e09",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T045406Z-ab958f01d9/lounge-journey-email-verification/trace.zip",
+      "bytes": 3342914,
+      "sha256": "406ddc4ee7010294b0fce09528f3e2cff83fe6db1cfec355d2230785a507d039",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T045406Z-ab958f01d9/lounge-journey-invalid-verification/trace.zip",
+      "bytes": 2417590,
+      "sha256": "a2891c15761d308140f1b4d53a75c24d29a17f336e84cdce0f4c9fc8eccb5f9a",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T045406Z-ab958f01d9/lounge-journey-mail-outage/trace.zip",
+      "bytes": 5274661,
+      "sha256": "271f77258470f6cb0e840ebb0892bcb2b9500e4578e106931737d030622d1718",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T045406Z-ab958f01d9/lounge-journey-password-reset/trace.zip",
+      "bytes": 7918335,
+      "sha256": "b99e1d08d3806bec6a6bb13b3fc0b9b10cd81847d3c1b37d46ba08e9ce3cf9ca",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T045406Z-ab958f01d9/lounge-journey-register-sign-in/trace.zip",
+      "bytes": 5075476,
+      "sha256": "9757c4c1b0a15f444129ea6b7f0e295a729b4e4554aaf2785f3fe8810b556d8e",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T045406Z-ab958f01d9/lounge-journey-unknown-reset/trace.zip",
+      "bytes": 1963451,
+      "sha256": "8121783ba097e57516e400e8681907d726902160aab47744e1a6d7aa46dadffd",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T045406Z-ab958f01d9/lounge-journey-verification-rate-limit/trace.zip",
+      "bytes": 1855107,
+      "sha256": "30c234baebb293c31352b9c10acb50eaa9a7b059203179f671c47f9985b6248d",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T050107Z-bbe5230782/lounge-journey-register-sign-in/trace.zip",
+      "bytes": 5561610,
+      "sha256": "8da55a6d6ce8d3a03cadb0a6c9c7300ac666db25c5812e6ad2f38b0ed657d43a",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T050128Z-ebd8566c9b/lounge-journey-duplicate-registration/trace.zip",
+      "bytes": 4215511,
+      "sha256": "e0241314d25c8fd084ff767607a0f2740e495720bdcbbfb3dac01d1a7eabfbae",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T050148Z-cddce1c39e/lounge-journey-password-reset/trace.zip",
+      "bytes": 8734693,
+      "sha256": "b5d7e1840f97853e457590581a2b0c7b2b03145f536210385e8c6420e625e676",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T050225Z-9be4181c1a/lounge-journey-unknown-reset/trace.zip",
+      "bytes": 2535177,
+      "sha256": "b23bea5b46b63cd736378ff4e241b5c6a8add9fdd68d19e90e25eb488bc08f6c",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T050256Z-fb9dc7a2e1/lounge-journey-mail-outage/trace.zip",
+      "bytes": 4976800,
+      "sha256": "c9fd1c1a4f2b680234b6b994b61e5b62440a992f6546a9a106e14a63a7084113",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T050329Z-5b205e3c23/lounge-journey-email-verification/trace.zip",
+      "bytes": 2688669,
+      "sha256": "8d9b1ed8460b1dd96ab7178cbaf086d94f9d1f8900172932178a9fedd8382264",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T050516Z-7a19e9a5b8/lounge-journey-verification-rate-limit/trace.zip",
+      "bytes": 3043924,
+      "sha256": "f68cbf6a82fe4eb726df8cca9a2964ae96704c2b82a42642476772e8ffa64c92",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T050544Z-0a5c0f9c20/lounge-journey-invalid-verification/trace.zip",
+      "bytes": 3476212,
+      "sha256": "0800886cfef45c7984aad0bed4c7438f21c2b35f7948c80540c658f2d4d36f86",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T050638Z-ac6a8c73ce/lounge-journey-email-verification/trace.zip",
+      "bytes": 2583137,
+      "sha256": "a8316c596606bf90f4af8fd8db5a0947ffccebd117e9f4dfe8ea965b5accf746",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T061035Z-8a41ce6fa5/browser-trace.zip",
+      "bytes": 5569849,
+      "sha256": "07989db3ad95a11f8dbfd565d768b8e9fff7167c2029cd0119c1ca403e2eeff1",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T061531Z-bf0bc49c7c/browser-trace.zip",
+      "bytes": 5587456,
+      "sha256": "b6c0747683bacf3e865f13ac3eba1145b53831f1b28ad6b17de48a8214ce9de0",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T062528Z-81780611c8/lounge-journey-email-verification/trace.zip",
+      "bytes": 4557788,
+      "sha256": "b26162af59df92111f5bb9f18d992972dbdb8df68b10f760e2ca9488ccc336ca",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T062618Z-d39f965536/lounge-journey-register-sign-in/trace.zip",
+      "bytes": 4728779,
+      "sha256": "c812f5855dc397016fd8944f07cb44c066322e78e0ffff3c339dc9e9146d516d",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T062641Z-d4fe22ffaa/lounge-journey-duplicate-registration/trace.zip",
+      "bytes": 4458534,
+      "sha256": "90bcaf3bd58829f64d85a58389996e367b54e971a2e44ca563aeeeade3ad014e",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T062703Z-936fe35889/lounge-journey-password-reset/trace.zip",
+      "bytes": 9071435,
+      "sha256": "a38742d8467e4f767e958f3149634409a80836e6e1c7dcc1f48cf677cf575365",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T062742Z-a3c98d27eb/lounge-journey-unknown-reset/trace.zip",
+      "bytes": 3061242,
+      "sha256": "6f7692e8a4ac79940ffdf5e26539a457266491ea607126d3458263258d3748c1",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T062811Z-aac4b2dadb/lounge-journey-mail-outage/trace.zip",
+      "bytes": 5449160,
+      "sha256": "bfc665c6dacfe6c6b2cce50aa17b406358a92fcd0a6acae73e64f969f34365f0",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T062836Z-e00032bf8f/lounge-journey-email-verification/trace.zip",
+      "bytes": 3378799,
+      "sha256": "43c65e9222dd8feb04190dfeef2836a0f85c1a2285764272ffd9d9f73b1ce81d",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T062907Z-df4d1e8feb/lounge-journey-verification-rate-limit/trace.zip",
+      "bytes": 3128527,
+      "sha256": "bb544ac3b9a881b03405781fd51865e7dfd222e5e7d37fb0c4ac6801d49d6034",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T062937Z-ac63030b89/lounge-journey-invalid-verification/trace.zip",
+      "bytes": 2837571,
+      "sha256": "5f4e5f6b5ea665f67aaef74a142e8d397f2719697ef9d93bd91024a308c318d7",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T070452Z-live-7c20c2be04/trace.zip",
+      "bytes": 7315068,
+      "sha256": "e17b4ece921d737925260c9805c557754bfe35f9947a6d85a630094dacf303f3",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T085504Z-persistent-26a2087388/trace.zip",
+      "bytes": 6660887,
+      "sha256": "f2fb07864aafa5fc5effc30ab73f2a7cd694972a2b15f12204d533e0e7045a2d",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T085604Z-persistent-6fe8de9bcd/trace.zip",
+      "bytes": 5476702,
+      "sha256": "ac40e8273868ec51e333aeccb8ac71256a059a93b617191897644f7e34f1f610",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T100049Z-48bea73c46/browser-trace.zip",
+      "bytes": 14348407,
+      "sha256": "fe895d6908f961c5b41d22fd742a8b7a9dff02277b95408ee10a75c9691b87cd",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T100339Z-9bc80e1791/browser-trace.zip",
+      "bytes": 11660308,
+      "sha256": "ccc99c533776a691c31ce91ac9aaa765118487bc732ee11e3e4886ea9c8898aa",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T100501Z-e8ba2eca05/browser-trace.zip",
+      "bytes": 12146633,
+      "sha256": "df4bd635b19d64cb1695ccf0dc128ec569d53eb17635b6cc0b5fc7a5eaea69d1",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T100749Z-646a5f88a6/browser-trace.zip",
+      "bytes": 38016327,
+      "sha256": "d3e8813d1aaeed7fb2d19acf11a673e15e069b9261730ab36a4ec7ce0fb6593d",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T101026Z-21f3c009e8/browser-trace.zip",
+      "bytes": 29109261,
+      "sha256": "6d696322c276f087f8cbf6e1ad232755c9fcd76f998e02ffe968e32da3bc38c2",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T101156Z-5f82a39d48/browser-trace.zip",
+      "bytes": 12627286,
+      "sha256": "c7bc45365cf3c1141156a6120615ff48d7b92e0e9600ae9b6a33d7ecd28f3b66",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T101501Z-efad728195/lounge-journey-register-sign-in/trace.zip",
+      "bytes": 3815054,
+      "sha256": "36387f1c50c7343d307e2a00fd7cd80176c85c966dcb955dc766da18547a2027",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T101847Z-22d110a5c4/browser-trace.zip",
+      "bytes": 10074705,
+      "sha256": "5ababf8d979518a91edaa55026bee1ca7aa669186e818e9af82552a28003a5ae",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T153942Z-4cf85cfa76/browser-trace.zip",
+      "bytes": 41615287,
+      "sha256": "4ba8ccbdea6e2087a4d382f83b27fbd8f94e5a55fd50379021693a63f681a0fa",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T154211Z-4c4a6511de/browser-trace.zip",
+      "bytes": 37255865,
+      "sha256": "00aad6ec122999d77e0b61a2766be99ffc23b954a95910b58fde1a4eeb9f9c15",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260806T173245Z-898d846f57/browser-trace.zip",
+      "bytes": 12054249,
+      "sha256": "4a9cd24fe3d9341fa3cea0e14f96dbf35cf064551ec5bbbbd9ef570e08eaacef",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260807T065054Z-6ffbcbe95d/browser-trace.zip",
+      "bytes": 9562765,
+      "sha256": "651d45656cbb2de982fb699c89e55ed112040f88b0506a8b8c1982e2aa07c970",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260807T065124Z-25e7ee3904/browser-trace.zip",
+      "bytes": 11783488,
+      "sha256": "facf5db4536cbf3429d870edbb39abb3d64e828822bda4614d0091389d6f0026",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260807T065213Z-f6aa1e7da4/browser-trace.zip",
+      "bytes": 17159132,
+      "sha256": "b9cc3a78b663065f4b9ae3c9908ca68bdd2f0b9ba2e0ea8a95a18bdb50c526ff",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260807T065318Z-2143a80b6a/browser-trace.zip",
+      "bytes": 17603062,
+      "sha256": "302783c85617ec31984371c7ddfa2ac2e000fcb19dcb6bc16dafdfcb614e78b5",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260807T065605Z-8489ae7b4c/browser-trace.zip",
+      "bytes": 18335124,
+      "sha256": "1c85f27332a241de1ef4681f627193f397452047fc9d67be4fdcf3dd48432503",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260807T065826Z-01789e2992/browser-trace.zip",
+      "bytes": 5059837,
+      "sha256": "e77bd1993fb97e9d66b40687f485605655d523f6462fd38672cf6cb3b8d7f9d3",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260807T065947Z-530895f085/browser-trace.zip",
+      "bytes": 20334035,
+      "sha256": "7d16a6488fd4c277d795982f285dc85b6401e8bdedb45929927fc77d1d8098d7",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260807T070523Z-17b1d043db/browser-trace.zip",
+      "bytes": 16458370,
+      "sha256": "db09cc40980d596427186ca8c4bc6784c5468fec83539882f13e8f04c99a8a0b",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260807T074149Z-0ef5ba115f/browser-trace.zip",
+      "bytes": 11310686,
+      "sha256": "8e4a3df3d95034bf752fc1403817290bc6c5d87c7aefede4b73d4a395be7f17c",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260807T074341Z-d19c945950/browser-trace.zip",
+      "bytes": 8897930,
+      "sha256": "8e45a875c6df7ba441292d7ca79ea9dedf9b9021d3819c0bf54ef76c25b1d944",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260807T074913Z-380f930307/browser-trace.zip",
+      "bytes": 16332066,
+      "sha256": "957646231c9dea521393ce1f92156ffcf64a514ff436c85d5472344b05195e0b",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260807T075243Z-6a9ae1d69a/browser-trace.zip",
+      "bytes": 17168358,
+      "sha256": "40446c3f6bd5e1876cc2b2e6d0957c947cc73f958eb0906457bf15aced4f4e5e",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260807T075437Z-409f3f30ec/browser-trace.zip",
+      "bytes": 21430467,
+      "sha256": "b63d386afa71543475224df6f05893d5dcb98e711f86b8c2accc776be95b6407",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260807T080314Z-ece8df0deb/browser-trace.zip",
+      "bytes": 13971084,
+      "sha256": "bea77fb1004a87775f947b535e2ab1dcf4771ff3851e4bfcdcfdd7a59313e547",
+      "categories": [
+        "authorization"
+      ]
+    },
+    {
+      "path": ".runtime/evaluations/20260807T082751Z-47061af05e/browser-trace.zip",
+      "bytes": 12324589,
+      "sha256": "9537a5e2b8418d71fdfd823ef9a84047d8a4ec77e85cfd1e23f00933884acbae",
+      "categories": [
+        "authorization"
+      ]
+    }
+  ],
+  "retainedArchives": [
+    {
+      "path": ".runtime/evaluations/20260805T141945Z-84b64983e0/lounge-journey-mail-outage/trace.zip",
+      "bytes": 3139,
+      "sha256": "cfe6fdf5af2b08fdac0218b0011303837dd13edc32d47c89663b79dd91d59c80"
+    },
+    {
+      "path": ".runtime/evaluations/20260806T101347Z-03ed0dc818/browser-trace.zip",
+      "bytes": 7507852,
+      "sha256": "bc69a1bf480d887c5ea8e7bfe37be5cbe247b185674a069ac5e4004227c36b12"
+    },
+    {
+      "path": ".runtime/evaluations/20260807T051914Z-adba6f51bc/browser-trace.zip",
+      "bytes": 9417689,
+      "sha256": "8607981f3d1606605d731342feeca657d68522c1780bc44685cbdec8485bc24c"
+    },
+    {
+      "path": ".runtime/evaluations/20260807T051949Z-00e2a0fb37/browser-trace.zip",
+      "bytes": 9777390,
+      "sha256": "1a5a1c4edc3133ebbf45079a10108e326f0fb6941a0d7e64c12b4a297fc609bc"
+    }
+  ]
+}

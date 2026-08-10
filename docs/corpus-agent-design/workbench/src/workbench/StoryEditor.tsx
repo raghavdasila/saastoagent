@@ -3,15 +3,20 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { STUDIO_CONFIG } from "@/workbench/studioConfig"
+import type { StoryReadiness } from "@/workbench/readiness"
 import type { DesignStory } from "@/workbench/types"
 
 interface StoryEditorProps {
   story: DesignStory
+  readiness: StoryReadiness
   disabled: boolean
   onChange: (patch: Partial<DesignStory>) => void
 }
 
-export function StoryEditor({ story, disabled, onChange }: StoryEditorProps) {
+export function StoryEditor({ story, readiness, disabled, onChange }: StoryEditorProps) {
+  const reviewLabel = story.status === "approved" && !readiness.isReady
+    ? `Approval invalid · ${readiness.blockers.length} blockers`
+    : story.status[0].toUpperCase() + story.status.slice(1)
   return (
     <section aria-labelledby="story-heading" className="pb-5">
       <div className="mb-4 flex items-start justify-between gap-4">
@@ -20,10 +25,11 @@ export function StoryEditor({ story, disabled, onChange }: StoryEditorProps) {
             <span>{STUDIO_CONFIG.views.behavior.label}</span>
             <span aria-hidden="true">·</span>
             <span className={cn(
-              story.status === "approved" && "text-[var(--studio-success)]",
+              story.status === "approved" && readiness.isReady && "text-[var(--studio-success)]",
+              story.status === "approved" && !readiness.isReady && "text-[var(--studio-warning)]",
               story.status === "rejected" && "text-destructive",
             )}>
-              {story.status[0].toUpperCase() + story.status.slice(1)}
+              {reviewLabel}
             </span>
           </div>
           <h2 id="story-heading" className="mt-1 truncate text-xl font-semibold tracking-[-0.025em]">{story.title}</h2>

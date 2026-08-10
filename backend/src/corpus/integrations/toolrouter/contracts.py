@@ -9,6 +9,14 @@ TraceMode = Literal["bounded", "full"]
 
 
 @dataclass(frozen=True)
+class ManagedParameter:
+    """A parameter satisfied by a product-managed integration without a value."""
+
+    name: str
+    location: Literal["header", "path", "query", "body"]
+
+
+@dataclass(frozen=True)
 class IngestRequest:
     source_path: Path
     artifact_dir: Path
@@ -34,6 +42,8 @@ class RetrievalRequest:
     top_k: int = 5
     provided_params: Mapping[str, Any] | None = None
     trace_mode: TraceMode = "bounded"
+    allowed_endpoint_ids: tuple[str, ...] | None = None
+    managed_parameters: tuple[ManagedParameter, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -95,6 +105,7 @@ __all__ = [
     "EvalsetResult",
     "IngestRequest",
     "IngestResult",
+    "ManagedParameter",
     "RankedEndpoint",
     "RetrievalRequest",
     "RetrievalResult",

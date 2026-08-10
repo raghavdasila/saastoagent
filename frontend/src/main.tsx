@@ -19,8 +19,12 @@ import {
 } from "./auth/authClient";
 import { LOUNGE_SIGN_IN_PATH } from "./features/lounge/routes";
 import { SourceClient } from "./features/sources/sourceClient";
+import type { SourceView } from "./features/sources/contracts";
 import { AgentClient } from "./features/agents/client";
 import { AgentStore } from "./features/agents/store";
+import { DesignerClient } from "./features/designer/client";
+import { AgentRuntimeClient } from "./features/builder/client";
+import { PublicAgentApp } from "./features/delivery/PublicAgentApp";
 import { WorkspaceClient } from "./features/workspace/client";
 import { WorkspaceStore } from "./features/workspace/store";
 import {
@@ -31,6 +35,11 @@ import "./styles.css";
 import "./features/workspace/workspace.css";
 import "./features/sources/sources.css";
 import "./features/agents/agents.css";
+import "./features/designer/designer.css";
+import "./features/builder/builder.css";
+import "./features/evaluation/evaluation.css";
+import "./features/delivery/delivery.css";
+import "./features/operations/operations.css";
 
 const rootElement = document.getElementById("root");
 if (rootElement === null) {
@@ -43,14 +52,24 @@ root.render(<BootstrapLoadingShell />);
 void start();
 
 async function start(): Promise<void> {
+  const publicMatch = /^\/public\/agents\/([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/.exec(window.location.pathname);
+  if (publicMatch !== null) {
+    root.render(<PublicAgentApp slug={publicMatch[1]} />);
+    return;
+  }
   try {
     const bootstrap = await bootstrapCorpusConnection(window);
+    const sourceClient = new SourceClient(bootstrap.authorized);
     configureOwnerAuthClient({
       transport: bootstrap.authorized,
-      signOut: () => bootstrap.session.signOut(),
+      signOut: () => {
+        sourceClient.clearConversation();
+        return bootstrap.session.signOut();
+      },
     });
-    const sourceClient = new SourceClient(bootstrap.authorized);
     const agentStore = new AgentStore(new AgentClient(bootstrap.authorized));
+    const designerClient = new DesignerClient(bootstrap.authorized);
+    const agentRuntimeClient = new AgentRuntimeClient(bootstrap.authorized);
     const workspaceStore = new WorkspaceStore(
       new WorkspaceClient(bootstrap.authorized),
     );
@@ -58,6 +77,7 @@ async function start(): Promise<void> {
       window,
       bootstrap.authorized,
       bootstrap.conversations,
+      (conversationId) => sourceClient.selectConversation(conversationId),
     );
     const initial = await lifecycle.mount(
       bootstrap.conversation,
@@ -77,7 +97,10 @@ async function start(): Promise<void> {
             sourceClient,
             agentStore,
             workspaceStore,
+            designerClient,
+            agentRuntimeClient,
           )}
+          uploadChatSource={(file) => uploadChatSource(sourceClient, file)}
           isAnonymous={() => bootstrap.session.principal?.type === "anonymous"}
           onMounted={(mounted) => { current = mounted; }}
         />
@@ -97,6 +120,7 @@ function CorpusApplication({
   lifecycle,
   session,
   registry,
+  uploadChatSource,
   onMounted,
   isAnonymous,
 }: {
@@ -104,6 +128,7 @@ function CorpusApplication({
   lifecycle: ConversationLifecycle;
   session: BootstrappedCorpusConnection["session"];
   registry: ReturnType<typeof createCorpusSurfaceRegistry>;
+  uploadChatSource(file: File): Promise<{ sourceId: string; displayName: string }>;
   onMounted(mounted: MountedConversation): void;
   isAnonymous(): boolean;
 }) {
@@ -154,6 +179,7 @@ function CorpusApplication({
           registry={registry}
           chatClient={mounted.chatClient}
           initialConversation={mounted.initialConversation}
+          onUploadApiSource={uploadChatSource}
           header={(
             <CorpusHeader
               onNewConversation={startNext}
@@ -164,6 +190,27 @@ function CorpusApplication({
       />
     </RouteDeckBootstrapBoundary>
   );
+}
+
+async function uploadChatSource(
+  sourceClient: SourceClient,
+  file: File,
+): Promise<{ sourceId: string; displayName: string }> {
+  const displayName = file.name.replace(/\.(?:json|ya?ml)$/i, "").trim() || "Uploaded API";
+  const created = await sourceClient.uploadApi(displayName, file, null);
+  for (let attempt = 0; attempt < 180; attempt += 1) {
+    const current = (await sourceClient.list()).find(
+      (source: SourceView) => source.source_id === created.source_id,
+    );
+    if (current?.revision.state === "ready") {
+      return { sourceId: current.source_id, displayName: current.display_name };
+    }
+    if (current?.revision.state === "failed") {
+      throw new Error(current.revision.failure_message ?? "The attached API Source failed processing.");
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 1_000));
+  }
+  throw new Error("The attached API Source did not finish processing in time.");
 }
 
 function FatalShell({ fallback }: { fallback: string }) {

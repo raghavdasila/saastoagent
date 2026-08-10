@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { getBehaviorEvalReadiness, getFeatureConversationEvalReadiness } from "@/workbench/evaluationReadiness"
+import { getStoryReadiness } from "@/workbench/readiness"
 import { createSeedState } from "@/workbench/seed"
 
 describe("evaluation definition readiness", () => {
@@ -83,5 +84,30 @@ describe("evaluation definition readiness", () => {
     expect(messages).toContain("Action step references missing SuggestedAction “Sign in / Continue to Workspace”.")
     expect(messages).toContain("Checkpoint needs a label.")
     expect(messages).toContain("Checkpoint needs at least one product-state assertion.")
+  })
+
+  it("authors autonomous clarification as an approved Agent Designer contract", () => {
+    const designer = createSeedState().features.find((feature) => feature.id === "agent-designer")!
+    const clarification = designer.stories.find((story) => story.id === "deployed-agent-clarification")!
+    const serialized = JSON.stringify(clarification)
+
+    expect(designer.name).toBe("Agent Designer")
+    expect(clarification.status).toBe("approved")
+    expect(clarification.operations.map((item) => item.name)).toEqual(["Continue waiting agent run"])
+    expect(clarification.behaviorEvals.map((item) => item.id)).toEqual([
+      "clarification-explicit-operation",
+      "clarification-parameter-provenance",
+      "clarification-material-ambiguity",
+      "clarification-unproven-values",
+      "clarification-safe-write-review",
+      "clarification-multicall-atomicity",
+    ])
+    expect(getStoryReadiness(clarification, designer).blockers).toEqual([])
+    expect(serialized).toContain("Do not make an additional lookup call")
+    expect(serialized).toContain("resume the same run")
+    expect(serialized).toContain("safe provenance in Operations")
+    expect(serialized).not.toContain("ASK_DISAMBIGUATE")
+    expect(serialized).not.toContain("ASK_PARAM")
+    expect(serialized).not.toContain("RouteDeck")
   })
 })

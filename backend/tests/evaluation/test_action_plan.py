@@ -148,19 +148,35 @@ def test_feature_manifest_evaluation_adapters_are_backed_by_runtime_registry() -
             repository / "contracts/corpus-agent-design-routedeck-manifest.json"
         ).read_text(encoding="utf-8")
     )
-    setup_adapters = {
-        binding["setupAdapter"]
+    bindings = tuple(
+        binding
         for feature in manifest["features"]
         for binding in feature.get("evaluationBindings", {}).values()
+    )
+    pending = tuple(
+        binding
+        for binding in bindings
+        if binding.get("implementationStatus") == "pending_external_evidence"
+    )
+    executable = tuple(binding for binding in bindings if binding not in pending)
+    setup_adapters = {
+        binding["setupAdapter"]
+        for binding in executable
     }
     payload_adapters = {
         step["payloadAdapter"]
-        for feature in manifest["features"]
-        for binding in feature.get("evaluationBindings", {}).values()
+        for binding in executable
         for step in binding["steps"].values()
         if "payloadAdapter" in step
     }
 
+    assert pending
+    assert all(
+        isinstance(binding.get("externalEvidenceOwner"), str)
+        and "setupAdapter" not in binding
+        and "steps" not in binding
+        for binding in pending
+    )
     assert setup_adapters <= HttpEvaluationActionRuntime.registered_setup_adapters()
     assert payload_adapters <= HttpEvaluationActionRuntime.registered_payload_adapters()
 
