@@ -22,6 +22,7 @@ it("keeps the Corpus registry exactly aligned with the compiled backend contract
       new WorkspaceClient({
         fetch: async () => new Response(JSON.stringify({
           agent_count: 0,
+          source_count: 0,
           agents: { status: "empty", message: "No agents." },
           sources: { status: "unavailable", message: "Unavailable." },
           recent_activity: { status: "unavailable", message: "Unavailable." },

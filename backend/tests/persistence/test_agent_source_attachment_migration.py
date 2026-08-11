@@ -49,7 +49,7 @@ async def test_agent_source_attachment_head_has_exact_identity_only_schema(
         assert version_foreign_keys == {
             (("agent_id",), "agents", ("id",), "CASCADE")
         }
-        await database.verify_revision("0012_builder_navgraph")
+        await database.verify_revision("0015_builder_retry_attempts")
     finally:
         await database.close()
 

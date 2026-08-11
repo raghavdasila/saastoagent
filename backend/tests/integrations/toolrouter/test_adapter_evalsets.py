@@ -5,6 +5,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from corpus.integrations.toolrouter import (
     EvalsetRequest,
     IngestRequest,
@@ -139,6 +141,65 @@ def test_evalset_factory_exports_generated_and_independently_reviewed_cases(
     assert (result.run_dir / "token_ledger.jsonl").is_file()
     assert (result.run_dir / "accepted_tasks.json").is_file()
     assert (result.run_dir / "accepted_manifest.json").is_file()
+
+
+def test_evalset_factory_generates_only_from_the_exact_allowed_endpoint_subset(
+    tmp_path: Path,
+) -> None:
+    adapter = _adapter(accepted=True)
+    artifacts = _ingest(adapter, tmp_path)
+    normalized = json.loads(
+        (artifacts / "normalized" / "openapi_normalized.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    create_endpoint = next(
+        item["id"]
+        for item in normalized["endpoints"]
+        if item["operation_id"] == "createWidget"
+    )
+
+    result = adapter.generate_evalset(
+        EvalsetRequest(
+            artifact_dir=artifacts,
+            evalset_id="curated-create-only",
+            allowed_endpoint_ids=(create_endpoint,),
+            categories=("paraphrase",),
+            tasks_per_category=1,
+            max_generation_attempts=1,
+            max_review_attempts=1,
+        )
+    )
+
+    assert result.status == "ready"
+    assert result.expected_count == 1
+    assert result.accepted_count == 1
+    assert result.accepted_tasks[0]["expected_endpoint_sequence"] == [
+        create_endpoint
+    ]
+    persisted = json.loads(
+        (artifacts / "normalized" / "openapi_normalized.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert len(persisted["endpoints"]) == 3
+
+
+def test_evalset_factory_rejects_empty_duplicate_or_unknown_endpoint_subsets(
+    tmp_path: Path,
+) -> None:
+    adapter = _adapter(accepted=True)
+    artifacts = _ingest(adapter, tmp_path)
+
+    for allowed in ((), ("missing",), ("duplicate", "duplicate")):
+        with pytest.raises(Exception):
+            adapter.generate_evalset(
+                EvalsetRequest(
+                    artifact_dir=artifacts,
+                    evalset_id=f"invalid-{len(allowed)}",
+                    allowed_endpoint_ids=allowed,
+                )
+            )
 
 
 def test_evalset_factory_keeps_rejected_candidates_quarantined(

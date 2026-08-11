@@ -314,22 +314,46 @@ class SqlAlchemyAgentRepository:
         agent_id: uuid.UUID,
         source: AttachableSource,
     ) -> AgentSourceAttachmentRecord:
-        await self.get(organization_id, agent_id)
-        row = AgentSourceAttachment(
-            organization_id=organization_id,
-            agent_id=agent_id,
-            source_id=source.source_id,
-            source_revision_id=source.source_revision_id,
-            attached_at=datetime.now(UTC),
-        )
+        now = datetime.now(UTC)
         try:
             async with self.database.session() as session:
                 async with session.begin():
-                    session.add(row)
+                    agent = await session.scalar(
+                        select(Agent)
+                        .where(
+                            Agent.organization_id == organization_id,
+                            Agent.id == agent_id,
+                            Agent.lifecycle == AgentLifecycle.ACTIVE,
+                        )
+                        .with_for_update()
+                    )
+                    if agent is None:
+                        raise AgentNotFound("The selected agent is unavailable.")
+                    row = await session.scalar(
+                        select(AgentSourceAttachment)
+                        .where(
+                            AgentSourceAttachment.organization_id == organization_id,
+                            AgentSourceAttachment.agent_id == agent_id,
+                            AgentSourceAttachment.source_id == source.source_id,
+                        )
+                        .with_for_update()
+                    )
+                    if row is None:
+                        row = AgentSourceAttachment(
+                            organization_id=organization_id,
+                            agent_id=agent_id,
+                            source_id=source.source_id,
+                            source_revision_id=source.source_revision_id,
+                            attached_at=now,
+                        )
+                        session.add(row)
+                    elif row.source_revision_id != source.source_revision_id:
+                        row.source_revision_id = source.source_revision_id
+                        row.attached_at = now
                     await session.flush()
         except IntegrityError as error:
             raise AgentSourceAttachmentConflict(
-                "This Source is already attached to the selected Agent. Its pinned revision was not changed."
+                "The Source attachment changed concurrently. Reload the Agent before trying again."
             ) from error
         return _attachment_record(row)
 
@@ -353,6 +377,41 @@ class SqlAlchemyAgentRepository:
                 "The selected Source is not attached to this Agent."
             )
         return _attachment_record(row)
+
+    async def detach_source(
+        self,
+        organization_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        source_id: str,
+    ) -> None:
+        async with self.database.session() as session:
+            async with session.begin():
+                agent = await session.scalar(
+                    select(Agent)
+                    .where(
+                        Agent.organization_id == organization_id,
+                        Agent.id == agent_id,
+                        Agent.lifecycle == AgentLifecycle.ACTIVE,
+                    )
+                    .with_for_update()
+                )
+                if agent is None:
+                    raise AgentNotFound("The selected agent is unavailable.")
+                row = await session.scalar(
+                    select(AgentSourceAttachment)
+                    .where(
+                        AgentSourceAttachment.organization_id == organization_id,
+                        AgentSourceAttachment.agent_id == agent_id,
+                        AgentSourceAttachment.source_id == source_id,
+                    )
+                    .with_for_update()
+                )
+                if row is None:
+                    raise AgentSourceAttachmentUnavailable(
+                        "The selected Source is not attached to this Agent."
+                    )
+                await session.delete(row)
+                await session.flush()
 
     async def record_build_lineage(
         self,

@@ -4,6 +4,7 @@ import hashlib
 import os
 import re
 import secrets
+import shutil
 import threading
 from contextlib import contextmanager
 from datetime import datetime
@@ -15,6 +16,8 @@ from .models import (
     PreparedSource,
     ContractRevisionProposalRecord,
     ContractRevisionProposalState,
+    SourceDescriptionRecord,
+    SourceDescriptionView,
     SourceRecord,
     SourceRevisionRecord,
     SourceState,
@@ -66,6 +69,7 @@ class LocalSourceRepository:
         source_id = secrets.token_urlsafe(12)
         revision_id = secrets.token_urlsafe(12)
         now = utc_now()
+        description_id = secrets.token_urlsafe(12) if description_content is not None else None
         source = SourceRecord(
             source_id=source_id,
             owner_key=owner_key,
@@ -74,6 +78,7 @@ class LocalSourceRepository:
             current_revision_id=revision_id,
             created_at=now,
             updated_at=now,
+            current_description_id=description_id,
         )
         revision = SourceRevisionRecord(
             revision_id=revision_id,
@@ -107,6 +112,16 @@ class LocalSourceRepository:
                 revision_dir / "i" / description_filename,
                 description_content,
             )
+            description_record = SourceDescriptionRecord(
+                description_id=description_id,
+                source_id=source_id,
+                filename=description_filename,
+                content_sha256=hashlib.sha256(description_content).hexdigest(),
+                created_at=now,
+            )
+            description_dir = source_dir / "d" / "records" / description_id
+            _write_bytes_atomic(description_dir / "content.md", description_content)
+            _write_model_atomic(description_dir / "record.json", description_record)
         _write_model_atomic(revision_dir / "revision.json", revision)
         # The owner inventory discovers a Source through source.json. Publish
         # that pointer only after its exact current revision is durable.
@@ -204,6 +219,157 @@ class LocalSourceRepository:
             return self._get_unlocked(
                 owner_key=owner_key, source_id=source_id, manifest=manifest
             )
+
+    def get_description(
+        self, *, owner_key: str, source_id: str
+    ) -> SourceDescriptionView | None:
+        source_dir = self._source_dir(owner_key, source_id)
+        manifest = source_dir / "source.json"
+        if not manifest.is_file():
+            raise SourceNotFound("The requested source does not exist.")
+        with _exclusive_source_lock(source_dir / ".source-mutation.lock"):
+            source = self._owned_source(owner_key=owner_key, source_id=source_id)
+            if source.current_description_id is not None:
+                record_dir = source_dir / "d" / "records" / source.current_description_id
+                try:
+                    record = SourceDescriptionRecord.model_validate_json(
+                        (record_dir / "record.json").read_text(encoding="utf-8")
+                    )
+                    content = (record_dir / "content.md").read_bytes()
+                except (OSError, ValidationError) as error:
+                    raise SourceRepositoryError(
+                        "The current API description record is unavailable."
+                    ) from error
+                if (
+                    record.source_id != source_id
+                    or record.description_id != source.current_description_id
+                    or hashlib.sha256(content).hexdigest() != record.content_sha256
+                ):
+                    raise SourceRepositoryError(
+                        "The current API description failed integrity validation."
+                    )
+                try:
+                    decoded = content.decode("utf-8")
+                except UnicodeDecodeError as error:
+                    raise SourceRepositoryError(
+                        "The current API description is not valid UTF-8 Markdown."
+                    ) from error
+                return SourceDescriptionView(
+                    description_id=record.description_id,
+                    source_id=record.source_id,
+                    filename=record.filename,
+                    content_sha256=record.content_sha256,
+                    content=decoded,
+                    created_at=record.created_at,
+                )
+            revision = self._read_revision(
+                self._revision_dir(owner_key, source_id, source.current_revision_id)
+                / "revision.json"
+            )
+            if revision.description_filename is None or revision.description_sha256 is None:
+                return None
+            legacy_path = (
+                self._revision_dir(owner_key, source_id, source.current_revision_id)
+                / "i"
+                / revision.description_filename
+            )
+            try:
+                content = legacy_path.read_bytes()
+                decoded = content.decode("utf-8")
+            except (OSError, UnicodeDecodeError) as error:
+                raise SourceRepositoryError(
+                    "The saved API description is unavailable."
+                ) from error
+            if hashlib.sha256(content).hexdigest() != revision.description_sha256:
+                raise SourceRepositoryError(
+                    "The saved API description failed integrity validation."
+                )
+            return SourceDescriptionView(
+                description_id=f"revision-{revision.revision_id}",
+                source_id=source_id,
+                filename=revision.description_filename,
+                content_sha256=revision.description_sha256,
+                content=decoded,
+                created_at=revision.created_at,
+            )
+
+    def save_description(
+        self,
+        *,
+        owner_key: str,
+        source_id: str,
+        expected_revision_id: str,
+        filename: str,
+        content: bytes,
+    ) -> SourceDescriptionView:
+        if Path(filename).name != filename or any(separator in filename for separator in ("/", "\\")):
+            raise ValueError("The API description must use a plain filename.")
+        if Path(filename).suffix.casefold() not in {".md", ".markdown"}:
+            raise ValueError("The API description must be a Markdown file.")
+        if not content or len(content) > 1024 * 1024:
+            raise ValueError("The API description must contain at most 1 MiB of Markdown.")
+        try:
+            decoded = content.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise ValueError("The API description must be valid UTF-8 Markdown.") from error
+        source_dir = self._source_dir(owner_key, source_id)
+        manifest = source_dir / "source.json"
+        if not manifest.is_file():
+            raise SourceNotFound("The requested source does not exist.")
+        with _exclusive_source_lock(source_dir / ".source-mutation.lock"):
+            source = self._owned_source(owner_key=owner_key, source_id=source_id)
+            if source.current_revision_id != expected_revision_id:
+                raise SourceNotReady(
+                    "The selected API version changed before the description was saved."
+                )
+            description_id = secrets.token_urlsafe(12)
+            now = utc_now()
+            record = SourceDescriptionRecord(
+                description_id=description_id,
+                source_id=source_id,
+                filename=filename,
+                content_sha256=hashlib.sha256(content).hexdigest(),
+                created_at=now,
+            )
+            record_dir = source_dir / "d" / "records" / description_id
+            _write_bytes_atomic(record_dir / "content.md", content)
+            _write_model_atomic(record_dir / "record.json", record)
+            _write_model_atomic(
+                manifest,
+                source.model_copy(
+                    update={"current_description_id": description_id, "updated_at": now}
+                ),
+            )
+        return SourceDescriptionView(
+            description_id=record.description_id,
+            source_id=record.source_id,
+            filename=record.filename,
+            content_sha256=record.content_sha256,
+            content=decoded,
+            created_at=record.created_at,
+        )
+
+    def delete_source(self, *, owner_key: str, source_id: str) -> None:
+        source_dir = self._source_dir(owner_key, source_id)
+        manifest = source_dir / "source.json"
+        if not manifest.is_file():
+            raise SourceNotFound("The requested source does not exist.")
+        with _exclusive_source_lock(source_dir / ".source-mutation.lock"):
+            source = self._owned_source(owner_key=owner_key, source_id=source_id)
+            revision = self._read_revision(
+                self._revision_dir(owner_key, source_id, source.current_revision_id)
+                / "revision.json"
+            )
+            if revision.state in {SourceState.QUEUED, SourceState.RUNNING}:
+                raise SourceNotReady(
+                    "The API source cannot be deleted while analysis is active."
+                )
+        try:
+            shutil.rmtree(source_dir)
+        except OSError as error:
+            raise SourceRepositoryError(
+                "The API source could not be removed from durable storage."
+            ) from error
 
     def _get_unlocked(
         self, *, owner_key: str, source_id: str, manifest: Path | None = None
@@ -313,7 +479,7 @@ class LocalSourceRepository:
         source = self._owned_source(owner_key=owner_key, source_id=proposal.source_id)
         if source.current_revision_id != proposal.parent_revision_id:
             raise ContractRevisionConflict(
-                "The Source changed before this contract proposal could be saved."
+                "The Source changed before this API update could be saved."
             )
         if any(
             item.parent_revision_id == proposal.parent_revision_id
@@ -327,7 +493,7 @@ class LocalSourceRepository:
             owner_key, proposal.source_id, proposal.proposal_id
         )
         if proposal_dir.exists():
-            raise ContractRevisionConflict("The contract proposal already exists.")
+            raise ContractRevisionConflict("The API update already exists.")
         candidate_path = proposal_dir / self._candidate_filename(
             proposal.final_canonical_sha256
         )
@@ -379,7 +545,7 @@ class LocalSourceRepository:
                 if item.proposal_id == proposal_id
             )
             if len(matches) != 1:
-                raise SourceNotFound("The requested contract proposal does not exist.")
+                raise SourceNotFound("The requested API update does not exist.")
             return matches[0]
 
     def approve_contract_revision(
@@ -429,13 +595,13 @@ class LocalSourceRepository:
             if item.proposal_id == proposal_id
         ]
         if len(matches) != 1:
-            raise SourceNotFound("The requested contract proposal does not exist.")
+                raise SourceNotFound("The requested API update does not exist.")
         index, proposal = matches[0]
         if proposal.state is not ContractRevisionProposalState.PENDING:
-            raise ContractRevisionConflict("The contract proposal is no longer pending.")
+            raise ContractRevisionConflict("The API update is no longer pending.")
         if source.current_revision_id != proposal.parent_revision_id:
             raise ContractRevisionConflict(
-                "The Source changed after this contract proposal was created."
+                "The Source changed after this API update was created."
             )
         candidate_path = self._proposal_dir(
             owner_key, source_id, proposal_id
@@ -747,7 +913,7 @@ class LocalSourceRepository:
         self, owner_key: str, source_id: str, proposal_id: str
     ) -> Path:
         if not re.fullmatch(r"[A-Za-z0-9_-]{16}", proposal_id):
-            raise SourceNotFound("The requested contract proposal does not exist.")
+            raise SourceNotFound("The requested API update does not exist.")
         return self._source_dir(owner_key, source_id) / "contract-revisions" / proposal_id
 
     @staticmethod

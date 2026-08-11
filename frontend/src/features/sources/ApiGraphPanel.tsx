@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Network } from "lucide-react";
+import { AlertTriangle, Network, Search } from "lucide-react";
 import type { RouteDeckSurfaceComponentProps } from "@routedeck/react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 import {
   type ApiGraphView,
@@ -24,6 +25,8 @@ export function ApiGraphPanel({
   const [graph, setGraph] = useState<ApiGraphView | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedStage, setSelectedStage] = useState(0);
+  const [groupQuery, setGroupQuery] = useState("");
+  const [showAllGroups, setShowAllGroups] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectionError, setSelectionError] = useState<string | null>(null);
   const [selectionPending, setSelectionPending] = useState(false);
@@ -36,8 +39,10 @@ export function ApiGraphPanel({
       .then((value) => {
         if (!active) return;
         setGraph(value);
-        setSelectedGroupId(value.semantic_groups.at(0)?.id ?? null);
+        setSelectedGroupId(null);
         setSelectedStage(0);
+        setGroupQuery("");
+        setShowAllGroups(false);
       })
       .catch((caught) => {
         if (!active) return;
@@ -58,6 +63,16 @@ export function ApiGraphPanel({
     return [...counts.entries()].sort(([left], [right]) => left.localeCompare(right));
   }, [graph]);
   const selectedGroup = graph?.semantic_groups.find(({ id }) => id === selectedGroupId) ?? null;
+  const matchingGroups = useMemo(() => {
+    const query = groupQuery.trim().toLocaleLowerCase();
+    const groups = graph?.semantic_groups ?? [];
+    return query === ""
+      ? groups
+      : groups.filter(({ label }) => label.toLocaleLowerCase().includes(query));
+  }, [graph, groupQuery]);
+  const visibleGroups = groupQuery.trim() !== "" || showAllGroups
+    ? matchingGroups
+    : matchingGroups.slice(0, 18);
   const operations = useMemo(() => {
     if (graph === null || selectedGroup === null) return [];
     const allowed = new Set(selectedGroup.operation_ids);
@@ -119,73 +134,90 @@ export function ApiGraphPanel({
             ))}
           </div>
 
-          <div className="api-graph-grid">
-            <section aria-labelledby="semantic-groups-title">
-              <h4 id="semantic-groups-title">Semantic groups</h4>
-              {graph.semantic_groups.length === 0 ? (
-                <p>No resource groups were emitted for this API version.</p>
-              ) : (
-                <div className="api-semantic-groups" role="list">
-                  {graph.semantic_groups.map((group) => (
+          <div className="api-graph-disclosures">
+            <details>
+              <summary id="semantic-groups-title">Browse semantic groups <span>{graph.semantic_groups.length}</span></summary>
+              <section aria-labelledby="semantic-groups-title">
+                {graph.semantic_groups.length === 0 ? (
+                  <p>No resource groups were emitted for this API version.</p>
+                ) : (
+                  <>
+                    <label className="api-semantic-group-filter">
+                      <Search aria-hidden="true" />
+                      <span>Find a persisted group</span>
+                      <Input value={groupQuery} onChange={(event) => setGroupQuery(event.target.value)} placeholder="Search group names" />
+                    </label>
+                    <div className="api-semantic-groups" role="list">
+                      {visibleGroups.map((group) => (
+                        <Button
+                          key={group.id}
+                          type="button"
+                          variant={group.id === selectedGroupId ? "default" : "outline"}
+                          onClick={() => setSelectedGroupId(group.id)}
+                        >
+                          {group.label}<span>{group.operation_ids.length}</span>
+                        </Button>
+                      ))}
+                    </div>
+                    {matchingGroups.length === 0 ? <p>No persisted groups match that search.</p> : null}
+                    {groupQuery.trim() === "" && matchingGroups.length > visibleGroups.length ? (
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setShowAllGroups(true)}>
+                        Show all {matchingGroups.length} semantic groups
+                      </Button>
+                    ) : null}
+                  </>
+                )}
+                {selectedGroup === null ? null : (
+                  <div className="api-group-detail">
+                    <strong>{selectedGroup.label}</strong>
+                    <span>{operations.length} linked operations</span>
+                    <ul>
+                      {operations.map((operation) => (
+                        <li key={operation.id}>
+                          <code>{operation.facets.method ?? "API"}</code>
+                          <span>{operation.label}</span>
+                          <small>{operation.facets.operation_id ?? operation.endpoint_id}</small>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </section>
+            </details>
+
+            <details>
+              <summary id="graph-stage-title">Recorded construction stages <span>{graph.playback.length}</span></summary>
+              <section aria-labelledby="graph-stage-title">
+                {selectionError === null ? null : <p role="alert">{selectionError}</p>}
+                <div className="api-playback-steps" role="list">
+                  {graph.playback.map((item, index) => (
                     <Button
-                      key={group.id}
+                      key={item.id}
                       type="button"
-                      variant={group.id === selectedGroupId ? "default" : "outline"}
-                      onClick={() => setSelectedGroupId(group.id)}
+                      size="sm"
+                      variant={index === selectedStage ? "default" : "outline"}
+                      disabled={selectionPending}
+                      onClick={() => void selectStage(index, item.id)}
                     >
-                      {group.label}<span>{group.operation_ids.length}</span>
+                      {index + 1}. {item.id}
                     </Button>
                   ))}
                 </div>
-              )}
-              {selectedGroup === null ? null : (
-                <div className="api-group-detail">
-                  <strong>{selectedGroup.label}</strong>
-                  <span>{operations.length} linked operations</span>
-                  <ul>
-                    {operations.map((operation) => (
-                      <li key={operation.id}>
-                        <code>{operation.facets.method ?? "API"}</code>
-                        <span>{operation.label}</span>
-                        <small>{operation.facets.operation_id ?? operation.endpoint_id}</small>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </section>
-
-            <section aria-labelledby="graph-stage-title">
-              <h4 id="graph-stage-title">Recorded construction stages</h4>
-              {selectionError === null ? null : <p role="alert">{selectionError}</p>}
-              <div className="api-playback-steps" role="list">
-                {graph.playback.map((item, index) => (
-                  <Button
-                    key={item.id}
-                    type="button"
-                    size="sm"
-                    variant={index === selectedStage ? "default" : "outline"}
-                    disabled={selectionPending}
-                    onClick={() => void selectStage(index, item.id)}
-                  >
-                    {index + 1}. {item.id}
-                  </Button>
-                ))}
-              </div>
-              {stage === null ? null : (
-                <div className="api-playback-stage">
-                  <div><strong>{stage.id}</strong><em data-state={stage.status}>{stage.status}</em></div>
-                  <dl>
-                    {Object.entries(stage.metrics).map(([key, value]) => (
-                      <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{String(value)}</dd></div>
-                    ))}
-                  </dl>
-                  {stage.warning_codes.length === 0 ? null : (
-                    <p><AlertTriangle aria-hidden="true" />{stage.warning_codes.join(", ")}</p>
-                  )}
-                </div>
-              )}
-            </section>
+                {stage === null ? null : (
+                  <div className="api-playback-stage">
+                    <div><strong>{stage.id}</strong><em data-state={stage.status}>{stage.status}</em></div>
+                    <dl>
+                      {Object.entries(stage.metrics).map(([key, value]) => (
+                        <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{String(value)}</dd></div>
+                      ))}
+                    </dl>
+                    {stage.warning_codes.length === 0 ? null : (
+                      <p><AlertTriangle aria-hidden="true" />{stage.warning_codes.join(", ")}</p>
+                    )}
+                  </div>
+                )}
+              </section>
+            </details>
           </div>
         </>
       )}

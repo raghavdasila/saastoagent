@@ -262,6 +262,12 @@ async def test_neutral_adapter_exposes_natural_same_run_clarification_without_in
     assert "ASK_PARAM" not in repr(waiting)
     assert "required id is missing" not in repr(waiting)
     assert executor.calls == 0
+    assert adapter.session_messages(
+        "owner-clarification", "session-clarification", build.content_hash
+    ) == (
+        {"role": "user", "content": "Get a product type by id"},
+        {"role": "assistant", "content": "What value should I use for id?"},
+    )
 
     resumed = await adapter.run(SandboxRunSpec(
         tenant_id="owner-clarification",
@@ -280,3 +286,11 @@ async def test_neutral_adapter_exposes_natural_same_run_clarification_without_in
     assert executor.calls == 1
     assert any(event.kind == "clarification.user_answer" for event in resumed.events)
     assert "pt_exact" not in repr(resumed.events)
+    assert adapter.session_messages(
+        "owner-clarification", "session-clarification", build.content_hash
+    ) == (
+        {"role": "user", "content": "Get a product type by id"},
+        {"role": "assistant", "content": "What value should I use for id?"},
+        {"role": "user", "content": "pt_exact"},
+        {"role": "assistant", "content": "Observed product types."},
+    )

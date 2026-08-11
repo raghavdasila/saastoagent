@@ -6,6 +6,7 @@ import uuid
 
 import pytest
 from routedeck_core.contracts.operations import OperationSource
+from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.ports.executor import ExecutionContext
 
 from corpus.features.sources import LocalSourceRepository, SourceService, SourceState
@@ -184,7 +185,21 @@ async def test_agent_handlers_accept_then_explicitly_queue_the_staged_api(
     assert accepted_view.revision.job_id is None
     assert jobs.enqueued == []
 
-    queued = await ProcessApiHandler(sources, staged, OwnerProbe(OWNER))({}, context)
+    selected_context = context.model_copy(
+        update={
+            "provider_values": FrozenJsonObject(
+                {
+                    "sources.selected_api_source": {
+                        "source_id": accepted_view.source_id,
+                        "source_revision_id": accepted_view.revision.revision_id,
+                    }
+                }
+            )
+        }
+    )
+    queued = await ProcessApiHandler(sources, staged, OwnerProbe(OWNER))(
+        {}, selected_context
+    )
 
     assert queued.outcome == "queued"
     queued_view = repository.get(

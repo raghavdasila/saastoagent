@@ -49,6 +49,7 @@ from corpus.features.agents.declarations import (
     SAVE_AGENT_CHANGES,
 )
 from corpus.features.workspace.declarations import OPEN_AGENTS, OPEN_SOURCES
+from corpus.features.workspace.policies import FILE_FIRST_TASK_ROUTING
 from corpus.features.sources.declarations import OPEN_API_CREATION, RETURN_TO_HOME
 from corpus.features.sources.feature import SOURCES_FEATURE
 from corpus.session import create_guest_session, initialize_guest_session
@@ -59,6 +60,27 @@ def test_open_agent_creation_is_only_for_an_unfinished_distinct_create_request()
         "Begin a distinct new-Agent configuration only when the owner's current "
         "request still needs a new Agent. This navigation creates nothing and must "
         "not follow a successful agent creation for that same request."
+    )
+
+
+def test_workspace_routes_attached_api_setup_through_sources_before_agent_choice() -> None:
+    assert OPEN_SOURCES.description == (
+        "Open Sources for work owned by a Source. When the current request includes "
+        "a staged API definition to add, analyze, or use in broader setup, open "
+        "Sources first so that exact file becomes an identifiable Source before "
+        "choosing or creating an Agent."
+    )
+    assert OPEN_AGENTS.description == (
+        "Open Agents for explicit Agent inventory or configuration work, or after "
+        "the Source prerequisite in an ongoing file-first setup has begun. Do not "
+        "skip an attached API definition that the current request still needs added "
+        "and analyzed."
+    )
+    assert FILE_FIRST_TASK_ROUTING.instruction == (
+        "When the current owner request includes a staged API definition and asks "
+        "Corpus to use it in broader Agent setup, route to Sources first and continue "
+        "the authorized add-and-analyze work before asking which Agent to use or "
+        "create. Do not treat opening Agents as progress on an unaccepted staged file."
     )
 
 
@@ -186,6 +208,7 @@ def test_composition_selects_workspace_and_sources_and_enters_the_lounge() -> No
         "channels.home",
         "operations.home",
         "sources.home",
+        "sources.api_intake",
         "sources.api",
     }
 
@@ -213,6 +236,47 @@ def test_agents_home_exposes_exact_lifecycle_affordances() -> None:
     }
     assert affordances["archive_agent"] == "agents.archive_agent"
     assert affordances["delete_agent"] == "agents.delete_agent"
+
+
+def test_selected_agent_work_areas_expose_guided_navigation_without_mutation() -> None:
+    contract = compile_corpus_app().frontend_contract
+    expected = {
+        "designer.home": ("continue_to_builds", "agents.open_builds", "builder.home"),
+        "builder.home": ("continue_to_sandbox", "agents.open_sandbox", "sandbox.home"),
+        "sandbox.home": ("continue_to_evaluation", "agents.open_evaluation", "evaluation.home"),
+        "evaluation.home": ("continue_to_channels", "agents.open_channels", "channels.home"),
+        "channels.home": ("continue_to_operations", "agents.open_operations", "operations.home"),
+    }
+    transitions = {
+        (transition.source, transition.operation_id, transition.target)
+        for transition in contract.transitions
+    }
+
+    for node_id, (affordance_id, operation_id, target_id) in expected.items():
+        surface_id = contract.nodes[node_id].surfaces.active
+        affordances = {
+            affordance.id: affordance.operation.id
+            for affordance in contract.surfaces[surface_id].affordances
+        }
+        assert affordances[affordance_id] == operation_id
+        assert operation_id in contract.nodes[node_id].operation_ids
+        assert (node_id, operation_id, target_id) in transitions
+
+    channels_affordances = {
+        affordance.id: affordance.operation.id
+        for affordance in contract.surfaces["channels.home"].affordances
+    }
+    assert channels_affordances["continue_to_evaluation"] == "agents.open_evaluation"
+    assert "agents.open_evaluation" in contract.nodes["channels.home"].operation_ids
+    assert ("channels.home", "agents.open_evaluation", "evaluation.home") in transitions
+
+    evaluation_affordances = {
+        affordance.id: affordance.operation.id
+        for affordance in contract.surfaces["evaluation.home"].affordances
+    }
+    assert evaluation_affordances["continue_to_builds"] == "agents.open_builds"
+    assert "agents.open_builds" in contract.nodes["evaluation.home"].operation_ids
+    assert ("evaluation.home", "agents.open_builds", "builder.home") in transitions
 
 
 def test_lounge_and_workspace_own_their_operations_transitions_and_surfaces() -> None:
@@ -248,22 +312,32 @@ def test_lounge_and_workspace_own_their_operations_transitions_and_surfaces() ->
     assert set(contract.nodes["sources.home"].operation_ids) == {
         "agents.attach_created_source",
         "agents.return_from_source",
-        "sources.open_api_creation",
-        "sources.open_api_source",
+            "sources.open_api_creation",
+            "sources.open_api_description",
+            "sources.open_api_source",
         "sources.return_to_home",
+    }
+    assert contract.nodes["sources.api_intake"].surfaces.active == "sources.api_intake"
+    assert set(contract.nodes["sources.api_intake"].operation_ids) == {
+        "agents.return_from_source",
+        "sources.accept_staged_api",
+        "sources.return_to_source_hub",
     }
     assert contract.nodes["sources.api"].surfaces.active == "sources.api"
     assert set(contract.nodes["sources.api"].operation_ids) == {
         "agents.open_create",
-        "sources.accept_staged_api",
         "agents.attach_created_source",
+        "agents.open_builds",
         "agents.return_from_source",
-        "workspace.open_agents",
-        "sources.process_api",
-        "sources.inspect_current_api",
-        "sources.retry_processing",
-        "sources.return_to_source_hub",
-        "sources.select_graph_stage",
+        "agents.choose_existing_for_source",
+            "sources.process_api",
+            "sources.inspect_current_api",
+            "sources.retry_processing",
+            "sources.return_to_source_hub",
+            "sources.open_api_description",
+            "sources.save_api_description",
+            "sources.delete_api_source",
+            "sources.select_graph_stage",
         "sources.save_api_connection",
         "sources.propose_contract_revision",
             "sources.approve_contract_revision",
@@ -298,19 +372,22 @@ def test_lounge_and_workspace_own_their_operations_transitions_and_surfaces() ->
         ("agents.home", "agents.return_to_workspace", "workspace.home"),
         ("agents.home", "agents.select_agent", "agents.home"),
         ("agents.home", "agents.attach_source", "agents.home"),
-        ("agents.home", "agents.open_source_creation", "sources.api"),
+        ("agents.home", "agents.open_source_creation", "sources.api_intake"),
         ("agents.home", "agents.open_attached_source", "sources.api"),
         ("agents.home", "agents.open_build_source_revision", "sources.api"),
         ("workspace.home", "workspace.open_verification", "lounge.verification_pending"),
         ("lounge.verification_pending", "lounge.verification_delivery.return_to_workspace", "workspace.home"),
         ("sources.home", "sources.return_to_home", "workspace.home"),
-        ("sources.home", "sources.open_api_creation", "sources.api"),
+        ("sources.home", "sources.open_api_creation", "sources.api_intake"),
         ("sources.home", "sources.open_api_source", "sources.api"),
-        ("sources.api", "sources.accept_staged_api", "sources.api"),
+        ("sources.api_intake", "sources.accept_staged_api", "sources.api"),
+        ("sources.api_intake", "sources.return_to_source_hub", "sources.home"),
         ("sources.api", "sources.process_api", "sources.api"),
         ("sources.api", "sources.retry_processing", "sources.api"),
         ("sources.api", "sources.return_to_source_hub", "sources.home"),
-        ("sources.api", "workspace.open_agents", "agents.home"),
+        ("sources.api", "agents.open_builds", "builder.home"),
+        ("builder.home", "agents.open_attached_source", "sources.api"),
+        ("sources.api", "agents.choose_existing_for_source", "agents.home"),
         ("sources.api", "agents.open_create", "agents.create"),
         ("sources.home", "agents.attach_created_source", "agents.home"),
         ("sources.home", "agents.return_from_source", "agents.home"),
@@ -357,13 +434,15 @@ def test_operations_allow_only_the_designed_invocation_sources() -> None:
         "workspace.open_agents": agent_and_surface,
         "workspace.open_verification": agent_and_surface,
         "agents.open_create": agent_and_surface,
+        "agents.choose_existing_for_source": agent_and_surface,
         "agents.return_to_workspace": agent_and_surface,
         "agents.return_to_hub": agent_and_surface,
         "agents.create_agent": agent_and_surface,
         "agents.save_changes": agent_and_surface,
         "agents.cancel_create": agent_and_surface,
         "agents.select_agent": agent_and_surface,
-        "agents.attach_source": agent_and_surface,
+            "agents.attach_source": agent_and_surface,
+            "agents.detach_source": agent_and_surface,
         "agents.open_source_creation": agent_and_surface,
         "agents.attach_created_source": agent_and_surface,
         "agents.open_attached_source": agent_and_surface,
@@ -376,8 +455,11 @@ def test_operations_allow_only_the_designed_invocation_sources() -> None:
         "agents.open_designer": agent_and_surface,
         "agents.open_evaluation": agent_and_surface,
         "agents.open_operations": agent_and_surface,
-        "agents.open_sandbox": agent_and_surface,
-        "builder.assemble": agent_and_surface,
+            "agents.open_sandbox": agent_and_surface,
+            "builder.assemble": agent_and_surface,
+            "builder.run": agent_and_surface,
+            "builder.stop": agent_and_surface,
+            "builder.delete": agent_and_surface,
         "channels.create": agent_and_surface,
         "channels.set_enabled": agent_and_surface,
         "deployment.deploy": agent_and_surface,
@@ -387,8 +469,12 @@ def test_operations_allow_only_the_designed_invocation_sources() -> None:
         "designer.propose": agent_and_surface,
         "designer.request_build": agent_and_surface,
         "designer.return_to_agent": agent_and_surface,
-        "evaluation.create_case": agent_and_surface,
-        "evaluation.run_case": agent_and_surface,
+            "evaluation.create_case": agent_and_surface,
+            "evaluation.generate_set": agent_and_surface,
+            "evaluation.retry_generation": agent_and_surface,
+            "evaluation.edit_case": agent_and_surface,
+            "evaluation.delete_case": agent_and_surface,
+            "evaluation.run_case": agent_and_surface,
         "operations.promote_evaluation_case": agent_and_surface,
             "sandbox.start": agent_and_surface,
             "sandbox.resume": agent_and_surface,
@@ -396,8 +482,11 @@ def test_operations_allow_only_the_designed_invocation_sources() -> None:
         "sources.accept_staged_api": agent_and_surface,
         "sources.open_api_creation": agent_and_surface,
         "sources.open_api_source": agent_and_surface,
-        "sources.return_to_source_hub": agent_and_surface,
-        "sources.process_api": agent_and_surface,
+            "sources.return_to_source_hub": agent_and_surface,
+            "sources.open_api_description": agent_and_surface,
+            "sources.save_api_description": agent_and_surface,
+            "sources.delete_api_source": agent_and_surface,
+            "sources.process_api": agent_and_surface,
         "sources.inspect_current_api": agent_only,
         "sources.retry_processing": agent_and_surface,
             "sources.select_graph_stage": agent_and_surface,
@@ -639,6 +728,25 @@ def test_attached_api_setup_uses_existing_supervised_operations_without_manual_r
         "ask only for missing agent choice, goal, responsibilities, or operation-selection intent"
         in compiled.agent_policies["agents.capability.setup_continuation"].instruction.lower()
     )
+    setup_continuation = compiled.agent_policies[
+        "agents.capability.setup_continuation"
+    ].instruction.lower()
+    assert "derive a concise display name from that exact role phrase" in setup_continuation
+    assert "do not ask another question solely for a name" in setup_continuation
+    assert "do not invent capabilities" in setup_continuation
+    create_description = compiled.operations["agents.create_agent"].description.lower()
+    assert "ongoing file-first setup" in create_description
+    assert "clear role phrase and responsibilities" in create_description
+    assert "derive a concise display name from the owner's exact role phrase" in create_description
+    attachment_policy = compiled.agent_policies[
+        "agents.capability.attachment_eligibility"
+    ].instruction.lower()
+    assert "keep one attachment per source" in attachment_policy
+    assert "advance only that source's pinned revision" in attachment_policy
+    attach_description = compiled.operations["agents.attach_source"].description.lower()
+    assert "repeating the same current version is idempotent" in attach_description
+    assert "newer reviewed ready api version" in attach_description
+    assert "without changing historical build lineage" in attach_description
     assert "current request has already authorized creating and analyzing" in (
         compiled.operations["sources.open_api_creation"].description
     )

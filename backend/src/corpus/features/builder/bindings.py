@@ -2,14 +2,25 @@ from routedeck_core.app import FeatureBindings
 
 from corpus.features.agents.ports import AgentOwnerScopeGateway
 
-from .declarations import ASSEMBLE_BUILD
-from .operations import AssembleBuildHandler
+from .declarations import ASSEMBLE_BUILD, DELETE_BUILD, RUN_BUILD, STOP_BUILD
+from .operations import AssembleBuildHandler, BuildRuntimeLifecycleHandler
 from .service import BuilderService
 
 
 def create_builder_bindings(service: BuilderService, owner_scope: AgentOwnerScopeGateway) -> FeatureBindings:
     return FeatureBindings(
-        handlers={ASSEMBLE_BUILD.ref: AssembleBuildHandler(service, owner_scope)},
+        handlers={
+            ASSEMBLE_BUILD.ref: AssembleBuildHandler(service, owner_scope),
+            RUN_BUILD.ref: BuildRuntimeLifecycleHandler(
+                service, owner_scope, RUN_BUILD, "run"
+            ),
+            STOP_BUILD.ref: BuildRuntimeLifecycleHandler(
+                service, owner_scope, STOP_BUILD, "stop"
+            ),
+            DELETE_BUILD.ref: BuildRuntimeLifecycleHandler(
+                service, owner_scope, DELETE_BUILD, "delete"
+            ),
+        },
         providers={},
         guards={},
     )

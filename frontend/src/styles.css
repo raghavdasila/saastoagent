@@ -224,6 +224,8 @@ button, input, textarea { font: inherit; }
 [data-navgraph-status] { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--muted); }
 [data-navgraph-status] span { min-width: 0; overflow-wrap: anywhere; font-size: 12px; font-weight: 550; }
 [data-navgraph-status] small { flex: 0 0 auto; color: var(--muted-foreground); font-size: 11px; text-transform: capitalize; }
+[data-navgraph-status][data-status-tone="error"] { border-color: color-mix(in srgb, var(--destructive) 35%, var(--border)); background: color-mix(in srgb, var(--destructive) 6%, var(--background)); }
+[data-navgraph-status][data-status-tone="review"], [data-navgraph-status][data-status-tone="warning"] { border-color: color-mix(in srgb, oklch(0.72 0.16 75) 35%, var(--border)); }
 [data-navgraph-map] { min-width: 0; }
 [data-navgraph-map] [data-routedeck-navgraph-canvas] { height: min(440px, calc(100dvh - 270px)) !important; min-height: 340px !important; }
 [data-navgraph-view-switcher] { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }

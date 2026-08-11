@@ -154,6 +154,13 @@ class AgentRepository(Protocol):
         source: AttachableSource,
     ) -> AgentSourceAttachmentRecord: ...
 
+    async def detach_source(
+        self,
+        organization_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        source_id: str,
+    ) -> None: ...
+
     async def get_source_attachment(
         self,
         organization_id: uuid.UUID,

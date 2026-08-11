@@ -13,6 +13,8 @@ from corpus.app.source_composition import (
     create_source_routers,
     create_source_runtime,
 )
+from corpus.app.source_lifecycle_adapters import CorpusSourceDependencyGateway
+from corpus.features.sources.lifecycle import SourceLifecycleService
 from corpus.auth.conversations import create_conversation_router
 from corpus.auth.http import (
     AuthHttpProblem,
@@ -54,6 +56,9 @@ from corpus.features.sandbox.service import SandboxService
 from corpus.features.evaluation.http import create_evaluation_router
 from corpus.features.evaluation.repository import SqlAlchemyEvaluationRepository
 from corpus.features.evaluation.service import EvaluationService
+from corpus.features.evaluation.generation import EvaluationGenerationProcessor
+from corpus.features.evaluation.tasks import register_evaluation_generation_task
+from corpus.jobs import HueyDurableJobPort
 from corpus.features.channels.http import create_channels_router
 from corpus.features.channels.repository import SqlAlchemyChannelRepository
 from corpus.features.channels.service import ChannelService
@@ -129,6 +134,10 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
         infrastructure_settings=configured.infrastructure,
     )
     source_service = source_runtime.service
+    source_lifecycle_service = SourceLifecycleService(
+        source_runtime.service.repository,
+        CorpusSourceDependencyGateway(database),
+    )
     agent_service = AgentService(
         SqlAlchemyAgentRepository(database),
         CorpusAgentSourceGateway(source_service),
@@ -178,8 +187,9 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
         assert configured.openai_model is not None
         return resolve_openai_model_identity(configured.openai_model)
 
+    builder_repository = SqlAlchemyBuilderRepository(database)
     builder_service = BuilderService(
-        SqlAlchemyBuilderRepository(database),
+        builder_repository,
         CorpusBuilderInputGateway(
             database,
             source_runtime.service.repository,
@@ -195,6 +205,20 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
         builder_service,
     )
     evaluation_repository = SqlAlchemyEvaluationRepository(database)
+    evaluation_generation_task = register_evaluation_generation_task(
+        source_runtime.infrastructure.huey,
+        EvaluationGenerationProcessor(
+            source_runtime.infrastructure.job_repository,
+            evaluation_repository,
+            builder_repository,
+            source_runtime.api_engine,
+        ),
+    )
+    evaluation_jobs = HueyDurableJobPort(
+        source_runtime.infrastructure.job_repository,
+        source_runtime.infrastructure.huey,
+        evaluation_generation_task,
+    )
     evaluation_service = EvaluationService(
         evaluation_repository,
         CorpusEvaluationRuntimeGateway(
@@ -209,6 +233,7 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
         ),
         builder_service,
         sandbox_service,
+        evaluation_jobs,
     )
     delivery_store = CorpusLocalDeliveryStore(
         configured.sources.data_root.parent / "agent-delivery" / "runtime.sqlite3"
@@ -236,7 +261,7 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
         evaluation_service,
     )
     workspace_service = WorkspaceService(
-        CorpusWorkspaceOverviewGateway(auth_service, agent_service)
+        CorpusWorkspaceOverviewGateway(auth_service, agent_service, source_service)
     )
 
     async def open_runtime():
@@ -268,6 +293,8 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
                 source_operation_curation_service=source_runtime.operation_curation_service,
                 source_routed_execution_service=source_runtime.routed_execution_service,
                 source_staged_attachment_service=source_runtime.staged_attachment_service,
+                source_staged_description_service=source_runtime.staged_description_service,
+                source_lifecycle_service=source_lifecycle_service,
             )
         except Exception:
             await database.close()
@@ -349,6 +376,8 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
         route_plan_service=source_runtime.route_plan_service,
         routed_execution_service=source_runtime.routed_execution_service,
         staged_attachment_service=source_runtime.staged_attachment_service,
+        staged_description_service=source_runtime.staged_description_service,
+        lifecycle_service=source_lifecycle_service,
     ):
         app.include_router(source_router)
     app.state.corpus_auth_service = auth_service

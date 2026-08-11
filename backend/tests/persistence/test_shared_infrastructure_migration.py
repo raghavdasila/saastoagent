@@ -62,6 +62,6 @@ async def test_shared_infrastructure_migration_creates_exact_tables(
             "created_at",
             "updated_at",
         }
-        await database.verify_revision("0012_builder_navgraph")
+        await database.verify_revision("0015_builder_retry_attempts")
     finally:
         await database.close()

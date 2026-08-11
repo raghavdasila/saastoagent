@@ -16,6 +16,7 @@ class WorkspaceSectionState:
 @dataclass(frozen=True)
 class WorkspaceOverview:
     agent_count: int
+    source_count: int
     agents: WorkspaceSectionState
     sources: WorkspaceSectionState
     recent_activity: WorkspaceSectionState

@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, JSON, String, UniqueConstraint, Uuid
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from corpus.persistence.models import Base
@@ -17,6 +17,15 @@ class AgentEvaluationSet(Base):
     agent_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("agents.id", ondelete="RESTRICT"), nullable=False)
     build_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("agent_runnable_builds.id", ondelete="RESTRICT"), nullable=False)
     name: Mapped[str] = mapped_column(String(160), nullable=False)
+    generation_job_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("durable_jobs.id", ondelete="SET NULL"), nullable=True
+    )
+    generation_status: Mapped[str] = mapped_column(
+        String(24), nullable=False, default="manual"
+    )
+    generation_failure_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    generation_failure_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    generation_summary: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -28,7 +37,8 @@ class AgentEvaluationCase(Base):
     organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
     evaluation_set_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("agent_evaluation_sets.id", ondelete="CASCADE"), nullable=False)
     build_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("agent_runnable_builds.id", ondelete="RESTRICT"), nullable=False)
-    runtime_case_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    runtime_case_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    generation_task_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
     source_kind: Mapped[str] = mapped_column(String(24), nullable=False)
     source_record_id: Mapped[str] = mapped_column(String(80), nullable=False)
     title: Mapped[str] = mapped_column(String(160), nullable=False)
@@ -39,7 +49,25 @@ class AgentEvaluationCase(Base):
     required_response_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     require_write_verification: Mapped[bool] = mapped_column(Boolean, nullable=False)
     mandatory: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    current_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AgentEvaluationCaseRevision(Base):
+    __tablename__ = "agent_evaluation_case_revisions"
+    __table_args__ = (
+        UniqueConstraint("case_id", "revision", name="uq_agent_evaluation_case_revision"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("agent_evaluation_cases.id", ondelete="RESTRICT"), nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    category: Mapped[str] = mapped_column(String(80), nullable=False)
+    difficulty: Mapped[str] = mapped_column(String(24), nullable=False)
+    mandatory: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class AgentEvaluationRun(Base):
@@ -53,6 +81,7 @@ class AgentEvaluationRun(Base):
     status: Mapped[str] = mapped_column(String(24), nullable=False)
     deterministic_pass: Mapped[bool] = mapped_column(Boolean, nullable=False)
     review_pass: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    case_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     reasons: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -70,4 +99,4 @@ class AgentEvaluationEligibility(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
-__all__ = ["AgentEvaluationCase", "AgentEvaluationEligibility", "AgentEvaluationRun", "AgentEvaluationSet"]
+__all__ = ["AgentEvaluationCase", "AgentEvaluationCaseRevision", "AgentEvaluationEligibility", "AgentEvaluationRun", "AgentEvaluationSet"]

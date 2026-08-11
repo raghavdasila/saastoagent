@@ -12,6 +12,11 @@ class EvaluationSetRecord:
     agent_id: uuid.UUID
     build_id: uuid.UUID
     name: str
+    generation_job_id: uuid.UUID | None
+    generation_status: str
+    generation_failure_code: str | None
+    generation_failure_message: str | None
+    generation_summary: dict[str, object] | None
     created_at: datetime
     updated_at: datetime
 
@@ -22,7 +27,8 @@ class EvaluationCaseRecord:
     organization_id: uuid.UUID
     evaluation_set_id: uuid.UUID
     build_id: uuid.UUID
-    runtime_case_id: str
+    runtime_case_id: str | None
+    generation_task_id: str | None
     source_kind: str
     source_record_id: str
     title: str
@@ -33,6 +39,8 @@ class EvaluationCaseRecord:
     required_response_fields: tuple[str, ...]
     require_write_verification: bool
     mandatory: bool
+    current_revision: int
+    removed_at: datetime | None
     created_at: datetime
 
 
@@ -46,6 +54,7 @@ class EvaluationRunRecord:
     status: str
     deterministic_pass: bool
     review_pass: bool
+    case_revision: int
     reasons: tuple[str, ...]
     created_at: datetime
 
@@ -61,4 +70,3 @@ class EligibilityRecord:
     supporting_evaluation_run_ids: tuple[str, ...]
     reasons: tuple[str, ...]
     created_at: datetime
-

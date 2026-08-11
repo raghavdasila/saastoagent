@@ -64,6 +64,7 @@ class BuilderRecord:
     design_revision_id: uuid.UUID
     agent_version: int
     status: str
+    runtime_lifecycle: str
     runtime_build_hash: str | None
     model: str | None
     model_digest: str | None
@@ -76,3 +77,4 @@ class BuilderRecord:
     failure_message: str | None
     created_at: datetime
     updated_at: datetime
+    attempt_number: int = 1

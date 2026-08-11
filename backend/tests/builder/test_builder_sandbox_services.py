@@ -9,6 +9,7 @@ import pytest
 from corpus.features.builder.domain import BuilderInputSnapshot, BuilderRecord, BuilderSourceBinding, RuntimeBuildArtifact
 from corpus.features.builder.service import BuilderService
 from corpus.features.sandbox.domain import RuntimeSandboxRun, SandboxRecord
+from corpus.features.sandbox.ports import SandboxRunFailed
 from corpus.features.sandbox.service import SandboxService
 from corpus.features.sandbox.operations import sandbox_tool_observation
 
@@ -17,7 +18,8 @@ def build_record(*, status="assembling", runtime_hash=None, bindings=()):
     now = datetime.now(UTC)
     return BuilderRecord(
         uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), 3,
-        status, runtime_hash, "gemma4", "d" * 64, tuple(bindings),
+        status, "running" if status == "ready" else "stopped",
+        runtime_hash, "gemma4", "d" * 64, tuple(bindings),
         ("GetProductTypes",) if status == "ready" else (), "n" * 64, {"nodes": []}, {"nodes": {}},
         None, None, now, now,
     )
@@ -36,7 +38,7 @@ class BuilderRepo:
         self.value = BuilderRecord(
             self.value.id, self.value.organization_id, self.value.agent_id,
             self.value.build_request_id, self.value.design_revision_id, self.value.agent_version,
-            "ready", artifact.runtime_build_hash, artifact.model, artifact.model_digest,
+            "ready", "stopped", artifact.runtime_build_hash, artifact.model, artifact.model_digest,
             source_bindings, artifact.allowed_operation_ids, artifact.navgraph_hash,
             artifact.compiled_navgraph, artifact.frontend_contract, None, None,
             self.value.created_at, datetime.now(UTC),
@@ -45,6 +47,18 @@ class BuilderRepo:
     async def fail(self, *_args, **_kwargs): raise AssertionError("unexpected failure")
     async def get_for_agent(self, *_): return (self.value,)
     async def get(self, *_): return self.value
+    async def set_runtime_lifecycle(self, _owner, _agent, _build, *, lifecycle):
+        self.value = BuilderRecord(
+            self.value.id, self.value.organization_id, self.value.agent_id,
+            self.value.build_request_id, self.value.design_revision_id,
+            self.value.agent_version, self.value.status, lifecycle,
+            self.value.runtime_build_hash, self.value.model, self.value.model_digest,
+            self.value.source_bindings, self.value.allowed_operation_ids,
+            self.value.navgraph_hash, self.value.compiled_navgraph,
+            self.value.frontend_contract, self.value.failure_code,
+            self.value.failure_message, self.value.created_at, datetime.now(UTC),
+        )
+        return self.value
 
 
 class Inputs:
@@ -60,6 +74,8 @@ class BuildRuntime:
             tuple(op for item in snapshot.source_bindings for op in item.included_operation_ids),
             "n" * 64, {"nodes": []}, {"nodes": {}},
         )
+    async def validate_immutable_build(self, runtime_build_hash):
+        assert runtime_build_hash == "a" * 64
 
 
 @pytest.mark.asyncio
@@ -83,6 +99,7 @@ async def test_builder_persists_exact_runtime_binding_and_historical_lineage(tmp
     result = await service.assemble_current(pending.organization_id, pending.agent_id)
 
     assert result.status == "ready"
+    assert result.runtime_lifecycle == "stopped"
     assert result.runtime_build_hash == "a" * 64
     assert result.source_bindings[0].profile_id == "profile-00000001"
     assert result.source_bindings[0].credential_version == 2
@@ -91,8 +108,49 @@ async def test_builder_persists_exact_runtime_binding_and_historical_lineage(tmp
 
 class ReadyBuilds:
     def __init__(self, value): self.value = value
-    async def require_ready(self, *_): return self.value
+    async def require_running(self, *_): return self.value
     async def list(self, *_): return object()
+
+
+@pytest.mark.asyncio
+async def test_builder_runtime_lifecycle_is_explicit_and_removal_preserves_build_lineage(tmp_path: Path):
+    ready = build_record(
+        status="ready", runtime_hash="a" * 64,
+        bindings=({
+            "source_id": "source-000000001",
+            "source_revision_id": "revision-0000001",
+            "curation_id": "curation-0000001",
+            "inventory_fingerprint": "f" * 64,
+            "included_operation_ids": ["GetProductTypes"],
+            "profile_id": "profile-00000001",
+            "credential_reference_id": None,
+            "credential_version": None,
+        },),
+    )
+    repository = BuilderRepo(ready)
+    service = BuilderService(repository, Inputs(None), BuildRuntime(), Agents())
+
+    stopped = await service.stop(
+        ready.organization_id, ready.agent_id, build_id=ready.id
+    )
+    assert stopped.runtime_lifecycle == "stopped"
+    running = await service.run(
+        ready.organization_id, ready.agent_id, build_id=ready.id
+    )
+    assert running.runtime_lifecycle == "running"
+    await service.stop(ready.organization_id, ready.agent_id, build_id=ready.id)
+    removed = await service.remove_runtime(
+        ready.organization_id, ready.agent_id, build_id=ready.id
+    )
+
+    assert removed.runtime_lifecycle == "removed"
+    assert removed.runtime_build_hash == ready.runtime_build_hash
+    assert removed.source_bindings[0].source_id == "source-000000001"
+    assert removed.source_bindings[0].source_revision_id == "revision-0000001"
+    with pytest.raises(Exception, match="removed"):
+        await service.run(
+            ready.organization_id, ready.agent_id, build_id=ready.id
+        )
 
 
 class SandboxRepo:
@@ -144,6 +202,45 @@ async def test_sandbox_uses_exact_ready_build_and_retains_safe_response_derived_
     assert result.final_response == "Observed Hats from the validated response."
     assert result.api_call_count == 1
     assert repr(result.events) == "(SandboxEventView(sequence=1, kind='api.result', occurred_at='now', safe_data={'operation_id': 'GetProductTypes'}),)"
+
+
+@pytest.mark.asyncio
+async def test_sandbox_failure_exposes_only_the_retained_run_identity():
+    ready = build_record(
+        status="ready", runtime_hash="a" * 64,
+        bindings=({"source_id": "source-000000001"},),
+    )
+    repository = SandboxRepo(ready)
+
+    async def fail(_owner, _record_id, *, code):
+        assert code == "RuntimeError"
+        repository.value = SandboxRecord(
+            repository.value.id, repository.value.organization_id,
+            repository.value.agent_id, repository.value.build_id,
+            repository.value.runtime_build_hash, repository.value.runtime_session_id,
+            repository.value.runtime_run_id, "failed", None, None, 0, (), {},
+            code, repository.value.created_at, datetime.now(UTC),
+            repository.value.message,
+        )
+        return repository.value
+
+    repository.fail = fail
+
+    class FailingRuntime:
+        async def start(self, **_values):
+            raise RuntimeError("private provider detail")
+
+    service = SandboxService(repository, FailingRuntime(), ReadyBuilds(ready))
+
+    with pytest.raises(SandboxRunFailed) as captured:
+        await service.start(
+            ready.organization_id, ready.agent_id,
+            build_id=ready.id, message="List product types",
+        )
+
+    assert captured.value.run_id == repository.value.id
+    assert str(captured.value) == "The Sandbox run failed."
+    assert repository.value.status == "failed"
 
 
 class ClarifyingSandboxRuntime:

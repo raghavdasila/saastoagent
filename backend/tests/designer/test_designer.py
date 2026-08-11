@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -29,6 +30,7 @@ from corpus.features.designer.repository import SqlAlchemyDesignerRepository
 from corpus.features.designer.schemas import DesignContent
 from corpus.features.designer.service import DesignerService
 from corpus.features.designer.topology import DesignerTopologyError, compile_design_topology
+from corpus.composition import compile_corpus_app
 from corpus.persistence import CorpusDatabase
 
 
@@ -67,6 +69,7 @@ async def test_designer_appends_exact_revisions_accepts_and_requests_one_build(t
         sources=(DesignerSourceInput(
             source_id="source-ready-001",
             source_revision_id="revision-ready01",
+            display_name="Store API",
             curation_id="curation-ready1",
             inventory_fingerprint="a" * 64,
             included_operation_ids=("GetProductTypes", "GetProductTags"),
@@ -107,6 +110,8 @@ async def test_designer_appends_exact_revisions_accepts_and_requests_one_build(t
             }
         ]
         assert proposed.accepted_revision_id is None
+        assert proposed.current_inputs_ready is True
+        assert proposed.current_inputs_match is True
 
         invalid = first.content.model_copy(update={
             "capabilities": (
@@ -143,14 +148,28 @@ async def test_designer_appends_exact_revisions_accepts_and_requests_one_build(t
         assert requested.build_request is not None
         assert requested.build_request.design_revision_id == second.id
         assert requested.build_request.status == "pending"
+
+        inputs.value = replace(
+            inputs.value,
+            sources=(
+                replace(inputs.value.sources[0], source_revision_id="revision-ready02"),
+            ),
+        )
+        drifted = await service.get(OWNER_ID, agent.id)
+        assert drifted.current_inputs_ready is True
+        assert drifted.current_inputs_match is False
+        reproposed = await service.propose(OWNER_ID, agent.id)
+        assert reproposed.revisions[-1].source_inputs[0]["source_revision_id"] == "revision-ready02"
+        assert reproposed.current_inputs_match is True
+        assert reproposed.accepted_revision_id == second.id
         with pytest.raises(DesignerConflict):
             await service.request_build(OWNER_ID, agent.id, accepted_revision_id=second.id)
 
         reloaded = DesignerService(SqlAlchemyDesignerRepository(database), inputs)
         durable = await reloaded.get(OWNER_ID, agent.id)
-        assert durable.current_revision_id == second.id
+        assert durable.current_revision_id == reproposed.current_revision_id
         assert durable.accepted_revision_id == second.id
-        assert len(durable.revisions) == 2
+        assert len(durable.revisions) == 3
         with pytest.raises(DesignerUnavailable):
             await reloaded.get(other_id, agent.id)
     finally:
@@ -204,6 +223,7 @@ async def test_designer_proposal_partitions_overlapping_semantic_groups(tmp_path
         sources=(DesignerSourceInput(
             source_id="source-ready-001",
             source_revision_id="revision-ready01",
+            display_name="Store API",
             curation_id="curation-ready1",
             inventory_fingerprint="b" * 64,
             included_operation_ids=("GetProductTags", "GetProductTypes"),
@@ -243,6 +263,26 @@ def test_designer_routedeck_contract_keeps_review_and_build_separate() -> None:
     assert APPROVE_DESIGN.review_policy is ReviewPolicy.REQUIRED
     assert APPROVE_DESIGN.public_metadata_value() == {"review_surface_id": "designer.review"}
     assert REQUEST_BUILD.review_policy is ReviewPolicy.NONE
+
+
+def test_designer_exposes_exact_attached_source_prerequisite_handoff() -> None:
+    contract = compile_corpus_app().frontend_contract
+    surface = contract.surfaces["designer.home"]
+    affordances = {
+        affordance.id: affordance.operation.id
+        for affordance in surface.affordances
+    }
+    transitions = {
+        (transition.source, transition.operation_id, transition.target)
+        for transition in contract.transitions
+    }
+
+    assert affordances["open_source_prerequisite"] == "agents.open_attached_source"
+    assert (
+        "designer.home",
+        "agents.open_attached_source",
+        "sources.api",
+    ) in transitions
 
 
 @pytest.mark.asyncio

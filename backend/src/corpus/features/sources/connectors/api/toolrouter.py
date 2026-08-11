@@ -119,12 +119,14 @@ class ToolRouterApiSourceEngine:
         tasks_per_category: int,
         max_generation_attempts: int,
         max_review_attempts: int,
+        allowed_endpoint_ids: tuple[str, ...] | None = None,
     ) -> SourceEvalsetResult:
         try:
             result = self.adapter.generate_evalset(
                 EvalsetRequest(
                     artifact_dir=artifact_dir,
                     evalset_id=evalset_id,
+                    allowed_endpoint_ids=allowed_endpoint_ids,
                     categories=categories,
                     tasks_per_category=tasks_per_category,
                     max_generation_attempts=max_generation_attempts,

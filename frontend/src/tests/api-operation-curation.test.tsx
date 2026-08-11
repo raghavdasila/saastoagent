@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { RouteDeckDispatchResult } from "@routedeck/core";
 import { expect, it, vi } from "vitest";
 
@@ -33,9 +33,11 @@ it("requires every exact operation decision and saves immutable revision-bound c
   });
   expect(screen.getByText("createWidget")).toBeVisible();
   expect(screen.queryByText("listWidgets")).not.toBeInTheDocument();
-  fireEvent.click(within(screen.getByText("createWidget").closest("li")!).getByRole("radio", { name: "Exclude" }));
+  fireEvent.click(screen.getByRole("button", { name: "Exclude shown" }));
   fireEvent.change(screen.getByLabelText("Filter operations"), { target: { value: "" } });
-  fireEvent.click(within(screen.getByText("listWidgets").closest("li")!).getByRole("radio", { name: "Include" }));
+  fireEvent.change(screen.getByLabelText("Filter operations"), { target: { value: "list" } });
+  fireEvent.click(screen.getByRole("button", { name: "Include shown" }));
+  fireEvent.change(screen.getByLabelText("Filter operations"), { target: { value: "" } });
 
   expect(screen.getByText("Every discovered operation is explicitly classified.")).toBeVisible();
   fireEvent.click(save);
@@ -55,6 +57,35 @@ it("requires every exact operation decision and saves immutable revision-bound c
   )).toBeVisible();
   expect(screen.getByText("1", { selector: ".api-curation-identity dd" })).toBeVisible();
   expect(fetchMock).toHaveBeenCalledTimes(2);
+});
+
+
+it("can explicitly exclude every remaining unclassified operation before save", async () => {
+  const fetchMock = vi.fn(async () => jsonResponse(curation(false)));
+  const dispatchAffordance = vi.fn(async () => dispatchResult("saved"));
+  render(
+    <ApiOperationCurationPanel
+      sourceId="sourceopaque0001"
+      sourceRevisionId="revisionopaque01"
+      sourceClient={new SourceClient({ fetch: fetchMock })}
+      dispatchAffordance={dispatchAffordance}
+    />,
+  );
+
+  expect(await screen.findByText("2 operations still need an explicit decision.")).toBeVisible();
+  fireEvent.change(screen.getByLabelText("Filter operations"), { target: { value: "list" } });
+  fireEvent.click(screen.getByRole("button", { name: "Include shown" }));
+  fireEvent.click(screen.getByRole("button", { name: "Exclude unclassified" }));
+
+  expect(screen.getByText("Every discovered operation is explicitly classified.")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Save operation selection" }));
+  await waitFor(() => expect(dispatchAffordance).toHaveBeenCalledWith(
+    "save_api_operation_curation",
+    expect.objectContaining({
+      included_operation_ids: ["listWidgets"],
+      excluded_operation_ids: ["createWidget"],
+    }),
+  ));
 });
 
 

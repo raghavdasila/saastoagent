@@ -84,7 +84,7 @@ async def main() -> None:
             await hub.get_by_role("heading", name="Source Hub", exact=True).wait_for(timeout=30_000)
             await _upload(page, hub)
             await hub.get_by_text("ready", exact=True).first.wait_for(timeout=180_000)
-            await hub.get_by_role("button", name="Prepare contract revision", exact=True).wait_for(timeout=30_000)
+            await hub.get_by_role("button", name="Review API changes", exact=True).wait_for(timeout=30_000)
             ids.update(await _source_ids(page, observations))
             await _capture(page, repository, directory, screenshots, "01-ready-parent-desktop", full_page=True)
             _record(assertions, "exact reviewed raw Source became ready", True, {
@@ -93,7 +93,7 @@ async def main() -> None:
                 "rawSha256": EXPECTED_RAW,
             })
 
-            await hub.get_by_role("button", name="Prepare contract revision", exact=True).click()
+            await hub.get_by_role("button", name="Review API changes", exact=True).click()
             proposal_panel = _proposal_panel(page)
             await proposal_panel.get_by_role("heading", name="Proposed API version update", exact=True).wait_for(timeout=90_000)
             await proposal_panel.get_by_text("Shared-schema impact: 2", exact=True).wait_for()
@@ -167,10 +167,10 @@ async def main() -> None:
                         "Explicit shared-schema impact: 2", exact=True
                     ),
                     "accept": review_surface.get_by_role(
-                        "button", name="Accept and create new revision", exact=True
+                        "button", name="Accept and create new version", exact=True
                     ),
                     "reject": review_surface.get_by_role(
-                        "button", name="Keep current revision unchanged", exact=True
+                        "button", name="Keep current version unchanged", exact=True
                     ),
                 },
                 repository,
@@ -185,8 +185,8 @@ async def main() -> None:
             })
 
             await page.set_viewport_size({"width": 390, "height": 844})
-            accept = review_surface.get_by_role("button", name="Accept and create new revision", exact=True)
-            reject = review_surface.get_by_role("button", name="Keep current revision unchanged", exact=True)
+            accept = review_surface.get_by_role("button", name="Accept and create new version", exact=True)
+            reject = review_surface.get_by_role("button", name="Keep current version unchanged", exact=True)
             await accept.scroll_into_view_if_needed()
             await page.wait_for_timeout(300)
             bounds = {
@@ -220,8 +220,8 @@ async def main() -> None:
             await page.set_viewport_size({"width": 1440, "height": 1000})
             await proposal_panel.get_by_role("button", name="Review this API update", exact=True).click()
             await review_heading.wait_for(timeout=30_000)
-            await review_surface.get_by_role("button", name="Accept and create new revision", exact=True).click()
-            await hub.get_by_text("Reviewed contract revision", exact=True).wait_for(timeout=60_000)
+            await review_surface.get_by_role("button", name="Accept and create new version", exact=True).click()
+            await hub.get_by_text("Validated API version", exact=True).wait_for(timeout=60_000)
             current = await _observed_current_source(
                 observations, ids["sourceId"],
                 excluding_revision_id=ids["parentRevisionId"],
@@ -234,7 +234,7 @@ async def main() -> None:
             if current["revision"]["summary"]["final_canonical_sha256"] != EXPECTED_FINAL:
                 raise RuntimeError("The approved revision hash is not the reviewed final hash.")
             await page.reload()
-            await hub.get_by_text("Reviewed contract revision", exact=True).wait_for(timeout=30_000)
+            await hub.get_by_text("Validated API version", exact=True).wait_for(timeout=30_000)
             await _capture(page, repository, directory, screenshots, "06-approved-reloaded-desktop", full_page=True)
             _record(assertions, "approval creates a new immutable child and reload preserves it", True, {
                 "parentRevisionId": ids["parentRevisionId"],
@@ -254,7 +254,7 @@ async def main() -> None:
             await asyncio.to_thread(_wait_ready, "http://127.0.0.1:8099/readyz")
             await page.reload()
             await hub.get_by_role("heading", name="Source Hub", exact=True).wait_for(timeout=60_000)
-            await hub.get_by_text("Reviewed contract revision", exact=True).wait_for(timeout=60_000)
+            await hub.get_by_text("Validated API version", exact=True).wait_for(timeout=60_000)
             restarted = await _observed_current_source(
                 observations, ids["sourceId"]
             )
@@ -351,11 +351,15 @@ async def _register(page: Page, url: str, owner: dict[str, str]) -> None:
 
 
 async def _upload(page: Page, hub) -> None:
-    await hub.get_by_role("button", name="Add API source", exact=True).click()
+    await hub.locator(".sources-header-actions").get_by_role(
+        "button", name="Add API source", exact=True
+    ).click()
     await hub.get_by_role("heading", name="Add an API source", exact=True).wait_for()
     await hub.get_by_label("Source name").fill("Reviewed local Medusa Store")
     await hub.get_by_label("OpenAPI or Swagger definition").set_input_files(MEDUSA_SPEC)
-    await hub.get_by_role("button", name="Upload and process", exact=True).click()
+    await hub.get_by_role("button", name="Add API definition", exact=True).click()
+    await hub.get_by_text("Ready to analyze", exact=True).wait_for(timeout=30_000)
+    await hub.get_by_role("button", name="Analyze API operations", exact=True).click()
 
 
 def _source_hub(page: Page):
@@ -372,7 +376,7 @@ def _review_surface(page: Page):
 
 async def _source_ids(page: Page, observations: dict[str, object]) -> dict[str, str]:
     detail = page.locator(".source-detail-list")
-    revision = await detail.locator("div", has_text="Revision").locator("code").first.inner_text()
+    revision = await detail.locator("div", has_text="API version").locator("code").first.inner_text()
     for _ in range(100):
         sources = observations.get("sourceInventory")
         if isinstance(sources, list):

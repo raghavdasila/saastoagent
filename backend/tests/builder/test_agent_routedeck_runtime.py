@@ -52,7 +52,7 @@ async def test_read_and_reviewed_write_run_in_one_durable_isolated_routedeck_ses
     now = datetime.now(UTC)
     build = BuilderRecord(
         snapshot.build_id, snapshot.organization_id, snapshot.agent_id, snapshot.build_request_id,
-        snapshot.design_revision_id, 1, "ready", "r" * 64, "model", "digest", (),
+        snapshot.design_revision_id, 1, "ready", "running", "r" * 64, "model", "digest", (),
         ("GetProducts", "PostCarts"), artifact.navgraph_hash, artifact.compiled_navgraph,
         artifact.frontend_contract, None, None, now, now,
     )
@@ -114,7 +114,7 @@ async def test_parallel_read_tools_share_one_durable_agent_session_without_sqlit
     build = BuilderRecord(
         snapshot.build_id, snapshot.organization_id, snapshot.agent_id,
         snapshot.build_request_id, snapshot.design_revision_id, 1, "ready",
-        "r" * 64, "model", "digest", (),
+        "running", "r" * 64, "model", "digest", (),
         ("GetProductTypes", "GetProductTags"), artifact.navgraph_hash,
         artifact.compiled_navgraph, artifact.frontend_contract, None, None, now, now,
     )

@@ -6,7 +6,9 @@ FEATURE_PROMPT = AgentPolicy(
     instruction=(
         "Help the authenticated owner inspect the Workspace source inventory, "
         "start an API-source intake, and report only persisted queued, running, "
-        "ready, or failed processing state."
+        "ready, or failed processing state. In owner-facing chat use API definition, "
+        "API version, API update, and review; never call them a contract, contract "
+        "revision, or contract proposal."
     ),
 )
 OWNER_SCOPE = AgentPolicy(
@@ -37,6 +39,26 @@ STAGED_SETUP_CONTINUATION = AgentPolicy(
         "create a new one, then use that choice to continue the same request. Do not claim that an "
         "Agent is selected when none is bound, do not promise automatic continuation after background "
         "analysis, and call the saved artifact an API version rather than a Source revision."
+    ),
+)
+ACTIVE_API_CONTINUATION = AgentPolicy(
+    id="sources.active_api_continuation",
+    instruction=(
+        "New-definition intake and an accepted or selected API Source are distinct product states. "
+        "When an exact API Source is selected and the owner asks to continue setup, inspect and use "
+        "that Source without returning to Source Hub or opening intake. Leave it only when the owner "
+        "explicitly asks to browse Sources, add a different API definition, or move to another Agent area."
+    ),
+)
+SOURCE_LIFECYCLE_TRUTH = AgentPolicy(
+    id="sources.source_lifecycle_truth",
+    instruction=(
+        "Treat Markdown as owner-scoped non-executable API context and save only the exact "
+        "file attached to the current conversation for the selected Source. Description saves "
+        "must not change its API version. Permanently delete only the exact selected Source "
+        "after required owner review and a fresh dependency check proves there is no active "
+        "analysis, Agent attachment, saved design revision, or immutable build reference. "
+        "Never cascade, detach dependencies, retry deletion automatically, or claim success early."
     ),
 )
 CONTRACT_REVISION_TRUTH = AgentPolicy(
@@ -95,6 +117,8 @@ SOURCES_AGENT_POLICIES = (
     OWNER_SCOPE,
     PROCESSING_TRUTH,
     STAGED_SETUP_CONTINUATION,
+    ACTIVE_API_CONTINUATION,
+    SOURCE_LIFECYCLE_TRUTH,
     CONTRACT_REVISION_TRUTH,
     API_CONNECTION_CHECK_TRUTH,
     API_OPERATION_CURATION_TRUTH,
@@ -103,6 +127,7 @@ SOURCES_AGENT_POLICIES = (
 )
 
 __all__ = [
+    "ACTIVE_API_CONTINUATION",
     "CONTRACT_REVISION_TRUTH",
     "API_CONNECTION_CHECK_TRUTH",
     "API_OPERATION_CURATION_TRUTH",
@@ -112,5 +137,6 @@ __all__ = [
     "OWNER_SCOPE",
     "PROCESSING_TRUTH",
     "STAGED_SETUP_CONTINUATION",
+    "SOURCE_LIFECYCLE_TRUTH",
     "SOURCES_AGENT_POLICIES",
 ]

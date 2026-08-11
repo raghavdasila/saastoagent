@@ -20,20 +20,38 @@ def test_sources_exposes_inventory_intake_and_retry_through_routedeck() -> None:
         "agents.attach_created_source",
         "agents.return_from_source",
         "sources.open_api_creation",
+        "sources.open_api_description",
         "sources.open_api_source",
         "sources.return_to_home",
+    }
+    intake_node = contract.nodes["sources.api_intake"]
+    assert intake_node.title == "New API Source"
+    assert intake_node.route_template == "/sources/api/new"
+    assert intake_node.surfaces.active == "sources.api_intake"
+    assert contract.surfaces["sources.api_intake"].component == "sources.api_intake"
+    assert set(intake_node.operation_ids) == {
+        "agents.return_from_source",
+        "sources.accept_staged_api",
+        "sources.return_to_source_hub",
     }
     api_node = contract.nodes["sources.api"]
     assert api_node.title == "API Source"
     assert api_node.route_template == "/sources/api"
     assert api_node.surfaces.active == "sources.api"
     assert contract.surfaces["sources.api"].component == "sources.api"
+    assert {
+        provider.id for provider in compiled.nodes["sources.api"].context_providers
+    } == {"corpus.owner_context", "sources.selected_api_source"}
+    assert {
+        provider.id
+        for provider in compiled.operations["sources.inspect_current_api"].provider_refs
+    } == {"corpus.owner_context", "sources.selected_api_source"}
     assert set(api_node.operation_ids) == {
-        "agents.open_create",
-        "sources.accept_staged_api",
-        "agents.attach_created_source",
-        "agents.return_from_source",
-        "workspace.open_agents",
+            "agents.open_create",
+            "agents.choose_existing_for_source",
+            "agents.attach_created_source",
+            "agents.open_builds",
+            "agents.return_from_source",
         "sources.process_api",
         "sources.inspect_current_api",
         "sources.retry_processing",
@@ -47,12 +65,18 @@ def test_sources_exposes_inventory_intake_and_retry_through_routedeck() -> None:
             "sources.prepare_routed_api_test",
             "sources.test_routed_api_read",
             "sources.test_routed_api_write",
+            "sources.open_api_description",
+            "sources.save_api_description",
+            "sources.delete_api_source",
     }
     assert {
         (transition.source, transition.operation_id, transition.target)
         for transition in contract.transitions
     } >= {
-        ("sources.api", "workspace.open_agents", "agents.home"),
+        ("sources.home", "sources.open_api_creation", "sources.api_intake"),
+        ("sources.home", "sources.open_api_source", "sources.api"),
+        ("sources.api_intake", "sources.accept_staged_api", "sources.api"),
+            ("sources.api", "agents.choose_existing_for_source", "agents.home"),
         ("sources.api", "agents.open_create", "agents.create"),
     }
     assert api_node.surfaces.detail == (
@@ -71,7 +95,18 @@ def test_sources_exposes_inventory_intake_and_retry_through_routedeck() -> None:
     assert api_node.surfaces.review == (
         "sources.contract_revision_review",
         "sources.routed_api_write_review",
+        "sources.delete_review",
     )
+    delete_source = compiled.operations["sources.delete_api_source"]
+    assert delete_source.safety_class.value == "destructive"
+    assert delete_source.review_policy.value == "required"
+    assert {item.value for item in delete_source.allowed_sources} == {
+        "agent",
+        "surface",
+    }
+    assert {guard.id for guard in delete_source.guard_refs} == {
+        "sources.source_delete_current",
+    }
     assert compiled.operations["sources.approve_contract_revision"].review_policy.value == "required"
     proposal = compiled.operations["sources.propose_contract_revision"]
     assert proposal.outcome_schemas.to_python()["proposed"] == {

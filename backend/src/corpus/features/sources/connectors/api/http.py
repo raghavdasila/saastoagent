@@ -40,6 +40,10 @@ from .staged_attachments import (
     ApiStagedAttachmentError,
     ApiStagedAttachmentService,
 )
+from .staged_descriptions import (
+    ApiStagedDescriptionError,
+    ApiStagedDescriptionService,
+)
 
 
 class CreateApiRoutePlanRequest(BaseModel):
@@ -75,6 +79,7 @@ def create_api_source_router(
     route_plan_service: ApiRoutePlanService,
     routed_execution_service: ApiRoutedExecutionService | None = None,
     staged_attachment_service: ApiStagedAttachmentService | None = None,
+    staged_description_service: ApiStagedDescriptionService | None = None,
 ) -> APIRouter:
     if max_upload_bytes <= 0:
         raise ValueError("API source upload limit must be positive.")
@@ -172,6 +177,73 @@ def create_api_source_router(
                 500,
                 "staged_api_definition_unavailable",
                 "The attached API definition is unavailable.",
+            ) from error
+        return source_response(result)
+
+    @router.post("/api/description-attachments", status_code=201)
+    async def stage_api_description(
+        request: Request,
+        file: Annotated[UploadFile, File()],
+    ):
+        if staged_description_service is None:
+            raise SourceHttpProblem(
+                500,
+                "staged_api_description_unavailable",
+                "API description staging is unavailable.",
+            )
+        authorize_mutation(request, mutation_policy)
+        current_owner, selected = await _planning_session(
+            request, auth_service, auth_settings
+        )
+        content = await file.read(1024 * 1024 + 1)
+        filename = file.filename or ""
+        await file.close()
+        try:
+            result = await call_source_service(
+                staged_description_service.stage,
+                owner_key=current_owner,
+                conversation_id=selected.public_id,
+                route_session_id=selected.route_session_id,
+                filename=filename,
+                content=content,
+            )
+        except ValueError as error:
+            raise SourceHttpProblem(
+                400,
+                "invalid_api_description_upload",
+                str(error),
+            ) from error
+        except ApiStagedDescriptionError as error:
+            raise SourceHttpProblem(
+                500,
+                "staged_api_description_unavailable",
+                "The API description could not be staged.",
+            ) from error
+        return source_response(result, status_code=201)
+
+    @router.get("/api/description-attachments/current")
+    async def current_staged_api_description(request: Request):
+        if staged_description_service is None:
+            raise SourceHttpProblem(
+                500,
+                "staged_api_description_unavailable",
+                "The attached API description is unavailable.",
+            )
+        current_owner, selected = await _planning_session(
+            request, auth_service, auth_settings
+        )
+        try:
+            result = await call_source_service(
+                staged_description_service.current,
+                owner_key=current_owner,
+                conversation_id=selected.public_id,
+                route_session_id=selected.route_session_id,
+            )
+        except ApiStagedDescriptionError as error:
+            raise SourceHttpProblem(
+                500,
+                "staged_api_description_unavailable",
+                "The attached API description is unavailable.",
             ) from error
         return source_response(result)
 

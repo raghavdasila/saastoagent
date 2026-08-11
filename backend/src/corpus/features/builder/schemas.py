@@ -12,6 +12,12 @@ class AssembleBuildArguments(BaseModel):
     build_request_id: uuid.UUID | None = None
 
 
+class BuildRuntimeLifecycleArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    agent_ref: str = Field(min_length=1, max_length=64)
+    build_id: uuid.UUID
+
+
 class BuilderSourceBindingView(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     source_id: str
@@ -32,6 +38,7 @@ class AgentBuildView(BaseModel):
     design_revision_id: uuid.UUID
     agent_version: int
     status: str
+    runtime_lifecycle: str
     runtime_build_hash: str | None
     model: str | None
     model_digest: str | None
@@ -44,6 +51,7 @@ class AgentBuildView(BaseModel):
     failure_message: str | None
     created_at: datetime
     updated_at: datetime
+    attempt_number: int = Field(default=1, ge=1)
 
 
 class AgentBuildCollectionView(BaseModel):

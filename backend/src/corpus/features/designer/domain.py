@@ -15,6 +15,7 @@ class DesignerSemanticGroup:
 class DesignerSourceInput:
     source_id: str
     source_revision_id: str
+    display_name: str
     curation_id: str
     inventory_fingerprint: str
     included_operation_ids: tuple[str, ...]

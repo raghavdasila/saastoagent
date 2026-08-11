@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from routedeck_core.contracts.navigation import NodeRef
 from routedeck_core.contracts.operations import (
+    ContextProvider,
     EntityInput,
     EntityProvider,
     Guard,
@@ -22,6 +23,7 @@ from .schemas import (
     ProposeContractRevisionArguments,
     ProcessApiSourceArguments,
     OpenApiSourceArguments,
+    OpenApiDescriptionArguments,
     RetrySourceArguments,
     SaveApiOperationCurationArguments,
     TestApiConnectionArguments,
@@ -46,6 +48,7 @@ def operation(
     public_metadata: dict | None = None,
     unknown_recovery_directive: str | None = None,
     outcome_schema: dict = EMPTY_OBJECT_SCHEMA,
+    additional_provider_refs=(),
 ) -> Operation:
     return Operation(
         id=operation_id,
@@ -57,7 +60,7 @@ def operation(
         outcomes=(outcome,),
         outcome_schemas=FrozenJsonObject({outcome: outcome_schema}),
         public_outcome_schemas=FrozenJsonObject({outcome: outcome_schema}),
-        provider_refs=(OWNER_CONTEXT_PROVIDER.ref,),
+        provider_refs=(OWNER_CONTEXT_PROVIDER.ref, *additional_provider_refs),
         entity_inputs=entity_inputs,
         review_policy=review_policy,
         guard_refs=guard_refs,
@@ -72,6 +75,30 @@ CONTRACT_REVISION_PROPOSAL_PROVIDER = EntityProvider(
     entity_kind="contract_revision_proposal",
     description="The exact owner-scoped persisted API update proposal retained in this session.",
     output_schema=FrozenJsonObject(EMPTY_OBJECT_SCHEMA),
+)
+SELECTED_API_SOURCE_PROVIDER = ContextProvider(
+    id="sources.selected_api_source",
+    description=(
+        "The exact API Source and revision already selected on the current API Source surface."
+    ),
+    output_schema=FrozenJsonObject(
+        {
+            "type": "object",
+            "properties": {
+                "source_id": {"type": "string", "minLength": 16, "maxLength": 16},
+                "source_revision_id": {
+                    "type": "string",
+                    "minLength": 16,
+                    "maxLength": 16,
+                },
+            },
+            "dependentRequired": {
+                "source_id": ["source_revision_id"],
+                "source_revision_id": ["source_id"],
+            },
+            "additionalProperties": False,
+        }
+    ),
 )
 CONTRACT_REVISION_CURRENT_GUARD = Guard(
     id="sources.contract_revision_current",
@@ -93,6 +120,13 @@ ROUTED_API_WRITE_CURRENT_GUARD = Guard(
     id="sources.routed_api_write_current",
     description="Rechecks one exact current owner plan with one fully resolved write operation and no prior execution claim at review acceptance time.",
 )
+SOURCE_DELETE_CURRENT_GUARD = Guard(
+    id="sources.source_delete_current",
+    description=(
+        "Rechecks the exact selected Source, processing state, Agent attachments, saved designs, "
+        "and immutable build references before staging and accepting permanent deletion."
+    ),
+)
 
 
 RETURN_TO_HOME = operation(
@@ -106,7 +140,8 @@ OPEN_API_CREATION = operation(
     "sources.open_api_creation",
     "Open API source creation",
     (
-        "Open API Source for a new definition in the current Workspace. If the owner's current "
+        "Open new-definition intake only when the owner explicitly wants to add a new or different "
+        "API definition in the current Workspace. If the owner's current "
         "request has already authorized creating and analyzing an attached definition, continue "
         "that same request there instead of asking for the file again."
     ),
@@ -119,10 +154,65 @@ OPEN_API_SOURCE = operation(
     "opened",
     input_schema=OpenApiSourceArguments.model_json_schema(),
 )
+OPEN_API_DESCRIPTION = operation(
+    "sources.open_api_description",
+    "Open API description editor",
+    "Open the exact selected API Source at its Markdown description editor without saving content.",
+    "opened",
+    input_schema=OpenApiDescriptionArguments.model_json_schema(),
+    policy_refs=(policies.SOURCE_LIFECYCLE_TRUTH.ref,),
+)
+SAVE_API_DESCRIPTION = operation(
+    "sources.save_api_description",
+    "Save API description",
+    (
+        "Persist the exact Markdown file staged in this authenticated conversation as supporting "
+        "context for the selected API Source without changing its API version."
+    ),
+    "saved",
+    safety_class=SafetyClass.DRAFT,
+    additional_provider_refs=(SELECTED_API_SOURCE_PROVIDER.ref,),
+    policy_refs=(policies.SOURCE_LIFECYCLE_TRUTH.ref,),
+    outcome_schema={
+        "type": "object",
+        "properties": {
+            "source_id": {"type": "string", "minLength": 16, "maxLength": 16},
+            "source_revision_id": {"type": "string", "minLength": 16, "maxLength": 16},
+            "description_id": {"type": "string", "minLength": 1},
+            "filename": {"type": "string", "minLength": 1},
+            "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        },
+        "required": ["source_id", "source_revision_id", "description_id", "filename", "content_sha256"],
+        "additionalProperties": False,
+    },
+)
+DELETE_API_SOURCE = operation(
+    "sources.delete_api_source",
+    "Delete API source",
+    (
+        "Permanently delete the reviewed exact selected API Source only when active analysis and "
+        "every declared Agent, design, and build dependency remain absent."
+    ),
+    "deleted",
+    safety_class=SafetyClass.DESTRUCTIVE,
+    review_policy=ReviewPolicy.REQUIRED,
+    additional_provider_refs=(SELECTED_API_SOURCE_PROVIDER.ref,),
+    guard_refs=(SOURCE_DELETE_CURRENT_GUARD.ref,),
+    policy_refs=(policies.SOURCE_LIFECYCLE_TRUTH.ref,),
+    public_metadata={"review_surface_id": "sources.delete_review"},
+    outcome_schema={
+        "type": "object",
+        "properties": {
+            "source_id": {"type": "string", "minLength": 16, "maxLength": 16},
+        },
+        "required": ["source_id"],
+        "additionalProperties": False,
+    },
+)
 RETURN_TO_SOURCE_HUB = operation(
     "sources.return_to_source_hub",
     "Return to Source Hub",
-    "Return from API Source to the owner Source inventory without changing either record.",
+    "Return from API Source to the owner Source inventory only when the owner asks to browse or leave the current API. This changes neither record.",
     "opened",
 )
 ACCEPT_STAGED_API = operation(
@@ -156,6 +246,7 @@ PROCESS_API = operation(
     "queued",
     input_schema=ProcessApiSourceArguments.model_json_schema(),
     safety_class=SafetyClass.DRAFT,
+    additional_provider_refs=(SELECTED_API_SOURCE_PROVIDER.ref,),
     policy_refs=(policies.PROCESSING_TRUTH.ref,),
     outcome_schema={
         "type": "object",
@@ -192,6 +283,7 @@ INSPECT_CURRENT_API = operation(
     "inspected",
     safety_class=SafetyClass.STATE_SELECTION,
     sources=frozenset({OperationSource.AGENT}),
+    additional_provider_refs=(SELECTED_API_SOURCE_PROVIDER.ref,),
     policy_refs=(policies.PROCESSING_TRUTH.ref, policies.API_OPERATION_CURATION_TRUTH.ref),
     outcome_schema={
         "type": "object",
@@ -251,6 +343,7 @@ TEST_API_CONNECTION = operation(
     "checked",
     input_schema=TestApiConnectionArguments.model_json_schema(),
     safety_class=SafetyClass.READ_EXTERNAL,
+    additional_provider_refs=(SELECTED_API_SOURCE_PROVIDER.ref,),
     guard_refs=(API_CONNECTION_CHECK_CURRENT_GUARD.ref,),
     policy_refs=(policies.API_CONNECTION_CHECK_TRUTH.ref,),
 )
@@ -266,6 +359,7 @@ SAVE_API_OPERATION_CURATION = operation(
     "saved",
     input_schema=SaveApiOperationCurationArguments.model_json_schema(),
     safety_class=SafetyClass.DRAFT,
+    additional_provider_refs=(SELECTED_API_SOURCE_PROVIDER.ref,),
     guard_refs=(API_OPERATION_CURATION_CURRENT_GUARD.ref,),
     policy_refs=(policies.API_OPERATION_CURATION_TRUTH.ref,),
 )
@@ -320,6 +414,7 @@ PROPOSE_CONTRACT_REVISION = operation(
     "proposed",
     input_schema=ProposeContractRevisionArguments.model_json_schema(),
     safety_class=SafetyClass.DRAFT,
+    additional_provider_refs=(SELECTED_API_SOURCE_PROVIDER.ref,),
     policy_refs=(policies.CONTRACT_REVISION_TRUTH.ref,),
     outcome_schema={
         "type": "object",
@@ -359,15 +454,21 @@ APPROVE_CONTRACT_REVISION = operation(
 )
 
 SOURCES_HOME_REF = NodeRef(id="sources.home")
+SOURCES_API_INTAKE_REF = NodeRef(id="sources.api_intake")
 SOURCES_API_REF = NodeRef(id="sources.api")
 __all__ = [
     "ACCEPT_STAGED_API",
     "APPROVE_CONTRACT_REVISION",
     "CONTRACT_REVISION_CURRENT_GUARD",
     "CONTRACT_REVISION_PROPOSAL_PROVIDER",
+    "SELECTED_API_SOURCE_PROVIDER",
     "INSPECT_CURRENT_API",
     "OPEN_API_CREATION",
     "OPEN_API_SOURCE",
+    "OPEN_API_DESCRIPTION",
+    "SAVE_API_DESCRIPTION",
+    "DELETE_API_SOURCE",
+    "SOURCE_DELETE_CURRENT_GUARD",
     "PREPARE_ROUTED_API_TEST",
     "PROCESS_API",
     "TEST_ROUTED_API_READ",
@@ -386,5 +487,6 @@ __all__ = [
     "SAVE_API_OPERATION_CURATION",
     "TEST_API_CONNECTION",
     "SOURCES_HOME_REF",
+    "SOURCES_API_INTAKE_REF",
     "SOURCES_API_REF",
 ]

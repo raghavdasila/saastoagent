@@ -415,6 +415,14 @@ class CorpusBuilderRuntimeGateway(BuilderRuntimeGateway):
             navgraph.navgraph_hash, navgraph.compiled_navgraph, navgraph.frontend_contract,
         )
 
+    async def validate_immutable_build(self, runtime_build_hash: str) -> None:
+        try:
+            projection = self.runtime.load_build(runtime_build_hash)
+        except Exception as error:
+            raise BuilderUnavailable("The exact immutable Agent build is unavailable.") from error
+        if projection.content_hash != runtime_build_hash:
+            raise BuilderUnavailable("The exact immutable Agent build identity is inconsistent.")
+
 
 @dataclass(frozen=True)
 class CorpusSandboxRuntimeGateway:

@@ -25,9 +25,15 @@ from corpus.features.agents.models import Agent, AgentSourceAttachment, AgentVer
 from corpus.features.agents.operations import (
     AgentLifecycleHandler,
     AttachSourceHandler,
+    CancelAgentCreationHandler,
     CreateAgentHandler,
+    OpenAgentCreationHandler,
+    OpenAgentAreaHandler,
+    OpenExistingAgentForSourceHandler,
+    OpenSourceCreationHandler,
     OpenAttachedSourceHandler,
     SaveAgentChangesHandler,
+    SelectAgentHandler,
     _agent_surface_effects,
     _designer_surface_effects,
     _external_agent_surface_effects,
@@ -253,19 +259,70 @@ async def test_agent_source_attachment_is_owner_scoped_pinned_and_never_overwrit
         with pytest.raises(AgentSourceAttachmentUnavailable):
             await service.attach_source(second_id, agent.id, "source-ready-001")
 
+        repeated = await service.attach_source(first_id, agent.id, "source-ready-001")
+        assert repeated.attached_at.replace(tzinfo=UTC) == attachment.attached_at
+        assert repeated.source_revision_id == "revision-ready01"
+        assert len((await service.list_source_attachments(first_id, agent.id)).attachments) == 1
+
         sources.current_revision = "revision-ready02"
-        with pytest.raises(AgentSourceAttachmentConflict):
-            await service.attach_source(first_id, agent.id, "source-ready-001")
-        with pytest.raises(AgentSourceAttachmentUnavailable):
-            await service.open_attached_source(first_id, agent.id, "source-ready-001")
+        refreshable = await service.one_attachable_ready_source(first_id, agent.id)
+        assert refreshable.source_id == "source-ready-001"
+        assert refreshable.source_revision_id == "revision-ready02"
+        refreshed = await service.attach_source(first_id, agent.id, "source-ready-001")
+        assert refreshed.attached_at.replace(tzinfo=UTC) > attachment.attached_at
+        assert refreshed.source_revision_id == "revision-ready02"
+        opened = await service.open_attached_source(first_id, agent.id, "source-ready-001")
+        assert opened.source_revision_id == "revision-ready02"
+        assert len((await service.list_source_attachments(first_id, agent.id)).attachments) == 1
 
         async with database.session() as session:
             persisted = await session.scalar(
                 select(AgentSourceAttachment).where(AgentSourceAttachment.agent_id == agent.id)
             )
         assert persisted is not None
-        assert persisted.source_revision_id == "revision-ready01"
+        assert persisted.source_revision_id == "revision-ready02"
         assert not hasattr(persisted, "source_display_name")
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_detaching_current_source_preserves_immutable_build_lineage(
+    tmp_path: Path,
+) -> None:
+    database, first_id, second_id = await _database(tmp_path / "detach-source.sqlite3")
+    sources = SourceGatewayProbe(first_id)
+    service = AgentService(SqlAlchemyAgentRepository(database), sources)
+    build_id = uuid.uuid4()
+    try:
+        agent = await service.create(
+            first_id,
+            CreateAgentArguments(name="Detach Agent", instructions="Preserve historical inputs."),
+        )
+        attachment = await service.attach_source(first_id, agent.id, "source-ready-001")
+        await service.record_build_lineage(
+            first_id,
+            agent.id,
+            build_id=build_id,
+            expected_agent_version=1,
+            source_references=((attachment.source_id, attachment.source_revision_id),),
+        )
+
+        with pytest.raises(AgentNotFound):
+            await service.detach_source(second_id, agent.id, attachment.source_id)
+
+        await service.detach_source(first_id, agent.id, attachment.source_id)
+        assert (await service.list_source_attachments(first_id, agent.id)).attachments == ()
+        dependencies = await service.inspect_dependencies(first_id, agent.id)
+        assert dependencies.source_attachments == ()
+        assert dependencies.build_ids == (build_id,)
+        assert dependencies.blocks_delete is True
+        lineage = (await service.list_build_lineages(first_id, agent.id)).builds
+        assert lineage[0].source_references[0].source_id == attachment.source_id
+        assert lineage[0].source_references[0].source_revision_id == attachment.source_revision_id
+
+        with pytest.raises(AgentSourceAttachmentUnavailable):
+            await service.detach_source(first_id, agent.id, attachment.source_id)
     finally:
         await database.close()
 
@@ -355,6 +412,142 @@ async def test_agent_operation_handlers_report_action_result_and_state_errors(
         assert "agents.open_channels" in created_binding.allowed_operation_ids
         assert create.effects.surface_updates[0].surface_id == "agents.home"
 
+        opened_inventory = await OpenExistingAgentForSourceHandler(service, scope)(
+            {
+                "source_id": "source-ready-001",
+                "source_revision_id": "revision-ready01",
+            },
+            context,
+        )
+        assert opened_inventory.outcome == "opened"
+        assert (await service.list_source_attachments(organization_id, persisted.id)).attachments == ()
+        pending_values = {
+            item.name: item.value.to_python()
+            for item in opened_inventory.effects.surface_updates[0].values
+        }
+        assert pending_values == {
+            "pending_source_id": "source-ready-001",
+            "pending_source_revision_id": "revision-ready01",
+            "pending_source_display_name": "Ready API",
+        }
+        provider_values = FrozenJsonObject({
+            "agents.pending_source": {
+                "source_id": "source-ready-001",
+                "source_revision_id": "revision-ready01",
+                "display_name": "Ready API",
+            }
+        })
+        opened_new_agent = await OpenAgentCreationHandler(service, scope)(
+            {
+                "source_id": "source-ready-001",
+                "source_revision_id": "revision-ready01",
+            },
+            context,
+        )
+        assert opened_new_agent.outcome == "opened"
+        assert [
+            update.surface_id for update in opened_new_agent.effects.surface_updates
+        ] == ["agents.create"]
+        assert {
+            item.name: item.value.to_python()
+            for item in opened_new_agent.effects.surface_updates[0].values
+        } == pending_values
+
+        cancelled_new_agent = await CancelAgentCreationHandler()(
+            {},
+            SimpleNamespace(provider_values=provider_values),
+        )
+        assert cancelled_new_agent.outcome == "opened"
+        assert [
+            update.surface_id for update in cancelled_new_agent.effects.surface_updates
+        ] == ["agents.home"]
+        assert {
+            item.name: item.value.to_python()
+            for item in cancelled_new_agent.effects.surface_updates[0].values
+        } == pending_values
+
+        selected_agent = await SelectAgentHandler(service, scope)(
+            {"agent_id": str(persisted.id)},
+            SimpleNamespace(
+                session_id="owner-route",
+                provider_values=provider_values,
+            ),
+        )
+        assert selected_agent.outcome == "selected"
+        assert {
+            item.name: item.value.to_python()
+            for item in selected_agent.effects.surface_updates[0].values
+        } == {
+            "selected_agent_ref": created_binding.public.handle,
+            **pending_values,
+        }
+
+        opened_channels = await OpenAgentAreaHandler(
+            service,
+            scope,
+            "agents.open_channels",
+            "channels",
+        )(
+            {"agent_ref": created_binding.public.handle},
+            SimpleNamespace(
+                session_id="owner-route",
+                attempt_id="open-channels-attempt",
+                request_id="open-channels-request",
+                private_entity_id=lambda argument_name: str(persisted.id),
+            ),
+        )
+        assert opened_channels.outcome == "opened"
+        channels_binding = opened_channels.effects.replace_entities[0].bindings[0]
+        assert "agents.open_evaluation" in channels_binding.allowed_operation_ids
+        assert opened_channels.effects.surface_updates[0].surface_id == "channels.home"
+
+        opened_evaluation = await OpenAgentAreaHandler(
+            service,
+            scope,
+            "agents.open_evaluation",
+            "evaluation",
+        )(
+            {"agent_ref": created_binding.public.handle},
+            SimpleNamespace(
+                session_id="owner-route",
+                attempt_id="open-evaluation-attempt",
+                request_id="open-evaluation-request",
+                private_entity_id=lambda argument_name: str(persisted.id),
+            ),
+        )
+        assert opened_evaluation.outcome == "opened"
+        evaluation_binding = opened_evaluation.effects.replace_entities[0].bindings[0]
+        assert set(evaluation_binding.allowed_operation_ids) == {
+            "evaluation.create_case",
+            "evaluation.generate_set",
+            "evaluation.retry_generation",
+            "evaluation.edit_case",
+            "evaluation.delete_case",
+            "evaluation.run_case",
+            "agents.open_builds",
+            "agents.open_channels",
+            "agents.return_to_hub",
+        }
+        assert opened_evaluation.effects.surface_updates[0].surface_id == "evaluation.home"
+
+        opened_creation = await OpenSourceCreationHandler(service, scope)(
+            {"agent_ref": created_binding.public.handle},
+            SimpleNamespace(
+                session_id="owner-route",
+                private_entity_id=lambda argument_name: str(persisted.id),
+            ),
+        )
+        assert opened_creation.outcome == "opened"
+        assert opened_creation.effects.surface_updates[0].surface_id == "sources.api_intake"
+        assert {
+            item.name: item.value.to_python()
+            for item in opened_creation.effects.surface_updates[0].values
+        } == {
+            "return_agent_ref": created_binding.public.handle,
+            "agent_handoff_mode": "create",
+            "mode": "create",
+        }
+
         attached_source = await AttachSourceHandler(
             service,
             scope,
@@ -365,10 +558,15 @@ async def test_agent_operation_handlers_report_action_result_and_state_errors(
                 session_id="owner-route",
                 attempt_id="attach-source-attempt",
                 request_id="attach-source-request",
+                provider_values=provider_values,
                 private_entity_id=lambda argument_name: str(persisted.id),
             ),
         )
         assert attached_source.outcome == "attached"
+        attached = (await service.list_source_attachments(organization_id, persisted.id)).attachments
+        assert [(item.source_id, item.source_revision_id) for item in attached] == [
+            ("source-ready-001", "revision-ready01")
+        ]
         opened_source = await OpenAttachedSourceHandler(service, scope)(
             {"agent_ref": created_binding.public.handle},
             SimpleNamespace(
@@ -394,7 +592,12 @@ async def test_agent_operation_handlers_report_action_result_and_state_errors(
             "selected_source_revision_id": "revision-ready01",
             "form_handle": "sources-api-connection",
             "mode": "inspect",
+            "return_context": "agent",
+            "initial_workspace": "graph",
         }
+        source_binding = opened_source.effects.replace_entities[0].bindings[0]
+        assert "agents.return_from_source" in source_binding.allowed_operation_ids
+        assert set(source_binding.allowed_operation_ids) == {"agents.return_from_source"}
 
         saved = await SaveAgentChangesHandler(service, scope)(
             {

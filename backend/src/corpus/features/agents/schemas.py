@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .domain import (
     AgentDependencySnapshot,
@@ -32,16 +33,49 @@ class SelectAgentArguments(BaseModel):
     agent_id: uuid.UUID
 
 
+class OpenAgentChoiceForSourceArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source_id: str = Field(min_length=16, max_length=16)
+    source_revision_id: str = Field(min_length=16, max_length=16)
+
+
+class OpenAgentCreationArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source_id: str | None = Field(default=None, min_length=16, max_length=16)
+    source_revision_id: str | None = Field(default=None, min_length=16, max_length=16)
+
+    @model_validator(mode="after")
+    def _complete_source_identity(self) -> "OpenAgentCreationArguments":
+        if (self.source_id is None) != (self.source_revision_id is None):
+            raise ValueError("Source and API version must be supplied together.")
+        return self
+
+
 class AttachSourceArguments(BaseModel):
     model_config = ConfigDict(extra="forbid")
     agent_ref: str = Field(min_length=1, max_length=64)
     source_id: str | None = Field(default=None, min_length=16, max_length=16)
+    source_revision_id: str | None = Field(default=None, min_length=16, max_length=16)
+
+    @model_validator(mode="after")
+    def _revision_requires_source(self) -> "AttachSourceArguments":
+        if self.source_revision_id is not None and self.source_id is None:
+            raise ValueError("An exact API version requires its Source.")
+        return self
+
+
+class DetachSourceArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    agent_ref: str = Field(min_length=1, max_length=64)
+    source_id: str = Field(min_length=16, max_length=16)
 
 
 class OpenAttachedSourceArguments(BaseModel):
     model_config = ConfigDict(extra="forbid")
     agent_ref: str = Field(min_length=1, max_length=64)
     source_id: str | None = Field(default=None, min_length=16, max_length=16)
+    return_to: Literal["agent", "builder"] = "agent"
+    target_stage: Literal["graph", "operations", "connection", "agent"] = "graph"
 
 
 class AgentLifecycleArguments(BaseModel):
@@ -178,8 +212,11 @@ __all__ = [
     "AgentSourceAttachmentView",
     "AgentView",
     "AttachSourceArguments",
+    "DetachSourceArguments",
     "AgentLifecycleArguments",
     "CreateAgentArguments",
+    "OpenAgentChoiceForSourceArguments",
+    "OpenAgentCreationArguments",
     "OpenBuildSourceReferenceArguments",
     "OpenAttachedSourceArguments",
     "UpdateAgentArguments",

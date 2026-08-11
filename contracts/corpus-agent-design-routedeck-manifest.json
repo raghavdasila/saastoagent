@@ -331,6 +331,15 @@
           }
         },
         {
+          "designBehavior": "Detach a source from an agent",
+          "node": "agents.home",
+          "capabilities": { "Source attachments": "agents.inventory" },
+          "surfaces": { "Agent source picker": "agents.home" },
+          "operations": {
+            "Detach source from agent": "agents.detach_source"
+          }
+        },
+        {
           "designBehavior": "Create and attach a source",
           "node": "agents.home",
           "capabilities": { "Source attachments": "agents.inventory" },
@@ -346,6 +355,7 @@
           "capabilities": { "Source attachments": "agents.inventory" },
           "surfaces": { "Agent source picker": "agents.home" },
           "operations": {
+            "Choose existing agent for source": "agents.choose_existing_for_source",
             "Open agent creation": "agents.open_create",
             "Attach source to agent": "agents.attach_source"
           }
@@ -419,10 +429,12 @@
           "agents.inventory": {
             "operations": [
               "agents.open_create",
+              "agents.choose_existing_for_source",
               "agents.save_changes",
               "agents.return_to_workspace",
               "agents.select_agent",
               "agents.attach_source",
+              "agents.detach_source",
               "agents.open_source_creation",
               "agents.attach_created_source",
               "agents.open_attached_source",
@@ -449,10 +461,12 @@
             "lifecycle": "stable",
             "affordances": {
               "open_create": "agents.open_create",
+              "choose_existing_for_source": "agents.choose_existing_for_source",
               "save_changes": "agents.save_changes",
               "return_to_workspace": "agents.return_to_workspace",
               "select_agent": "agents.select_agent",
               "attach_source": "agents.attach_source",
+              "detach_source": "agents.detach_source",
               "open_source_creation": "agents.open_source_creation",
               "open_attached_source": "agents.open_attached_source",
               "archive_agent": "agents.archive_agent",
@@ -487,12 +501,14 @@
         },
         "operations": {
           "agents.open_create": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "agents.create" }, "review": "none" },
+          "agents.choose_existing_for_source": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "agents.home" }, "review": "none" },
           "agents.return_to_workspace": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "workspace.home" }, "review": "none" },
           "agents.create_agent": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "outcomes": { "created": "agents.home" }, "review": "none" },
           "agents.save_changes": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "outcomes": { "saved": "agents.home" }, "review": "none" },
           "agents.cancel_create": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "agents.home" }, "review": "none" },
           "agents.select_agent": { "safetyClass": "state_selection", "allowedSources": ["agent", "surface"], "outcomes": { "selected": "agents.home" }, "review": "none" },
           "agents.attach_source": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "outcomes": { "attached": "agents.home" }, "review": "none" },
+          "agents.detach_source": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "outcomes": { "detached": "agents.home" }, "review": "none" },
           "agents.open_source_creation": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "sources.home" }, "review": "none" },
           "agents.attach_created_source": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "outcomes": { "attached": "agents.home" }, "review": "none" },
           "agents.open_attached_source": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "outcomes": { "opened": "sources.home" }, "review": "none" },
@@ -522,13 +538,15 @@
           "agents.surface.source_picker_eligibility",
           "agents.operation.attach_exact_source",
           "agents.operation.attach_persisted_success",
+          "agents.operation.detach_exact_source",
+          "agents.operation.detach_persisted_success",
           "agents.operation.setup_attach_ready",
           "agents.operation.open_create_setup",
           "agents.operation.source_creation_navigation",
           "agents.operation.attach_created_eligibility",
           "agents.operation.open_source_context"
         ],
-        "reviewBehavior": "Current create and save are supervised draft operations with no review. The accepted lifecycle design requires new Corpus declarations: attachment as a draft change, archive and delete with explicit required review and dependency guards, owner-scoped private entity binding for the selected agent/source/build, and navigation transitions for the operations hub and exact historical source revision."
+        "reviewBehavior": "Create, save, attach, and detach are supervised draft operations with no review. Detach removes only the exact current Agent-to-Source association and never cascades into Source deletion or immutable historical design, build, runtime, deployment, or Operations lineage. Archive and delete retain explicit required review and dependency guards; owner-scoped private entity binding controls the selected Agent/source/build and navigation transitions preserve the operations hub and exact historical Source revision."
       },
       "evaluationBindings": {
         "agents-view-current-inventory": {
@@ -595,6 +613,11 @@
           "setupAdapter": "agents.one_agent",
           "steps": {},
           "externalEvidenceOwner": "scripts/run_agents_lifecycle_journey.py"
+        },
+        "agents-detach-source-contract": {
+          "setupAdapter": "agents.one_agent",
+          "steps": {},
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
         },
         "agents-create-source-contract": {
           "setupAdapter": "agents.one_agent",
@@ -702,6 +725,7 @@
       "unmappedCompiledNodes": [],
       "featurePromptPolicy": "designer.feature.prompt",
       "studioBehaviors": [
+        "agent-designer-resolve-source-inputs",
         "agent-designer-propose",
         "agent-designer-customize",
         "agent-designer-inspect-navgraph",
@@ -709,6 +733,17 @@
         "agent-designer-request-build"
       ],
       "behaviors": [
+        {
+          "designBehavior": "Resolve Agent design Source prerequisites",
+          "node": "designer.home",
+          "capabilities": { "Agent design authoring": "designer.authoring" },
+          "surfaces": {
+            "Agent Designer": "designer.home"
+          },
+          "operations": {
+            "Open attached Source": "agents.open_attached_source"
+          }
+        },
         {
           "designBehavior": "Propose an Agent design",
           "node": "designer.home",
@@ -780,6 +815,10 @@
         }
       ],
       "evaluationBindings": {
+        "agent-designer-resolve-source-inputs-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
         "agent-designer-propose-contract": {
           "implementationStatus": "pending_external_evidence",
           "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
@@ -836,6 +875,7 @@
           "entityProvider": "agents.selected_agent"
         },
         "operations": {
+          "agents.open_attached_source": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "review": "none", "outcome": "opened" },
           "designer.propose": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "review": "none", "outcome": "proposed" },
           "designer.customize": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "review": "none", "outcome": "customized" },
           "designer.approve": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "review": "required", "outcome": "accepted" },
@@ -849,6 +889,14 @@
         "backend": ["backend/src/corpus/features/designer/**", "backend/src/corpus/features/builder/navgraph.py", "backend/src/corpus/app/designer_adapters.py"],
         "frontend": ["frontend/src/features/designer/**", "frontend/src/features/builder/BuildNavGraph.tsx"],
         "tests": ["backend/tests/designer/**", "backend/tests/builder/test_agent_navgraph.py", "frontend/src/tests/designer-surfaces.test.tsx", "frontend/src/tests/build-navgraph.test.tsx"]
+      },
+      "guidedContinuation": {
+        "sourcePrerequisiteOperation": "agents.open_attached_source",
+        "sourcePrerequisiteTransition": "designer.home -> sources.api",
+        "sourcePrerequisiteBoundary": "Designer opens only the exact persisted attached Source version and retains the selected Agent as return context; it performs no Source or design mutation.",
+        "operation": "agents.open_builds",
+        "transition": "designer.home -> builder.home",
+        "boundary": "The continuation appears only after the immutable build request exists and performs navigation only."
       },
       "evidenceStatus": "Shared Designer-to-Builder topology correspondence is focused-test and browser proven. Surface-only 20260809T153004Z-7cd51d776b, ordinary-chat-only 20260809T165131Z-63d1c6220b, and hybrid 20260809T210136Z-853c33486c retain normal-speed uncut evidence. Hybrid visibly proves the proposed Designer topology, compiled per-build NavGraph, Sandbox clarification, and the same deployed-agent clarification continuing through public delivery and owner Operations evidence."
     },
@@ -865,6 +913,7 @@
       ],
       "unmappedCompiledNodes": [
         "sources.home",
+        "sources.api_intake",
         "sources.api"
       ],
       "behaviors": [],
@@ -880,20 +929,39 @@
               "corpus.owner_context"
             ]
           },
-          "sources.api": {
-            "route": "/sources/api",
+          "sources.api_intake": {
+            "route": "/sources/api/new",
             "kind": "workflow",
             "parent": "sources.home",
             "deepLinkPolicy": "session_bound",
             "contextProviders": [
               "corpus.owner_context"
             ]
+          },
+          "sources.api": {
+            "route": "/sources/api",
+            "kind": "workflow",
+            "parent": "sources.home",
+            "deepLinkPolicy": "session_bound",
+            "contextProviders": [
+              "corpus.owner_context",
+              "sources.selected_api_source"
+            ]
           }
         },
         "capabilities": {
-          "sources.manage": {
+          "sources.intake": {
             "operations": [
               "sources.accept_staged_api",
+              "sources.return_to_source_hub",
+              "agents.return_from_source"
+            ],
+            "surfaces": [
+              "sources.api_intake"
+            ]
+          },
+          "sources.manage": {
+            "operations": [
               "sources.open_api_creation",
               "sources.open_api_source",
               "sources.process_api",
@@ -924,6 +992,15 @@
               "return_to_agent": "agents.return_from_source"
             }
           },
+          "sources.api_intake": {
+            "component": "sources.api_intake",
+            "lifecycle": "stable",
+            "affordances": {
+              "accept_staged_api": "sources.accept_staged_api",
+              "return_to_source_hub": "sources.return_to_source_hub",
+              "return_to_agent": "agents.return_from_source"
+            }
+          },
           "sources.api": {
             "component": "sources.api",
             "lifecycle": "stable",
@@ -941,7 +1018,6 @@
               ]
             },
             "affordances": {
-              "accept_staged_api": "sources.accept_staged_api",
               "process_api": "sources.process_api",
               "retry_processing": "sources.retry_processing",
               "return_to_source_hub": "sources.return_to_source_hub",
@@ -984,7 +1060,7 @@
               "surface"
             ],
             "outcomes": {
-              "opened": "sources.api"
+              "opened": "sources.api_intake"
             },
             "review": "none"
           },
@@ -1069,9 +1145,10 @@
           "sources.feature_prompt",
           "sources.owner_scope",
           "sources.processing_truth",
-          "sources.staged_setup_continuation"
+          "sources.staged_setup_continuation",
+          "sources.active_api_continuation"
         ],
-        "reviewBehavior": "Source Hub is the inventory and guided entry point. The distinct API Source workflow owns definition intake, explicit analysis, the complete persisted ToolRouter semantic graph and exact recorded construction replay, exhaustive operation curation, connection setup and Agent attachment. API-source intake is a direct authenticated upload because it carries files; accepting that staged file never starts analysis. Failed-step retry is draft class. Recorded-stage selection validates the authenticated owner, exact source, exact revision and membership in persisted construction evidence. Connection save is surface-only credential class and loads secret material from the private form. No external API write is executed by graph inspection or setup."
+        "reviewBehavior": "Source Hub is the inventory and guided entry point. New-definition intake is a distinct sources.api_intake workflow and canonical surface containing only staged-file acceptance and explicit return actions. Acceptance transitions to the exact sources.api detail workflow; that selected API Source owns explicit analysis, the complete persisted ToolRouter semantic graph and exact recorded construction replay, exhaustive operation curation, connection setup and Agent attachment, and cannot accept another staged definition. A Sources-owned context provider reads the exact selected Source and revision from that surface so agent inspection and follow-up operations continue the visible selection even when the owner has multiple ready APIs; no Source identity is guessed or supplied by the model. API-source intake is a direct authenticated upload because it carries files; accepting that staged file never starts analysis. Failed-step retry is draft class. Recorded-stage selection validates the authenticated owner, exact source, exact revision and membership in persisted construction evidence. Connection save is surface-only credential class and loads secret material from the private form. No external API write is executed by graph inspection or setup."
       },
       "corpusImplementationOwners": {
         "existingDomainAndPersistence": [
@@ -1112,7 +1189,7 @@
         ]
       },
       "mappingStatus": {
-        "runtimeTruth": "Corpus has one owner-scoped Source inventory and immutable ToolRouter revision chain. API YAML or JSON plus optional Markdown is first staged against the exact authenticated conversation and RouteDeck session. Staging creates no Source, job, ToolRouter run, or Agent attachment. The separate sources.accept_staged_api operation creates one accepted API version, and sources.process_api explicitly queues the real worker. Corpus exposes durable accepted/queued/running/ready/failed state, supports explicit failed-job retry, renders persisted semantic evidence, protects revision-bound connection profiles, curates exact operations, prepares and clarifies a route, and executes reviewed or read-only routed operations with redacted immutable evidence. Agent-owned source selection and attachment remain separate Agents operations.",
+        "runtimeTruth": "Corpus has one owner-scoped Source inventory and immutable ToolRouter revision chain. API YAML or JSON plus optional Markdown is first staged against the exact authenticated conversation and RouteDeck session. Staging creates no Source, job, ToolRouter run, or Agent attachment. The distinct sources.api_intake workflow permits sources.accept_staged_api and then transitions to the exact selected sources.api detail; the detail workflow cannot accept another staged definition. The selected Source and exact revision are projected from current RouteDeck surface state through sources.selected_api_source for agent inspection, analysis, curation, connection testing and update preparation; those operations never infer one Source from the owner's inventory. sources.process_api explicitly queues the real worker. Corpus exposes durable accepted/queued/running/ready/failed state, supports explicit failed-job retry, renders persisted semantic evidence, protects revision-bound connection profiles, curates exact operations, prepares and clarifies a route, and executes reviewed or read-only routed operations with redacted immutable evidence. Agent-owned source selection and attachment remain separate Agents operations.",
         "notMapped": "Source Hub remains a partial mapping because existing-source selection for an Agent is Agents-owned, API description bytes use authenticated Corpus HTTP, and dependency-aware Source deletion is not implemented. These boundaries are explicit; the separate inventory and API workflow runtime is not used to overstate the complete Source Hub behavior.",
         "frameworkGap": "No missing RouteDeck framework primitive was proven. Dependency-aware Source deletion remains a Corpus-owned product gap; complete graph visualization and recorded replay are implemented over persisted ToolRouter evidence.",
         "directHttpBoundary": "API definition and optional Markdown bytes use one authenticated same-origin Corpus staging endpoint because they carry files. The staged record is bound to owner, public conversation and RouteDeck session. RouteDeck owns Source acceptance, explicit analysis, navigation, retry, graph-stage selection, credential-form submission, curation, route preparation, reviewed execution, and cross-feature attachment handoff."
@@ -1123,10 +1200,7 @@
       "routeDeckFeature": "builder+sandbox",
       "implementationStatus": "partial",
       "runtimeImplementationStatus": "complete",
-      "unmappedDesignBehaviors": [
-        "Control an Agent build runtime",
-        "Generate evaluation sets with an Agent build"
-      ],
+      "unmappedDesignBehaviors": [],
       "unmappedCompiledNodes": [],
       "featurePromptPolicy": "builder.feature.prompt",
       "behaviors": [
@@ -1153,6 +1227,48 @@
             "Agent Builds": "builder.home"
           },
           "operations": {}
+        },
+        {
+          "designBehavior": "Resolve exact Source build prerequisites and retry",
+          "node": "builder.home",
+          "capabilities": {
+            "Agent Builder": "builder.assembly"
+          },
+          "surfaces": {
+            "Agent Builds": "builder.home"
+          },
+          "operations": {
+            "Open attached Source": "agents.open_attached_source",
+            "Assemble accepted Agent build": "builder.assemble"
+          }
+        },
+        {
+          "designBehavior": "Control an Agent build runtime",
+          "node": "builder.home",
+          "capabilities": {
+            "Agent build lifecycle": "builder.assembly"
+          },
+          "surfaces": {
+            "Agent Builds": "builder.home"
+          },
+          "operations": {
+            "Run Agent build": "builder.run",
+            "Stop Agent build": "builder.stop",
+            "Delete Agent build": "builder.delete"
+          }
+        },
+        {
+          "designBehavior": "Generate evaluation sets with an Agent build",
+          "node": "builder.home",
+          "capabilities": {
+            "Agent build evaluation preparation": "builder.assembly"
+          },
+          "surfaces": {
+            "Agent Builds": "builder.home"
+          },
+          "operations": {
+            "Generate build evaluation set": "evaluation.generate_set"
+          }
         },
         {
           "designBehavior": "Start an isolated Sandbox interaction",
@@ -1213,6 +1329,10 @@
           "implementationStatus": "pending_external_evidence",
           "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
         },
+        "builder-resolve-prerequisites-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
         "builder-control-runtime-contract": {
           "implementationStatus": "pending_external_evidence",
           "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
@@ -1238,21 +1358,49 @@
           "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
         }
       },
-      "runtimeBoundary": "Corpus persists the full owner/design/Source-curation/profile binding in SQL and stores the neutral immutable build and run records through Corpus-owned runtime storage. Sandbox runs the exact build through curated subset routing, the owner vault and one response-validating API adapter; validated bodies remain memory-only while safe events and the response-derived final answer persist. When ToolRouter waits, Corpus binds exact natural candidate labels from the immutable compiled NavGraph into the persisted safe event and the RouteDeck tool observation so ordinary chat can resolve the same run without asking the user for an internal operation identity.",
-      "evidenceStatus": "Focused runtime gates pass. Surface-only 20260809T153004Z-7cd51d776b, ordinary-chat-only 20260809T165131Z-63d1c6220b, and hybrid 20260809T210136Z-853c33486c independently prove assembled-build and same-run ToolRouter clarification paths in normal-speed uncut recordings. Builder runtime-control and generated-evalset behaviors remain pending where their individual bindings still say pending_external_evidence."
+      "runtimeBoundary": "Corpus persists the full owner/design/Source-curation/profile binding in SQL and stores the neutral immutable build and run records through Corpus-owned runtime storage. A separate persisted draft-runtime lifecycle begins stopped for new builds: Run validates the immutable runtime artifact and enables new Sandbox, Evaluation, and deployment work; Stop disables new draft work; reviewed Delete decommissions the stopped draft runtime while retaining immutable lineage and every already-deployed runtime. Pause remains visibly unavailable because the neutral runtime exposes no durable pause contract. Build evaluation generation queues one durable owner-scoped job, filters each Source artifact to the exact curated operation subset before the real ToolRouter generator and reviewer run, and persists accepted draft cases independently of build success. Sandbox runs the exact running build through curated subset routing, the owner vault and one response-validating API adapter; validated bodies remain memory-only while safe events and the response-derived final answer persist. When ToolRouter waits, Corpus binds exact natural candidate labels from the immutable compiled NavGraph into the persisted safe event and the RouteDeck tool observation so ordinary chat can resolve the same run without asking the user for an internal operation identity.",
+      "guidedContinuations": [
+        {"operation": "agents.open_attached_source", "transition": "builder.home -> sources.api -> builder.home", "precondition": "A failed or pending build names one exact accepted-design Source version that needs setup; Source inspection and return do not alter the failed attempt."},
+        {"operation": "agents.open_sandbox", "transition": "builder.home -> sandbox.home", "precondition": "One exact immutable draft build is running."},
+        {"operation": "agents.open_evaluation", "transition": "sandbox.home -> evaluation.home", "precondition": "A successful immutable Sandbox run is visible."}
+      ],
+      "evidenceStatus": "Focused runtime lifecycle, cross-feature readiness, and frontend review gates pass. Surface-only 20260809T153004Z-7cd51d776b, ordinary-chat-only 20260809T165131Z-63d1c6220b, and hybrid 20260809T210136Z-853c33486c independently prove assembled-build and same-run ToolRouter clarification paths in normal-speed uncut recordings. The newly compiled Builder runtime-control behavior and generated-evalset behavior remain pending replacement external evidence where their individual bindings still say pending_external_evidence."
     },
     {
       "designFeature": "Evaluation",
       "routeDeckFeature": "evaluation",
       "implementationStatus": "partial",
       "runtimeImplementationStatus": "complete",
-      "unmappedDesignBehaviors": [
-        "Edit or remove evaluation cases",
-        "Generate an evaluation set with ToolRouter"
-      ],
+      "unmappedDesignBehaviors": [],
       "unmappedCompiledNodes": [],
       "featurePromptPolicy": "evaluation.feature.prompt",
       "behaviors": [
+        {
+          "designBehavior": "Continue missing build setup in Builds",
+          "node": "evaluation.home",
+          "capabilities": {
+            "Evaluation": "evaluation.manage"
+          },
+          "surfaces": {
+            "Evaluation": "evaluation.home"
+          },
+          "operations": {
+            "Open Agent Builds": "agents.open_builds"
+          }
+        },
+        {
+          "designBehavior": "Generate an evaluation set with ToolRouter",
+          "node": "evaluation.home",
+          "capabilities": {
+            "Evaluation": "evaluation.manage"
+          },
+          "surfaces": {
+            "Evaluation": "evaluation.home"
+          },
+          "operations": {
+            "Generate evaluation set": "evaluation.generate_set"
+          }
+        },
         {
           "designBehavior": "Create a categorized evaluation case",
           "node": "evaluation.home",
@@ -1264,6 +1412,20 @@
           },
           "operations": {
             "Create evaluation case": "evaluation.create_case"
+          }
+        },
+        {
+          "designBehavior": "Edit or remove evaluation cases",
+          "node": "evaluation.home",
+          "capabilities": {
+            "Evaluation case management": "evaluation.manage"
+          },
+          "surfaces": {
+            "Evaluation": "evaluation.home"
+          },
+          "operations": {
+            "Edit evaluation case": "evaluation.edit_case",
+            "Delete evaluation case": "evaluation.delete_case"
           }
         },
         {
@@ -1294,6 +1456,10 @@
       ],
       "currentCompiledBehaviors": [],
       "evaluationBindings": {
+        "evaluation-resolve-missing-build-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "frontend/src/tests/evaluation-authoring.test.tsx"
+        },
         "evaluation-generate-evalset-contract": {
           "implementationStatus": "pending_external_evidence",
           "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
@@ -1315,7 +1481,17 @@
           "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
         }
       },
-      "runtimeBoundary": "Cases retain category, difficulty, exact build and immutable source interaction. Runs use the neutral Evaluation runtime and persist derived eligible or ineligible evidence without retargeting a later build.",
+      "runtimeBoundary": "ToolRouter generation is a durable owner-scoped queued job over the exact immutable build and its pre-generation curated endpoint subset; accepted cases persist as drafts and generation failure never changes build status or eligibility. Generated cases run through the real exact-build Sandbox runtime before neutral Evaluation promotion and evaluation. Case edits append revisions, reviewed removal tombstones future use, and prior run attribution retains its exact case revision. Existing evaluation execution remains synchronous inside the supervised operation, so the shared durable queued/running/retry lifecycle for long evaluation execution remains an explicit incomplete runtime gap. Runs persist derived eligible or ineligible evidence without retargeting a later build.",
+      "prerequisiteContinuation": {
+        "operation": "agents.open_builds",
+        "transition": "evaluation.home -> builder.home",
+        "precondition": "No exact ready immutable build exists for the selected Agent."
+      },
+      "guidedContinuation": {
+        "operation": "agents.open_channels",
+        "transition": "evaluation.home -> channels.home",
+        "precondition": "The exact selected build has durable eligible evaluation evidence."
+      },
       "evidenceStatus": "Focused runtime gates pass. Surface-only 20260809T153004Z-7cd51d776b, ordinary-chat-only 20260809T165131Z-63d1c6220b, and hybrid 20260809T210136Z-853c33486c independently prove case creation, evaluation, and eligibility derived from the exact successful Sandbox run. Generated-set and case-management depth remain pending."
     },
     {
@@ -1353,6 +1529,19 @@
             "Channels and Deployment": "channels.home"
           },
           "operations": {}
+        },
+        {
+          "designBehavior": "Continue an ineligible Agent to Evaluation",
+          "node": "channels.home",
+          "capabilities": {
+            "Channels and Deployment": "channels.manage"
+          },
+          "surfaces": {
+            "Channels and Deployment": "channels.home"
+          },
+          "operations": {
+            "Open Agent Evaluation": "agents.open_evaluation"
+          }
         },
         {
           "designBehavior": "Deploy an eligible Agent build",
@@ -1418,6 +1607,10 @@
           "implementationStatus": "pending_external_evidence",
           "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
         },
+        "channels-resolve-missing-eligibility-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "frontend/src/tests/channels-surface.test.tsx"
+        },
         "deployment-publish-eligible-build-contract": {
           "implementationStatus": "pending_external_evidence",
           "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
@@ -1440,6 +1633,16 @@
         }
       },
       "runtimeBoundary": "Corpus SQL owns the exact owner/Agent/build/eligibility catalogue while Corpus-owned neutral delivery storage owns channel, deployment, activation, public-session and interaction records. Deployment publishes an exact eligible immutable build by activating it on a configured channel. Channel availability only enables or disables public access and never selects or activates a build, so it cannot substitute for deployment. Deploy, rollback, and availability changes are required-review WRITE_EXTERNAL operations with distinct consequence-specific review surfaces, fail-closed recovery, and no automatic retry. Every public session creation, read, and message rejects disabled channels. Public invocation restores exact durable build bindings after restart and runs through the same vault-aware execution adapter.",
+      "eligibilityContinuation": {
+        "operation": "agents.open_evaluation",
+        "transition": "channels.home -> evaluation.home",
+        "precondition": "No exact eligible immutable build exists for the selected Agent."
+      },
+      "guidedContinuation": {
+        "operation": "agents.open_operations",
+        "transition": "channels.home -> operations.home",
+        "precondition": "An active hosted deployment exists for the selected Agent."
+      },
       "evidenceStatus": "Focused runtime gates pass. Surface-only 20260809T153004Z-7cd51d776b, ordinary-chat-only 20260809T165131Z-63d1c6220b, and hybrid 20260809T210136Z-853c33486c prove reviewed hosted deployment, restart persistence, natural same-run public clarification, and owner-only RouteDeck/NavGraph/ToolRouter evidence. Rollback and availability-change bindings remain pending."
     },
     {
@@ -1980,16 +2183,19 @@
         "Retry failed API processing without hiding the prior durable attempt"
       ],
       "currentRouteDeckContracts": {
-        "nodes": [
-          "sources.home",
-          "sources.api"
-        ],
-        "capabilities": [
-          "sources.manage"
-        ],
-        "surfaces": [
-          "sources.home",
-          "sources.api",
+      "nodes": [
+        "sources.home",
+        "sources.api_intake",
+        "sources.api"
+      ],
+      "capabilities": [
+        "sources.intake",
+        "sources.manage"
+      ],
+      "surfaces": [
+        "sources.home",
+        "sources.api_intake",
+        "sources.api",
           "sources.contract_revision_proposal",
           "sources.contract_revision_review",
           "sources.api_operation_test",
@@ -2007,10 +2213,12 @@
           "sources.test_routed_api_read",
           "sources.test_routed_api_write"
         ],
-        "affordances": {
-          "sources.home.open_api_creation": "sources.open_api_creation",
-          "sources.home.open_api_source": "sources.open_api_source",
-          "sources.api.return_to_source_hub": "sources.return_to_source_hub",
+      "affordances": {
+        "sources.home.open_api_creation": "sources.open_api_creation",
+        "sources.home.open_api_source": "sources.open_api_source",
+        "sources.api_intake.accept_staged_api": "sources.accept_staged_api",
+        "sources.api_intake.return_to_source_hub": "sources.return_to_source_hub",
+        "sources.api.return_to_source_hub": "sources.return_to_source_hub",
           "sources.api.select_graph_stage": "sources.select_graph_stage",
           "sources.api.save_api_connection": "sources.save_api_connection",
           "sources.api.test_api_connection": "sources.test_api_connection",
@@ -2024,15 +2232,16 @@
         "agentPolicies": [
           "sources.feature_prompt",
           "sources.owner_scope",
-          "sources.processing_truth",
-          "sources.staged_setup_continuation",
+        "sources.processing_truth",
+        "sources.staged_setup_continuation",
+        "sources.active_api_continuation",
           "sources.contract_revision_truth",
           "sources.api_connection_check_truth",
           "sources.api_operation_curation_truth",
           "sources.api_route_planning_truth",
           "sources.api_routed_execution_truth"
         ],
-        "reviewBehavior": "Source Hub is the source inventory and guided entry point. The distinct API Source workflow renders the complete persisted ToolRouter semantic graph with no sampling and replays its exact ordered construction trace with scrub, previous, next, play, pause and speed controls after validating the authenticated owner, exact source and exact revision. Connection-profile credentials enter only through the projected sources-api-connection private form; the supervised public save Operation carries no secret arguments. Saving alone does not check connectivity. The explicit sources.test_api_connection read rechecks all owner/revision/profile/credential bindings, makes one validated GetProductTypes or GetProductTags call, never retries, and persists only redacted immutable evidence. API operation curation is a non-executing DRAFT save over the exact current READY revision and ToolRouter inventory; it requires exhaustive explicit include/exclude decisions and exact CAS, and stale or conflicting input never replaces the prior curation. The API version update proposal is a detail surface with exact immutable provenance and a structured observation that explicitly says no durable review has been staged. Asking what the proposal changes or what its consequences are remains read-only. Only an explicit later request to begin or open owner review invokes the required-review operation, whose successful staging alone creates the pending review; a separate explicit acceptance runs the handler. Owner-scoped entity binding and accept-time current-plan recheck remain required. Rejection does not mutate the Source, and acceptance creates a new revision rather than overwriting its parent."
+      "reviewBehavior": "New-definition intake and the selected API Source are distinct RouteDeck workflows. sources.api_intake owns only staged-definition acceptance and explicit return actions; acceptance transitions to sources.api, whose legal operations cannot accept another staged definition. The selected API Source renders the complete persisted ToolRouter semantic graph with no sampling and replays its exact ordered construction trace with scrub, previous, next, play, pause and speed controls after validating the authenticated owner, exact source and exact revision. Connection-profile credentials enter only through the projected sources-api-connection private form; the supervised public save Operation carries no secret arguments. Saving alone does not check connectivity. The explicit sources.test_api_connection read rechecks all owner/revision/profile/credential bindings, makes one validated GetProductTypes or GetProductTags call, never retries, and persists only redacted immutable evidence. API operation curation is a non-executing DRAFT save over the exact current READY revision and ToolRouter inventory; it requires exhaustive explicit include/exclude decisions and exact CAS, and stale or conflicting input never replaces the prior curation. The API version update proposal is a detail surface with exact immutable provenance and a structured observation that explicitly says no durable review has been staged. Asking what the proposal changes or what its consequences are remains read-only. Only an explicit later request to begin or open owner review invokes the required-review operation, whose successful staging alone creates the pending review; a separate explicit acceptance runs the handler. Owner-scoped entity binding and accept-time current-plan recheck remain required. Rejection does not mutate the Source, and acceptance creates a new revision rather than overwriting its parent."
       },
       "acceptedDesignBehaviors": [
         "Upload an API YAML file",
@@ -2084,11 +2293,8 @@
         ]
       },
       "unresolvedImplementationBlockers": [
-        "Recorded construction stages can be inspected individually, but ordered pause, resume, and step-through session replay is not implemented; Replay graph construction remains incomplete.",
-        "The compiled routed read/write execution variants, just-in-time binding, durable write review, redacted terminal result and one-call semantics are implemented with focused framework proof, but the real Corpus browser execution journey remains pending.",
-        "Dependency-aware source attachment and deletion are not implemented.",
-        "No separate API Source RouteDeck Node exists; the completed first intake/status/retry slice is presented within Source Hub.",
-        "The bounded Source slices have backend/worker/frontend tests plus local enqueue, terminal processing, owner isolation, failure/retry, restart reload, graph and recorded-stage inspection, protected profiles, safe GetProductTypes/GetProductTags checks, immutable redacted result identity, browser-validated exact operation curation with CAS conflict recovery, and browser-validated non-executing route preparation with same-lineage clarification. They do not yet have ordered replay controls/session state, deployed-agent clarification, compiled read/write execution, or unknown-write proof required for the complete API Source behavior."
+        "Dependency-aware Source deletion and the Markdown description lifecycle are not implemented.",
+        "The new staged-file orchestration and distinct intake/detail RouteDeck workflows require replacement ordinary-chat-only, surface-only, and hybrid browser evidence against the current compiled contract."
       ],
       "frameworkGap": "No missing RouteDeck framework primitive was proven by the read-only audit. These are Corpus-owned declarations and implementations; any later proven upstream gap triggers the cross-repository stop condition."
     }

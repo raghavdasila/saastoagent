@@ -127,7 +127,7 @@ function CorpusApplication({
   lifecycle: ConversationLifecycle;
   session: BootstrappedCorpusConnection["session"];
   registry: ReturnType<typeof createCorpusSurfaceRegistry>;
-  uploadChatSource(file: File): Promise<{ attachmentId: string; displayName: string }>;
+  uploadChatSource(file: File): Promise<{ attachmentId: string; displayName: string; kind: "api_definition" | "api_description" }>;
   onMounted(mounted: MountedConversation): void;
   isAnonymous(): boolean;
 }) {
@@ -194,10 +194,18 @@ function CorpusApplication({
 async function uploadChatSource(
   sourceClient: SourceClient,
   file: File,
-): Promise<{ attachmentId: string; displayName: string }> {
+): Promise<{ attachmentId: string; displayName: string; kind: "api_definition" | "api_description" }> {
+  if (/\.(?:md|markdown)$/i.test(file.name)) {
+    const staged = await sourceClient.stageApiDescription(file);
+    return {
+      attachmentId: staged.attachment_id,
+      displayName: staged.filename,
+      kind: "api_description",
+    };
+  }
   const displayName = file.name.replace(/\.(?:json|ya?ml)$/i, "").trim() || "Uploaded API";
   const staged = await sourceClient.stageApiDefinition(displayName, file, null);
-  return { attachmentId: staged.attachment_id, displayName: staged.display_name };
+  return { attachmentId: staged.attachment_id, displayName: staged.display_name, kind: "api_definition" };
 }
 
 function FatalShell({ fallback }: { fallback: string }) {

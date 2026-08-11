@@ -60,6 +60,18 @@ export function SandboxSurface({ dispatchAffordance, props, agentStore, runtimeC
     } catch (caught) { setError(message(caught)); } finally { setBusy(false); }
   }
 
+  async function continueToEvaluation() {
+    if (selectedRef === null) return;
+    setBusy(true); setError(null);
+    try {
+      const failure = completedOutcome(
+        await dispatchAffordance("continue_to_evaluation", { agent_ref: selectedRef }),
+        "opened",
+      );
+      if (failure !== null) setError(failure);
+    } catch (caught) { setError(message(caught)); } finally { setBusy(false); }
+  }
+
   return <section className="sandbox-home" aria-labelledby="sandbox-title">
     <header><p>Selected Agent</p><h1 id="sandbox-title">Agent Sandbox</h1><span>{selected?.name ?? "Loading exact Agent…"}</span><Button type="button" variant="outline" disabled={busy || selectedRef === null} onClick={() => void returnToAgent()}>Back to Agent</Button></header>
     {error === null ? null : <p role="alert">{error}</p>}
@@ -69,6 +81,7 @@ export function SandboxSurface({ dispatchAffordance, props, agentStore, runtimeC
       <Field><FieldLabel htmlFor="sandbox-request">Message</FieldLabel><Textarea id="sandbox-request" value={request} onChange={(event) => setRequest(event.target.value)} /></Field>
       <Button type="button" disabled={busy || request.trim() === ""} onClick={() => void start()}>Start isolated run</Button>
     </>}
+    {runs.some((run) => run.status === "succeeded") ? <Button type="button" disabled={busy} onClick={() => void continueToEvaluation()}>Continue to Evaluation</Button> : null}
     <ol>{runs.map((run) => <li key={run.id} data-status={run.status}><strong>{run.status}</strong><span>Build {run.build_id}</span><span>{run.api_call_count} API calls</span>{run.final_response ? <p>{run.final_response}</p> : null}<SandboxRuntimeEvidence run={run} />{run.clarification === null ? null : <SandboxClarificationForm run={run} selectedAgentRef={selectedRef} busy={busy} dispatchAffordance={dispatchAffordance} onCompleted={async () => { if (selected !== null) setRuns((await runtimeClient.sandbox(selected.id)).runs); }} setBusy={setBusy} setError={setError} />}</li>)}</ol>
   </section>;
 }

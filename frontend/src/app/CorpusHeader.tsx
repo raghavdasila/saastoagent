@@ -9,6 +9,8 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { CorpusNavigationControls } from "./CorpusNavigationControls";
+import { presentCorpusStatus } from "./corpusStatus";
+import { corpusLocation } from "./corpusLocation";
 import { ownerAuthClient } from "../auth/authClient";
 import { useOwnerSession } from "../auth/OwnerSessionContext";
 
@@ -28,16 +30,9 @@ export function CorpusHeader({
     currentNode === null
       ? "Starting"
       : (contract.nodes[currentNode]?.title ?? currentNode);
-  const currentFeature =
-    currentNode === null
-      ? "Corpus"
-      : currentNode.startsWith("lounge.")
-        ? "Lounge"
-        : currentNode.startsWith("sources.")
-          ? "Sources"
-          : currentNode.startsWith("agents.")
-            ? "Agents"
-            : "Workspace";
+  const currentFeature = currentNode === null
+    ? "Corpus"
+    : corpusLocation(currentNode).feature;
 
   return (
     <>
@@ -79,12 +74,20 @@ export function CorpusHeader({
         )}
         <CorpusNavigationControls />
         <RouteDeckStatus>
-          {({ code }) => (
-            <span className="corpus-status" data-status={code}>
-              <i aria-hidden="true" />
-              {code === "ready" ? "Ready" : "Working…"}
-            </span>
-          )}
+          {(status) => {
+            const presented = presentCorpusStatus(status);
+            return (
+              <span
+                className="corpus-status"
+                data-status={status.code}
+                data-status-tone={presented.tone}
+                title={presented.detail ?? undefined}
+              >
+                <i aria-hidden="true" />
+                {presented.label}
+              </span>
+            );
+          }}
         </RouteDeckStatus>
         <span className="corpus-auth-state" data-verified={session?.owner.is_verified ?? false}>
           <CircleUserRound />

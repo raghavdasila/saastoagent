@@ -16,10 +16,13 @@ from scripts.run_horizontal_product_journey import (
     CHAT_PROMPTS,
     EXPECTED_CHECKS,
     FEATURE_SURFACE_SELECTORS,
+    _asks_for_agent_choice,
+    _asks_for_agent_details,
     _chat_operation_evidence,
     _chat_inspection_tool_shapes,
     _chat_operations_after,
     _chat_operation_after,
+    _classify_expected_graph_capture_warnings,
     _contract_review_id,
     _capture,
     _durable_chat_message,
@@ -27,6 +30,7 @@ from scripts.run_horizontal_product_journey import (
     _latest_channel_id,
     _latest_evaluation_case_id,
     _load_authenticated_chat_inspection,
+    _observed_source_ids,
     _inspection_has_terminal_chat_turn,
     _hybrid_chat_ledger_is_coherent,
     _provider_safe_operation_name,
@@ -34,6 +38,7 @@ from scripts.run_horizontal_product_journey import (
     _recent_operation_evidence,
     _require_secret_free_evidence,
     _save_profile_exact,
+    _terminal_assistant_content,
     _restart_runtime,
     _validate_chat_prompts,
     _wait_for_runtime_generation,
@@ -81,6 +86,25 @@ def test_horizontal_pass_fails_on_every_unexpected_request_failure() -> None:
     passed = source[source.index("    passed = ("):source.index("    result = {")]
 
     assert 'and not diagnostics["requestFailures"]' in passed
+
+
+def test_only_exact_headless_graph_capture_warning_is_classified_expected() -> None:
+    expected = {
+        "page": "horizontal",
+        "type": "warning",
+        "text": "[.WebGL-0x123]GL Driver Message: GPU stall due to ReadPixels",
+        "locationPath": "/sources/api",
+    }
+    unrelated = {**expected, "text": "API setup warning"}
+    diagnostics = {
+        "consoleErrors": [expected, unrelated],
+        "expectedConsoleWarnings": [],
+    }
+
+    _classify_expected_graph_capture_warnings(diagnostics)
+
+    assert diagnostics["expectedConsoleWarnings"] == [expected]
+    assert diagnostics["consoleErrors"] == [unrelated]
 
 
 def test_hybrid_ledger_allows_a_read_operation_for_distinct_user_requests_only() -> None:
@@ -213,7 +237,7 @@ def test_restart_starts_backend_and_worker_together_before_generation_barrier(
 
 
 def test_horizontal_recorder_expected_count_matches_the_real_mode_branches() -> None:
-    assert EXPECTED_CHECKS == 24
+    assert EXPECTED_CHECKS == 25
 
 
 def test_contract_review_id_comes_from_the_exact_visible_review_surface() -> None:
@@ -400,6 +424,12 @@ def test_chat_turn_terminal_boundary_requires_the_exact_new_user_and_terminal_re
             "messages": terminal["agent_context"]["messages"][:2],
         }
     }
+    tool_only = {
+        "agent_context": {
+            **terminal["agent_context"],
+            "messages": terminal["agent_context"]["messages"][:3],
+        }
+    }
     assert not _inspection_has_terminal_chat_turn(
         before, streaming, "Help with my store API."
     )
@@ -409,12 +439,16 @@ def test_chat_turn_terminal_boundary_requires_the_exact_new_user_and_terminal_re
     assert not _inspection_has_terminal_chat_turn(
         before, no_terminal_response, "Help with my store API."
     )
+    assert not _inspection_has_terminal_chat_turn(
+        before, tool_only, "Help with my store API."
+    )
 
 
 def test_chat_turn_boundary_uses_the_exact_visible_attachment_sentence() -> None:
     assert _durable_chat_message("Check this API.", None) == "Check this API."
     assert _durable_chat_message("Check this API.", "medusa-store.yaml") == (
-        'Check this API.\n\nI attached the API definition "medusa-store.yaml".'
+        'Check this API.\n\nI attached the API definition "medusa-store.yaml" '
+        "to this conversation."
     )
     source = (
         __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
@@ -1626,22 +1660,22 @@ def test_chat_inspection_diagnostic_retains_shape_without_content_or_arguments()
 def test_chat_evidence_uses_short_ordinary_intent_without_spoonfeeding() -> None:
     _validate_chat_prompts()
 
-    assert CHAT_PROMPTS["prepare_api"] == (
-        "I need to add a new store API definition to this assistant. "
-        "I have the YAML file ready."
+    assert CHAT_PROMPTS["setup_from_file"] == (
+        "Use this file please. Also set up the agent for me."
     )
-    assert CHAT_PROMPTS["attach_api"] == (
-        "Here is the store API definition for that assistant. Does it match the store?"
-    )
+    assert CHAT_PROMPTS["choose_new_agent"] == "Create a new one."
     assert CHAT_PROMPTS["create_agent"] == (
-        "Create a Store Taxonomy Assistant that answers taxonomy questions without making up missing information."
+        "It is a shopping assistant. It answers product taxonomy questions and must not invent missing information."
+    )
+    assert CHAT_PROMPTS["resume_api"] == (
+        "Continue with the store API we just added and show me its analyzed structure."
     )
     assert CHAT_PROMPTS["curate_api"] == (
         "Use only the collection endpoints that list all product tags and all product types. "
         "Exclude every other API operation."
     )
-    assert CHAT_PROMPTS["prepare_contract"] == (
-        "Prepare the safest correction for me to review, but do not apply it yet."
+    assert CHAT_PROMPTS["prepare_api_update"] == (
+        "Prepare the safest API correction for me to review, but do not apply it yet."
     )
     assert CHAT_PROMPTS["request_build"] == (
         "Save this approved design as the version I want built next."
@@ -1657,6 +1691,29 @@ def test_chat_evidence_uses_short_ordinary_intent_without_spoonfeeding() -> None
     assert CHAT_OPERATION_SAFETY_CLASSES["sources.prepare_routed_api_test"] == "state_selection"
     assert "workspace.open_sources" in CHAT_EVIDENCE_OPERATION_IDS
     assert "sources.prepare_routed_api_test" in CHAT_EVIDENCE_OPERATION_IDS
+
+
+def test_file_first_chat_requires_real_agent_choice_and_detail_questions() -> None:
+    before = {"agent_context": {"messages": [{"role": "human", "content": "earlier"}]}}
+    after = {
+        "agent_context": {
+            "messages": [
+                {"role": "human", "content": "earlier"},
+                {"role": "human", "content": "setup"},
+                {"role": "tool", "content": "accepted"},
+                {
+                    "role": "assistant",
+                    "content": "Would you like to use an existing Agent or create a new Agent?",
+                },
+            ]
+        }
+    }
+
+    response = _terminal_assistant_content(before, after, "setup")
+    assert _asks_for_agent_choice(response)
+    assert _asks_for_agent_details("What should this Agent do, and what are its responsibilities?")
+    assert _asks_for_agent_details("What should this agent be responsible for?")
+    assert not _asks_for_agent_choice("I opened the setup screen.")
 
 
 def test_sandbox_clarification_gate_rejects_a_terminal_run_instead_of_waiting() -> None:
@@ -1731,21 +1788,31 @@ def test_horizontal_profile_save_uses_a_stable_surface_form_and_real_private_wri
     assert "continue_agent" not in CHAT_PROMPTS
 
 
-def test_chat_only_path_lets_one_natural_turn_select_navigation_and_action() -> None:
+def test_chat_only_path_begins_file_first_then_collects_agent_intent() -> None:
     source = (
         __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
         .read_text(encoding="utf-8")
     )
 
-    assert '"workspace.open_agents",\n                        "agents.open_create",\n                        "agents.create_agent",' in source
-    assert source.index('CHAT_PROMPTS["create_agent"]') < source.index(
-        'CHAT_PROMPTS["prepare_api"]'
-    ) < source.index(
-        'CHAT_PROMPTS["attach_api"]'
-    )
-    assert 'CHAT_PROMPTS["prepare_api"],\n                    "agents.open_source_creation",' in source
-    assert 'CHAT_PROMPTS["attach_api"],\n                    "sources.inspect_current_api",' in source
-    assert 'CHAT_PROMPTS["attach_source"],\n                    "agents.attach_created_source",' in source
+    assert source.index('CHAT_PROMPTS["setup_from_file"]') < source.index(
+        'CHAT_PROMPTS["choose_new_agent"]'
+    ) < source.index('CHAT_PROMPTS["create_agent"]')
+    assert '"workspace.open_sources",\n                        "sources.open_api_creation",\n                        "sources.accept_staged_api",\n                        "sources.process_api",' in source
+    assert 'CHAT_PROMPTS["choose_new_agent"],\n                    "agents.open_create",' in source
+    assert (
+        'CHAT_PROMPTS["create_agent"],\n'
+        '                    ("agents.create_agent", "agents.attach_source"),'
+    ) in source
+    assert 'CHAT_PROMPTS["resume_api"],' in source
+    assert (
+        '"agents.open_attached_source",\n'
+        '                        "sources.inspect_current_api",'
+    ) in source
+    assert '"agents.return_to_workspace",\n                        "workspace.open_sources",' not in source[
+        source.index('CHAT_PROMPTS["resume_api"]'):
+        source.index('CHAT_PROMPTS["prepare_api_update"]')
+    ]
+    assert 'CHAT_PROMPTS["attach_source"],\n                    ("workspace.open_agents", "agents.attach_source"),' in source
     assert '("agents.open_designer", "designer.propose")' in source
     assert '"designer.return_to_agent",\n                        "agents.open_builds",\n                        "builder.assemble",' in source
     assert '"agents.return_to_hub",\n                        "agents.open_sandbox",\n                        "sandbox.start",' in source
@@ -1761,26 +1828,26 @@ def test_chat_only_path_lets_one_natural_turn_select_navigation_and_action() -> 
     assert "(return_operation_id, open_operation_id)" in helper
 
 
-def test_contract_review_chat_separates_information_from_review_staging() -> None:
+def test_api_update_chat_separates_information_from_review_staging() -> None:
     source = (
         __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
         .read_text(encoding="utf-8")
     )
-    start = source.index('CHAT_PROMPTS["request_contract_decision"]')
-    end = source.index('await hub.get_by_text("Reviewed contract revision"', start)
+    start = source.index('CHAT_PROMPTS["request_api_update_decision"]')
+    end = source.index('await hub.get_by_text("Validated API version"', start)
     flow = source[start:end]
 
-    assert CHAT_PROMPTS["request_contract_decision"] == (
-        "What would that correction change?"
+    assert CHAT_PROMPTS["request_api_update_decision"] == (
+        "What would that API correction change?"
     )
-    assert CHAT_PROMPTS["stage_contract"] == (
-        "I am ready to review that correction. Keep it pending until I decide."
+    assert CHAT_PROMPTS["stage_api_update"] == (
+        "I am ready to review that API correction. Keep it pending until I decide."
     )
-    assert flow.index('CHAT_PROMPTS["request_contract_decision"]') < flow.index(
-        'CHAT_PROMPTS["stage_contract"]'
+    assert flow.index('CHAT_PROMPTS["request_api_update_decision"]') < flow.index(
+        'CHAT_PROMPTS["stage_api_update"]'
     )
-    assert 'CHAT_PROMPTS["request_contract_decision"],\n                    None,' in flow
-    assert 'CHAT_PROMPTS["stage_contract"],\n                    "sources.approve_contract_revision",' in flow
+    assert 'CHAT_PROMPTS["request_api_update_decision"],\n                    None,' in flow
+    assert 'CHAT_PROMPTS["stage_api_update"],\n                    "sources.approve_contract_revision",' in flow
 
 
 def test_evaluation_surface_cannot_supply_derived_sandbox_operation_evidence() -> None:
@@ -1811,7 +1878,7 @@ def test_chat_only_credential_step_stays_in_the_private_surface_form() -> None:
         __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
         .read_text(encoding="utf-8")
     )
-    handoff = source.index('"exact 6fca contract revision is approved"')
+    handoff = source.index('"exact 6fca API version is approved"')
     private_form = source.index("await _save_profile_exact(", handoff)
     curation = source.index('CHAT_PROMPTS["curate_api"]', private_form)
     segment = source[handoff:curation]
@@ -1821,19 +1888,89 @@ def test_chat_only_credential_step_stays_in_the_private_surface_form() -> None:
     assert "sources.save_api_connection" not in segment
 
 
-def test_source_return_uses_the_exact_origin_handoff_for_each_mode() -> None:
+def test_file_first_source_handoff_uses_the_created_agent_without_origin_guessing() -> None:
     source = (
         __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
         .read_text(encoding="utf-8")
     )
-    start = source.index('if args.mode == "hybrid":', source.index('"Source shows the persisted semantic node-edge graph"'))
-    end = source.index('if args.mode == "chat":', start)
+    start = source.index('if args.mode in {"chat", "hybrid"}:', source.index('"Source shows the persisted semantic node-edge graph"'))
+    end = source.index('await page.get_by_text(', start)
     flow = source[start:end]
 
-    assert 'name="Back to Agent", exact=True' in flow
-    assert 'elif args.mode == "surface":' in flow
-    assert 'name="Back to Home", exact=True' in flow
-    assert flow.index('name="Back to Agent"') < flow.index('name="Back to Home"')
+    assert 'CHAT_PROMPTS["attach_source"]' in flow
+    assert '("workspace.open_agents", "agents.attach_source")' in flow
+    assert 'name="Use an existing Agent", exact=True' in flow
+    assert 'get_by_label("Ready Workspace Source", exact=True)' in flow
+    assert 'agents.attach_created_source' not in flow
+
+
+def test_surface_file_acceptance_is_visibly_separate_from_analysis() -> None:
+    source = (
+        __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
+        .read_text(encoding="utf-8")
+    )
+    helper = source[
+        source.index("async def _surface_add_and_analyze_api"):
+        source.index("async def _create_agent_from_surface")
+    ]
+
+    assert 'hub.locator(".sources-header-actions").get_by_role(' in helper
+    assert helper.index('name="Add API definition"') < helper.index(
+        'name="Analyze API operations"'
+    )
+    assert 'get_by_text("Not started", exact=True)' in helper
+    assert '"00-api-definition-saved-before-analysis"' in helper
+
+
+def test_source_identity_comes_from_one_exact_ready_owner_observation() -> None:
+    observations = {
+        "sourceInventory": [{
+            "source_id": "source-identity1",
+            "revision": {
+                "revision_id": "revision-ident1",
+                "job_id": "job-identity-1",
+                "state": "ready",
+            },
+        }]
+    }
+
+    assert asyncio.run(_observed_source_ids(observations)) == {
+        "sourceId": "source-identity1",
+        "parentRevisionId": "revision-ident1",
+        "jobId": "job-identity-1",
+    }
+
+
+def test_file_first_return_selects_the_inventory_row_not_duplicate_next_step() -> None:
+    source = (
+        __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
+        .read_text(encoding="utf-8")
+    )
+    helper = source[
+        source.index("async def _return_to_only_api_source"):
+        source.index("def _asks_for_agent_choice")
+    ]
+
+    assert 'get_by_role("list", name="API sources", exact=True)' in helper
+    assert 'rows.get_by_role("button", name="Open API source", exact=True)' in helper
+    assert "rows.count() != 1" in helper
+    assert 'api.locator("#source-detail-title")' in helper
+
+
+def test_surface_and_hybrid_modes_use_guided_cross_feature_continuations() -> None:
+    source = (
+        __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
+        .read_text(encoding="utf-8")
+    )
+
+    for label in (
+        "Continue to Builds",
+        "Continue to Sandbox",
+        "Continue to Evaluation",
+        "Continue to Channels",
+        "View Operations",
+    ):
+        assert f'continuation="{label}"' in source
 
 
 def test_visible_architecture_inspector_cannot_collide_with_product_surface_readiness() -> None:
@@ -1853,7 +1990,7 @@ def test_visible_architecture_inspector_cannot_collide_with_product_surface_read
         source.index("async def _open_agent_area("):
         source.index("async def _wait_for_product_idle(")
     ]
-    assert helpers.count("_feature_surface(page, heading).get_by_role(") == 2
+    assert helpers.count("_feature_surface(page, heading).get_by_role(") == 3
     assert 'page.locator("section.agents-home").get_by_role(' in helpers
 
 
@@ -1898,6 +2035,25 @@ def test_horizontal_video_keeps_public_runtime_in_the_uncut_primary_page() -> No
     assert '"02a-designer-topology"' in source
     assert '"02b-designer-navgraph"' in source
     assert '"11c-deployed-toolrouter"' in source
+
+
+def test_horizontal_video_proves_split_surface_and_returns_same_workflow_to_dock() -> None:
+    source = (
+        __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
+        .read_text(encoding="utf-8")
+    )
+    helper = source[
+        source.index("async def _prove_split_surface"):
+        source.index("async def _capture")
+    ]
+
+    assert 'name="Maximize surface", exact=True' in helper
+    assert 'get_attribute("data-surface-layout") == "split"' in helper
+    assert 'locator("[data-agent-conversation]")' in helper
+    assert 'locator("[data-agent-surface-dock]")' in helper
+    assert '"01b-source-chat-split"' in helper
+    assert 'name="Return to dock", exact=True' in helper
+    assert 'get_attribute("data-surface-layout") == "dock"' in helper
 
 
 def test_each_visual_proof_has_a_readable_normal_speed_hold() -> None:

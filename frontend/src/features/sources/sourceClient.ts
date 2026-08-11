@@ -2,6 +2,7 @@ import type { AuthorizedTransport } from "@/app/transports";
 import type { ContractRevisionProposal, SourceView, StagedApiAttachment } from "./contracts";
 
 export type { SourceRevision, SourceState, SourceView } from "./contracts";
+import type { SourceDescriptionView, SourceDependencyView, StagedApiDescription } from "./contracts";
 export type { ContractRevisionProposal } from "./contracts";
 
 export interface ApiGraphNode {
@@ -297,6 +298,18 @@ export class SourceClient {
     );
   }
 
+  async getDescription(sourceId: string): Promise<SourceDescriptionView | null> {
+    return this.request<SourceDescriptionView | null>(
+      `/api/sources/${encodeURIComponent(sourceId)}/description`,
+    );
+  }
+
+  async inspectDependencies(sourceId: string): Promise<SourceDependencyView> {
+    return this.request<SourceDependencyView>(
+      `/api/sources/${encodeURIComponent(sourceId)}/dependencies`,
+    );
+  }
+
   async inspectApiGraph(sourceId: string): Promise<ApiGraphView> {
     return this.request<ApiGraphView>(
       `/api/sources/${encodeURIComponent(sourceId)}/graph`,
@@ -399,6 +412,21 @@ export class SourceClient {
   async currentStagedApiDefinition(): Promise<StagedApiAttachment | null> {
     return this.routePlanRequest<StagedApiAttachment | null>(
       "/api/sources/api/attachments/current",
+    );
+  }
+
+  async stageApiDescription(file: File): Promise<StagedApiDescription> {
+    const body = new FormData();
+    body.set("file", file);
+    return this.routePlanRequest<StagedApiDescription>(
+      "/api/sources/api/description-attachments",
+      { method: "POST", body },
+    );
+  }
+
+  async currentStagedApiDescription(): Promise<StagedApiDescription | null> {
+    return this.routePlanRequest<StagedApiDescription | null>(
+      "/api/sources/api/description-attachments/current",
     );
   }
 

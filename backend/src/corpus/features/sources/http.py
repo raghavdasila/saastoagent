@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Literal
+import uuid
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
@@ -17,6 +18,7 @@ from .http_common import (
     source_response,
 )
 from .service import SourceService
+from .lifecycle import SourceLifecycleService
 
 
 class RetrievalBody(BaseModel):
@@ -44,6 +46,7 @@ def create_sources_router(
     auth_service: OwnerSessionResolver,
     auth_settings: AuthSettings,
     mutation_policy: SameOriginMutationPolicy,
+    lifecycle_service: SourceLifecycleService | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/sources", tags=["owner-sources"])
 
@@ -64,6 +67,30 @@ def create_sources_router(
             owner_key=current_owner,
             source_id=source_id,
             revision_id=revision_id,
+        )
+        return source_response(result)
+
+    @router.get("/{source_id}/description")
+    async def get_source_description(source_id: str, request: Request):
+        current_owner = await owner_key(request, auth_service, auth_settings)
+        result = await call_source_service(
+            service.get_description,
+            owner_key=current_owner,
+            source_id=source_id,
+        )
+        return source_response(result)
+
+    @router.get("/{source_id}/dependencies")
+    async def inspect_source_dependencies(source_id: str, request: Request):
+        if lifecycle_service is None:
+            raise SourceHttpProblem(
+                500,
+                "source_lifecycle_unavailable",
+                "Source lifecycle details are unavailable.",
+            )
+        current_owner = await owner_key(request, auth_service, auth_settings)
+        result = await lifecycle_service.inspect_dependencies(
+            uuid.UUID(current_owner), source_id
         )
         return source_response(result)
 

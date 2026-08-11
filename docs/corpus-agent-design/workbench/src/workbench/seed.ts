@@ -108,8 +108,13 @@ const BEHAVIOR_POLICY_SEED: Record<string, PolicySeed[]> = {
   ],
   "agents-attach-source": [
     ["surface", "Agent source picker", "Show only eligible sources from the same Workspace, including readiness and whether each source is already attached."],
-    ["operation", "Attach source to agent", "Attach only the exact source selected by the owner and prevent duplicate attachment of the same source."],
+    ["operation", "Attach source to agent", "Attach only the exact source selected by the owner and keep one attachment for it. Repeating its current API version is idempotent; if the ongoing setup reaches a newer reviewed ready API version, advance that single pin without rewriting prior build lineage."],
     ["operation", "Attach source to agent", "Claim success only after the association is persisted and the originating agent shows the attached source."],
+  ],
+  "agents-detach-source": [
+    ["surface", "Agent source picker", "Show only eligible sources from the same Workspace, including readiness and whether each source is already attached."],
+    ["operation", "Detach source from agent", "Remove only the exact current Agent-to-Source attachment selected by the owner. Preserve the Source, immutable accepted designs, historical builds, deployed runtimes, and Operations evidence."],
+    ["operation", "Detach source from agent", "Claim success only after the current attachment is absent from the authoritative Agent view; missing, stale, or unauthorized attachment leaves all state unchanged."],
   ],
   "agents-create-source": [
     ["operation", "Open source creation", "Navigation to source creation does not attach a source and must not be presented as task completion."],
@@ -117,8 +122,9 @@ const BEHAVIOR_POLICY_SEED: Record<string, PolicySeed[]> = {
   ],
   "agents-setup-from-api-file": [
     ["surface", "Agent source picker", "Show only eligible sources from the same Workspace, including readiness and whether each source is already attached."],
+    ["operation", "Choose existing agent for source", "Open the Agent inventory with the exact ready Source and analyzed API version retained as the pending attachment choice. Navigation attaches nothing and must not substitute another same-named Source."],
     ["operation", "Open agent creation", "Open creation only after the owner chooses a new agent; do not treat the earlier setup request as permission to bypass missing goal or responsibility input."],
-    ["operation", "Attach source to agent", "For an ongoing file-first setup request, attach only the exact ready Source the owner authorized after the Agent choice and required Agent details are established. Never invent operation selection or treat queued analysis as ready."],
+    ["operation", "Attach source to agent", "For an ongoing file-first setup request, attach only the exact ready Source the owner authorized after the Agent choice and required Agent details are established. Never invent operation selection or treat queued analysis as ready. If that Source is already attached to an earlier API version, advance its single attachment to the exact current reviewed ready version; do not create a duplicate attachment or rewrite prior build history."],
   ],
   "agents-open-source": [
     ["operation", "Open attached source", "Preserve the originating agent and return context when navigating to the selected source."],
@@ -241,9 +247,11 @@ const OPERATION_INTENDED_EFFECTS: Record<string, string> = {
   "Navigate to Workspace destination": "Open the owner-selected Workspace feature without creating or changing a domain record.",
   "Sign out": "Revoke the current browser session and owner route handle, clear browser credentials, and return to a fresh Lounge.",
   "Open agent creation": "Begin a distinct new-agent design path only when the owner's current request still needs a new agent; navigation creates nothing and must not be used after that request already created its agent.",
+  "Choose existing agent for source": "Open the Agent inventory while retaining the exact ready Source and analyzed API version as the pending attachment choice.",
   "Create agent": "Create one Workspace-owned agent from the validated identity fields and open the new agent for inspection.",
   "Save agent changes": "Persist the validated editable fields on the selected agent while leaving existing versions and deployments unchanged.",
   "Attach source to agent": "Persist one association between the selected eligible Workspace source and the originating agent.",
+  "Detach source from agent": "Remove one current Source association from the selected agent without changing the Source or immutable historical lineage.",
   "Open source creation": "Open Source Hub in creation mode while retaining the originating agent as the return context.",
   "Attach newly created source": "Attach the successfully created eligible source to the originating agent and return to that agent.",
   "Open attached source": "Open the selected source in its owning feature while retaining the originating agent as return context.",
@@ -300,9 +308,11 @@ const LOUNGE_OPERATION_AVAILABILITY: Record<string, OperationDesign["availableTh
   "Create an agent::Create agent": "both",
   "Edit an agent::Save agent changes": "both",
   "Attach an existing source::Attach source to agent": "both",
+  "Detach a source from an agent::Detach source from agent": "both",
   "Create and attach a source::Open source creation": "both",
   "Create and attach a source::Attach newly created source": "both",
   "Set up an agent from an attached API definition::Open agent creation": "both",
+  "Set up an agent from an attached API definition::Choose existing agent for source": "both",
   "Set up an agent from an attached API definition::Attach source to agent": "both",
   "Open an attached source::Open attached source": "both",
   "Archive an agent::Archive agent": "both",
@@ -331,6 +341,12 @@ const LOUNGE_OPERATION_AVAILABILITY: Record<string, OperationDesign["availableTh
 }
 
 const OPERATION_CONTRACTS: Record<string, OperationContract> = {
+  "Choose existing agent for source": {
+    inputs: "The authenticated owner, exact ready same-Workspace Source, exact analyzed API version, and an explicit choice to use an existing Agent.",
+    outcomes: "The Agent inventory opens with that exact Source version visibly retained for the next Agent choice; no attachment or Agent mutation occurs.",
+    safetyAndReview: "Navigation requires no review, attaches nothing, and must never substitute another same-named Source or a newer API version.",
+    recovery: "Keep the exact API Source active, report that Agent selection could not open, and preserve the prior Source and Agent state.",
+  },
   "Open agent creation": {
     inputs: "An authenticated owner explicitly asks to begin a distinct new agent and the current request has not already created it; no agent fields are submitted during navigation.",
     outcomes: "The agent-creation surface opens in the same Workspace; navigation failure leaves the agent inventory active and creates nothing.",
@@ -648,9 +664,9 @@ const NODE_TEMPLATE_SEED: Record<string, NodeTemplate[]> = {
           name: "Source attachments",
           purpose: "Inspect, attach, create, and open sources associated with the selected agent.",
           policies: [
-            "Attach only eligible sources from the same Workspace and prevent duplicate attachment.",
+            "Attach only eligible sources from the same Workspace and keep one attachment per Source. Repeating the same current revision is idempotent; when the owner's ongoing setup reaches a newer reviewed ready API version, advance only that Source's pinned revision without rewriting immutable build lineage.",
             "Preserve the selected agent across Source Hub and API Source handoffs; navigation alone does not attach or edit a source.",
-            "When an owner asks to set up an Agent from the API definition already added in this conversation, preserve that task across Source and Agent areas. Ask only for missing agent choice, goal, responsibilities, or operation-selection intent; create an Agent only after the owner chooses creation, and attach only the exact ready authorized Source.",
+            "When an owner asks to set up an Agent from the API definition already added in this conversation, preserve that task across Source and Agent areas. Ask only for missing agent choice, goal, responsibilities, or operation-selection intent; create an Agent only after the owner chooses creation. When the owner supplies a clear role phrase and responsibilities but omits a separate display name during this continuation, derive a concise display name from that exact role phrase and map only the stated responsibilities into the Agent configuration; do not ask another question solely for a name and do not invent capabilities. Attach only the exact ready authorized Source.",
           ],
         },
         {
@@ -891,6 +907,7 @@ const BEHAVIOR_NODE_TEMPLATE: Record<string, [featureId: string, nodeName: strin
   "agents-inspect": ["agents", "Agent detail", "Agent configuration"],
   "agents-edit": ["agents", "Agent detail", "Agent configuration"],
   "agents-attach-source": ["agents", "Agent detail", "Source attachments"],
+  "agents-detach-source": ["agents", "Agent detail", "Source attachments"],
   "agents-create-source": ["agents", "Agent detail", "Source attachments"],
   "agents-setup-from-api-file": ["agents", "Agent detail", "Source attachments"],
   "agents-open-source": ["agents", "Agent detail", "Source attachments"],
@@ -1119,7 +1136,7 @@ function clarificationFeature(): DesignFeature {
     title: "Design and approve an agent",
     userIntent: "Turn this Agent's goal and curated Source operations into an approved design and request a build.",
     agentIntent: "Propose an exact immutable design revision, preserve owner customizations and review decisions, then create one build request only from the accepted revision.",
-    expectedBehavior: "Designer prepopulates a proposal from the selected Agent's exact current configuration, pinned Source revisions, and saved operation curations. The owner can customize features, behaviors, policies, capabilities, and tools; each save appends a new immutable proposal revision. Approval or rejection targets one exact current proposal. Approval persists an immutable accepted design but does not build it. A separate explicit build request references only that accepted design revision and remains fixed if upstream state later changes. Designer performs no API, build, Sandbox, evaluation, deployment, or public-session work.",
+    expectedBehavior: "Designer prepopulates a proposal from the selected Agent's exact current configuration, pinned Source revisions, and saved operation curations. When an attached Source is not ready for design, Designer identifies the exact attachment and can open it in Source Hub with the selected Agent retained, instead of leaving the owner at a dead-end prerequisite. The owner can customize features, behaviors, policies, capabilities, and tools; each save appends a new immutable proposal revision. Approval or rejection targets one exact current proposal. Approval persists an immutable accepted design but does not build it. A separate explicit build request references only that accepted design revision and remains fixed if upstream state later changes. Designer performs no API, build, Sandbox, evaluation, deployment, or public-session work.",
     messages: [
       { id: "agent-designer-propose-review-build-owner", actor: "Owner", content: "Propose the design for this agent, let me adjust it, then request its build after I approve it." },
       { id: "agent-designer-propose-review-build-corpus", actor: "Corpus", content: "I will keep the proposal bound to this Agent and its exact Source revisions. Your approval will save the accepted design; a separate build request will name only that accepted revision." },
@@ -1129,15 +1146,16 @@ function clarificationFeature(): DesignFeature {
     capabilities: [{
       name: "Agent design authoring",
       purpose: "Propose, customize, review, and accept immutable Agent design revisions, then request a build from one exact accepted revision.",
-      operationNames: ["Propose agent design", "Save design customization", "Approve agent design", "Request agent build"],
+      operationNames: ["Open attached Source", "Propose agent design", "Save design customization", "Approve agent design", "Request agent build"],
       surfaceNames: ["Agent Designer", "Agent design review"],
       policies: [...designerPolicies],
     }],
     surfaces: [
-      { name: "Agent Designer", purpose: "Show the selected Agent inputs, immutable proposal history, editable current proposal, accepted design, and build-request status.", policies: designerPolicies.slice(0, 2) },
+      { name: "Agent Designer", purpose: "Show the selected Agent inputs, exact attached-Source prerequisites and continuation, immutable proposal history, editable current proposal, accepted design, and build-request status.", policies: designerPolicies.slice(0, 2) },
       { name: "Agent design review", purpose: "Show one exact proposed revision and its consequences for explicit owner approval or rejection.", policies: designerPolicies.slice(2, 4) },
     ],
     operations: [
+      { name: "Open attached Source", availableThrough: "both", purpose: "Open one exact attached Source in its owning Source Hub workflow while retaining the selected Agent as return context.", inputs: "Exact selected Agent and one exact persisted Source attachment.", outcomes: "The exact attached Source version opens for operation selection or other missing setup; Designer state is unchanged.", safetyAndReview: "Navigation only, with no Source mutation or design mutation.", recovery: "If the attachment is unavailable or ambiguous, remain in Designer and identify the prerequisite without substituting another Source.", policies: designerPolicies.slice(0, 1) },
       { name: "Propose agent design", availableThrough: "both", purpose: "Append a proposal from exact current Agent and Source curation inputs.", inputs: "Exact selected Agent version, pinned Source revisions, and saved operation curations.", outcomes: "One immutable proposed design revision is appended, or nothing changes on stale/unavailable input.", safetyAndReview: "Draft operation with no API/build execution and no secret material.", recovery: "Keep authoritative inputs visible and require an explicit retry after refresh.", policies: designerPolicies.slice(0, 2) },
       { name: "Save design customization", availableThrough: "both", purpose: "Append the owner's explicit changes as a new proposal revision.", inputs: "Exact current proposal revision and validated feature, behavior, policy, capability, and tool changes.", outcomes: "One next proposal revision is appended; the prior proposal remains immutable.", safetyAndReview: "Draft-only and exact-revision guarded.", recovery: "Reload the current proposal after a stale conflict; never merge silently.", policies: designerPolicies.slice(0, 2) },
       { name: "Approve agent design", availableThrough: "both", purpose: "Persist the reviewed exact proposal as the immutable accepted design.", inputs: "One exact current proposal revision and explicit owner decision.", outcomes: "Approval persists that exact accepted revision; rejection preserves any prior accepted design.", safetyAndReview: "Explicit required review; approval does not start a build.", recovery: "Leave accepted state unchanged after rejection, expiry, or stale review.", policies: designerPolicies.slice(2, 3) },
@@ -1187,8 +1205,13 @@ function clarificationFeature(): DesignFeature {
     expectedBehavior: string,
     operationNames: string[],
     surfaceNames: string[],
+    operationPolicies?: string[],
   ): DesignStory => {
-    const operations = designStory.operations.filter((operation) => operationNames.includes(operation.name))
+    const operations = designStory.operations
+      .filter((operation) => operationNames.includes(operation.name))
+      .map((operation) => operationPolicies === undefined
+        ? operation
+        : { ...operation, policies: [...operationPolicies] })
     const surfaces = designStory.surfaces.filter((surface) => surfaceNames.includes(surface.name))
     if (operations.length !== operationNames.length || surfaces.length !== surfaceNames.length) {
       throw new Error(`Designer behavior ${id} references an unknown operation or surface.`)
@@ -1253,6 +1276,15 @@ function clarificationFeature(): DesignFeature {
   }
   const designerStories = [
     designerStory(
+      "agent-designer-resolve-source-inputs",
+      "Resolve Agent design Source prerequisites",
+      "Help me finish the Source setup this design still needs.",
+      "Designer shows every exact attached Source needed by the proposal. Opening one continues in Source Hub with the selected Agent and immutable attachment retained; unavailable or ambiguous lineage remains visible and no other Source is substituted.",
+      ["Open attached Source"],
+      ["Agent Designer"],
+      [],
+    ),
+    designerStory(
       "agent-designer-propose",
       "Propose an Agent design",
       "Shape this Agent around its goal and the API capabilities I selected.",
@@ -1288,7 +1320,7 @@ function clarificationFeature(): DesignFeature {
       "agent-designer-request-build",
       "Request an Agent build",
       "Create the build request for the design I accepted.",
-      "Designer appends one durable build request naming only the exact accepted design revision. It never treats navigation or approval as build execution and never retargets the request when Agent or Source state later changes.",
+      "Designer appends one durable build request naming only the exact accepted design revision. After that request exists, it offers explicit continuation to Builds for the same selected Agent. Navigation never counts as build execution and the request is never retargeted when Agent or Source state later changes.",
       ["Request agent build"],
       ["Agent Designer"],
     ),
@@ -1296,7 +1328,7 @@ function clarificationFeature(): DesignFeature {
   return {
     id: "agent-designer",
     name: "Agent Designer",
-    prompt: "You are Corpus in Agent Designer. Keep every proposal, customization, review decision, accepted design, build request, and clarification contract bound to the authenticated owner's exact selected Agent and immutable Source inputs. Never treat design approval as build execution or clarification as permission to bypass review. When the owner's next requested task belongs to another Agent area, use the available legal navigation and continue the same conversation there; do not stop merely because Designer does not own that task, and do not present navigation alone as completion.",
+    prompt: "You are Corpus in Agent Designer. Keep every proposal, customization, review decision, accepted design, build request, and clarification state bound to the authenticated owner's exact selected Agent and immutable Source inputs. Never treat design approval as build execution or clarification as permission to bypass review. When the owner's next requested task belongs to another Agent area, use the available legal navigation and continue the same conversation there; do not stop merely because Designer does not own that task, and do not present navigation alone as completion.",
     policies: [...designerPolicies, ...policies],
     conversationEvals: [],
     productJourneyEvals: horizontalEvidenceJourneys("agent-designer", "Agent Designer", "Design, inspect, approve, and request an Agent build"),
@@ -1355,6 +1387,12 @@ const AGENT_LIFECYCLE_OPERATION_CONTRACTS: Record<string, OperationContract> = {
     outcomes: "One persisted association is created and the originating agent reloads with that source attached; duplicate, stale, unauthorized, or failed attachment leaves prior state authoritative.",
     safetyAndReview: "Treat attachment as a draft configuration change, validate owner and source readiness, prevent duplicate association, and never expose source credentials or private bindings.",
     recovery: "Keep the originating agent and picker state visible, report the exact safe blocker or conflict, refresh eligible sources, and require an explicit corrected retry.",
+  },
+  "Detach source from agent": {
+    inputs: "The authenticated owner, exact selected active agent, exact currently attached Source, and an explicit detach request.",
+    outcomes: "Only the current Agent-to-Source association is removed. The Source and every immutable accepted design, historical build, runtime, deployment, and Operations record remain unchanged.",
+    safetyAndReview: "Treat detachment as an explicit draft configuration change. Recheck owner, selected Agent, and exact current attachment; never cascade into Source deletion or rewrite historical lineage.",
+    recovery: "Keep the current Agent and attachment inventory visible, report missing, stale, unauthorized, or concurrent state as failure, refresh authoritative attachments, and require an explicit corrected retry.",
   },
   "Open source creation": {
     inputs: "The authenticated owner, exact selected agent, and an explicit choice to create a source rather than select an existing one.",
@@ -1463,7 +1501,7 @@ const SOURCE_OPERATION_CONTRACTS: Record<string, OperationContract> = {
   },
   "Stage API definition": {
     inputs: "A source name and the owner-selected OpenAPI YAML file within the documented type and size limits.",
-    outcomes: "The exact file is validated and becomes eligible for revision acceptance; invalid type, size, syntax, or contract content creates no accepted revision and remains visible.",
+    outcomes: "The exact file is validated and becomes eligible for version acceptance; invalid type, size, syntax, or API-definition content creates no accepted version and remains visible.",
     safetyAndReview: "Use only the submitted file, isolate it to the authenticated Workspace, and never substitute an example, fixture, cached definition, or alternate input.",
     recovery: "Keep validation evidence visible and let the owner correct or replace the file; never retry or accept it automatically.",
   },
@@ -1525,6 +1563,7 @@ const SOURCE_OPERATION_CONTRACTS: Record<string, OperationContract> = {
 
 const AGENT_LIFECYCLE_STORY_IDS = new Set([
   "agents-attach-source",
+  "agents-detach-source",
   "agents-create-source",
   "agents-setup-from-api-file",
   "agents-open-source",
@@ -1537,10 +1576,11 @@ const AGENT_LIFECYCLE_STORY_IDS = new Set([
 function completeCurrentWorkspaceDesign(state: WorkbenchState): WorkbenchState {
   const workspace = state.features.find((feature) => feature.id === "workspace")
   if (!workspace) throw new Error("Workspace seed feature is required.")
-  workspace.prompt = "You are Corpus in the owner's authenticated Workspace. Help the owner understand the current Workspace and move deliberately among available private features, using only current RouteDeck context and legal operations. Keep Workspace home focused on overview, guidance, and navigation; do not create or modify feature-owned records here."
+  workspace.prompt = "You are Corpus in the owner's authenticated Workspace. Help the owner understand the current Workspace and move deliberately among available private features, using only current RouteDeck context and legal operations. Keep Workspace home focused on overview, guidance, and navigation; do not create or modify feature-owned records here. When a request supplies a staged API definition for broader Agent setup, route to Sources and continue the authorized add-and-analyze work before asking which Agent to use or create; the staged file is not yet a Source."
   workspace.policies = [
     "Use only the authenticated owner's authorized Workspace context.",
     "Keep Workspace home oriented toward overview and navigation; do not edit domain records here.",
+    "When the current owner request includes a staged API definition and asks Corpus to use it in broader Agent setup, route to Sources first and continue the authorized add-and-analyze work before asking which Agent to use or create. Do not treat opening Agents as progress on an unaccepted staged file.",
   ]
   const mappedIds = new Set(["enter-workspace", "workspace-activity-help", "workspace-quick-actions"])
   const nodePolicies = [
@@ -2099,10 +2139,11 @@ export function createSeedState(): WorkbenchState {
         name: "Workspace",
         conversationEvals: [],
         productJourneyEvals: [],
-        prompt: "You are Corpus in the owner's authenticated Workspace. Help the owner understand their current Workspace and move deliberately among the available private features, using only current RouteDeck context and legal operations.",
+        prompt: "You are Corpus in the owner's authenticated Workspace. Help the owner understand their current Workspace and move deliberately among the available private features, using only current RouteDeck context and legal operations. When a request supplies a staged API definition for broader Agent setup, route to Sources and continue the authorized add-and-analyze work before asking which Agent to use or create; the staged file is not yet a Source.",
         policies: policies("Workspace", [
           "Use only the authenticated owner's authorized Workspace context.",
           "Keep Workspace home oriented toward overview, navigation, and continuation; do not edit domain records here.",
+          "When the current owner request includes a staged API definition and asks Corpus to use it in broader Agent setup, route to Sources first and continue the authorized add-and-analyze work before asking which Agent to use or create. Do not treat opening Agents as progress on an unaccepted staged file.",
         ]),
         stories: [
           story(
@@ -2228,6 +2269,15 @@ export function createSeedState(): WorkbenchState {
             "I will attach that existing Workspace source and return to this agent.",
           ),
           story(
+            "agents-detach-source",
+            "Detach a source from an agent",
+            "Remove an obsolete source attachment from this agent without deleting the source or its history.",
+            "Identify the exact current attachment, detach only that association, and preserve immutable design, build, runtime, deployment, and Operations lineage.",
+            "The owner selects one Source currently attached to an Agent and explicitly detaches it. Corpus removes only that current association. The Source remains in the Workspace, historical accepted designs and builds retain their exact Source revisions, deployed runtime and Operations evidence remain immutable, and Designer visibly treats the Agent's current inputs as changed.",
+            "Detach the old Orders API source from this agent.",
+            "I will remove only that current attachment and preserve the Source and historical Agent lineage.",
+          ),
+          story(
             "agents-create-source",
             "Create and attach a source",
             "Add a new source while working on an agent and return with it attached.",
@@ -2241,7 +2291,7 @@ export function createSeedState(): WorkbenchState {
             "Set up an agent from an attached API definition",
             "Use an attached OpenAPI file to create a source and continue setting up an agent.",
             "Treat the file as staged owner input, let Corpus choose legal navigation and operations, and ask only for missing agent or operation intent.",
-            "The owner attaches an OpenAPI file and asks Corpus to set up an agent. Attaching the file only stages it for the current conversation. Corpus decides the legal next action from the request: it creates the API source and starts analysis when the request authorizes setup, while preserving any selected-agent context. If no agent is selected, Corpus asks whether to use an existing agent or create one; creating one requires the owner's goal and responsibilities. Corpus attaches only a ready source, never invents operation selections, and continues through design, build, private trial, evaluation, and delivery only as each prerequisite and consequential approval becomes available.",
+            "The owner attaches an OpenAPI file and asks Corpus to set up an agent. Attaching the file only stages it for the current conversation. Corpus decides the legal next action from the request: it creates the API source and starts analysis when the request authorizes setup, while preserving any selected-agent context. If no agent is selected, Corpus asks whether to use an existing agent or create one; creating one requires the owner's goal and responsibilities. When those words include a clear role phrase but no separate display name, Corpus derives a concise display name from that exact phrase instead of asking another naming question, and it does not invent capabilities. Corpus attaches only a ready source, never invents operation selections, and continues through design, build, private trial, evaluation, and delivery only as each prerequisite and consequential approval becomes available.",
             "Use this API definition and set up the agent for me.",
             "I will add and analyze the API definition first, then ask only for the agent details or operation choices that are still missing.",
           ),
@@ -2378,6 +2428,8 @@ export function createSeedState(): WorkbenchState {
         policies: policies("API Source", [
           "Keep API specifications, credentials, artifacts, and processing isolated to the authenticated Workspace.",
           "Enter API Source only from Source Hub and keep processing failures explicit.",
+          "Keep new-definition intake distinct from an accepted or selected API Source. Once an exact API Source is selected, continue its setup and inspection there; return to intake only when the owner explicitly asks to add a different API definition.",
+          "Use standard owner-facing terms: API definition, API version, API update, and review. Never call these a contract, contract revision, or contract proposal in chat or surfaces.",
           "Bind configuration, processing status, graph artifacts, operation selections, and recovery evidence to the exact API source revision they describe.",
           "A prepared API definition correction is not a pending owner review. Asking what it changes or what its consequences are is read-only and must not stage review. Only an explicit request to begin or open owner review stages it; say it is pending only after staging succeeds, and only a later explicit acceptance creates the immutable API version.",
           "Never expose stored credentials, tokens, or private connection bindings in chat, surfaces, logs, or generated artifacts.",
@@ -2391,7 +2443,7 @@ export function createSeedState(): WorkbenchState {
             "Add an API definition file",
             "Stage an OpenAPI YAML or JSON file before creating or analyzing the API source.",
             "Validate the file and size limits, retain it for the current conversation, and leave source creation and processing to explicit operations.",
-            "The owner attaches an OpenAPI YAML or JSON file from API Source or chat. Corpus enforces the documented file limits and format and stages the exact file for the current authenticated conversation. Staging does not create a Source, start ToolRouter, or attach anything to an agent. Corpus creates an immutable API version only when the owner request authorizes adding the staged definition, and processing remains a separate explicit action.",
+            "The owner attaches an OpenAPI YAML or JSON file from API Source or chat. Corpus enforces the documented file limits and format and stages the exact file for the current authenticated conversation. Staging does not create a Source, start ToolRouter, or attach anything to an agent. Corpus accepts the staged definition only from new-definition intake, then continues on that exact API Source; processing remains a separate explicit action. An already selected API Source never silently reopens intake.",
             "Use this OpenAPI file.",
             "I will stage the API definition first. I will not analyze or attach it until your request authorizes those next actions.",
             { suggestedActions: [{ id: "api-upload", label: "Add API definition" }] },
@@ -2531,6 +2583,7 @@ type HorizontalBehaviorSpec = {
   operations: HorizontalOperationSpec[]
   surfaces: string[]
   status?: "approved" | "draft"
+  featurePolicyOnly?: boolean
 }
 
 function horizontalRuntimeFeatures(): DesignFeature[] {
@@ -2540,7 +2593,7 @@ function horizontalRuntimeFeatures(): DesignFeature[] {
       {
         id: "builder-assemble", title: "Assemble an immutable Agent build",
         userIntent: "Create the runnable build for the design I accepted.",
-        expectedBehavior: "Builder materializes one immutable runnable build from the exact accepted design, Agent version, Source revisions, operation curations, and protected connection identities. It never retargets later upstream state or treats a design proposal as accepted.",
+        expectedBehavior: "Builder materializes one immutable runnable build from the exact accepted design, Agent version, Source revisions, operation curations, and protected connection identities. Once a ready build exists, it offers explicit continuation to Sandbox for the same selected Agent. It never retargets later upstream state or treats a design proposal as accepted.",
         capabilityName: "Agent Builder", surfaces: ["Agent Builds"],
         operations: [{ name: "Assemble accepted Agent build", safetyAndReview: "Explicit draft materialization from an already accepted design; it creates no deployment or public session." }],
       },
@@ -2549,6 +2602,16 @@ function horizontalRuntimeFeatures(): DesignFeature[] {
         userIntent: "Show whether this build completed and exactly what it was built from.",
         expectedBehavior: "Builder shows the actual durable build status, failure, exact accepted design, Agent version, Source revision and curation lineage, runtime identity, and compiled RouteDeck NavGraph after leaving, returning, or restarting. A failure remains a failure and retry is explicit.",
         capabilityName: "Agent Builder", surfaces: ["Agent Builds"], operations: [],
+      },
+      {
+        id: "builder-resolve-prerequisites", title: "Resolve exact Source build prerequisites and retry",
+        userIntent: "Help me fix what this failed build needs and try it again.",
+        expectedBehavior: "When build assembly fails because an exact accepted-design Source version is not runnable, Builder keeps the failed attempt visible, identifies every pinned Source version, opens that exact Source at the missing setup step, returns to the same selected Agent Builds task, and offers an explicit retry that creates a new durable attempt. It never edits the accepted design, retargets a newer Source, hides the failed attempt, or retries automatically.",
+        capabilityName: "Agent Builder", surfaces: ["Agent Builds"],
+        operations: [
+          { name: "Open attached Source", safetyAndReview: "Navigation only to one exact Source version already pinned by the accepted design; no Source or build mutation." },
+          { name: "Assemble accepted Agent build", safetyAndReview: "An explicit retry appends a new durable build attempt only after the owner or Agent requests it; no automatic retry." },
+        ],
       },
       {
         id: "builder-control-runtime", title: "Control an Agent build runtime",
@@ -2571,7 +2634,7 @@ function horizontalRuntimeFeatures(): DesignFeature[] {
       {
         id: "sandbox-start-run", title: "Start an isolated Sandbox interaction",
         userIntent: "Try this exact draft Agent privately with a real safe request.",
-        expectedBehavior: "Sandbox starts one isolated conversation and run for the selected immutable build. The built Agent and ToolRouter resolve the owner's request, perform only an allowed supervised operation, and persist the actual status, response-derived result, API call count, and safe evidence separately from Corpus and deployed activity.",
+        expectedBehavior: "Sandbox starts one isolated conversation and run for the selected immutable build. The built Agent and ToolRouter resolve the owner's request, perform only an allowed supervised operation, and persist the actual status, response-derived result, API call count, and safe evidence separately from Corpus and deployed activity. After a successful run, Sandbox offers explicit continuation to Evaluation for that same selected Agent.",
         capabilityName: "Agent Sandbox", surfaces: ["Agent Sandbox"],
         operations: [{ name: "Start Sandbox run", safetyAndReview: "A private supervised run may make a real configured API call; schema simulation is labelled and never counts as integration proof." }],
       },
@@ -2615,6 +2678,13 @@ function horizontalRuntimeFeatures(): DesignFeature[] {
         capabilityName: "Channels and Deployment", surfaces: ["Channels and Deployment"], operations: [],
       },
       {
+        id: "channels-resolve-missing-eligibility", title: "Continue an ineligible Agent to Evaluation",
+        userIntent: "This Agent is not ready to publish yet. Help me finish what is required.",
+        expectedBehavior: "When no exact eligible build exists, Channels explains that publishing is blocked and offers an explicit continuation to Evaluation for the same selected Agent. Navigation creates or runs no evaluation, changes no build, and never substitutes another build.",
+        capabilityName: "Channels and Deployment", surfaces: ["Channels and Deployment"],
+        operations: [{ name: "Open Agent Evaluation", safetyAndReview: "Navigation only; retains the selected Agent and changes no evaluation, build, channel, or deployment state." }],
+      },
+      {
         id: "channels-link-custom-domain", title: "Explore linking a custom domain",
         userIntent: "Use my own domain for this hosted Agent.",
         expectedBehavior: "Custom-domain linking remains an explicit exploration item until ownership verification, certificate lifecycle, routing, rollback, and failure semantics are designed. Corpus must not present the hosted Corpus URL as a configured custom domain.",
@@ -2632,7 +2702,7 @@ function horizontalRuntimeFeatures(): DesignFeature[] {
       {
         id: "deployment-observe-lifecycle", title: "Observe durable deployment status",
         userIntent: "Show whether publishing finished and what is active now.",
-        expectedBehavior: "Deployment status, failure, active build, public URL, and unknown delivery state remain durable across navigation and restart. Failure remains failure; retry or reconciliation is explicit and never duplicates an uncertain external change.",
+        expectedBehavior: "Deployment status, failure, active build, public URL, and unknown delivery state remain durable across navigation and restart. An active deployment offers explicit continuation to owner-only Operations for the same selected Agent. Failure remains failure; retry or reconciliation is explicit and never duplicates an uncertain external change.",
         capabilityName: "Channels and Deployment", surfaces: ["Channels and Deployment"], operations: [],
       },
       {
@@ -2667,6 +2737,14 @@ function horizontalRuntimeFeatures(): DesignFeature[] {
       "evaluation", "Evaluation", "Evaluate an exact immutable Agent build",
       [
         {
+          id: "evaluation-resolve-missing-build", title: "Continue missing build setup in Builds",
+          userIntent: "This Agent has no ready build to evaluate. Help me finish that first.",
+        expectedBehavior: "When no exact ready immutable build exists, Evaluation explains that prerequisite and offers an explicit continuation to Builds for the same selected Agent. Navigation starts, retries, stops, or deletes no build and never substitutes another Agent or build.",
+        capabilityName: "Evaluation", surfaces: ["Evaluation"],
+        operations: [{ name: "Open Agent Builds", safetyAndReview: "Navigation only; retains the selected Agent and changes no build or evaluation state." }],
+        featurePolicyOnly: true,
+        },
+        {
           id: "evaluation-generate-evalset", title: "Generate an evaluation set with ToolRouter",
           userIntent: "Generate useful evaluation coverage from this Agent's curated API capabilities.",
           expectedBehavior: "Evaluation uses the ToolRouter evaluation-set generator against one exact immutable build and its curated operations, persists the generated draft cases, and never treats generation alone as a passing evaluation or deployment eligibility.",
@@ -2693,7 +2771,7 @@ function horizontalRuntimeFeatures(): DesignFeature[] {
         {
           id: "evaluation-run-build", title: "Run evaluation against the exact Agent build",
           userIntent: "Evaluate this exact draft version and tell me whether it is eligible to publish.",
-          expectedBehavior: "Evaluation runs one immutable case against its pinned Agent build, persists the actual metrics and result, and derives eligible or ineligible for that exact version without retargeting, fixture success, or fallback.",
+          expectedBehavior: "Evaluation runs one immutable case against its pinned Agent build, persists the actual metrics and result, and derives eligible or ineligible for that exact version without retargeting, fixture success, or fallback. When the exact build becomes eligible, Evaluation offers explicit continuation to hosted delivery for the same selected Agent.",
           capabilityName: "Evaluation", surfaces: ["Evaluation"],
           operations: [{ name: "Run evaluation case", safetyAndReview: "Supervised read/evidence operation against the exact private build; it does not deploy the Agent." }],
         },
@@ -2755,18 +2833,18 @@ function horizontalFeature(
         { id: `${behavior.id}-corpus`, actor: "Corpus", content: "I will use only the exact persisted inputs and keep the actual result visible." },
       ],
       mockSurfacePath: null,
-      nodePolicies: featurePolicyOnly ? [] : [policy],
+      nodePolicies: featurePolicyOnly || behavior.featurePolicyOnly === true ? [] : [policy],
       capabilities: [{
         name: behavior.capabilityName,
         purpose: behavior.expectedBehavior,
         operationNames: behavior.operations.map((operation) => operation.name),
         surfaceNames: behavior.capabilitySurfaces ?? behavior.surfaces,
-        policies: featurePolicyOnly ? [] : [policy],
+        policies: featurePolicyOnly || behavior.featurePolicyOnly === true ? [] : [policy],
       }],
       surfaces: behavior.surfaces.map((surface) => ({
         name: surface,
         purpose: `Present the exact ${name} state owned by this behavior.`,
-        policies: featurePolicyOnly ? [] : [policy],
+        policies: featurePolicyOnly || behavior.featurePolicyOnly === true ? [] : [policy],
       })),
       operations: behavior.operations.map((operation) => ({
         name: operation.name,
@@ -2776,7 +2854,7 @@ function horizontalFeature(
         outcomes: operation.outcomes ?? "Persist and present the actual completed result, or preserve the explicit failure without substitution.",
         safetyAndReview: operation.safetyAndReview,
         recovery: operation.recovery ?? "Reload authoritative state and require an explicit corrected or reviewed attempt; never retry automatically.",
-        policies: featurePolicyOnly ? [] : [policy],
+        policies: featurePolicyOnly || behavior.featurePolicyOnly === true ? [] : [policy],
       })),
       suggestedActions: [],
       behaviorEvals: behavior.status === "draft" ? [] : [{

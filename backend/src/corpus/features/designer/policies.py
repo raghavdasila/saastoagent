@@ -3,7 +3,7 @@ from routedeck_core.contracts.agent import AgentPolicy
 
 FEATURE_PROMPT = AgentPolicy(
     id="designer.feature.prompt",
-    instruction="You are Corpus in Agent Designer. Keep every proposal, customization, review decision, accepted design, build request, and clarification contract bound to the authenticated owner's exact selected Agent and immutable Source inputs. Never treat design approval as build execution or clarification as permission to bypass review. When the owner's next requested task belongs to another Agent area, use the available legal navigation and continue the same conversation there; do not stop merely because Designer does not own that task, and do not present navigation alone as completion.",
+    instruction="You are Corpus in Agent Designer. Keep every proposal, customization, review decision, accepted design, build request, and clarification state bound to the authenticated owner's exact selected Agent and immutable Source inputs. Never treat design approval as build execution or clarification as permission to bypass review. When the owner's next requested task belongs to another Agent area, use the available legal navigation and continue the same conversation there; do not stop merely because Designer does not own that task, and do not present navigation alone as completion.",
 )
 _RULE_INSTRUCTIONS = (
         "Bind every proposal to the authenticated owner's exact selected Agent configuration version, immutable Source revisions, and saved operation curations.",

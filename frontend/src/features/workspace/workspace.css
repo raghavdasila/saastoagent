@@ -16,8 +16,12 @@
 .corpus-header-controls nav button:hover:not(:disabled) { background: var(--muted); }
 .corpus-status, .corpus-auth-state { display: inline-flex; min-height: 36px; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius); color: var(--muted-foreground); background: var(--background); font-size: 13px; white-space: nowrap; }
 .corpus-status i, .workspace-ready i { width: 8px; height: 8px; border-radius: 999px; background: oklch(0.68 0.17 151); }
+.corpus-status[data-status-tone="working"] i, .workspace-ready[data-status-tone="working"] i { background: var(--primary); animation: pulse 1.1s infinite alternate; }
+.corpus-status[data-status-tone="review"] i, .workspace-ready[data-status-tone="review"] i, .corpus-status[data-status-tone="warning"] i, .workspace-ready[data-status-tone="warning"] i { background: oklch(0.72 0.16 75); }
+.corpus-status[data-status-tone="error"] i, .workspace-ready[data-status-tone="error"] i { background: var(--destructive); }
 .corpus-auth-state svg { width: 17px; height: 17px; }
-.workspace-ready { display: inline-flex; align-items: center; gap: 7px; color: var(--muted-foreground); font-size: 12px; }
+.workspace-ready { display: inline-flex; max-width: min(52rem, 65vw); align-items: center; gap: 7px; color: var(--muted-foreground); font-size: 12px; }
+.workspace-ready small { overflow: hidden; max-width: 42rem; color: var(--foreground); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 
 .workspace-navigation { display: flex; height: 100%; flex-direction: column; padding: 26px 12px; }
 .workspace-navigation h2 { margin: 0 10px 16px; color: var(--muted-foreground); font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }

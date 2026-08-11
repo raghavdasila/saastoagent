@@ -24,6 +24,19 @@ class OpenApiSourceArguments(BaseModel):
     source_revision_id: str | None = Field(default=None, min_length=16, max_length=16)
 
 
+class OpenApiDescriptionArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_id: str | None = Field(default=None, min_length=16, max_length=16)
+    source_revision_id: str | None = Field(default=None, min_length=16, max_length=16)
+
+    @model_validator(mode="after")
+    def exact_source_pair(self) -> "OpenApiDescriptionArguments":
+        if (self.source_id is None) != (self.source_revision_id is None):
+            raise ValueError("Source and API version identities must be supplied together.")
+        return self
+
+
 class GraphStageArguments(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -139,6 +152,7 @@ __all__ = [
     "ProposeContractRevisionArguments",
     "ProcessApiSourceArguments",
     "OpenApiSourceArguments",
+    "OpenApiDescriptionArguments",
     "RetrySourceArguments",
     "SaveApiOperationCurationArguments",
     "save_api_operation_curation_arguments",

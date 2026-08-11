@@ -114,7 +114,10 @@ class Channels:
 
 class Builds:
     def __init__(self, value): self.value = value
-    async def require_ready(self, owner, agent, build_id):
+    async def require_running(self, owner, agent, build_id):
+        assert (owner, agent, build_id) == (self.value.organization_id, self.value.agent_id, self.value.id)
+        return self.value
+    async def require_immutable_built(self, owner, agent, build_id):
         assert (owner, agent, build_id) == (self.value.organization_id, self.value.agent_id, self.value.id)
         return self.value
 
@@ -155,7 +158,7 @@ async def test_channel_deploy_public_session_and_restart_binding_are_exact(tmp_p
     now = datetime.now(UTC)
     build = BuilderRecord(
         uuid.uuid4(), owner, agent, uuid.uuid4(), uuid.uuid4(), 4, "ready",
-        "b" * 64, "model", "digest", ({"source_id": "source-1"},),
+        "running", "b" * 64, "model", "digest", ({"source_id": "source-1"},),
         ("GetProductTypes",), "n" * 64, {"nodes": []}, {"nodes": {}}, None, None, now, now,
     )
     delivery = NeutralAgentDeliveryAdapter(CorpusLocalDeliveryStore(tmp_path / "delivery.sqlite3"), Runtime())
@@ -223,7 +226,7 @@ async def test_deployed_runtime_restores_exact_durable_build_binding_after_resta
     now = datetime.now(UTC)
     build = BuilderRecord(
         build_id, owner, agent, uuid.uuid4(), uuid.uuid4(), 1, "ready",
-        "c" * 64, "model", "digest", ({"source_id": "source-1"},),
+        "stopped", "c" * 64, "model", "digest", ({"source_id": "source-1"},),
         ("GetProductTypes",), "n" * 64, {"nodes": []}, {"nodes": {}}, None, None, now, now,
     )
     bindings = Bindings()
@@ -245,6 +248,7 @@ class ClarifyingExecution:
         self.build_hash = build_hash
         self.current = None
         self.commands = []
+        self.messages = []
 
     def load_build(self, build_hash):
         assert build_hash == self.build_hash
@@ -257,8 +261,13 @@ class ClarifyingExecution:
         assert build_hash == self.build_hash
         return self.current
 
+    def session_messages(self, tenant_id, session_id, build_hash):
+        assert build_hash == self.build_hash
+        return tuple(self.messages)
+
     async def run(self, spec):
         self.commands.append(spec)
+        self.messages.append({"role": "user", "content": spec.message})
         if spec.command == "start":
             self.current = _waiting_projection(
                 self.build_hash,
@@ -267,6 +276,7 @@ class ClarifyingExecution:
                 ("GetProductTagsId", "GetProductTypesId"),
                 (),
             )
+            self.messages.append({"role": "assistant", "content": self.current.final_response})
             return self.current
         assert spec.command == "resume"
         assert spec.run_id == "runtime-run"
@@ -282,6 +292,7 @@ class ClarifyingExecution:
                 ("GetProductTypesId",),
                 ("id",),
             )
+            self.messages.append({"role": "assistant", "content": self.current.final_response})
             return self.current
         assert spec.selected_operation_id == "GetProductTypesId"
         assert spec.provided_inputs == {
@@ -290,7 +301,7 @@ class ClarifyingExecution:
             "path": {"id": "pt_exact"},
         }
         self.current = None
-        return SandboxRunProjection(
+        completed = SandboxRunProjection(
             "runtime-run",
             self.build_hash,
             "succeeded",
@@ -299,6 +310,8 @@ class ClarifyingExecution:
             1,
             (),
         )
+        self.messages.append({"role": "assistant", "content": completed.final_response})
+        return completed
 
 
 def _waiting_projection(build_hash, run_id, question, candidates, missing):
@@ -368,6 +381,7 @@ async def test_deployed_runtime_resumes_one_waiting_run_without_lookup_or_intern
         uuid.uuid4(),
         1,
         "ready",
+        "stopped",
         "d" * 64,
         "model",
         "digest",
@@ -424,13 +438,22 @@ async def test_deployed_runtime_resumes_one_waiting_run_without_lookup_or_intern
         port.invoke, bundle, "public-session", "pt_exact", "request-4"
     )
 
-    assert first.messages[0]["content"].startswith("Which operation should I use")
+    assert first.messages == (
+        {"role": "user", "content": "get product taxonomy"},
+        {"role": "assistant", "content": "Which operation should I use: GetProductTagsId or GetProductTypesId?"},
+    )
     assert any(item["component"] == "agent_runtime.clarification" for item in first.surfaces)
     clarification = next(item for item in first.surfaces if item["component"] == "agent_runtime.clarification")
     assert clarification["props"]["state"] == "needs_operation_choice"
-    assert second.messages == ({"role": "assistant", "content": "What value should I use for id?"},)
+    assert second.messages[-2:] == (
+        {"role": "user", "content": "Use product types."},
+        {"role": "assistant", "content": "What value should I use for id?"},
+    )
     assert invalid.messages == second.messages
-    assert final.messages == ({"role": "assistant", "content": "Product type loaded."},)
+    assert final.messages[-2:] == (
+        {"role": "user", "content": "pt_exact"},
+        {"role": "assistant", "content": "Product type loaded."},
+    )
     assert len(execution.commands) == 3
     public_copy = str((first, second, invalid, final))
     assert "ASK_DISAMBIGUATE" not in public_copy

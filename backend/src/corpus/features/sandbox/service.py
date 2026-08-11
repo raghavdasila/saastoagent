@@ -9,7 +9,12 @@ from corpus.clarification import (
 from corpus.features.builder.service import BuilderService
 
 from .domain import RuntimeSandboxRun
-from .ports import SandboxRepository, SandboxRuntimeGateway, SandboxUnavailable
+from .ports import (
+    SandboxRepository,
+    SandboxRunFailed,
+    SandboxRuntimeGateway,
+    SandboxUnavailable,
+)
 from .schemas import (
     SandboxClarificationChoiceView,
     SandboxClarificationView,
@@ -28,7 +33,7 @@ class SandboxService:
         return SandboxRunCollectionView(agent_id=agent_id, runs=tuple(_view(item) for item in await self.repository.list(organization_id, agent_id)))
 
     async def start(self, organization_id: uuid.UUID, agent_id: uuid.UUID, *, build_id: uuid.UUID, message: str) -> SandboxRunView:
-        build = await self.builds.require_ready(organization_id, agent_id, build_id)
+        build = await self.builds.require_running(organization_id, agent_id, build_id)
         record = None
         try:
             record = await self.repository.begin(
@@ -41,9 +46,12 @@ class SandboxService:
             return _view(await self.repository.complete(organization_id, record.id, result))
         except Exception as error:
             if record is not None:
-                await self.repository.fail(
+                failed = await self.repository.fail(
                     organization_id, record.id, code=type(error).__name__
                 )
+                raise SandboxRunFailed(
+                    "The Sandbox run failed.", run_id=failed.id
+                ) from error
             if isinstance(error, SandboxUnavailable):
                 raise
             raise SandboxUnavailable("The Sandbox run failed.") from error
@@ -58,7 +66,7 @@ class SandboxService:
         ready = tuple(
             build
             for build in (await self.builds.list(organization_id, agent_id)).builds
-            if build.status == "ready"
+            if build.status == "ready" and build.runtime_lifecycle == "running"
         )
         if len(ready) != 1:
             raise SandboxUnavailable(
@@ -83,7 +91,7 @@ class SandboxService:
     ) -> SandboxRunView:
         _screen_clarification(message, answers)
         record = await self.repository.begin_resume(organization_id, agent_id, run_id)
-        build = await self.builds.require_ready(
+        build = await self.builds.require_running(
             organization_id, agent_id, record.build_id
         )
         if build.runtime_build_hash != record.runtime_build_hash:

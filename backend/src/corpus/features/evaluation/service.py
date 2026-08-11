@@ -4,22 +4,144 @@ import asyncio
 import uuid
 
 from corpus.features.builder.service import BuilderService
+from corpus.features.sandbox.ports import SandboxRunFailed
 from corpus.features.sandbox.service import SandboxService
+from corpus.jobs import DurableJobEnqueueError, DurableJobPort
+from corpus.jobs.repository import DurableJobNotFound, DurableJobStateConflict
+from corpus.integrations.agent_execution import EligibilityProjection
 
+from .eligibility import current_eligibility
 from .ports import EvaluationConflict, EvaluationRepository, EvaluationRuntimeGateway, EvaluationUnavailable
 from .schemas import EvaluationCaseView, EvaluationCollectionView, EvaluationSetView
 
 
 class EvaluationService:
-    def __init__(self, repository: EvaluationRepository, runtime: EvaluationRuntimeGateway, builds: BuilderService, sandbox: SandboxService) -> None:
-        self.repository, self.runtime, self.builds, self.sandbox = repository, runtime, builds, sandbox
+    def __init__(self, repository: EvaluationRepository, runtime: EvaluationRuntimeGateway, builds: BuilderService, sandbox: SandboxService, jobs: DurableJobPort | None = None) -> None:
+        self.repository, self.runtime, self.builds, self.sandbox, self.jobs = repository, runtime, builds, sandbox, jobs
+
+    async def generate_set(
+        self,
+        organization_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        *,
+        build_id: uuid.UUID | None,
+        set_name: str,
+        categories: tuple[str, ...],
+    ) -> EvaluationCollectionView:
+        if self.jobs is None:
+            raise EvaluationUnavailable("Evaluation generation is unavailable.")
+        build = await self._exact_build(organization_id, agent_id, build_id)
+        evaluation_set = await self.repository.create_set(
+            organization_id, agent_id, build.id, set_name
+        )
+        if evaluation_set.generation_status in {"queued", "running", "ready"}:
+            raise EvaluationConflict(
+                "That exact build evaluation set already has generation history."
+            )
+        try:
+            job = await self.jobs.enqueue(
+                owner_id=organization_id,
+                job_type="evaluation.generate_build_evalset",
+                payload={
+                    "evaluation_set_id": str(evaluation_set.id),
+                    "agent_id": str(agent_id),
+                    "build_id": str(build.id),
+                    "categories": list(categories),
+                },
+                max_attempts=2,
+            )
+            await self.repository.set_generation_job(
+                organization_id, evaluation_set.id, job.id
+            )
+        except DurableJobEnqueueError as error:
+            await self.repository.mark_generation_failed(
+                organization_id,
+                evaluation_set.id,
+                code="queue_unavailable",
+                message=str(error),
+            )
+            raise EvaluationUnavailable(str(error)) from error
+        return await self.list(organization_id, agent_id)
+
+    async def retry_generation(
+        self,
+        organization_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        evaluation_set_id: uuid.UUID,
+    ) -> EvaluationCollectionView:
+        if self.jobs is None:
+            raise EvaluationUnavailable("Evaluation generation is unavailable.")
+        evaluation_set = await self.repository.get_set(
+            organization_id, agent_id, evaluation_set_id
+        )
+        if evaluation_set.generation_status != "failed" or evaluation_set.generation_job_id is None:
+            raise EvaluationConflict("Only a failed generated evaluation set can be retried.")
+        try:
+            job = await self.jobs.retry(
+                owner_id=organization_id,
+                job_id=evaluation_set.generation_job_id,
+            )
+            await self.repository.set_generation_job(
+                organization_id, evaluation_set.id, job.id
+            )
+        except (DurableJobNotFound, DurableJobStateConflict, DurableJobEnqueueError) as error:
+            raise EvaluationUnavailable("The evaluation generation retry is unavailable.") from error
+        return await self.list(organization_id, agent_id)
+
+    async def edit_case(
+        self, organization_id: uuid.UUID, agent_id: uuid.UUID, *,
+        case_id: uuid.UUID, expected_revision: int, title: str,
+        category: str, difficulty: str, mandatory: bool,
+    ) -> EvaluationCollectionView:
+        evaluation_set, _case = await self.repository.get_case(
+            organization_id, agent_id, case_id
+        )
+        build = await self.builds.require_immutable_built(
+            organization_id, agent_id, evaluation_set.build_id
+        )
+        await self.repository.edit_case(
+            organization_id, agent_id, case_id,
+            expected_revision=expected_revision, title=title,
+            category=category, difficulty=difficulty, mandatory=mandatory,
+        )
+        await self.repository.add_eligibility(
+            organization_id, agent_id, build.id, build.runtime_build_hash,
+            EligibilityProjection(
+                build.runtime_build_hash, False, (),
+                ("evaluation_case_revision_changed",),
+            ),
+        )
+        return await self.list(organization_id, agent_id)
+
+    async def remove_case(
+        self, organization_id: uuid.UUID, agent_id: uuid.UUID, *,
+        case_id: uuid.UUID, expected_revision: int,
+    ) -> EvaluationCollectionView:
+        evaluation_set, _case = await self.repository.get_case(
+            organization_id, agent_id, case_id
+        )
+        build = await self.builds.require_immutable_built(
+            organization_id, agent_id, evaluation_set.build_id
+        )
+        await self.repository.remove_case(
+            organization_id, agent_id, case_id,
+            expected_revision=expected_revision,
+        )
+        await self.repository.add_eligibility(
+            organization_id, agent_id, build.id, build.runtime_build_hash,
+            EligibilityProjection(
+                build.runtime_build_hash, False, (),
+                ("evaluation_case_removed",),
+            ),
+        )
+        return await self.list(organization_id, agent_id)
 
     async def create_case_from_sandbox(
         self, organization_id: uuid.UUID, agent_id: uuid.UUID, *, build_id: uuid.UUID,
         sandbox_run_id: uuid.UUID, set_name: str, title: str, category: str,
         difficulty: str, mandatory: bool,
     ) -> EvaluationCollectionView:
-        build = await self.builds.require_ready(organization_id, agent_id, build_id)
+        build = await self.builds.require_running(organization_id, agent_id, build_id)
         runs = (await self.sandbox.list(organization_id, agent_id)).runs
         sandbox_run = next((value for value in runs if value.id == sandbox_run_id), None)
         if sandbox_run is None or sandbox_run.build_id != build_id:
@@ -47,6 +169,7 @@ class EvaluationService:
             expected_operation_ids=expected, required_response_fields=(),
             require_write_verification=False, mandatory=mandatory,
         )
+        await self._mark_case_added(organization_id, agent_id, build)
         return await self.list(organization_id, agent_id)
 
     async def create_case_from_current_sandbox(
@@ -84,14 +207,41 @@ class EvaluationService:
 
     async def run_case(self, organization_id: uuid.UUID, agent_id: uuid.UUID, case_id: uuid.UUID) -> EvaluationCollectionView:
         evaluation_set, case = await self.repository.get_case(organization_id, agent_id, case_id)
-        build = await self.builds.require_ready(organization_id, agent_id, evaluation_set.build_id)
+        if case.removed_at is not None:
+            raise EvaluationConflict("A removed evaluation case cannot be run.")
+        build = await self.builds.require_running(organization_id, agent_id, evaluation_set.build_id)
+        if case.runtime_case_id is None:
+            case = await self._materialize_generated_case(
+                organization_id, agent_id, case
+            )
+        if case.runtime_case_id is None:
+            raise EvaluationConflict("The generated evaluation case is not runnable yet.")
         result = await asyncio.to_thread(self.runtime.evaluate, str(organization_id), case.runtime_case_id)
         if result.build_hash != build.runtime_build_hash or result.case_id != case.runtime_case_id:
             raise EvaluationConflict("The evaluation result did not retain the exact case and build identity.")
         await self.repository.add_run(organization_id, case, result)
-        cases = await self.repository.cases(organization_id, evaluation_set.id)
-        mandatory = tuple(value.runtime_case_id for value in cases if value.mandatory)
-        eligibility = await asyncio.to_thread(self.runtime.eligibility, build.runtime_build_hash, mandatory)
+        cases, _runs = await self._build_evaluation_state(
+            organization_id, agent_id, build.id
+        )
+        mandatory_cases = tuple(
+            value for value in cases if value.mandatory and value.removed_at is None
+        )
+        if not mandatory_cases:
+            eligibility = EligibilityProjection(
+                build.runtime_build_hash, False, (),
+                ("no_active_mandatory_evaluation_cases",),
+            )
+        elif any(value.runtime_case_id is None for value in mandatory_cases):
+            eligibility = EligibilityProjection(
+                build.runtime_build_hash, False, (),
+                ("mandatory_evaluation_case_pending",),
+            )
+        else:
+            eligibility = await asyncio.to_thread(
+                self.runtime.eligibility,
+                build.runtime_build_hash,
+                tuple(value.runtime_case_id for value in mandatory_cases),
+            )
         await self.repository.add_eligibility(
             organization_id, agent_id, build.id, build.runtime_build_hash, eligibility,
         )
@@ -106,7 +256,7 @@ class EvaluationService:
             case
             for evaluation_set in (await self.list(organization_id, agent_id)).evaluation_sets
             for case in evaluation_set.cases
-            if case.latest_status is None
+            if case.latest_status is None and not case.removed
         )
         if len(pending) != 1:
             raise EvaluationUnavailable(
@@ -120,7 +270,7 @@ class EvaluationService:
         title: str, category: str, difficulty: str,
         expected_operation_ids: tuple[str, ...], mandatory: bool,
     ) -> EvaluationCollectionView:
-        build = await self.builds.require_ready(organization_id, agent_id, build_id)
+        build = await self.builds.require_running(organization_id, agent_id, build_id)
         expected = tuple(dict.fromkeys(expected_operation_ids))
         if not expected or not set(expected).issubset(set(build.allowed_operation_ids)):
             raise EvaluationConflict("Operations evidence must use operations from the exact immutable build.")
@@ -140,30 +290,164 @@ class EvaluationService:
             expected_operation_ids=expected, required_response_fields=(),
             require_write_verification=False, mandatory=mandatory,
         )
+        await self._mark_case_added(organization_id, agent_id, build)
         return await self.list(organization_id, agent_id)
 
     async def list(self, organization_id: uuid.UUID, agent_id: uuid.UUID) -> EvaluationCollectionView:
         sets = await self.repository.list_sets(organization_id, agent_id)
-        views = []
+        state_by_set = {}
+        cases_by_build: dict[uuid.UUID, list[object]] = {}
+        runs_by_build: dict[uuid.UUID, list[object]] = {}
         for value in sets:
             cases = await self.repository.cases(organization_id, value.id)
             runs = await self.repository.runs(organization_id, value.id)
+            state_by_set[value.id] = (cases, runs)
+            cases_by_build.setdefault(value.build_id, []).extend(cases)
+            runs_by_build.setdefault(value.build_id, []).extend(runs)
+        eligibility_by_build = {}
+        for build_id in cases_by_build:
+            stored = await self.repository.latest_eligibility(
+                organization_id, agent_id, build_id
+            )
+            eligibility_by_build[build_id] = current_eligibility(
+                cases_by_build[build_id], runs_by_build[build_id], stored
+            )
+        views = []
+        for value in sets:
+            cases, runs = state_by_set[value.id]
             latest_by_case = {run.case_id: run for run in runs}
-            eligibility = await self.repository.latest_eligibility(organization_id, agent_id, value.build_id)
+            eligibility = eligibility_by_build[value.build_id]
             views.append(EvaluationSetView(
                 id=value.id, agent_id=value.agent_id, build_id=value.build_id,
-                name=value.name,
+                name=value.name, generation_job_id=value.generation_job_id,
+                generation_status=value.generation_status,
+                generation_failure_code=value.generation_failure_code,
+                generation_failure_message=value.generation_failure_message,
+                generation_summary=value.generation_summary,
                 cases=tuple(EvaluationCaseView(
-                    id=case.id, title=case.title, category=case.category,
+                    id=case.id, title=case.title, message=case.message,
+                    source_kind=case.source_kind, category=case.category,
                     difficulty=case.difficulty, mandatory=case.mandatory,
                     expected_operation_ids=case.expected_operation_ids,
+                    current_revision=case.current_revision,
+                    removed=case.removed_at is not None,
+                    runnable=case.runtime_case_id is not None,
                     latest_status=(latest_by_case[case.id].status if case.id in latest_by_case else None),
                 ) for case in cases),
-                eligible=(eligibility.eligible if eligibility is not None else None),
-                eligibility_reasons=(eligibility.reasons if eligibility is not None else ()),
+                eligible=eligibility.eligible,
+                eligibility_reasons=eligibility.reasons,
                 created_at=value.created_at,
             ))
         return EvaluationCollectionView(agent_id=agent_id, evaluation_sets=tuple(views))
+
+    async def _exact_build(
+        self, organization_id: uuid.UUID, agent_id: uuid.UUID,
+        build_id: uuid.UUID | None,
+    ):
+        if build_id is not None:
+            return await self.builds.require_immutable_built(
+                organization_id, agent_id, build_id
+            )
+        values = tuple(
+            value for value in (await self.builds.list(organization_id, agent_id)).builds
+            if value.status == "ready" and value.runtime_lifecycle != "removed"
+        )
+        if len(values) != 1:
+            raise EvaluationUnavailable(
+                "Evaluation generation requires one exact immutable Agent build."
+            )
+        return await self.builds.require_immutable_built(
+            organization_id, agent_id, values[0].id
+        )
+
+    async def _mark_case_added(self, organization_id, agent_id, build) -> None:
+        await self.repository.add_eligibility(
+            organization_id,
+            agent_id,
+            build.id,
+            build.runtime_build_hash,
+            EligibilityProjection(
+                build.runtime_build_hash,
+                False,
+                (),
+                ("evaluation_case_added",),
+            ),
+        )
+
+    async def _build_evaluation_state(
+        self, organization_id, agent_id, build_id
+    ):
+        cases = []
+        runs = []
+        for evaluation_set in await self.repository.list_sets(
+            organization_id, agent_id
+        ):
+            if evaluation_set.build_id != build_id:
+                continue
+            cases.extend(
+                await self.repository.cases(organization_id, evaluation_set.id)
+            )
+            runs.extend(
+                await self.repository.runs(organization_id, evaluation_set.id)
+            )
+        return tuple(cases), tuple(runs)
+
+    async def _materialize_generated_case(
+        self, organization_id: uuid.UUID, agent_id: uuid.UUID, case,
+    ):
+        if case.source_kind != "toolrouter" or case.generation_task_id is None:
+            raise EvaluationConflict("The evaluation case has no immutable runtime evidence.")
+        runs = (await self.sandbox.list(organization_id, agent_id)).runs
+        sandbox_run = next(
+            (run for run in runs if str(run.id) == case.source_record_id), None
+        )
+        if sandbox_run is None:
+            try:
+                sandbox_run = await self.sandbox.start(
+                    organization_id, agent_id,
+                    build_id=case.build_id, message=case.message,
+                )
+            except SandboxRunFailed as error:
+                await self.repository.link_generated_run(
+                    organization_id, case.id, error.run_id
+                )
+                raise EvaluationConflict(
+                    "The generated case retained a failed exact-build Sandbox trial."
+                ) from error
+            case = await self.repository.link_generated_run(
+                organization_id, case.id, sandbox_run.id
+            )
+        if sandbox_run.status == "waiting":
+            raise EvaluationConflict(
+                "This generated case is waiting for one natural answer in Sandbox."
+            )
+        if sandbox_run.status != "succeeded":
+            raise EvaluationConflict(
+                "The generated case did not produce a successful exact-build trial."
+            )
+        expected = _sandbox_operation_evidence(sandbox_run)
+        if expected != case.expected_operation_ids:
+            raise EvaluationConflict(
+                "The generated case did not preserve its exact expected operation."
+            )
+        runtime_case = await asyncio.to_thread(
+            self.runtime.promote,
+            tenant_id=str(organization_id), run_id=sandbox_run.runtime_run_id,
+            message=case.message,
+            expected_operation_ids=case.expected_operation_ids,
+            required_response_fields=case.required_response_fields,
+            require_write_verification=case.require_write_verification,
+        )
+        build = await self.builds.require_running(
+            organization_id, agent_id, case.build_id
+        )
+        if runtime_case.build_hash != build.runtime_build_hash:
+            raise EvaluationConflict(
+                "The generated evaluation trial changed its exact build identity."
+            )
+        return await self.repository.bind_generated_runtime(
+            organization_id, case.id, runtime_case
+        )
 
 
 __all__ = ["EvaluationService"]

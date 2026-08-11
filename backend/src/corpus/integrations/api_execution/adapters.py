@@ -170,7 +170,7 @@ class _ExactDocumentProvider:
         if document_hash != self._expected_hash:
             raise ContractError(
                 "openapi_document_mismatch",
-                "The selected API contract is unavailable.",
+                "The selected API definition is unavailable.",
             )
         return self._document
 

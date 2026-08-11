@@ -252,7 +252,12 @@ async def _runtime(tmp_path: Path, probe: ExecutionProbe):
                 deployment_service=object(),
                 operations_service=object(),
                 workspace_service=WorkspaceProbe(),
-                source_service=object(),
+                source_service=SimpleNamespace(
+                    get_source=lambda **_kwargs: SimpleNamespace(
+                        source_id="selected-source1",
+                        revision=SimpleNamespace(revision_id="selected-revsn01"),
+                    )
+                ),
                 source_graph_presenter=object(),
                 source_connection_service=object(),
                 source_contract_revision_service=object(),
@@ -303,9 +308,14 @@ async def _create_sources_session(runtime, session_id: str) -> None:
             session_id=session_id,
             request_id=f"open-api-{session_id}",
             expected_session_version=hub.session_version,
-            operation_id="sources.open_api_creation",
+            operation_id="sources.open_api_source",
             source=OperationSource.SURFACE,
-            arguments=FrozenJsonObject({}),
+            arguments=FrozenJsonObject(
+                {
+                    "source_id": "selected-source1",
+                    "source_revision_id": "selected-revsn01",
+                }
+            ),
         )
     )
     assert api_opened.disposition is OperationDisposition.COMPLETED

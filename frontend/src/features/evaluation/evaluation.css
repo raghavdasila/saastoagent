@@ -1,4 +1,31 @@
-.evaluation-home { display: grid; gap: 1rem; }
-.evaluation-create { display: grid; gap: .75rem; max-width: 48rem; }
-.evaluation-home ul { display: grid; gap: .75rem; list-style: none; margin: 0; padding: 0; }
-.evaluation-home li { display: grid; gap: .4rem; }
+.evaluation-home { display: grid; gap: 1rem; min-width: 0; }
+.evaluation-home > header,
+.evaluation-set-card > header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; }
+.evaluation-build-context,
+.evaluation-create { display: grid; gap: .75rem; padding: 1rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--card); }
+.evaluation-create { max-width: 54rem; }
+.evaluation-create > summary { cursor: pointer; font-weight: 700; }
+.evaluation-sets { display: grid; gap: 1rem; }
+.evaluation-set-card { display: grid; gap: .85rem; padding: 1rem; border: 1px solid var(--border); border-radius: .85rem; background: var(--card); }
+.evaluation-set-card h2,
+.evaluation-set-card p { margin: 0; }
+.evaluation-case-table { display: grid; border: 1px solid var(--border); border-radius: .65rem; overflow: hidden; }
+.evaluation-case-table [role="row"] { display: grid; grid-template-columns: minmax(14rem, 2fr) minmax(8rem, 1fr) auto; align-items: center; gap: .75rem; padding: .8rem; border-top: 1px solid var(--border); }
+.evaluation-case-table [role="row"]:first-child { border-top: 0; }
+.evaluation-case-table [role="row"][data-removed] { opacity: .68; background: color-mix(in srgb, var(--muted) 70%, transparent); }
+.evaluation-case-table [role="cell"] { display: grid; gap: .25rem; }
+.evaluation-case-actions { display: flex !important; flex-wrap: wrap; justify-content: flex-end; }
+.evaluation-delete-review { display: grid; gap: .75rem; padding: 1rem; border: 1px solid var(--destructive); border-radius: .75rem; }
+.evaluation-delete-review > div { display: flex; flex-wrap: wrap; gap: .5rem; }
+.evaluation-prerequisite { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem; border: 1px solid color-mix(in srgb, var(--destructive) 30%, var(--border)); border-radius: .85rem; background: color-mix(in srgb, var(--destructive) 5%, var(--card)); }
+.evaluation-prerequisite > div { display: grid; gap: .25rem; }
+.evaluation-prerequisite p, .evaluation-prerequisite h2 { margin: 0; }
+.evaluation-prerequisite p { color: var(--primary); font-size: .72rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.evaluation-prerequisite span { color: var(--muted-foreground); line-height: 1.45; }
+
+@media (max-width: 760px) {
+  .evaluation-case-table [role="row"] { grid-template-columns: 1fr; }
+  .evaluation-case-actions { justify-content: flex-start; }
+  .evaluation-prerequisite { align-items: stretch; flex-direction: column; }
+  .evaluation-prerequisite button { width: 100%; }
+}

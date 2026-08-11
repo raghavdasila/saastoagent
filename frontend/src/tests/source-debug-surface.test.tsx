@@ -6,6 +6,7 @@ import { expect, it, vi } from "vitest";
 import { SourceHubSurface } from "../features/sources/SourceHubSurface";
 import { SourceClient } from "../features/sources/sourceClient";
 import { ContractRevisionStore } from "../features/sources/contractRevisionStore";
+import { SourceLifecycleStore } from "../features/sources/sourceLifecycleStore";
 import { PrivateFormGate } from "../routedeck/PrivateFormGate";
 import {
   frameworkContractFixture,
@@ -114,37 +115,192 @@ it("keeps Source Hub as inventory and opens one exact API Source workflow", asyn
     source_id: ready.source_id,
     source_revision_id: ready.revision.revision_id,
   }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Add API source" })).toBeEnabled());
   rendered.dispose();
 });
 
-it("offers explicit existing-or-new Agent continuation from an accepted API definition", async () => {
-  const accepted = sourceView("accepted");
+
+it("updates supporting Markdown separately and blocks deletion on exact dependencies", async () => {
+  const ready = sourceView("ready");
+  let descriptionReads = 0;
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url === "/api/sources" && (init?.method ?? "GET") === "GET") {
+      return jsonResponse([ready]);
+    }
+    if (url.endsWith("/graph")) return jsonResponse(emptyGraph());
+    if (url.endsWith("/description") && (init?.method ?? "GET") === "GET") {
+      descriptionReads += 1;
+      return jsonResponse({
+        description_id: descriptionReads === 1 ? "description00001" : "description00002",
+        source_id: ready.source_id,
+        filename: descriptionReads === 1 ? "widgets.md" : "widgets-usage.md",
+        content_sha256: (descriptionReads === 1 ? "b" : "c").repeat(64),
+        content: descriptionReads === 1
+          ? "# Widgets\nExisting description."
+          : "# Widgets\n<script>must stay inert</script>",
+        created_at: "2026-08-11T00:00:00Z",
+      });
+    }
+    if (url === "/api/sources/api/description-attachments" && init?.method === "POST") {
+      const body = init.body as FormData;
+      expect(body.get("file")).toMatchObject({ name: "widgets-usage.md" });
+      expect(new Headers(init.headers).get("X-Corpus-Conversation-ID")).toBe("conversation-test-01");
+      return jsonResponse({
+        attachment_id: "descriptionstage1",
+        filename: "widgets-usage.md",
+        content_sha256: "c".repeat(64),
+        staged_at: "2026-08-11T00:00:00Z",
+        state: "staged",
+        source_id: null,
+        description_id: null,
+      }, 201);
+    }
+    if (url.endsWith("/dependencies")) {
+      return jsonResponse({
+        source_id: ready.source_id,
+        processing_state: "ready",
+        attached_agent_ids: ["00000000-0000-0000-0000-000000000002"],
+        design_revision_ids: [],
+        build_ids: [],
+        blocks_delete: true,
+      });
+    }
+    throw new Error(`Unexpected request: ${init?.method ?? "GET"} ${url}`);
+  });
+  const dispatchAffordance = vi.fn(async (id: string) =>
+    dispatchResult(id, id === "save_api_description" ? "saved" : "opened")
+  );
+  const rendered = await renderSourceHub(
+    dispatchAffordance,
+    new SourceClient({ fetch: fetchMock }),
+  );
+
+  fireEvent.click(await screen.findByRole("button", { name: "Description" }));
+  expect(await screen.findByText(/Existing description\./)).toBeVisible();
+  fireEvent.change(screen.getByLabelText("Markdown description"), {
+    target: {
+      files: [new File(["# Widgets\n<script>must stay inert</script>"], "widgets-usage.md", {
+        type: "text/markdown",
+      })],
+    },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save API description" }));
+  await waitFor(() => expect(dispatchAffordance).toHaveBeenCalledWith(
+    "save_api_description",
+    {},
+  ));
+  expect(await screen.findByText(/<script>must stay inert<\/script>/)).toBeVisible();
+  expect([...document.querySelectorAll("script")].every(
+    (element) => !element.textContent?.includes("must stay inert"),
+  )).toBe(true);
+
+  fireEvent.click(screen.getByRole("button", { name: "Delete API source" }));
+  const blocked = await screen.findByRole("alert");
+  expect(blocked).toHaveTextContent("This API source is still part of saved Agent work");
+  expect(blocked).toHaveTextContent("1Agent attachments");
+  expect(blocked).toHaveTextContent("0Saved design revisions");
+  expect(blocked).toHaveTextContent("0Immutable builds");
+  expect(blocked).toHaveTextContent("Corpus will never cascade-delete it");
+  expect(dispatchAffordance).not.toHaveBeenCalledWith("delete_api_source", {});
+  rendered.dispose();
+});
+
+
+it("adopts the new current API version unless the view is an explicit historical handoff", async () => {
+  const current = sourceView("accepted");
+  current.revision.revision_id = "currentrevision01";
+  const historical = sourceView("accepted");
+  historical.revision.revision_id = "historicalrev01";
+  const requested: string[] = [];
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    requested.push(url);
+    if (url === "/api/sources") return jsonResponse([current]);
+    if (url === "/api/sources/sourceopaque0001?revision_id=historicalrev01") {
+      return jsonResponse(historical);
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  });
+  const dispatchAffordance = vi.fn(async (id: string) => dispatchResult(id, "opened"));
+
+  const currentRendered = await renderSourceHub(
+    dispatchAffordance,
+    new SourceClient({ fetch: fetchMock }),
+    {
+      selected_source_id: current.source_id,
+      selected_source_revision_id: historical.revision.revision_id,
+    },
+  );
+  expect(await screen.findByText(current.revision.revision_id)).toBeVisible();
+  expect(requested).not.toContain(
+    "/api/sources/sourceopaque0001?revision_id=historicalrev01",
+  );
+  currentRendered.dispose();
+
+  const historicalRendered = await renderSourceHub(
+    dispatchAffordance,
+    new SourceClient({ fetch: fetchMock }),
+    {
+      return_agent_ref: "agent-canonical-001",
+      agent_handoff_mode: "inspect",
+      selected_source_id: current.source_id,
+      selected_source_revision_id: historical.revision.revision_id,
+    },
+  );
+  expect(await screen.findByText(historical.revision.revision_id)).toBeVisible();
+  expect(requested).toContain(
+    "/api/sources/sourceopaque0001?revision_id=historicalrev01",
+  );
+  historicalRendered.dispose();
+});
+
+it("offers exact existing-or-new Agent continuation only after analysis is ready", async () => {
+  const accepted = sourceView("accepted");
+  const acceptedFetch = vi.fn(async (input: RequestInfo | URL) => {
     if (String(input) === "/api/sources") return jsonResponse([accepted]);
     throw new Error(`Unexpected request: ${String(input)}`);
   });
   const dispatchAffordance = vi.fn(async (id: string) => dispatchResult(id, "opened"));
   const rendered = await renderSourceHub(
     dispatchAffordance,
-    new SourceClient({ fetch: fetchMock }),
+    new SourceClient({ fetch: acceptedFetch }),
   );
+  expect(await screen.findByText("Ready to analyze")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Use an existing Agent" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Create a new Agent" })).not.toBeInTheDocument();
+  rendered.dispose();
 
-  expect(await screen.findByText("Choose how to continue the Agent setup")).toBeVisible();
+  const ready = sourceView("ready");
+  const readyFetch = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url === "/api/sources") return jsonResponse([ready]);
+    if (url.endsWith("/graph")) return jsonResponse(emptyGraph());
+    if (url.endsWith("/connections")) return jsonResponse([]);
+    throw new Error(`Unexpected request: ${url}`);
+  });
+  const readyRendered = await renderSourceHub(
+    dispatchAffordance,
+    new SourceClient({ fetch: readyFetch }),
+  );
+  fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
   fireEvent.click(screen.getByRole("button", { name: "Use an existing Agent" }));
   await waitFor(() => expect(dispatchAffordance).toHaveBeenCalledWith(
-    "open_agent_inventory", {},
+    "open_agent_inventory",
+    { source_id: ready.source_id, source_revision_id: ready.revision.revision_id },
   ));
-  rendered.dispose();
+  readyRendered.dispose();
 
   const creationDispatch = vi.fn(async (id: string) => dispatchResult(id, "opened"));
   const creationRendered = await renderSourceHub(
     creationDispatch,
-    new SourceClient({ fetch: fetchMock }),
+    new SourceClient({ fetch: readyFetch }),
   );
-  expect(await screen.findByText("Choose how to continue the Agent setup")).toBeVisible();
+  fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
   fireEvent.click(screen.getByRole("button", { name: "Create a new Agent" }));
   await waitFor(() => expect(creationDispatch).toHaveBeenCalledWith(
-    "open_agent_creation", {},
+    "open_agent_creation",
+    { source_id: ready.source_id, source_revision_id: ready.revision.revision_id },
   ));
   creationRendered.dispose();
 });
@@ -244,9 +400,18 @@ it("renders persisted semantic groups and inspects an exact recorded constructio
   expect(screen.getByRole("button", { name: "Previous construction event" })).toBeVisible();
   expect(screen.getByRole("button", { name: "Play construction replay" })).toBeVisible();
   expect(screen.getByLabelText("Construction event")).toHaveValue("1");
+  fireEvent.click(screen.getByRole("button", { name: "Operation neighborhood" }));
+  expect(screen.getByLabelText("Active API operation")).toBeVisible();
+  expect(screen.getByRole("img", { name: "API operation neighborhood visualization" })).toHaveAttribute(
+    "data-renderer",
+    "cytoscape",
+  );
   expect(await screen.findByText("2 nodes · 1 edges · resource_first_v1")).toBeVisible();
+  fireEvent.click(screen.getByText(/Browse semantic groups/));
   expect(screen.getByRole("button", { name: "products1" })).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "products1" }));
   expect(screen.getByText("listProducts")).toBeVisible();
+  fireEvent.click(screen.getByText(/Recorded construction stages/));
   fireEvent.click(screen.getByRole("button", { name: "2. connect" }));
   await waitFor(() => expect(dispatchAffordance).toHaveBeenCalledWith(
     "select_graph_stage",
@@ -298,6 +463,7 @@ it("sends API secrets only through the private form and dispatches an empty oper
     new SourceClient({ fetch: fetchMock }),
   );
 
+  fireEvent.click(await screen.findByRole("button", { name: "Connection" }));
   expect(await screen.findByRole("heading", { name: "API connections" })).toBeVisible();
   fireEvent.change(screen.getByLabelText("Profile name"), { target: { value: "Production" } });
   fireEvent.change(screen.getByLabelText("Environment"), { target: { value: "production" } });
@@ -356,10 +522,15 @@ it("attaches the exact ready Source through the retained Agent handoff", async (
     },
   );
 
+  fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
   fireEvent.click(await screen.findByRole("button", { name: "Attach and return to Agent" }));
   await waitFor(() => expect(dispatchAffordance).toHaveBeenCalledWith(
     "attach_created_source",
-    { agent_ref: "agent-canonical-001", source_id: ready.source_id },
+    {
+      agent_ref: "agent-canonical-001",
+      source_id: ready.source_id,
+      source_revision_id: ready.revision.revision_id,
+    },
   ));
   rendered.dispose();
 });
@@ -452,6 +623,7 @@ it("dispatches one exact safe check and renders only redacted persisted evidence
     new SourceClient({ fetch: fetchMock }),
   );
 
+  fireEvent.click(await screen.findByRole("button", { name: "Connection" }));
   expect(await screen.findByRole("heading", { name: "Test API connection" })).toBeVisible();
   const testConnection = await screen.findByRole("button", { name: "Test connection" });
   fireEvent.change(screen.getByLabelText("Safe check operation"), {
@@ -493,6 +665,7 @@ async function renderSourceHub(
           sourceClient={sourceClient}
           privateForm={privateForm}
           contractRevisionStore={new ContractRevisionStore(sourceClient)}
+          lifecycleStore={new SourceLifecycleStore(sourceClient)}
           view={view}
         />
       )}

@@ -162,6 +162,9 @@ class SourceService:
             revision_id=revision_id,
         )
 
+    def get_description(self, *, owner_key: str, source_id: str):
+        return self.repository.get_description(owner_key=owner_key, source_id=source_id)
+
     def retrieve(
         self,
         *,

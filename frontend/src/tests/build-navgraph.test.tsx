@@ -1,16 +1,43 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@routedeck/react", () => ({
+  NavGraphInspector: ({ contract }: { readonly contract: { readonly nodes: Readonly<Record<string, { readonly title: string }>>; readonly transitions: readonly unknown[] } }) => <section data-routedeck-inspector="read-only">
+    <div data-routedeck-navgraph-canvas="" />
+    <span>{Object.keys(contract.nodes).length} nodes · {contract.transitions.length} transitions</span>
+    {Object.values(contract.nodes).map((node) => <strong key={node.title}>{node.title}</strong>)}
+  </section>,
+}));
 
 import { BuildNavGraph } from "@/features/builder/BuildNavGraph";
 import type { AgentBuildView } from "@/features/builder/models";
 
 
 describe("immutable Agent build NavGraph", () => {
-  it("renders the RouteDeck node, tool contract, safety, review, and hash", () => {
+  it("renders the exact persisted frontend contract through RouteDeck's real inspector", async () => {
     const build: AgentBuildView = {
       id: "build-1", agent_id: "agent-1", build_request_id: "request-1", design_revision_id: "design-1",
-      agent_version: 2, status: "ready", runtime_build_hash: "r".repeat(64), model: "model", model_digest: "digest",
-      allowed_operation_ids: ["PostCarts"], navgraph_hash: "n".repeat(64), frontend_contract: { nodes: {} },
+      agent_version: 2, attempt_number: 1, status: "ready", runtime_lifecycle: "running", runtime_build_hash: "r".repeat(64), model: "model", model_digest: "digest",
+      allowed_operation_ids: ["PostCarts"], navgraph_hash: "n".repeat(64), frontend_contract: {
+        name: "corpus-agent-build-1",
+        entry_node_id: "agent_runtime.home",
+        nodes: {
+          "agent_runtime.home": {
+            id: "agent_runtime.home",
+            title: "Answers product taxonomy questions from an approved API.",
+            route_template: "/",
+            deep_link_policy: "shareable",
+            conversation_input: { enabled: true, disabled_message: null },
+            operation_ids: ["agent_runtime.tool.post"],
+            surfaces: { active: "agent_runtime.home", error: ["agent_runtime.delivery_status"] },
+          },
+        },
+        surfaces: {
+          "agent_runtime.home": { id: "agent_runtime.home", component: "agent_runtime.home", lifecycle: "stable", public_props_schema: {}, affordances: [] },
+          "agent_runtime.delivery_status": { id: "agent_runtime.delivery_status", component: "agent_runtime.delivery_status", lifecycle: "stable", public_props_schema: {}, affordances: [] },
+        },
+        transitions: [{ source: "agent_runtime.home", target: "agent_runtime.home", operation_id: "agent_runtime.tool.post", outcome: "observed" }],
+      },
       compiled_navgraph: {
         entry_node: { id: "agent_runtime.home" },
         nodes: [{
@@ -27,15 +54,29 @@ describe("immutable Agent build NavGraph", () => {
     render(<BuildNavGraph build={build} />);
 
     expect(screen.getByRole("region", { name: "RouteDeck NavGraph for build build-1" })).toBeVisible();
-    const graph = screen.getByRole("img", { name: "1 NavGraph nodes and 1 transitions" });
-    expect(graph).toBeVisible();
-    expect(graph.querySelector("rect")).toHaveAttribute("width", "500");
-    expect(graph.querySelector("foreignObject .build-navgraph__title")).toHaveTextContent("Answers product taxonomy questions from an approved API.");
-    expect(graph).toHaveTextContent("Answers product taxonomy questions from an approved API.");
+    await waitFor(() => expect(document.querySelector("[data-routedeck-inspector='read-only']")).toBeInTheDocument());
+    expect(document.querySelector("[data-routedeck-navgraph-canvas]")).toBeInTheDocument();
+    expect(screen.getAllByText("Answers product taxonomy questions from an approved API.").length).toBeGreaterThan(0);
+    expect(screen.getByText("1 nodes · 1 transitions")).toBeVisible();
     expect(screen.getByText("PostCarts")).toBeVisible();
     expect(screen.getByText("POST /store/carts")).toBeVisible();
     expect(screen.getByText("write_external · review required")).toBeVisible();
     expect(screen.getByText("Store tools")).toBeVisible();
     expect(screen.getByText("Designer topology").parentElement).toHaveTextContent("tttttttttttttttt");
+  });
+
+  it("fails visibly instead of substituting the compiled document when the frontend contract is invalid", () => {
+    const build = {
+      id: "build-invalid", agent_id: "agent-1", build_request_id: "request-1", design_revision_id: "design-1",
+      agent_version: 2, attempt_number: 1, status: "ready", runtime_lifecycle: "running", runtime_build_hash: "r".repeat(64), model: "model", model_digest: "digest",
+      allowed_operation_ids: ["PostCarts"], navgraph_hash: "n".repeat(64), frontend_contract: { nodes: {} },
+      compiled_navgraph: { nodes: [], transitions: [] }, failure_code: null, failure_message: null,
+      created_at: "2026-08-08T00:00:00Z", updated_at: "2026-08-08T00:00:00Z",
+    } satisfies AgentBuildView;
+
+    render(<BuildNavGraph build={build} />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("exact RouteDeck frontend contract is unavailable");
+    expect(document.querySelector("[data-routedeck-navgraph-canvas]")).not.toBeInTheDocument();
   });
 });

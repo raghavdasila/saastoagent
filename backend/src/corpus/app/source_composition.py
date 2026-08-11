@@ -44,6 +44,11 @@ from corpus.features.sources.connectors.api.staged_attachments import (
     ApiStagedAttachmentRepository,
     ApiStagedAttachmentService,
 )
+from corpus.features.sources.connectors.api.staged_descriptions import (
+    ApiStagedDescriptionRepository,
+    ApiStagedDescriptionService,
+)
+from corpus.features.sources.lifecycle import SourceLifecycleService
 from corpus.features.sources.connectors.api.toolrouter import (
     ToolRouterApiSourceEngine,
 )
@@ -73,6 +78,7 @@ class SourceRuntime:
     api_engine: ToolRouterApiSourceEngine
     routed_execution_adapter: RoutedApiExecutionAdapter
     staged_attachment_service: ApiStagedAttachmentService
+    staged_description_service: ApiStagedDescriptionService
 
 
 def create_source_runtime(
@@ -122,6 +128,10 @@ def create_source_runtime(
         sources=repository,
         connector=api_connector,
     )
+    staged_descriptions = ApiStagedDescriptionService(
+        repository=ApiStagedDescriptionRepository(source_settings.data_root),
+        sources=repository,
+    )
     return SourceRuntime(
         service=SourceService(
             repository,
@@ -157,6 +167,7 @@ def create_source_runtime(
         api_engine=api_engine,
         routed_execution_adapter=routed_execution_adapter,
         staged_attachment_service=staged_attachments,
+        staged_description_service=staged_descriptions,
     )
 
 
@@ -175,6 +186,8 @@ def create_source_routers(
     route_plan_service: ApiRoutePlanService,
     routed_execution_service: ApiRoutedExecutionService,
     staged_attachment_service: ApiStagedAttachmentService,
+    staged_description_service: ApiStagedDescriptionService,
+    lifecycle_service: SourceLifecycleService,
 ) -> tuple[APIRouter, ...]:
     """Compose generic Source transport with connector-owned API upload transport."""
     return (
@@ -183,6 +196,7 @@ def create_source_routers(
             auth_service=auth_service,
             auth_settings=auth_settings,
             mutation_policy=mutation_policy,
+            lifecycle_service=lifecycle_service,
         ),
         create_api_source_router(
             service=service,
@@ -198,6 +212,7 @@ def create_source_routers(
             route_plan_service=route_plan_service,
             routed_execution_service=routed_execution_service,
             staged_attachment_service=staged_attachment_service,
+            staged_description_service=staged_description_service,
         ),
     )
 

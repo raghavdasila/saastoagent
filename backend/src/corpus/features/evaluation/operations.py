@@ -8,9 +8,23 @@ from routedeck_core.ports.executor import ExecutionContext
 
 from corpus.features.agents.ports import AgentOwnerScopeGateway, AgentOwnerScopeUnavailable
 
-from .declarations import CREATE_CASE, RUN_CASE
+from .declarations import (
+    CREATE_CASE,
+    DELETE_CASE,
+    EDIT_CASE,
+    GENERATE_SET,
+    RETRY_GENERATION,
+    RUN_CASE,
+)
 from .ports import EvaluationConflict, EvaluationUnavailable
-from .schemas import CreateEvaluationCaseArguments, RunEvaluationCaseArguments
+from .schemas import (
+    CreateEvaluationCaseArguments,
+    DeleteEvaluationCaseArguments,
+    EditEvaluationCaseArguments,
+    GenerateEvaluationSetArguments,
+    RetryEvaluationGenerationArguments,
+    RunEvaluationCaseArguments,
+)
 from .service import EvaluationService
 
 
@@ -78,6 +92,105 @@ class RunCaseHandler:
         except Exception:
             return _failure(context, RUN_CASE.id, "evaluation_failed", "The evaluation run failed.", FailureKind.PROVIDER_PROTOCOL)
         return OperationOutcome(outcome="evaluated", delivery_phase=DeliveryPhase.RESPONSE_RECEIVED)
+
+
+@dataclass(frozen=True)
+class GenerateSetHandler:
+    service: EvaluationService
+    owner_scope: AgentOwnerScopeGateway
+
+    async def __call__(self, arguments, context: ExecutionContext) -> OperationOutcome:
+        try:
+            payload = GenerateEvaluationSetArguments.model_validate(dict(arguments))
+            owner = await self.owner_scope.organization_id_for_route(context.session_id)
+            agent_id = uuid.UUID(context.private_entity_id("agent_ref"))
+            await self.service.generate_set(
+                owner, agent_id, build_id=payload.build_id,
+                set_name=payload.set_name, categories=payload.categories,
+            )
+        except (ValidationError, ValueError, KeyError) as error:
+            return _failure(context, GENERATE_SET.id, "invalid_evaluation_generation", str(error), FailureKind.CONTRACT)
+        except (EvaluationUnavailable, AgentOwnerScopeUnavailable) as error:
+            return _failure(context, GENERATE_SET.id, "evaluation_unavailable", str(error), FailureKind.STATE_CONFLICT)
+        except EvaluationConflict as error:
+            return _failure(context, GENERATE_SET.id, "evaluation_conflict", str(error), FailureKind.BUSINESS)
+        return OperationOutcome(
+            outcome="queued", delivery_phase=DeliveryPhase.RESPONSE_RECEIVED
+        )
+
+
+@dataclass(frozen=True)
+class RetryGenerationHandler:
+    service: EvaluationService
+    owner_scope: AgentOwnerScopeGateway
+
+    async def __call__(self, arguments, context: ExecutionContext) -> OperationOutcome:
+        try:
+            payload = RetryEvaluationGenerationArguments.model_validate(dict(arguments))
+            owner = await self.owner_scope.organization_id_for_route(context.session_id)
+            agent_id = uuid.UUID(context.private_entity_id("agent_ref"))
+            await self.service.retry_generation(owner, agent_id, payload.evaluation_set_id)
+        except (ValidationError, ValueError, KeyError) as error:
+            return _failure(context, RETRY_GENERATION.id, "invalid_evaluation_retry", str(error), FailureKind.CONTRACT)
+        except (EvaluationUnavailable, AgentOwnerScopeUnavailable) as error:
+            return _failure(context, RETRY_GENERATION.id, "evaluation_unavailable", str(error), FailureKind.STATE_CONFLICT)
+        except EvaluationConflict as error:
+            return _failure(context, RETRY_GENERATION.id, "evaluation_conflict", str(error), FailureKind.BUSINESS)
+        return OperationOutcome(
+            outcome="queued", delivery_phase=DeliveryPhase.RESPONSE_RECEIVED
+        )
+
+
+@dataclass(frozen=True)
+class EditCaseHandler:
+    service: EvaluationService
+    owner_scope: AgentOwnerScopeGateway
+
+    async def __call__(self, arguments, context: ExecutionContext) -> OperationOutcome:
+        try:
+            payload = EditEvaluationCaseArguments.model_validate(dict(arguments))
+            owner = await self.owner_scope.organization_id_for_route(context.session_id)
+            agent_id = uuid.UUID(context.private_entity_id("agent_ref"))
+            await self.service.edit_case(
+                owner, agent_id, case_id=payload.case_id,
+                expected_revision=payload.expected_revision,
+                title=payload.title, category=payload.category,
+                difficulty=payload.difficulty, mandatory=payload.mandatory,
+            )
+        except (ValidationError, ValueError, KeyError) as error:
+            return _failure(context, EDIT_CASE.id, "invalid_evaluation_edit", str(error), FailureKind.CONTRACT)
+        except (EvaluationUnavailable, AgentOwnerScopeUnavailable) as error:
+            return _failure(context, EDIT_CASE.id, "evaluation_unavailable", str(error), FailureKind.STATE_CONFLICT)
+        except EvaluationConflict as error:
+            return _failure(context, EDIT_CASE.id, "evaluation_conflict", str(error), FailureKind.BUSINESS)
+        return OperationOutcome(
+            outcome="edited", delivery_phase=DeliveryPhase.RESPONSE_RECEIVED
+        )
+
+
+@dataclass(frozen=True)
+class DeleteCaseHandler:
+    service: EvaluationService
+    owner_scope: AgentOwnerScopeGateway
+
+    async def __call__(self, arguments, context: ExecutionContext) -> OperationOutcome:
+        try:
+            payload = DeleteEvaluationCaseArguments.model_validate(dict(arguments))
+            owner = await self.owner_scope.organization_id_for_route(context.session_id)
+            agent_id = uuid.UUID(context.private_entity_id("agent_ref"))
+            await self.service.remove_case(
+                owner, agent_id, case_id=payload.case_id,
+                expected_revision=payload.expected_revision,
+            )
+        except (ValidationError, ValueError, KeyError) as error:
+            return _failure(context, DELETE_CASE.id, "invalid_evaluation_delete", str(error), FailureKind.CONTRACT)
+        except (EvaluationUnavailable, AgentOwnerScopeUnavailable) as error:
+            return _failure(context, DELETE_CASE.id, "evaluation_unavailable", str(error), FailureKind.STATE_CONFLICT)
+        except EvaluationConflict as error:
+            return _failure(context, DELETE_CASE.id, "evaluation_conflict", str(error), FailureKind.BUSINESS)
+        return OperationOutcome(
+            outcome="removed", delivery_phase=DeliveryPhase.RESPONSE_RECEIVED
+        )
 
 
 def _failure(context, operation_id, code, message, kind):

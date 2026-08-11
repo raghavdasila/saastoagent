@@ -327,7 +327,18 @@ it("sends the exact canonical Agent handle and ready Source id through the attac
       failure_message: null,
     },
   };
-  const sources = { list: vi.fn(async () => [source]) } as unknown as SourceClient;
+  const sameNamedSource = {
+    ...source,
+    source_id: "source-ready-002",
+    updated_at: "2026-08-07T00:01:00Z",
+    revision: {
+      ...source.revision,
+      source_id: "source-ready-002",
+      revision_id: "revision-ready02",
+      original_filename: "other-ready.yaml",
+    },
+  };
+  const sources = { list: vi.fn(async () => [source, sameNamedSource]) } as unknown as SourceClient;
   const dispatch = vi.fn(async (affordance: string) =>
     affordance === "select_agent"
       ? completed("agents.select_agent", "selected")
@@ -336,24 +347,82 @@ it("sends the exact canonical Agent handle and ready Source id through the attac
   const agentRef = `agent-${selected.id.replaceAll("-", "").slice(0, 20)}`;
   render(
     <AgentsHomeSurface
-      {...props("agents.home", dispatch, { selected_agent_ref: agentRef })}
+      {...props("agents.home", dispatch, {
+        selected_agent_ref: agentRef,
+        pending_source_id: source.source_id,
+        pending_source_revision_id: source.revision.revision_id,
+        pending_source_display_name: source.display_name,
+      })}
       store={store}
       sourceClient={sources}
     />,
   );
 
   fireEvent.click(await screen.findByRole("button", { name: /Research Agent/ }));
-  await screen.findByRole("option", { name: "Ready API" });
-  fireEvent.change(screen.getByLabelText("Ready Workspace Source"), {
-    target: { value: source.source_id },
-  });
+  expect(await screen.findByText(source.revision.revision_id)).toBeVisible();
+  const pendingSelect = screen.getByLabelText("Source selected from API setup");
+  expect(pendingSelect).toBeDisabled();
+  expect(within(pendingSelect).getByRole("option", { name: /ready\.yaml/ })).toHaveValue(source.source_id);
+  expect(within(pendingSelect).queryByRole("option", { name: /other-ready\.yaml/ })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Attach Source" }));
 
   await waitFor(() => expect(dispatch).toHaveBeenCalledWith("attach_source", {
     agent_ref: agentRef,
     source_id: source.source_id,
+    source_revision_id: source.revision.revision_id,
   }));
   await waitFor(() => expect(inspectDependencies).toHaveBeenCalledTimes(2));
+});
+
+
+it("detaches only the selected current Source association and refreshes authoritative dependencies", async () => {
+  const selected = agent();
+  const attachment = {
+    source_id: "source-ready-001",
+    source_revision_id: "revision-ready01",
+    display_name: "Ready API",
+    attached_at: "2026-08-07T00:00:00Z",
+  };
+  const listSources = vi
+    .fn()
+    .mockResolvedValueOnce({ attachments: [attachment] })
+    .mockResolvedValue({ attachments: [] });
+  const inspectDependencies = vi.fn(async () => ({
+    agent_id: selected.id,
+    source_attachments: [],
+    build_ids: ["4bf642f8-18d2-45a9-8a77-b6d293a4fd7a"],
+    blocks_delete: true,
+  }));
+  const store = new AgentStore({
+    list: vi.fn(async () => ({ agents: [selected] })),
+    listSources,
+    listBuilds: vi.fn(async () => ({ builds: [] })),
+    inspectDependencies,
+  } as unknown as AgentClient);
+  const agentRef = `agent-${selected.id.replaceAll("-", "").slice(0, 20)}`;
+  const dispatch = vi.fn(async (affordance: string) =>
+    affordance === "select_agent"
+      ? completed("agents.select_agent", "selected")
+      : completed("agents.detach_source", "detached"),
+  );
+  render(
+    <AgentsHomeSurface
+      {...props("agents.home", dispatch, { selected_agent_ref: agentRef })}
+      store={store}
+      sourceClient={sourceClient}
+    />,
+  );
+
+  const detachLabel = "Detach Ready API API version revision-ready01";
+  fireEvent.click(await screen.findByRole("button", { name: detachLabel }));
+
+  await waitFor(() => expect(dispatch).toHaveBeenCalledWith("detach_source", {
+    agent_ref: agentRef,
+    source_id: attachment.source_id,
+  }));
+  await waitFor(() => expect(listSources).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(inspectDependencies).toHaveBeenCalledTimes(2));
+  expect(screen.queryByRole("button", { name: detachLabel })).not.toBeInTheDocument();
 });
 
 

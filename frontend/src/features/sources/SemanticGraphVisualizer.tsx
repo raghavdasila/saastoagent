@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import cytoscape, { type Core } from "cytoscape";
 import Graph from "graphology";
 import type SigmaRenderer from "sigma";
 import {
@@ -35,10 +36,12 @@ type Selection =
   | null;
 
 function labelForZoom(ratio: number, nodeType: string) {
-  if (ratio < 0.28) return true;
-  if (ratio < 0.65) return nodeType !== "api_inline_shape" && nodeType !== "api_field";
-  if (ratio < 1.3) return ["api_operation", "resource", "permission"].includes(nodeType);
-  return ["api_operation", "resource"].includes(nodeType);
+  if (ratio < 0.18) return true;
+  if (ratio < 0.35) {
+    return !["api_inline_shape", "api_field", "doc_chunk"].includes(nodeType);
+  }
+  if (ratio < 0.7) return ["api_operation", "resource", "permission"].includes(nodeType);
+  return false;
 }
 
 export function SemanticGraphVisualizer({
@@ -49,7 +52,9 @@ export function SemanticGraphVisualizer({
   selectedGroupId: string | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const activeContainerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<SigmaRenderer | null>(null);
+  const activeRendererRef = useRef<Core | null>(null);
   const graphRef = useRef<Graph | null>(null);
   const selectionRef = useRef<Selection>(null);
   const trace = graph.trace ?? [];
@@ -83,6 +88,28 @@ export function SemanticGraphVisualizer({
   const selectedEdge = selection?.kind === "edge"
     ? graph.edges.find(({ id }) => id === selection.id) ?? null
     : null;
+  const activeTopology = useMemo(() => {
+    if (endpointId === "") return { nodeIds: new Set<string>(), edgeIds: new Set<string>() };
+    const nodeIds = new Set(
+      graph.nodes
+        .filter((node) => node.endpoint_id === endpointId)
+        .map((node) => node.id),
+    );
+    for (const edge of graph.edges) {
+      if (nodeIds.has(edge.source) || nodeIds.has(edge.target)) {
+        nodeIds.add(edge.source);
+        nodeIds.add(edge.target);
+      }
+    }
+    return {
+      nodeIds,
+      edgeIds: new Set(
+        graph.edges
+          .filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target))
+          .map((edge) => edge.id),
+      ),
+    };
+  }, [endpointId, graph.edges, graph.nodes]);
 
   useEffect(() => {
     setFrameIndex(Math.max(0, trace.length - 1));
@@ -95,6 +122,20 @@ export function SemanticGraphVisualizer({
     selectionRef.current = selection;
     rendererRef.current?.refresh();
   }, [selection]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      if (mode === "accumulated") {
+        rendererRef.current?.resize();
+        rendererRef.current?.refresh();
+        rendererRef.current?.getCamera().animatedReset({ duration: 300 });
+      } else {
+        activeRendererRef.current?.resize();
+        activeRendererRef.current?.fit(undefined, 48);
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [expanded, mode]);
 
   useEffect(() => {
     const close = (event: KeyboardEvent) => {
@@ -150,9 +191,9 @@ export function SemanticGraphVisualizer({
         hideEdgesOnMove: false,
         hideLabelsOnMove: true,
         labelColor: { color: "#26394d" },
-        labelDensity: 0.08,
-        labelGridCellSize: 90,
-        labelRenderedSizeThreshold: 4,
+        labelDensity: 0.04,
+        labelGridCellSize: 120,
+        labelRenderedSizeThreshold: 6,
         renderEdgeLabels: true,
         stagePadding: 32,
         zIndex: true,
@@ -215,18 +256,12 @@ export function SemanticGraphVisualizer({
   useEffect(() => {
     const semanticGraph = graphRef.current;
     const renderer = rendererRef.current;
-    if (semanticGraph === null || renderer === null) return;
-    const baseIds = endpointId === ""
-      ? new Set<string>()
-      : new Set(graph.nodes.filter((node) => node.endpoint_id === endpointId).map((node) => node.id));
-    const activeTopology = new Set(baseIds);
-    for (const id of baseIds) for (const neighbor of semanticGraph.neighbors(id)) activeTopology.add(neighbor);
+    if (semanticGraph === null || renderer === null || mode !== "accumulated") return;
     semanticGraph.forEachNode((id, attributes) => {
       const born = (nodeBirth.get(id) ?? Number.MAX_SAFE_INTEGER) <= frameIndex;
-      const inMode = mode === "accumulated" || (endpointId !== "" && activeTopology.has(id));
       const highlighted = id === activeNodeId || id === selectedGroupId || addedThisFrame.has(id) || updatedThisFrame.has(id);
       semanticGraph.mergeNodeAttributes(id, {
-        hidden: !(born && inMode),
+        hidden: !born,
         highlighted,
         forceLabel: highlighted || selection?.kind === "node" && selection.id === id,
         zIndex: highlighted ? 2 : 0,
@@ -247,7 +282,108 @@ export function SemanticGraphVisualizer({
       });
     });
     renderer.refresh();
-  }, [activeNodeId, addedThisFrame, edgeAddedThisFrame, edgeBirth, endpointId, frameIndex, graph.nodes, mode, nodeBirth, selectedGroupId, selection, updatedThisFrame]);
+  }, [activeNodeId, addedThisFrame, edgeAddedThisFrame, edgeBirth, frameIndex, mode, nodeBirth, selectedGroupId, selection, updatedThisFrame]);
+
+  useEffect(() => {
+    const container = activeContainerRef.current;
+    if (mode !== "active" || endpointId === "" || container === null) return;
+    const nodes = graph.nodes.filter(
+      (node) => activeTopology.nodeIds.has(node.id)
+        && (nodeBirth.get(node.id) ?? Number.MAX_SAFE_INTEGER) <= frameIndex,
+    );
+    const visibleNodeIds = new Set(nodes.map(({ id }) => id));
+    const edges = graph.edges.filter(
+      (edge) => activeTopology.edgeIds.has(edge.id)
+        && visibleNodeIds.has(edge.source)
+        && visibleNodeIds.has(edge.target)
+        && (edgeBirth.get(edge.id) ?? Number.MAX_SAFE_INTEGER) <= frameIndex,
+    );
+    const renderer = cytoscape({
+      container,
+      elements: [
+        ...nodes.map((node) => ({
+          data: {
+            id: node.id,
+            label: node.label.length > 34 ? `${node.label.slice(0, 31)}…` : node.label,
+            nodeType: node.node_type,
+          },
+        })),
+        ...edges.map((edge) => ({
+          data: {
+            id: edge.id,
+            source: edge.source,
+            target: edge.target,
+            label: edge.type,
+          },
+        })),
+      ],
+      style: [
+        {
+          selector: "node",
+          style: {
+            label: "data(label)",
+            "font-size": 8,
+            "text-wrap": "wrap",
+            "text-max-width": "90px",
+            "background-color": "#64748b",
+            color: "#26324b",
+            "text-valign": "bottom",
+          },
+        },
+        ...Object.entries(NODE_STYLES).map(([type, style]) => ({
+          selector: `node[nodeType = "${type}"]`,
+          style: {
+            "background-color": style.color,
+            width: style.size * 2,
+            height: style.size * 2,
+          },
+        })),
+        {
+          selector: "node:selected",
+          style: {
+            "border-color": "#0f172a",
+            "border-width": 2,
+          },
+        },
+        {
+          selector: "edge",
+          style: {
+            width: 0.8,
+            "line-color": "#b9c3d4",
+            "target-arrow-color": "#b9c3d4",
+            "target-arrow-shape": "triangle",
+            "curve-style": "bezier",
+            label: "data(label)",
+            "font-size": 7,
+            color: "#6d7890",
+          },
+        },
+      ],
+      layout: {
+        name: "concentric",
+        animate: (typeof window.matchMedia !== "function"
+          || !window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+          && nodes.length < 220,
+        animationDuration: 240,
+        fit: true,
+        padding: 48,
+        avoidOverlap: true,
+        minNodeSpacing: 52,
+        spacingFactor: 1.18,
+        startAngle: -Math.PI / 2,
+      },
+    });
+    activeRendererRef.current = renderer;
+    renderer.on("tap", "node", (event) => setSelection({ kind: "node", id: event.target.id() }));
+    renderer.on("tap", "edge", (event) => setSelection({ kind: "edge", id: event.target.id() }));
+    renderer.on("tap", (event) => {
+      if (event.target === renderer) setSelection(null);
+    });
+    return () => {
+      renderer.destroy();
+      if (activeRendererRef.current === renderer) activeRendererRef.current = null;
+    };
+  }, [activeTopology, edgeBirth, endpointId, frameIndex, graph.edges, graph.nodes, mode, nodeBirth]);
 
   useEffect(() => {
     if (!playing || trace.length < 2) return;
@@ -275,7 +411,10 @@ export function SemanticGraphVisualizer({
         <div className="semantic-graph-mode" role="group" aria-label="Graph view">
           <Button type="button" size="sm" variant={mode === "accumulated" ? "default" : "outline"} onClick={() => setMode("accumulated")}>Accumulated graph</Button>
           <Button type="button" size="sm" variant={mode === "active" ? "default" : "outline"} onClick={() => setMode("active")}>Operation neighborhood</Button>
-          <Button type="button" size="sm" variant="outline" onClick={() => rendererRef.current?.getCamera().animatedReset({ duration: 300 })}><Focus data-icon="inline-start" /> Fit graph</Button>
+          <Button type="button" size="sm" variant="outline" onClick={() => {
+            if (mode === "accumulated") rendererRef.current?.getCamera().animatedReset({ duration: 300 });
+            else activeRendererRef.current?.fit(undefined, 48);
+          }}><Focus data-icon="inline-start" /> Fit graph</Button>
           <Button type="button" size="sm" variant="outline" aria-label={expanded ? "Exit graph full screen" : "Open graph full screen"} onClick={() => setExpanded((value) => !value)}>{expanded ? <Minimize2 /> : <Maximize2 />}{expanded ? "Exit full screen" : "Full screen"}</Button>
         </div>
       </header>
@@ -300,9 +439,10 @@ export function SemanticGraphVisualizer({
         </div>
       </div>
       <div className="semantic-graph-stage">
-        <div ref={containerRef} className="semantic-graph-canvas" data-layout={layoutState} role="img" aria-label="Semantic graph visualization" />
-        {layoutState === "calculating" ? <div className="semantic-graph-empty">Laying out {graph.total_nodes} nodes and {graph.total_edges} edges…</div> : null}
-        {layoutState === "failed" ? <div className="semantic-graph-empty" role="alert">The graph layout failed. The persisted graph remains unchanged.</div> : null}
+        <div ref={containerRef} className="semantic-graph-canvas" data-renderer="sigma" data-visible={mode === "accumulated"} data-layout={layoutState} role="img" aria-label="Semantic graph visualization" />
+        <div ref={activeContainerRef} className="semantic-graph-canvas" data-renderer="cytoscape" data-visible={mode === "active"} role="img" aria-label="API operation neighborhood visualization" />
+        {mode === "accumulated" && layoutState === "calculating" ? <div className="semantic-graph-empty">Laying out {graph.total_nodes} nodes and {graph.total_edges} edges…</div> : null}
+        {mode === "accumulated" && layoutState === "failed" ? <div className="semantic-graph-empty" role="alert">The graph layout failed. The persisted graph remains unchanged.</div> : null}
         {mode === "active" && endpointId === "" ? <div className="semantic-graph-empty">Choose an operation to inspect its exact neighborhood.</div> : null}
         <aside className="semantic-node-inspector" aria-live="polite">
           <p>Selected graph item</p>

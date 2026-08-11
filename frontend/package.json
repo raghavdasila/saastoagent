@@ -17,6 +17,7 @@
     "@xyflow/react": "12.11.2",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
+    "cytoscape": "3.33.1",
     "graphology": "0.26.0",
     "graphology-components": "1.5.4",
     "graphology-layout-forceatlas2": "0.10.1",

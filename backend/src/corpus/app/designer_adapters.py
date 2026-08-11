@@ -50,6 +50,7 @@ class CorpusDesignerInputGateway(DesignerInputGateway):
             sources.append(DesignerSourceInput(
                 source_id=attachment.source_id,
                 source_revision_id=attachment.source_revision_id,
+                display_name=attachment.display_name,
                 curation_id=view.current.id,
                 inventory_fingerprint=view.inventory_fingerprint,
                 included_operation_ids=view.current.included_operation_ids,

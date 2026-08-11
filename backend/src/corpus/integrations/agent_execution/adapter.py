@@ -163,6 +163,47 @@ class NeutralAgentExecutionAdapter:
             return None
         return self.load_run(tenant_id, matches[0].run_id)
 
+    def session_messages(
+        self, tenant_id: str, session_id: str, build_hash: str
+    ) -> tuple[dict[str, str], ...]:
+        """Project the exact durable conversation for one runtime session.
+
+        Conversation truth remains in the neutral execution store. Corpus does
+        not create a parallel delivery transcript or infer messages from
+        Operations summaries.
+        """
+        runs = sorted(
+            (
+                run
+                for run in self.store.list_runs(tenant_id)
+                if run.session_id == session_id and run.build_hash == build_hash
+            ),
+            key=lambda run: (run.created_at, run.run_id),
+        )
+        messages: list[dict[str, str]] = []
+        for run in runs:
+            events = self.store.events(tenant_id, run.run_id)
+            for index, event in enumerate(events):
+                data = dict(event.safe_data)
+                if event.kind == "user.message":
+                    content = data.get("message")
+                    if not isinstance(content, str) or not content.strip():
+                        raise RuntimeError("runtime_conversation_user_message_invalid")
+                    messages.append({"role": "user", "content": content})
+                elif event.kind == "run.waiting":
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "content": _clarification_question(events[: index + 1]),
+                        }
+                    )
+                elif event.kind == "run.completed":
+                    content = data.get("response", run.final_response)
+                    if not isinstance(content, str) or not content.strip():
+                        raise RuntimeError("runtime_conversation_response_invalid")
+                    messages.append({"role": "assistant", "content": content})
+        return tuple(messages)
+
 
 def _validate_build(build: AgentBuild) -> None:
     if not build.allowed_operations:

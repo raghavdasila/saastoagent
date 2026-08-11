@@ -5,9 +5,14 @@ from .declarations import (
     APPROVE_CONTRACT_REVISION,
     CONTRACT_REVISION_CURRENT_GUARD,
     CONTRACT_REVISION_PROPOSAL_PROVIDER,
+    SELECTED_API_SOURCE_PROVIDER,
     INSPECT_CURRENT_API,
     OPEN_API_CREATION,
     OPEN_API_SOURCE,
+    OPEN_API_DESCRIPTION,
+    SAVE_API_DESCRIPTION,
+    DELETE_API_SOURCE,
+    SOURCE_DELETE_CURRENT_GUARD,
     PREPARE_ROUTED_API_TEST,
     PROCESS_API,
     PROPOSE_CONTRACT_REVISION,
@@ -38,16 +43,20 @@ from .operations import (
     SourcesNavigationHandler,
     OpenApiCreationHandler,
     OpenApiSourceHandler,
+    OpenApiDescriptionHandler,
+    SaveApiDescriptionHandler,
+    DeleteApiSourceHandler,
     OpenApiRoutePlanHandler,
     ProcessApiHandler,
     RoutedApiExecutionHandler,
 )
-from .providers import ContractRevisionProposalProvider
+from .providers import ContractRevisionProposalProvider, SelectedApiSourceProvider
 from .guards import (
     ApiConnectionCheckCurrentGuard,
     ApiOperationCurationCurrentGuard,
     ContractRevisionCurrentGuard,
     RoutedApiExecutionCurrentGuard,
+    SourceDeleteCurrentGuard,
 )
 from .ports import SourceOwnerScopeGateway
 from .service import SourceService
@@ -64,6 +73,8 @@ def create_sources_bindings(
     operation_curation_service,
     routed_execution_service=None,
     staged_attachment_service=None,
+    staged_description_service=None,
+    lifecycle_service=None,
 ) -> FeatureBindings:
     return FeatureBindings(
         handlers={
@@ -73,6 +84,13 @@ def create_sources_bindings(
             RETURN_TO_HOME.ref: SourcesNavigationHandler(RETURN_TO_HOME.id),
             OPEN_API_CREATION.ref: OpenApiCreationHandler(),
             OPEN_API_SOURCE.ref: OpenApiSourceHandler(service, owner_scope),
+            OPEN_API_DESCRIPTION.ref: OpenApiDescriptionHandler(service, owner_scope),
+            SAVE_API_DESCRIPTION.ref: SaveApiDescriptionHandler(
+                staged_description_service, owner_scope
+            ),
+            DELETE_API_SOURCE.ref: DeleteApiSourceHandler(
+                lifecycle_service, owner_scope
+            ),
             RETURN_TO_SOURCE_HUB.ref: SourcesNavigationHandler(
                 RETURN_TO_SOURCE_HUB.id
             ),
@@ -123,6 +141,7 @@ def create_sources_bindings(
         },
         providers={
             CONTRACT_REVISION_PROPOSAL_PROVIDER.ref: ContractRevisionProposalProvider(),
+            SELECTED_API_SOURCE_PROVIDER.ref: SelectedApiSourceProvider(),
         },
         guards={
             CONTRACT_REVISION_CURRENT_GUARD.ref: ContractRevisionCurrentGuard(
@@ -142,6 +161,9 @@ def create_sources_bindings(
             ),
             ROUTED_API_WRITE_CURRENT_GUARD.ref: RoutedApiExecutionCurrentGuard(
                 routed_execution_service, owner_scope, "write"
+            ),
+            SOURCE_DELETE_CURRENT_GUARD.ref: SourceDeleteCurrentGuard(
+                lifecycle_service, owner_scope
             ),
         },
     )

@@ -34,7 +34,12 @@ LIFECYCLE_STATE_TRUTH = policy(
 )
 ATTACHMENT_ELIGIBILITY = policy(
     "agents.capability.attachment_eligibility",
-    "Attach only eligible sources from the same Workspace and prevent duplicate attachment.",
+    (
+        "Attach only eligible sources from the same Workspace and keep one attachment per Source. "
+        "Repeating the same current revision is idempotent; when the owner's ongoing setup reaches "
+        "a newer reviewed ready API version, advance only that Source's pinned revision without "
+        "rewriting immutable build lineage."
+    ),
 )
 SOURCE_HANDOFF_CONTEXT = policy(
     "agents.capability.source_handoff_context",
@@ -46,7 +51,11 @@ SETUP_CONTINUATION = policy(
         "When an owner asks to set up an Agent from the API definition already added in this "
         "conversation, preserve that task across Source and Agent areas. Ask only for missing "
         "agent choice, goal, responsibilities, or operation-selection intent; create an Agent "
-        "only after the owner chooses creation, and attach only the exact ready authorized Source."
+        "only after the owner chooses creation. When the owner supplies a clear role phrase and "
+        "responsibilities but omits a separate display name during this continuation, derive a "
+        "concise display name from that exact role phrase and map only the stated responsibilities "
+        "into the Agent configuration; do not ask another question solely for a name and do not "
+        "invent capabilities. Attach only the exact ready authorized Source."
     ),
 )
 SETUP_ATTACH_READY = policy(
@@ -54,7 +63,9 @@ SETUP_ATTACH_READY = policy(
     (
         "For an ongoing file-first setup request, attach only the exact ready Source the owner "
         "authorized after the Agent choice and required Agent details are established. Never "
-        "invent operation selection or treat queued analysis as ready."
+        "invent operation selection or treat queued analysis as ready. If that Source is already "
+        "attached to an earlier API version, advance its single attachment to the exact current "
+        "reviewed ready version; do not create a duplicate attachment or rewrite prior build history."
     ),
 )
 OPEN_CREATE_SETUP = policy(
@@ -64,17 +75,37 @@ OPEN_CREATE_SETUP = policy(
         "setup request as permission to bypass missing goal or responsibility input."
     ),
 )
+CHOOSE_EXISTING_SOURCE_CONTEXT = policy(
+    "agents.operation.choose_existing_source_context",
+    (
+        "Open the Agent inventory with the exact ready Source and analyzed API "
+        "version retained as the pending attachment choice. Navigation attaches "
+        "nothing and must not substitute another same-named Source."
+    ),
+)
 SOURCE_PICKER_ELIGIBILITY = policy(
     "agents.surface.source_picker_eligibility",
     "Show only eligible sources from the same Workspace, including readiness and whether each source is already attached.",
 )
 ATTACH_EXACT_SOURCE = policy(
     "agents.operation.attach_exact_source",
-    "Attach only the exact source selected by the owner and prevent duplicate attachment of the same source.",
+    (
+        "Attach only the exact source selected by the owner and keep one attachment for it. "
+        "Repeating its current API version is idempotent; if the ongoing setup reaches a newer "
+        "reviewed ready API version, advance that single pin without rewriting prior build lineage."
+    ),
 )
 ATTACH_PERSISTED_SUCCESS = policy(
     "agents.operation.attach_persisted_success",
     "Claim success only after the association is persisted and the originating agent shows the attached source.",
+)
+DETACH_EXACT_SOURCE = policy(
+    "agents.operation.detach_exact_source",
+    "Remove only the exact current Agent-to-Source attachment selected by the owner. Preserve the Source, immutable accepted designs, historical builds, deployed runtimes, and Operations evidence.",
+)
+DETACH_PERSISTED_SUCCESS = policy(
+    "agents.operation.detach_persisted_success",
+    "Claim success only after the current attachment is absent from the authoritative Agent view; missing, stale, or unauthorized attachment leaves all state unchanged.",
 )
 SOURCE_CREATION_NAVIGATION = policy(
     "agents.operation.source_creation_navigation",
@@ -122,9 +153,12 @@ AGENTS_AGENT_POLICIES = (
     SETUP_CONTINUATION,
     SETUP_ATTACH_READY,
     OPEN_CREATE_SETUP,
+    CHOOSE_EXISTING_SOURCE_CONTEXT,
     SOURCE_PICKER_ELIGIBILITY,
     ATTACH_EXACT_SOURCE,
     ATTACH_PERSISTED_SUCCESS,
+    DETACH_EXACT_SOURCE,
+    DETACH_PERSISTED_SUCCESS,
     SOURCE_CREATION_NAVIGATION,
     ATTACH_CREATED_ELIGIBILITY,
     OPEN_SOURCE_CONTEXT,
@@ -149,9 +183,12 @@ __all__ = [
     "SETUP_CONTINUATION",
     "SETUP_ATTACH_READY",
     "OPEN_CREATE_SETUP",
+    "CHOOSE_EXISTING_SOURCE_CONTEXT",
     "SOURCE_PICKER_ELIGIBILITY",
     "ATTACH_EXACT_SOURCE",
     "ATTACH_PERSISTED_SUCCESS",
+    "DETACH_EXACT_SOURCE",
+    "DETACH_PERSISTED_SUCCESS",
     "SOURCE_CREATION_NAVIGATION",
     "ATTACH_CREATED_ELIGIBILITY",
     "OPEN_SOURCE_CONTEXT",

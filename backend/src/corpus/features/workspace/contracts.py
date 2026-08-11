@@ -15,12 +15,14 @@ WORKSPACE_OVERVIEW_PROVIDER = ContextProvider(
             "type": "object",
             "properties": {
                 "agent_count": {"type": "integer", "minimum": 0},
+                "source_count": {"type": "integer", "minimum": 0},
                 "agents": {"$ref": "#/$defs/section"},
                 "sources": {"$ref": "#/$defs/section"},
                 "recent_activity": {"$ref": "#/$defs/section"},
             },
             "required": [
                 "agent_count",
+                "source_count",
                 "agents",
                 "sources",
                 "recent_activity",

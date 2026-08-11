@@ -7,6 +7,7 @@ export interface WorkspaceSectionView {
 
 export interface WorkspaceOverviewView {
   readonly agent_count: number;
+  readonly source_count: number;
   readonly agents: WorkspaceSectionView;
   readonly sources: WorkspaceSectionView;
   readonly recent_activity: WorkspaceSectionView;

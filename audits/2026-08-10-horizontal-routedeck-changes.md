@@ -66,6 +66,60 @@ from that checkout before the accepted hybrid run.
      user/assistant content as live message events. Assistant-initiated entry
      replay retains its explicit assistant content result.
 
+7. **Durable chat summary after review staging**
+   - Files: `routedeck_core/ports/agent_driver.py`,
+     `routedeck_core/supervision/{runner,review_staging,turns}.py`,
+     `routedeck_core/conversation_runs.py`,
+     `routedeck_langgraph/{agent_driver,middleware,tool_wrapper}.py`,
+     `routedeck_fastapi/{conversation_stream,conversation_replay}.py`,
+     `routedeck_fastapi/routes/conversation.py`, tests and framework docs.
+   - Purpose: a review-requiring chat tool no longer terminates at the tool
+     observation. RouteDeck keeps only that parent chat lease active, makes the
+     post-stage model request text-only, rejects every same-turn tool call,
+     streams and durably appends the model-authored public review summary, then
+     records the parent mutation as `requires_review` and releases the lease.
+     A later explicit user turn still owns accept/reject authority. Exact replay
+     returns the saved assistant summary plus review metadata without invoking
+     the model again.
+
+8. **Cross-process stable NavGraph session identity**
+   - RouteDeck files: `routedeck_core/app/compiled.py` and
+     `tests/app/test_compiled_contract.py`.
+   - Corpus evidence path: deployed public session
+     `ses_9ae6292875e941b0b23d637ea9a95b2c` for immutable build NavGraph
+     `dce97293bd28829c17fc04d088282f0c91f459109a21f65121cdab57c459c76f`.
+   - Proven framework gap: `CompiledApplication.contract_documents()` passed
+     Pydantic's process-order serialization of `frozenset[OperationSource]`
+     directly into `compiled-navgraph.json`. RouteDeck session identity hashes
+     that exact document. Fresh processes with `PYTHONHASHSEED=1`, `2`, and `3`
+     produced three different hashes for one unchanged Medusa NavGraph; four
+     fresh Corpus-container probes for one immutable Agent NavGraph alternated
+     between `3ba08c...cb88` and `bd6b12...61fa`. An ordinary backend restart
+     therefore made an unchanged deployed public session fail with
+     `session_upgrade_required`.
+   - Smallest change: recursively canonicalize only the unordered
+     `allowed_sources` arrays in `compiled-navgraph.json`. Ordered semantic
+     arrays, frontend contracts, executable paths, operations, transitions,
+     policies, and surface declarations keep their declared order.
+   - Purpose: the same immutable compiled NavGraph now has one RouteDeck
+     `navgraph_version` across processes, so SQL session reload survives an
+     ordinary backend restart without weakening schema or contract checks.
+   - Compatibility: sessions written with a historical nondeterministic hash
+     remain fail-closed as `session_upgrade_required`; no compatibility alias,
+     hash suppression, fallback session, or state rewrite was added. New
+     sessions use the stable canonical identity.
+   - Validation: the new cross-seed regression failed with three distinct
+     hashes before the change. After the change,
+     `tests/app/test_compiled_contract.py`,
+     `tests/state/test_runtime_builder.py`, and
+     `tests/sqlite/test_persistent_runtime_smoke.py` pass 17/17.
+   - Reason: retained Corpus chat run
+     `20260810T160143Z-d352099c85` proved the review and user/tool history were
+     durable and the session idle, but no post-tool model invocation or
+     assistant terminal existed. RouteDeck's trusted prompt already required a
+     summary and wait; Corpus could not repair the framework-owned model loop,
+     lease, mutation, and replay transaction without duplicating RouteDeck.
+
 ## Explicitly rejected/removed approach
 
 A generic mechanical “post-completion backtrack” guard was tested and removed.
@@ -75,7 +129,8 @@ return/navigation outcome. It is not part of the current RouteDeck behavior.
 ## Validation boundary
 
 - Full RouteDeck Python suite after the observation/replay correction:
-  602 passed with one dependency deprecation warning.
+  604 passed with one dependency deprecation warning after the review-summary
+  correction.
 - RouteDeck React: 24 passed; generated contracts and context architecture
   checks passed.
 - The live Medusa cart and delivery tests now invoke user operations through
@@ -86,3 +141,8 @@ return/navigation outcome. It is not part of the current RouteDeck behavior.
   frontend typecheck passed.
 - The prior hybrid run remains historical evidence only. Replacement browser
   evidence is required after the broader Source-to-Agent behavior correction.
+- The retained chat run `20260810T160143Z-d352099c85` remains failed historical
+  evidence. Focused real SQLite chat now proves the second model call, durable
+  assistant-plus-review terminal, text-only same-turn context, exact replay,
+  and released lease; replacement Corpus chat-only and hybrid browser evidence
+  is still required.

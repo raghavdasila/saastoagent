@@ -8,6 +8,7 @@ import type { DesignFeature, WorkbenchState } from "@/workbench/types"
 
 const lifecycleIds = new Set([
   "agents-attach-source",
+  "agents-detach-source",
   "agents-create-source",
   "agents-setup-from-api-file",
   "agents-open-source",
@@ -48,6 +49,7 @@ describe("Agents lifecycle design gate", () => {
     const feature = agents(persistedDesignState as WorkbenchState)
     expect(lifecycle(feature).map((story) => story.title)).toEqual([
       "Attach an existing source",
+      "Detach a source from an agent",
       "Create and attach a source",
       "Set up an agent from an attached API definition",
       "Open an attached source",
@@ -90,16 +92,21 @@ describe("Agents lifecycle design gate", () => {
   it("does not model selected agent or source identifiers as literal SuggestedAction arguments", () => {
     const feature = agents(persistedDesignState as WorkbenchState)
     const attachExisting = feature.stories.find((story) => story.id === "agents-attach-source")
+    const detachExisting = feature.stories.find((story) => story.id === "agents-detach-source")
     const createSource = feature.stories.find((story) => story.id === "agents-create-source")
 
     expect(attachExisting?.suggestedActions).toEqual([])
+    expect(detachExisting?.suggestedActions).toEqual([])
     expect(createSource?.suggestedActions).toEqual([])
     expect(attachExisting?.operations.map((operation) => operation.name)).toContain("Attach source to agent")
+    expect(detachExisting?.operations.map((operation) => operation.name)).toEqual(["Detach source from agent"])
     expect(createSource?.operations.map((operation) => operation.name)).toEqual([
       "Open source creation",
       "Attach newly created source",
     ])
     expect(attachExisting?.surfaces.map((surface) => surface.name)).toContain("Agent source picker")
+    expect(detachExisting?.surfaces.map((surface) => surface.name)).toContain("Agent source picker")
+    expect(detachExisting?.expectedBehavior).toContain("historical accepted designs and builds retain their exact Source revisions")
   })
 
   it("keeps attached-file setup model-driven across existing product operations", () => {
@@ -110,6 +117,7 @@ describe("Agents lifecycle design gate", () => {
     expect(setup?.capabilities.map((capability) => capability.name)).toEqual(["Source attachments"])
     expect(setup?.surfaces.map((surface) => surface.name)).toEqual(["Agent source picker"])
     expect(setup?.operations.map((operation) => operation.name)).toEqual([
+      "Choose existing agent for source",
       "Open agent creation",
       "Attach source to agent",
     ])

@@ -11,6 +11,34 @@ export interface StagedApiAttachment {
   readonly source_revision_id: string | null;
 }
 
+export interface StagedApiDescription {
+  readonly attachment_id: string;
+  readonly filename: string;
+  readonly content_sha256: string;
+  readonly staged_at: string;
+  readonly state: "staged" | "saved";
+  readonly source_id: string | null;
+  readonly description_id: string | null;
+}
+
+export interface SourceDescriptionView {
+  readonly description_id: string;
+  readonly source_id: string;
+  readonly filename: string;
+  readonly content_sha256: string;
+  readonly content: string;
+  readonly created_at: string;
+}
+
+export interface SourceDependencyView {
+  readonly source_id: string;
+  readonly processing_state: SourceState;
+  readonly attached_agent_ids: readonly string[];
+  readonly build_ids: readonly string[];
+  readonly design_revision_ids: readonly string[];
+  readonly blocks_delete: boolean;
+}
+
 export interface SourceRevision {
   readonly revision_id: string;
   readonly source_id: string;

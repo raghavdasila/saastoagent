@@ -1,28 +1,11 @@
 import { RouteDeckStatus, useRouteDeckCurrentNode } from "@routedeck/react";
 
-const HEADING_BY_LOCATION = Object.freeze({
-  lounge: {
-    title: "Corpus Lounge",
-    description: "Ask about Corpus or choose an account path when you are ready.",
-  },
-  sources: {
-    title: "Corpus Sources",
-    description: "Connect, inspect, and prepare the sources available to your Workspace.",
-  },
-  workspace: {
-    title: "Corpus Workspace",
-    description: "Ask Corpus what to explore, design, connect, or operate.",
-  },
-});
+import { presentCorpusStatus } from "./corpusStatus";
+import { corpusLocation } from "./corpusLocation";
 
 export function CorpusMainHeading() {
   const currentNode = useRouteDeckCurrentNode();
-  const location = currentNode?.startsWith("lounge.")
-    ? "lounge"
-    : currentNode?.startsWith("sources.")
-      ? "sources"
-      : "workspace";
-  const heading = HEADING_BY_LOCATION[location];
+  const heading = corpusLocation(currentNode);
 
   return (
     <>
@@ -31,12 +14,22 @@ export function CorpusMainHeading() {
         <p>{heading.description}</p>
       </div>
       <RouteDeckStatus>
-        {({ code }) => (
-          <span className="workspace-ready" data-status={code}>
-            <i aria-hidden="true" />
-            {code === "ready" ? "Ready" : "Working…"}
-          </span>
-        )}
+        {(status) => {
+          const presented = presentCorpusStatus(status);
+          return (
+            <span
+              className="workspace-ready"
+              data-status={status.code}
+              data-status-tone={presented.tone}
+            >
+              <i aria-hidden="true" />
+              <span>{presented.label}</span>
+              {presented.detail === null ? null : (
+                <small>{presented.detail}</small>
+              )}
+            </span>
+          );
+        }}
       </RouteDeckStatus>
     </>
   );

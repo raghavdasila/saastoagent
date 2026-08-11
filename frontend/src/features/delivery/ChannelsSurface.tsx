@@ -4,7 +4,7 @@ import type { RouteDeckSurfaceComponentProps } from "@routedeck/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { AgentStore } from "../agents/store";
-import { completedOutcome } from "../agents/operationResult";
+import { completedOutcome, stagedReview } from "../agents/operationResult";
 import type { AgentRuntimeClient } from "../builder/client";
 import type { AgentBuildView, ChannelView, DeploymentView } from "../builder/models";
 import type { ChannelDraftStore } from "./channelDraftStore";
@@ -72,20 +72,28 @@ export function ChannelsSurface({ dispatchAffordance, props, agentStore, runtime
 
   async function deploy() {
     if (selectedRef === null || channelId === "" || buildId === "") return;
-    await act("deploy", { agent_ref: selectedRef, channel_id: channelId, build_id: buildId }, "deployed");
+    await prepareReview(
+      "deploy",
+      { agent_ref: selectedRef, channel_id: channelId, build_id: buildId },
+      "deployment.deploy",
+    );
   }
 
   async function rollback(deployment: DeploymentView) {
     if (selectedRef === null) return;
-    await act("rollback", { agent_ref: selectedRef, channel_id: deployment.channel_id, deployment_id: deployment.id }, "rolled_back");
+    await prepareReview(
+      "rollback",
+      { agent_ref: selectedRef, channel_id: deployment.channel_id, deployment_id: deployment.id },
+      "deployment.rollback",
+    );
   }
 
   async function setEnabled(channel: ChannelView) {
     if (selectedRef === null) return;
-    await act(
+    await prepareReview(
       "set_enabled",
       { agent_ref: selectedRef, channel_id: channel.id, enabled: !channel.enabled },
-      "availability_set",
+      "channels.set_enabled",
     );
   }
 
@@ -94,6 +102,30 @@ export function ChannelsSurface({ dispatchAffordance, props, agentStore, runtime
     setBusy(true); setError(null);
     try {
       const failure = completedOutcome(await dispatchAffordance("return_to_agent", { agent_ref: selectedRef }), "opened");
+      if (failure !== null) setError(failure);
+    } catch (caught) { setError(message(caught)); } finally { setBusy(false); }
+  }
+
+  async function continueToEvaluation() {
+    if (selectedRef === null) return;
+    setBusy(true); setError(null);
+    try {
+      const failure = completedOutcome(
+        await dispatchAffordance("continue_to_evaluation", { agent_ref: selectedRef }),
+        "opened",
+      );
+      if (failure !== null) setError(failure);
+    } catch (caught) { setError(message(caught)); } finally { setBusy(false); }
+  }
+
+  async function continueToOperations() {
+    if (selectedRef === null) return;
+    setBusy(true); setError(null);
+    try {
+      const failure = completedOutcome(
+        await dispatchAffordance("continue_to_operations", { agent_ref: selectedRef }),
+        "opened",
+      );
       if (failure !== null) setError(failure);
     } catch (caught) { setError(message(caught)); } finally { setBusy(false); }
   }
@@ -115,14 +147,44 @@ export function ChannelsSurface({ dispatchAffordance, props, agentStore, runtime
     } finally { setBusy(false); }
   }
 
+  async function prepareReview(
+    affordance: string,
+    values: Parameters<typeof dispatchAffordance>[1],
+    operationId: string,
+  ): Promise<void> {
+    setBusy(true); setError(null);
+    try {
+      const failure = stagedReview(await dispatchAffordance(affordance, values), operationId);
+      if (failure !== null) setError(failure);
+    } catch (caught) {
+      setError(message(caught));
+    } finally { setBusy(false); }
+  }
+
   const eligible = builds.filter((item) => item.status === "ready" && eligibleBuildIds.has(item.id));
+  const activeDeploymentCount = channels.filter((channel) => channel.active_deployment_id !== null).length;
   return <section className="channels-home" aria-labelledby="channels-title">
     <header><p>Selected Agent</p><h1 id="channels-title">Channels and Deployment</h1><span>{selected?.name ?? "Loading exact Agent…"}</span><Button type="button" variant="outline" disabled={busy || selectedRef === null} onClick={() => void returnToAgent()}>Back to Agent</Button></header>
     {error === null ? null : <p role="alert">{error}</p>}
+    <section className="channels-home__readiness" aria-labelledby="delivery-readiness-title">
+      <div>
+        <p className="channels-home__eyebrow">Publishing readiness</p>
+        <h2 id="delivery-readiness-title">What is ready for customers</h2>
+      </div>
+      <dl>
+        <div><dt>Hosted channels</dt><dd>{channels.length}</dd></div>
+        <div><dt>Eligible builds</dt><dd>{eligible.length}</dd></div>
+        <div><dt>Active deployments</dt><dd>{activeDeploymentCount}</dd></div>
+      </dl>
+      {eligible.length === 0 ? <div className="channels-home__blocked">
+        <div><strong>No evaluated build is eligible to publish.</strong><span>Continue with this exact Agent in Evaluation. Corpus will not select or substitute another build.</span></div>
+        <Button type="button" variant="outline" disabled={busy || selectedRef === null} onClick={() => void continueToEvaluation()}>Continue in Evaluation</Button>
+      </div> : <p className="channels-home__ready">An evaluated build is ready to review for deployment.</p>}
+    </section>
     <fieldset disabled={busy || selectedRef === null}><legend>Create hosted Web channel</legend><label>Name<Input value={name} onInput={(event) => { if (selected !== null) draftStore.update(selected.id, { name: event.currentTarget.value }); }} /></label><label>Address<Input value={slug} onInput={(event) => { if (selected !== null) draftStore.update(selected.id, { slug: event.currentTarget.value.toLowerCase() }); }} /></label><Button type="button" disabled={name.trim() === "" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug.trim())} onClick={() => void createChannel()}>Create channel</Button></fieldset>
     <section aria-labelledby="deploy-title"><h2 id="deploy-title">Deploy eligible build</h2>
-      <label>Channel<select value={channelId} onChange={(event) => setChannelId(event.target.value)}>{channels.filter((item) => item.status === "ready").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-      <label>Eligible build<select value={buildId} onChange={(event) => setBuildId(event.target.value)}>{eligible.map((item) => <option key={item.id} value={item.id}>Agent version {item.agent_version} · {item.id}</option>)}</select></label>
+      <label>Channel<select value={channelId} onChange={(event) => setChannelId(event.target.value)}>{channels.length === 0 ? <option value="">Create a channel first</option> : channels.filter((item) => item.status === "ready").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+      <label>Eligible build<select value={buildId} onChange={(event) => setBuildId(event.target.value)}>{eligible.length === 0 ? <option value="">Finish Evaluation first</option> : eligible.map((item) => <option key={item.id} value={item.id}>Agent version {item.agent_version} · {item.id}</option>)}</select></label>
       <Button type="button" disabled={busy || selectedRef === null || channelId === "" || buildId === ""} onClick={() => void deploy()}>Review deployment</Button>
     </section>
     <ul>{channels.map((channel) => <li key={channel.id} data-status={channel.status}><strong>{channel.name}</strong><span>/{channel.slug}</span><span>{channel.active_deployment_id === null ? "Not deployed" : channel.enabled ? "Hosted Agent enabled" : "Hosted Agent disabled"}</span>{channel.active_deployment_id === null || !channel.enabled ? null : <a href={`/public/agents/${channel.slug}`} target="_blank" rel="noreferrer">Open hosted Agent</a>}{channel.status === "ready" ? <Button type="button" disabled={busy} onClick={() => void setEnabled(channel)}>{channel.enabled ? "Review disable" : "Review enable"}</Button> : null}</li>)}</ul>
@@ -132,6 +194,7 @@ export function ChannelsSurface({ dispatchAffordance, props, agentStore, runtime
       const build = builds.find((item) => item.id === deployment.build_id) ?? null;
       return <li key={deployment.id} data-status={deployment.status}><strong>{deployment.status}</strong><span>Build {deployment.build_id}</span><span>{deployment.bundle_hash}</span>{active && build !== null ? <details open><summary>Active deployed RouteDeck NavGraph</summary><BuildNavGraph build={build} /></details> : null}{deployment.status === "ready" && !active ? <Button type="button" disabled={busy} onClick={() => void rollback(deployment)}>Review rollback</Button> : null}</li>;
     })}</ul>
+    {channels.some((channel) => channel.active_deployment_id !== null) ? <Button type="button" disabled={busy} onClick={() => void continueToOperations()}>View Operations</Button> : null}
   </section>;
 }
 

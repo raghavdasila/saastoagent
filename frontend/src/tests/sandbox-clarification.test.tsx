@@ -108,9 +108,9 @@ it("continues one waiting Sandbox run through operation choice and exact input",
       blocks_delete: false,
     })),
   } as unknown as AgentClient);
-  const dispatch = vi.fn(async () => ({
+  const dispatch = vi.fn(async (affordance: string) => ({
     disposition: "completed",
-    outcome: "resumed",
+    outcome: affordance === "continue_to_evaluation" ? "opened" : "resumed",
     failure: null,
   }));
   const props = {
@@ -164,4 +164,8 @@ it("continues one waiting Sandbox run through operation choice and exact input",
     selected_operation_id: "GetProductTypesId",
     answers: { id: "pt_exact" },
   });
+  fireEvent.click(await screen.findByRole("button", { name: "Continue to Evaluation" }));
+  await waitFor(() => expect(dispatch).toHaveBeenNthCalledWith(3, "continue_to_evaluation", {
+    agent_ref: agentRef,
+  }));
 });

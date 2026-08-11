@@ -9,6 +9,7 @@ import {
 } from "@routedeck/react";
 
 import { Button } from "@/components/ui/button";
+import { presentCorpusStatus } from "./corpusStatus";
 import {
   Sheet,
   SheetContent,
@@ -87,11 +88,15 @@ export function NavgraphSidebar() {
   const renderNavgraphContent = () => (
     <>
       <RouteDeckStatus>
-        {({ code }) => (
-          <p data-navgraph-status="">
-            <span>{code === "ready" ? "Ready" : "Working…"}</span>
-          </p>
-        )}
+        {(status) => {
+          const presented = presentCorpusStatus(status);
+          return (
+            <p data-navgraph-status="" data-status-tone={presented.tone}>
+              <span>{presented.detail ?? presented.label}</span>
+              <small>{presented.label}</small>
+            </p>
+          );
+        }}
       </RouteDeckStatus>
       {projection?.failure === null && clientError === null && !recoveryFailed ? (
         <RouteDeckInspector className="corpus-navgraph-inspector" />

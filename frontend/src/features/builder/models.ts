@@ -4,7 +4,9 @@ export interface AgentBuildView {
   readonly build_request_id: string;
   readonly design_revision_id: string;
   readonly agent_version: number;
+  readonly attempt_number: number;
   readonly status: string;
+  readonly runtime_lifecycle: "stopped" | "running" | "removed";
   readonly runtime_build_hash: string | null;
   readonly model: string | null;
   readonly model_digest: string | null;
@@ -58,10 +60,15 @@ export interface SandboxRunCollectionView {
 export interface EvaluationCaseView {
   readonly id: string;
   readonly title: string;
+  readonly message: string;
+  readonly source_kind: string;
   readonly category: string;
   readonly difficulty: string;
   readonly mandatory: boolean;
   readonly expected_operation_ids: readonly string[];
+  readonly current_revision: number;
+  readonly removed: boolean;
+  readonly runnable: boolean;
   readonly latest_status: string | null;
 }
 
@@ -70,6 +77,11 @@ export interface EvaluationSetView {
   readonly agent_id: string;
   readonly build_id: string;
   readonly name: string;
+  readonly generation_job_id: string | null;
+  readonly generation_status: "manual" | "queued" | "running" | "ready" | "failed";
+  readonly generation_failure_code: string | null;
+  readonly generation_failure_message: string | null;
+  readonly generation_summary: Readonly<Record<string, unknown>> | null;
   readonly cases: readonly EvaluationCaseView[];
   readonly eligible: boolean | null;
   readonly eligibility_reasons: readonly string[];

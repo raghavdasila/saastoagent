@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from collections.abc import Mapping
+from pathlib import Path
 
 from sqlalchemy import select
 
@@ -15,6 +17,7 @@ from corpus.features.sources.models import SourceState
 from corpus.features.sources.repository import LocalSourceRepository, SourceNotFound, SourceNotReady
 from corpus.features.sources.connectors.api.connections import ApiConnectionError, ApiConnectionProfileRepository
 from corpus.features.sources.connectors.api.operation_curation import ApiOperationCurationError, ApiOperationCurationService
+from corpus.features.sources.connectors.api.toolrouter import load_api_contract_documents
 from corpus.integrations.api_execution._snapshot.contract_revision import openapi_document_hash
 from corpus.persistence import CorpusDatabase
 
@@ -100,14 +103,17 @@ class CorpusBuilderInputGateway:
             with self.sources.locked_revision(
                 owner_key=str(organization_id), source_id=source_id, revision_id=revision_id
             ) as (locked_source, revision_dir):
-                document_path = revision_dir / "i" / locked_source.revision.original_filename
-                document_bytes = document_path.read_bytes()
-                document = json.loads(document_bytes)
-                document_hash = openapi_document_hash(document)
-                if hashlib.sha256(document_bytes).hexdigest() != locked_source.revision.content_sha256:
-                    raise BuilderConflict("The accepted API contract bytes changed after design acceptance.")
+                input_path = revision_dir / "i" / locked_source.revision.original_filename
+                input_bytes = input_path.read_bytes()
+                if hashlib.sha256(input_bytes).hexdigest() != locked_source.revision.content_sha256:
+                    raise BuilderConflict("The accepted API definition changed after design acceptance.")
                 artifact_revision_id = locked_source.revision.artifact_revision_id or revision_id
                 artifact_dir = revision_dir.parent.parent / "r" / artifact_revision_id / "a"
+                document_path, document = _runtime_document(
+                    input_path=input_path,
+                    artifact_revision_id=locked_source.revision.artifact_revision_id,
+                )
+                document_hash = openapi_document_hash(document)
             return BuilderSourceBinding(
                 source_id, revision_id, curation_id, fingerprint, included, artifact_dir,
                 document_path, document_hash, profile.id, profile.base_url,
@@ -116,6 +122,52 @@ class CorpusBuilderInputGateway:
             )
         except (KeyError, TypeError, ValueError, OSError, json.JSONDecodeError, SourceNotFound, SourceNotReady, ApiConnectionError, ApiOperationCurationError) as error:
             raise BuilderUnavailable("The accepted runnable Source binding is unavailable.") from error
+
+
+def _runtime_document(
+    *,
+    input_path: Path,
+    artifact_revision_id: str | None,
+) -> tuple[Path, Mapping[str, object]]:
+    """Bind execution to the exact document that produced the accepted graph.
+
+    Initial API uploads may be YAML. They remain directly buildable when the
+    ToolRouter normalization required no semantic repair. If analysis repaired
+    the definition, the owner must first accept those API changes and the
+    Designer must pin that reviewed derived revision. Derived revisions already
+    persist their exact effective API document as JSON.
+    """
+    if artifact_revision_id is not None:
+        try:
+            value = json.loads(input_path.read_bytes())
+        except (OSError, json.JSONDecodeError) as error:
+            raise BuilderUnavailable(
+                "The exact reviewed API definition for this build is unavailable."
+            ) from error
+        if not isinstance(value, Mapping):
+            raise BuilderUnavailable(
+                "The exact reviewed API definition for this build is invalid."
+            )
+        return input_path, value
+
+    try:
+        bundle = load_api_contract_documents(input_path)
+    except (OSError, TypeError, ValueError) as error:
+        raise BuilderUnavailable(
+            "The analyzed API definition for this build is unavailable."
+        ) from error
+    if len(bundle.raw_specs) != 1 or len(bundle.repaired_specs) != 1:
+        raise BuilderUnavailable(
+            "The analyzed API definition for this build is invalid."
+        )
+    source_name = next(iter(bundle.raw_specs))
+    raw = bundle.raw_specs[source_name]
+    repaired = bundle.repaired_specs[source_name]
+    if openapi_document_hash(raw) != openapi_document_hash(repaired):
+        raise BuilderUnavailable(
+            "Review the analyzed API changes for this Source, then update and accept the Agent design before building."
+        )
+    return input_path, raw
 
 
 __all__ = ["CorpusBuilderInputGateway"]

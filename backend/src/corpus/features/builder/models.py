@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, JSON, String, UniqueConstraint, Uuid
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, JSON, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from corpus.persistence.models import Base
@@ -12,8 +12,15 @@ from corpus.persistence.models import Base
 class AgentRunnableBuild(Base):
     __tablename__ = "agent_runnable_builds"
     __table_args__ = (
-        UniqueConstraint("organization_id", "build_request_id", name="uq_runnable_build_request"),
+        UniqueConstraint(
+            "organization_id", "build_request_id", "attempt_number",
+            name="uq_runnable_build_request_attempt",
+        ),
         UniqueConstraint("runtime_build_hash", name="uq_runnable_build_hash"),
+        CheckConstraint(
+            "runtime_lifecycle IN ('stopped', 'running', 'removed')",
+            name="ck_runnable_build_runtime_lifecycle",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -22,7 +29,9 @@ class AgentRunnableBuild(Base):
     build_request_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("agent_build_requests.id", ondelete="RESTRICT"), nullable=False)
     design_revision_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("agent_design_revisions.id", ondelete="RESTRICT"), nullable=False)
     agent_version: Mapped[int]
+    attempt_number: Mapped[int]
     status: Mapped[str] = mapped_column(String(24), nullable=False)
+    runtime_lifecycle: Mapped[str] = mapped_column(String(16), nullable=False)
     runtime_build_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     model: Mapped[str | None] = mapped_column(String(255), nullable=True)
     model_digest: Mapped[str | None] = mapped_column(String(255), nullable=True)

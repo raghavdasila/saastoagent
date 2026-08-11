@@ -108,6 +108,7 @@ it("reveals API attachment from live owner state after anonymous bootstrap", asy
       onUploadApiSource={vi.fn(async () => ({
         attachmentId: "attachment-0001",
         displayName: "catalog",
+        kind: "api_definition" as const,
       }))}
     />,
   );
@@ -156,6 +157,7 @@ it("reveals API attachment in authenticated Workspace without inventing an Agent
       onUploadApiSource={vi.fn(async () => ({
         attachmentId: "attachment-0001",
         displayName: "catalog",
+        kind: "api_definition" as const,
       }))}
     />,
   );
@@ -204,6 +206,7 @@ it("keeps standalone chat upload available in Source Hub without reusing a retai
       onUploadApiSource={vi.fn(async () => ({
         attachmentId: "attachment-0001",
         displayName: "catalog",
+        kind: "api_definition" as const,
       }))}
     />,
   );

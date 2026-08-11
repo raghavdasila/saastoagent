@@ -5,6 +5,7 @@ import json
 
 from corpus.features.deployment.domain import EligibleBuild
 from corpus.features.deployment.ports import DeploymentConflict
+from corpus.features.evaluation.eligibility import current_eligibility
 
 
 class CorpusEligibilityGateway:
@@ -15,7 +16,21 @@ class CorpusEligibilityGateway:
         value = await self.repository.latest_eligibility(
             organization_id, agent_id, build_id
         )
-        if value is None or not value.eligible:
+        cases = []
+        runs = []
+        for evaluation_set in await self.repository.list_sets(
+            organization_id, agent_id
+        ):
+            if evaluation_set.build_id != build_id:
+                continue
+            cases.extend(
+                await self.repository.cases(organization_id, evaluation_set.id)
+            )
+            runs.extend(
+                await self.repository.runs(organization_id, evaluation_set.id)
+            )
+        truth = current_eligibility(cases, runs, value)
+        if value is None or truth.eligible is not True:
             raise DeploymentConflict(
                 "The exact selected build is not eligible for deployment."
             )

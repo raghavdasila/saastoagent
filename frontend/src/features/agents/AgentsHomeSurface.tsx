@@ -13,7 +13,7 @@ import type { SourceInventoryClient, SourceView } from "../sources/contracts";
 import { useRouteDeckSessionVersion } from "../../routedeck/RouteDeckSessionVersionContext";
 
 type AgentArea = "hub" | "designer" | "builds" | "sandbox" | "evaluation" | "channels";
-type BusyAction = "create" | "save" | "return" | "select" | "attach" | "source-create" | "source-open" | "archive" | "delete" | "area" | "build-source";
+type BusyAction = "create" | "save" | "return" | "select" | "attach" | "detach" | "source-create" | "source-open" | "archive" | "delete" | "area" | "build-source";
 
 export function AgentsHomeSurface({
   dispatchAffordance,
@@ -34,9 +34,19 @@ export function AgentsHomeSurface({
   const [busy, setBusy] = useState<BusyAction | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [sources, setSources] = useState<readonly SourceView[]>([]);
+  const [sourcesLoaded, setSourcesLoaded] = useState(false);
   const [sourceId, setSourceId] = useState("");
   const selectedAgentRef = typeof surfaceProps.selected_agent_ref === "string"
     ? surfaceProps.selected_agent_ref
+    : null;
+  const pendingSourceId = typeof surfaceProps.pending_source_id === "string"
+    ? surfaceProps.pending_source_id
+    : null;
+  const pendingSourceRevisionId = typeof surfaceProps.pending_source_revision_id === "string"
+    ? surfaceProps.pending_source_revision_id
+    : null;
+  const pendingSourceDisplayName = typeof surfaceProps.pending_source_display_name === "string"
+    ? surfaceProps.pending_source_display_name
     : null;
   const selectedArea: AgentArea = surfaceProps.selected_agent_area === "designer" ||
     surfaceProps.selected_agent_area === "builds" ||
@@ -62,14 +72,37 @@ export function AgentsHomeSurface({
   }, [selected?.id, selected?.current_version]);
 
   useEffect(() => {
+    if (selected === null && pendingSourceId === null) return;
+    setSourcesLoaded(false);
+    void sourceClient.list()
+      .then((next) => setSources(next))
+      .catch((error) => setActionError(errorMessage(error)))
+      .finally(() => setSourcesLoaded(true));
+  }, [pendingSourceId, selected?.id, sessionVersion, sourceClient]);
+
+  useEffect(() => {
     if (selected === null) return;
     void Promise.all([
       store.refreshAttachments(selected.id),
       store.refreshDependencies(selected.id),
       store.refreshBuilds(selected.id),
-      sourceClient.list().then(setSources),
     ]).catch((error) => setActionError(errorMessage(error)));
-  }, [selected?.id, sessionVersion, sourceClient, store]);
+  }, [selected?.id, sessionVersion, store]);
+
+  const pendingSource = useMemo(
+    () => pendingSourceId === null || pendingSourceRevisionId === null
+      ? null
+      : sources.find((source) =>
+          source.source_id === pendingSourceId &&
+          source.revision.revision_id === pendingSourceRevisionId &&
+          source.revision.state === "ready"
+        ) ?? null,
+    [pendingSourceId, pendingSourceRevisionId, sources],
+  );
+
+  useEffect(() => {
+    if (pendingSource !== null) setSourceId(pendingSource.source_id);
+  }, [pendingSource]);
 
   async function selectAgent(agentId: string) {
     setBusy("select");
@@ -146,17 +179,44 @@ export function AgentsHomeSurface({
 
   async function attachSource() {
     if (selected === null || selectedAgentRef === null || sourceId === "") return;
+    const source = sources.find((item) => item.source_id === sourceId);
+    if (source === undefined || source.revision.state !== "ready") return;
     setBusy("attach");
     setActionError(null);
     try {
       const result = await dispatchAffordance("attach_source", {
         agent_ref: selectedAgentRef,
         source_id: sourceId,
+        source_revision_id: source.revision.revision_id,
       });
       const failure = completedOutcome(result, "attached");
       if (failure !== null) setActionError(failure);
       else {
         setSourceId("");
+        await Promise.all([
+          store.refreshAttachments(selected.id),
+          store.refreshDependencies(selected.id),
+        ]);
+      }
+    } catch (error) {
+      setActionError(errorMessage(error));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function detachSource(attachedSourceId: string) {
+    if (selected === null || selectedAgentRef === null) return;
+    setBusy("detach");
+    setActionError(null);
+    try {
+      const result = await dispatchAffordance("detach_source", {
+        agent_ref: selectedAgentRef,
+        source_id: attachedSourceId,
+      });
+      const failure = completedOutcome(result, "detached");
+      if (failure !== null) setActionError(failure);
+      else {
         await Promise.all([
           store.refreshAttachments(selected.id),
           store.refreshDependencies(selected.id),
@@ -267,7 +327,15 @@ export function AgentsHomeSurface({
 
   const eligibleSources = sources.filter(
     (source) => source.revision.state === "ready" &&
-      !snapshot.attachments.some((attachment) => attachment.source_id === source.source_id),
+      !snapshot.attachments.some((attachment) =>
+        attachment.source_id === source.source_id &&
+        attachment.source_revision_id === source.revision.revision_id
+      ),
+  );
+  const pendingSourceUnavailable = sourcesLoaded && pendingSourceId !== null && pendingSource === null;
+  const pendingAlreadyAttached = pendingSource !== null && snapshot.attachments.some((attachment) =>
+    attachment.source_id === pendingSource.source_id &&
+    attachment.source_revision_id === pendingSource.revision.revision_id
   );
   const exactSelectionBound = selected !== null &&
     selectedAgentRef === `agent-${selected.id.replaceAll("-", "").slice(0, 20)}`;
@@ -304,6 +372,17 @@ export function AgentsHomeSurface({
       )}
       {actionError === null ? null : (
         <p className="agents-error" role="alert">{actionError}</p>
+      )}
+      {pendingSourceId === null || pendingSourceRevisionId === null ? null : (
+        <div className="agent-pending-source" role="status">
+          <div>
+            <p>Pending attachment</p>
+            <strong>{pendingSourceDisplayName ?? pendingSource?.display_name ?? "API Source"}</strong>
+          </div>
+          <span>API version <code>{pendingSourceRevisionId}</code></span>
+          {pendingSourceUnavailable ? <small>The exact ready API version is no longer available. Nothing will be substituted.</small> : null}
+          {pendingAlreadyAttached ? <small>This exact API version is already attached.</small> : null}
+        </div>
       )}
 
       <div className="agents-layout">
@@ -380,20 +459,35 @@ export function AgentsHomeSurface({
                     {snapshot.attachments.map((attachment) => (
                       <li key={attachment.source_id}>
                         <span><strong>{attachment.display_name}</strong><small>API version {attachment.source_revision_id}</small></span>
-                        <Button type="button" variant="outline" disabled={busy !== null || !exactSelectionBound} onClick={() => void openAttached(attachment.source_id)}>
-                          <ExternalLink data-icon="inline-start" /> Open Source
-                        </Button>
+                        <div className="agent-source-actions">
+                          <Button type="button" variant="outline" disabled={busy !== null || !exactSelectionBound} onClick={() => void openAttached(attachment.source_id)}>
+                            <ExternalLink data-icon="inline-start" /> Open Source
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            aria-label={`Detach ${attachment.display_name} API version ${attachment.source_revision_id}`}
+                            disabled={busy !== null || !exactSelectionBound}
+                            onClick={() => void detachSource(attachment.source_id)}
+                          >
+                            <Trash2 data-icon="inline-start" /> {busy === "detach" ? "Detaching…" : "Detach"}
+                          </Button>
+                        </div>
                       </li>
                     ))}
                   </ul>
                 )}
                 <div className="agent-source-picker">
-                  <label htmlFor="agent-source-select">Ready Workspace Source</label>
-                  <select id="agent-source-select" value={sourceId} disabled={busy !== null || !exactSelectionBound} onChange={(event) => setSourceId(event.target.value)}>
+                  <label htmlFor="agent-source-select">{pendingSourceId === null ? "Ready Workspace Source" : "Source selected from API setup"}</label>
+                  <select id="agent-source-select" value={sourceId} disabled={busy !== null || !exactSelectionBound || pendingSourceId !== null} onChange={(event) => setSourceId(event.target.value)}>
                     <option value="">Select a ready Source</option>
-                    {eligibleSources.map((source) => <option key={source.source_id} value={source.source_id}>{source.display_name}</option>)}
+                    {(pendingSourceId === null ? eligibleSources : pendingSource === null ? [] : [pendingSource]).map((source) => (
+                      <option key={`${source.source_id}:${source.revision.revision_id}`} value={source.source_id}>
+                        {sourceOptionLabel(source)}
+                      </option>
+                    ))}
                   </select>
-                  <Button type="button" disabled={busy !== null || !exactSelectionBound || sourceId === ""} onClick={() => void attachSource()}>
+                  <Button type="button" disabled={busy !== null || !exactSelectionBound || sourceId === "" || pendingSourceUnavailable || pendingAlreadyAttached} onClick={() => void attachSource()}>
                     <Link2 data-icon="inline-start" /> {busy === "attach" ? "Attaching…" : "Attach Source"}
                   </Button>
                 </div>
@@ -483,4 +577,10 @@ export function AgentsHomeSurface({
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "The agent action failed.";
+}
+
+function sourceOptionLabel(source: SourceView): string {
+  const filename = source.revision.original_filename;
+  const updated = new Date(source.updated_at).toLocaleString();
+  return `${source.display_name} · ${filename} · ${updated}`;
 }

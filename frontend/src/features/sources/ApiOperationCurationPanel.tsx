@@ -93,6 +93,16 @@ export function ApiOperationCurationPanel({
     setMessage(null);
   }
 
+  function decideMany(operationIds: readonly string[], decision: Decision) {
+    if (busy !== null || operationIds.length === 0) return;
+    setDecisions((current) => {
+      const next = new Map(current);
+      for (const operationId of operationIds) next.set(operationId, decision);
+      return next;
+    });
+    setMessage(null);
+  }
+
   async function save() {
     if (
       activity.current !== null
@@ -191,6 +201,38 @@ export function ApiOperationCurationPanel({
               placeholder="Operation ID, method, path, or class"
             />
           </label>
+          <div className="api-curation-bulk-actions" aria-label="Bulk operation decisions">
+            <span>{filtered.length} operations shown</span>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy !== null || filtered.length === 0}
+              onClick={() => decideMany(filtered.map((item) => item.operation_id), "included")}
+            >
+              Include shown
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy !== null || filtered.length === 0}
+              onClick={() => decideMany(filtered.map((item) => item.operation_id), "excluded")}
+            >
+              Exclude shown
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy !== null || unclassifiedCount === 0}
+              onClick={() => decideMany(
+                (view?.operations ?? [])
+                  .filter((item) => !decisions.has(item.operation_id))
+                  .map((item) => item.operation_id),
+                "excluded",
+              )}
+            >
+              Exclude unclassified
+            </Button>
+          </div>
           {view.operations.length === 0 ? (
             <p className="sources-empty">No discovered API operations are available to curate.</p>
           ) : (

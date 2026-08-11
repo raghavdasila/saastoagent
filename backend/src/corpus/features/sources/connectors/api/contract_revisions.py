@@ -187,10 +187,10 @@ class ApiContractRevisionService:
         )
         source = self.repository.get(owner_key=str(owner_id), source_id=source_id)
         if proposal.state is not ContractRevisionProposalState.PENDING:
-            raise ApiContractRevisionConflict("The contract proposal is no longer pending.")
+            raise ApiContractRevisionConflict("The API update is no longer pending.")
         if source.revision.revision_id != proposal.parent_revision_id:
             raise ApiContractRevisionConflict(
-                "The Source changed after this contract proposal was created."
+                "The Source changed after this API update was created."
             )
         self._assert_recorded_plan(proposal)
         return proposal
@@ -270,7 +270,7 @@ class ApiContractRevisionService:
         OpenAPI.from_dict(dict(revision.document))
         if revision.revision_hash != self.plan.final_canonical_sha256:
             raise ApiContractRevisionConflict(
-                "The derived contract no longer matches the reviewed final hash."
+                "The derived API definition no longer matches the reviewed final hash."
             )
         candidate_bytes = json.dumps(
             revision.document, sort_keys=True, separators=(",", ":")

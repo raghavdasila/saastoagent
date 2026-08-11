@@ -22,7 +22,7 @@ class DeploymentService:
         channel = await self.channels.repository.get(organization_id, agent_id, channel_id)
         if channel.status != "ready" or not channel.runtime_channel_id:
             raise DeploymentConflict("The selected channel is not ready.")
-        build = await self.builds.require_ready(organization_id, agent_id, build_id)
+        build = await self.builds.require_running(organization_id, agent_id, build_id)
         eligible = await self.eligibility.require_eligible(
             organization_id, agent_id, build_id
         )
@@ -82,7 +82,7 @@ class DeploymentService:
         channels = tuple(
             value
             for value in await self.channels.list(organization_id, agent_id)
-            if value.status == "ready"
+            if value.status == "ready" and value.runtime_lifecycle == "running"
         )
         builds = tuple(
             value
@@ -153,7 +153,7 @@ class DeploymentService:
         )
         if deployment.status != "ready" or deployment.channel_id != channel.id:
             raise DeploymentConflict("The active deployment is unavailable.")
-        build = await self.builds.require_ready(
+        build = await self.builds.require_immutable_built(
             channel.organization_id, channel.agent_id, deployment.build_id
         )
         if build.runtime_build_hash != deployment.bundle_hash:

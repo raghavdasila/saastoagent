@@ -66,6 +66,8 @@ def bind_corpus_app(
     source_operation_curation_service,
     source_routed_execution_service=None,
     source_staged_attachment_service=None,
+    source_staged_description_service=None,
+    source_lifecycle_service=None,
 ) -> BoundApplication:
     lounge = create_lounge_bindings(
         account=AuthLoungeAccountGateway(auth_service),
@@ -107,6 +109,8 @@ def bind_corpus_app(
         source_operation_curation_service,
         source_routed_execution_service,
         source_staged_attachment_service,
+        source_staged_description_service,
+        source_lifecycle_service,
     )
     return bind_app(
         app,

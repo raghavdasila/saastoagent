@@ -88,9 +88,12 @@ def test_source_actions_are_scoped_to_the_source_hub_surface() -> None:
     assert 'section.sources-debug[aria-labelledby="source-hub-title"]' in text
     assert 'className="sources-debug source-hub" aria-labelledby="source-hub-title"' in source_surface
     assert 'className="sources-debug api-source-workspace" aria-labelledby="source-hub-title"' in source_surface
-    assert 'hub.get_by_role("button", name="Add API source", exact=True)' in text
+    assert 'hub.locator(".sources-header-actions").get_by_role(' in text
+    assert 'name="Add API source", exact=True' in text
+    assert 'name="Add API definition", exact=True' in text
+    assert 'name="Analyze API operations", exact=True' in text
     assert 'page.get_by_role("button", name="Add API source", exact=True)' not in text
-    assert 'hub.get_by_role("button", name="Prepare contract revision", exact=True)' in text
+    assert 'hub.get_by_role("button", name="Review API changes", exact=True)' in text
 
 
 def test_desktop_proposal_and_review_capture_key_surface_content_in_viewport() -> None:
@@ -130,8 +133,8 @@ def test_desktop_proposal_and_review_capture_key_surface_content_in_viewport() -
     assert 'proposal_review_button,' in text
     for label in (
         "Create this immutable API version?",
-        "Accept and create new revision",
-        "Keep current revision unchanged",
+        "Accept and create new version",
+        "Keep current version unchanged",
     ):
         assert label in review_surface
         assert label in text

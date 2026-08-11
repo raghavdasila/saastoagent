@@ -37,8 +37,9 @@ from .schemas import (
 )
 from pydantic import ValidationError
 from .ports import SourceOwnerScopeGateway
+from .providers import selected_api_source_identity
+from .lifecycle import SourceDependencyConflict, SourceLifecycleService
 from .repository import SourceNotFound, SourceNotReady, SourceRepositoryError
-from .service import one_current_ready_api_source
 
 
 @dataclass(frozen=True)
@@ -53,7 +54,7 @@ class ContractRevisionCurrentGuard:
                 _failure(
                     context,
                     "contract_revision_selection_stale",
-                    "Reload the exact contract proposal before continuing.",
+                    "Reload the exact API update before continuing.",
                 )
             )
         source_id, proposal_id = identity
@@ -83,6 +84,49 @@ class ContractRevisionCurrentGuard:
 
 
 @dataclass(frozen=True)
+class SourceDeleteCurrentGuard:
+    service: SourceLifecycleService
+    owner_scope: SourceOwnerScopeGateway
+
+    async def __call__(self, context: GuardInvocationContext) -> GuardDecision:
+        identity = selected_api_source_identity(context.provider_values)
+        if identity is None:
+            return GuardDecision.blocked(
+                _failure(
+                    context,
+                    "source_delete_selection_stale",
+                    "Open the exact API source before reviewing permanent deletion.",
+                    phase="sources_delete_guard",
+                )
+            )
+        source_id, _revision_id = identity
+        try:
+            owner_id = await self.owner_scope.organization_id_for_route(
+                context.session.session_id
+            )
+            await self.service.require_deletable(owner_id, source_id)
+        except (SourceDependencyConflict, SourceNotFound, SourceNotReady) as error:
+            return GuardDecision.blocked(
+                _failure(
+                    context,
+                    "source_delete_dependency_conflict",
+                    str(error),
+                    phase="sources_delete_guard",
+                )
+            )
+        except (SourceRepositoryError, SourceOwnerScopeUnavailable):
+            return GuardDecision.blocked(
+                _failure(
+                    context,
+                    "source_delete_unavailable",
+                    "The API source dependencies could not be rechecked.",
+                    phase="sources_delete_guard",
+                )
+            )
+        return GuardDecision.allowed_result()
+
+
+@dataclass(frozen=True)
 class ApiConnectionCheckCurrentGuard:
     service: ApiConnectionCheckService
     owner_scope: SourceOwnerScopeGateway
@@ -96,19 +140,22 @@ class ApiConnectionCheckCurrentGuard:
                 context.session.session_id
             )
             if payload.source_id is None:
-                source = one_current_ready_api_source(self.service.sources, owner_id)
+                selected = selected_api_source_identity(context.provider_values)
+                if selected is None:
+                    raise SourceNotReady(
+                        "Select the API Source you want to test before continuing."
+                    )
+                source_id, source_revision_id = selected
                 profiles = await asyncio.to_thread(
                     self.service.profiles.list_exact,
                     owner_key=str(owner_id),
-                    source_id=source.source_id,
-                    revision_id=source.revision.revision_id,
+                    source_id=source_id,
+                    revision_id=source_revision_id,
                 )
                 if len(profiles) != 1:
                     raise ApiConnectionCheckConflict(
                         "Connection checking requires one exact saved profile; choose the connection you mean."
                     )
-                source_id = source.source_id
-                source_revision_id = source.revision.revision_id
                 connection_profile_id = profiles[0].id
             else:
                 assert payload.source_revision_id is not None
@@ -169,12 +216,17 @@ class ApiOperationCurationCurrentGuard:
                 context.session.session_id
             )
             if payload.source_id is None:
-                source = one_current_ready_api_source(self.service.sources, owner_id)
+                selected = selected_api_source_identity(context.provider_values)
+                if selected is None:
+                    raise SourceNotReady(
+                        "Select the API Source you want to curate before continuing."
+                    )
+                source_id, source_revision_id = selected
                 view = await asyncio.to_thread(
                     self.service.inspect,
                     owner_id=owner_id,
-                    source_id=source.source_id,
-                    source_revision_id=source.revision.revision_id,
+                    source_id=source_id,
+                    source_revision_id=source_revision_id,
                 )
                 included = tuple(payload.included_operation_ids)
                 included_set = set(included)
@@ -189,8 +241,8 @@ class ApiOperationCurationCurrentGuard:
                     else tuple(item for item in discovered if item not in included_set)
                 )
                 selection = {
-                    "source_id": source.source_id,
-                    "source_revision_id": source.revision.revision_id,
+                    "source_id": source_id,
+                    "source_revision_id": source_revision_id,
                     "inventory_fingerprint": view.inventory_fingerprint,
                     "included_operation_ids": included,
                     "excluded_operation_ids": excluded,
@@ -350,6 +402,7 @@ __all__ = [
     "ApiConnectionCheckCurrentGuard",
     "ApiOperationCurationCurrentGuard",
     "ContractRevisionCurrentGuard",
+    "SourceDeleteCurrentGuard",
     "RoutedApiExecutionCurrentGuard",
     "contract_proposal_private_identity",
 ]

@@ -69,6 +69,52 @@ it("restores the exact Agent-scoped hosted-channel draft after a RouteDeck remou
   expect(drafts.get(agentId)).toEqual({ name: "", slug: "" });
 });
 
+it("stages deployment review without misreporting the required review as failure", async () => {
+  const dispatch = vi.fn(async () => requiredReview("deployment.deploy"));
+  const deliveryClient = {
+    channels: vi.fn(async () => ({ channels: [{
+      id: "channel-1", name: "Catalog Web", slug: "catalog-web", status: "ready",
+      enabled: true, active_deployment_id: null,
+    }] })),
+    deployments: vi.fn(async () => ({ deployments: [] })),
+    builds: vi.fn(async () => ({ builds: [{
+      id: "build-1", status: "ready", runtime_lifecycle: "running", agent_version: 3,
+    }] })),
+    evaluations: vi.fn(async () => ({ evaluation_sets: [{
+      id: "set-1", build_id: "build-1", eligible: true, cases: [],
+    }] })),
+  } as unknown as AgentRuntimeClient;
+
+  render(<ChannelsSurface {...surfaceProps(dispatch)} agentStore={agentStore()} runtimeClient={deliveryClient} draftStore={new ChannelDraftStore()} />);
+  const review = await screen.findByRole("button", { name: "Review deployment" });
+  await waitFor(() => expect(review).toBeEnabled());
+  fireEvent.click(review);
+
+  await waitFor(() => expect(dispatch).toHaveBeenCalledWith("deploy", {
+    agent_ref: agentRef,
+    channel_id: "channel-1",
+    build_id: "build-1",
+  }));
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+it("explains missing eligibility and continues the same selected Agent to Evaluation", async () => {
+  const dispatch = vi.fn(async () => completed("agents.open_evaluation", "opened"));
+
+  render(<ChannelsSurface {...surfaceProps(dispatch)} agentStore={agentStore()} runtimeClient={runtimeClient} draftStore={new ChannelDraftStore()} />);
+
+  expect(await screen.findByText("No evaluated build is eligible to publish.")).toBeVisible();
+  expect(screen.getByText("Corpus will not select or substitute another build.", { exact: false })).toBeVisible();
+  expect(screen.getByLabelText("Eligible build")).toHaveValue("");
+  expect(screen.getByRole("button", { name: "Review deployment" })).toBeDisabled();
+
+  fireEvent.click(screen.getByRole("button", { name: "Continue in Evaluation" }));
+
+  await waitFor(() => expect(dispatch).toHaveBeenCalledWith("continue_to_evaluation", {
+    agent_ref: agentRef,
+  }));
+});
+
 function completed(operationId: string, outcome: string): RouteDeckDispatchResult {
   return {
     disposition: "completed",
@@ -88,5 +134,21 @@ function completed(operationId: string, outcome: string): RouteDeckDispatchResul
     review: null,
     outcome,
     failure: null,
+  };
+}
+
+function requiredReview(operationId: string): RouteDeckDispatchResult {
+  return {
+    ...completed(operationId, "unused"),
+    disposition: "requires_review",
+    review: { id: "review-exact", expires_at: "2026-08-12T00:00:00Z" },
+    outcome: null,
+    evidence: {
+      ...completed(operationId, "unused").evidence,
+      phases: ["received", "review_staged"],
+      delivery_phase: "not_sent",
+      result_id: null,
+      result_fingerprint: null,
+    },
   };
 }

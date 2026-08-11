@@ -17,11 +17,57 @@ class BuilderService:
         await self.agents.get(organization_id, agent_id)
         return AgentBuildCollectionView(agent_id=agent_id, builds=tuple(_view(item) for item in await self.repository.get_for_agent(organization_id, agent_id)))
 
-    async def require_ready(self, organization_id: uuid.UUID, agent_id: uuid.UUID, build_id: uuid.UUID):
+    async def require_immutable_built(self, organization_id: uuid.UUID, agent_id: uuid.UUID, build_id: uuid.UUID):
         value = await self.repository.get(organization_id, agent_id, build_id)
         if value.status != "ready" or value.runtime_build_hash is None:
             raise BuilderUnavailable("The selected Agent build is not ready.")
+        try:
+            await self.runtime.validate_immutable_build(value.runtime_build_hash)
+        except Exception as error:
+            if isinstance(error, BuilderUnavailable):
+                raise
+            raise BuilderUnavailable("The exact immutable Agent build is unavailable.") from error
         return value
+
+    async def require_running(self, organization_id: uuid.UUID, agent_id: uuid.UUID, build_id: uuid.UUID):
+        value = await self.require_immutable_built(organization_id, agent_id, build_id)
+        if value.runtime_lifecycle != "running":
+            raise BuilderUnavailable("Run the exact draft Agent build before using Sandbox or Evaluation.")
+        return value
+
+    async def run(self, organization_id: uuid.UUID, agent_id: uuid.UUID, *, build_id: uuid.UUID) -> AgentBuildView:
+        value = await self.require_immutable_built(organization_id, agent_id, build_id)
+        if value.runtime_lifecycle == "removed":
+            raise BuilderConflict("The selected draft Agent runtime was removed.")
+        return _view(await self.repository.set_runtime_lifecycle(
+            organization_id, agent_id, build_id, lifecycle="running"
+        ))
+
+    async def stop(self, organization_id: uuid.UUID, agent_id: uuid.UUID, *, build_id: uuid.UUID) -> AgentBuildView:
+        value = await self.repository.get(organization_id, agent_id, build_id)
+        if value.status != "ready" or value.runtime_build_hash is None:
+            raise BuilderUnavailable("The selected Agent build is not ready.")
+        if value.runtime_lifecycle == "removed":
+            raise BuilderConflict("The selected draft Agent runtime was removed.")
+        return _view(await self.repository.set_runtime_lifecycle(
+            organization_id, agent_id, build_id, lifecycle="stopped"
+        ))
+
+    async def remove_runtime(
+        self,
+        organization_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        *,
+        build_id: uuid.UUID,
+    ) -> AgentBuildView:
+        value = await self.repository.get(organization_id, agent_id, build_id)
+        if value.status != "ready" or value.runtime_build_hash is None:
+            raise BuilderUnavailable("The selected Agent build is not ready.")
+        if value.runtime_lifecycle == "running":
+            raise BuilderConflict("Stop the draft Agent runtime before removing it.")
+        return _view(await self.repository.set_runtime_lifecycle(
+            organization_id, agent_id, build_id, lifecycle="removed"
+        ))
 
     async def assemble(self, organization_id: uuid.UUID, agent_id: uuid.UUID, *, build_request_id: uuid.UUID) -> AgentBuildView:
         record = await self.repository.begin(organization_id, agent_id, build_request_id=build_request_id)
@@ -84,7 +130,7 @@ def _view(value):
     return AgentBuildView(
         id=value.id, agent_id=value.agent_id, build_request_id=value.build_request_id,
         design_revision_id=value.design_revision_id, agent_version=value.agent_version,
-        status=value.status, runtime_build_hash=value.runtime_build_hash, model=value.model,
+        status=value.status, runtime_lifecycle=value.runtime_lifecycle, runtime_build_hash=value.runtime_build_hash, model=value.model,
         model_digest=value.model_digest,
         source_bindings=tuple(BuilderSourceBindingView(
             source_id=str(item["source_id"]), source_revision_id=str(item["source_revision_id"]),
@@ -97,6 +143,7 @@ def _view(value):
         navgraph_hash=value.navgraph_hash, compiled_navgraph=value.compiled_navgraph,
         frontend_contract=value.frontend_contract,
         failure_message=value.failure_message, created_at=value.created_at, updated_at=value.updated_at,
+        attempt_number=value.attempt_number,
     )
 
 

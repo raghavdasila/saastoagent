@@ -11,10 +11,15 @@ class EvaluationCaseView(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: uuid.UUID
     title: str
+    message: str
+    source_kind: str
     category: str
     difficulty: str
     mandatory: bool
     expected_operation_ids: tuple[str, ...]
+    current_revision: int
+    removed: bool
+    runnable: bool
     latest_status: str | None = None
 
 
@@ -24,6 +29,11 @@ class EvaluationSetView(BaseModel):
     agent_id: uuid.UUID
     build_id: uuid.UUID
     name: str
+    generation_job_id: uuid.UUID | None
+    generation_status: str
+    generation_failure_code: str | None
+    generation_failure_message: str | None
+    generation_summary: dict[str, object] | None
     cases: tuple[EvaluationCaseView, ...]
     eligible: bool | None
     eligibility_reasons: tuple[str, ...]
@@ -52,3 +62,35 @@ class RunEvaluationCaseArguments(BaseModel):
     model_config = ConfigDict(extra="forbid")
     agent_ref: str = Field(min_length=1, max_length=64)
     case_id: uuid.UUID | None = None
+
+
+class GenerateEvaluationSetArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    agent_ref: str = Field(min_length=1, max_length=64)
+    build_id: uuid.UUID | None = None
+    set_name: str = Field(default="Generated coverage", min_length=1, max_length=160)
+    categories: tuple[Literal["paraphrase", "non_exact_wording", "low_lexical_overlap", "typo_or_noisy", "verbose_or_indirect"], ...] = ("paraphrase",)
+
+
+class EditEvaluationCaseArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    agent_ref: str = Field(min_length=1, max_length=64)
+    case_id: uuid.UUID
+    expected_revision: int = Field(ge=1)
+    title: str = Field(min_length=1, max_length=160)
+    category: str = Field(min_length=1, max_length=80)
+    difficulty: Literal["easy", "medium", "hard"]
+    mandatory: bool
+
+
+class DeleteEvaluationCaseArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    agent_ref: str = Field(min_length=1, max_length=64)
+    case_id: uuid.UUID
+    expected_revision: int = Field(ge=1)
+
+
+class RetryEvaluationGenerationArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    agent_ref: str = Field(min_length=1, max_length=64)
+    evaluation_set_id: uuid.UUID

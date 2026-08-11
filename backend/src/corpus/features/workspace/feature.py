@@ -78,6 +78,7 @@ def create_workspace_feature(
             policies.FEATURE_PROMPT.ref,
             policies.OWNER_SCOPE.ref,
             policies.OVERVIEW_ONLY.ref,
+            policies.FILE_FIRST_TASK_ROUTING.ref,
         ),
     )
 

@@ -7,7 +7,11 @@ from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.contracts.surfaces import Surface, SurfaceAffordance, SurfaceLifecycle, SurfaceSlots
 
 from corpus.auth.contracts import OWNER_CONTEXT_PROVIDER
-from corpus.features.agents.declarations import AGENT_ENTITY_PROVIDER
+from corpus.features.agents.declarations import (
+    AGENT_ENTITY_PROVIDER,
+    OPEN_AGENT_BUILDS,
+    OPEN_ATTACHED_SOURCE,
+)
 
 from .contracts import DESIGNER_HOME_REF
 from .declarations import APPROVE_DESIGN, CUSTOMIZE_DESIGN, DESIGN_CURRENT_PROVIDER, PROPOSE_DESIGN, REQUEST_BUILD, RETURN_TO_AGENT
@@ -30,6 +34,8 @@ DESIGNER_HOME_SURFACE = Surface(
         SurfaceAffordance(id="customize", event="submit", operation=CUSTOMIZE_DESIGN.ref),
         SurfaceAffordance(id="approve", event="submit", operation=APPROVE_DESIGN.ref),
         SurfaceAffordance(id="request_build", event="submit", operation=REQUEST_BUILD.ref),
+        SurfaceAffordance(id="open_source_prerequisite", event="open", operation=OPEN_ATTACHED_SOURCE.ref),
+        SurfaceAffordance(id="continue_to_builds", event="open", operation=OPEN_AGENT_BUILDS.ref),
         SurfaceAffordance(id="return_to_agent", event="open", operation=RETURN_TO_AGENT.ref),
     ),
     policy_refs=(policies.EXACT_INPUTS.ref, policies.IMMUTABLE_REVISIONS.ref),
@@ -52,13 +58,17 @@ DESIGNER_REVIEW_SURFACE = Surface(
 DESIGNER_AUTHORING = Capability(
     id="designer.authoring",
     title="Propose, customize, approve, and request an Agent build",
-    operations=(PROPOSE_DESIGN.ref, CUSTOMIZE_DESIGN.ref, APPROVE_DESIGN.ref, REQUEST_BUILD.ref, RETURN_TO_AGENT.ref),
+    operations=(PROPOSE_DESIGN.ref, CUSTOMIZE_DESIGN.ref, APPROVE_DESIGN.ref, REQUEST_BUILD.ref, OPEN_ATTACHED_SOURCE.ref, OPEN_AGENT_BUILDS.ref, RETURN_TO_AGENT.ref),
     surfaces=(DESIGNER_HOME_SURFACE.ref, DESIGNER_REVIEW_SURFACE.ref),
     policy_refs=tuple(item.ref for item in DESIGNER_POLICIES[1:6]),
 )
 
 
-def create_designer_feature(agents_home_ref: NodeRef) -> Feature:
+def create_designer_feature(
+    agents_home_ref: NodeRef,
+    builder_home_ref: NodeRef,
+    sources_api_ref: NodeRef,
+) -> Feature:
     home = Node(
         id=DESIGNER_HOME_REF.id,
         title="Agent Designer",
@@ -67,12 +77,14 @@ def create_designer_feature(agents_home_ref: NodeRef) -> Feature:
         route=Route(template="/agents/designer", deep_link_policy=DeepLinkPolicy.SESSION_BOUND),
         context_providers=(OWNER_CONTEXT_PROVIDER, DESIGN_CURRENT_PROVIDER),
         entity_providers=(AGENT_ENTITY_PROVIDER,),
-        operations=(PROPOSE_DESIGN, CUSTOMIZE_DESIGN, APPROVE_DESIGN, REQUEST_BUILD, RETURN_TO_AGENT),
+        operations=(PROPOSE_DESIGN, CUSTOMIZE_DESIGN, APPROVE_DESIGN, REQUEST_BUILD, OPEN_ATTACHED_SOURCE, OPEN_AGENT_BUILDS, RETURN_TO_AGENT),
         outgoing=(
             Transition(operation=PROPOSE_DESIGN.ref, outcome="proposed", target=DESIGNER_HOME_REF),
             Transition(operation=CUSTOMIZE_DESIGN.ref, outcome="customized", target=DESIGNER_HOME_REF),
             Transition(operation=APPROVE_DESIGN.ref, outcome="accepted", target=DESIGNER_HOME_REF),
             Transition(operation=REQUEST_BUILD.ref, outcome="requested", target=DESIGNER_HOME_REF),
+            Transition(operation=OPEN_ATTACHED_SOURCE.ref, outcome="opened", target=sources_api_ref),
+            Transition(operation=OPEN_AGENT_BUILDS.ref, outcome="opened", target=builder_home_ref),
             Transition(operation=RETURN_TO_AGENT.ref, outcome="opened", target=agents_home_ref),
         ),
         capabilities=(DESIGNER_AUTHORING,),

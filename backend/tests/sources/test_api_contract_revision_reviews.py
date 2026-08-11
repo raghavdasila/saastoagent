@@ -106,7 +106,18 @@ async def test_contract_revision_review_is_durable_rejects_without_mutation_and_
                 deployment_service=object(),
                 operations_service=object(),
                 workspace_service=WorkspaceProbe(),
-                source_service=SimpleNamespace(repository=repository),
+                source_service=SimpleNamespace(
+                    repository=repository,
+                    get_source=lambda *, owner_key, source_id, revision_id=None: (
+                        repository.get(owner_key=owner_key, source_id=source_id)
+                        if revision_id is None
+                        else repository.get_revision(
+                            owner_key=owner_key,
+                            source_id=source_id,
+                            revision_id=revision_id,
+                        )
+                    ),
+                ),
                 source_graph_presenter=object(),
                 source_connection_service=object(),
                     source_contract_revision_service=service,
@@ -129,7 +140,13 @@ async def test_contract_revision_review_is_durable_rejects_without_mutation_and_
     runtime = await open_runtime("source-contract-first")
     try:
         session_id = "source-review-reject-accept"
-        await _create_sources_session(runtime, compiled, session_id)
+        await _create_sources_session(
+            runtime,
+            compiled,
+            session_id,
+            source.source_id,
+            source.revision.revision_id,
+        )
         proposed = await _propose(runtime, session_id, source.source_id, source.revision.revision_id)
         assert proposed.disposition is OperationDisposition.COMPLETED, (
             proposed.failure.code if proposed.failure else None,
@@ -159,9 +176,11 @@ async def test_contract_revision_review_is_durable_rejects_without_mutation_and_
         assert set(review_surfaces) == {
             "sources.contract_revision_review",
             "sources.routed_api_write_review",
+            "sources.delete_review",
         }
         assert dict(review_surfaces["sources.contract_revision_review"].props)
         assert dict(review_surfaces["sources.routed_api_write_review"].props) == {}
+        assert dict(review_surfaces["sources.delete_review"].props) == {}
         assert set(detail_surfaces) == {
             "sources.contract_revision_proposal",
             "sources.api_operation_test",
@@ -215,7 +234,13 @@ async def test_contract_revision_review_is_durable_rejects_without_mutation_and_
 
         _, race_source, _ = _ready_fixture(tmp_path)
         race_session = "source-review-accept-race"
-        await _create_sources_session(runtime, compiled, race_session)
+        await _create_sources_session(
+            runtime,
+            compiled,
+            race_session,
+            race_source.source_id,
+            race_source.revision.revision_id,
+        )
         await _propose(
             runtime,
             race_session,
@@ -254,7 +279,13 @@ async def test_contract_revision_review_is_durable_rejects_without_mutation_and_
         await runtime.close()
 
 
-async def _create_sources_session(runtime, compiled, session_id: str) -> None:
+async def _create_sources_session(
+    runtime,
+    compiled,
+    session_id: str,
+    source_id: str,
+    revision_id: str,
+) -> None:
     initial = create_owner_session(
         compiled,
         session_id,
@@ -280,9 +311,14 @@ async def _create_sources_session(runtime, compiled, session_id: str) -> None:
             session_id=session_id,
             request_id=f"open-api-{session_id}",
             expected_session_version=hub.session_version,
-            operation_id="sources.open_api_creation",
+            operation_id="sources.open_api_source",
             source=OperationSource.SURFACE,
-            arguments=FrozenJsonObject({}),
+            arguments=FrozenJsonObject(
+                {
+                    "source_id": source_id,
+                    "source_revision_id": revision_id,
+                }
+            ),
         )
     )
     assert api_opened.disposition is OperationDisposition.COMPLETED

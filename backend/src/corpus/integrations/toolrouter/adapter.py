@@ -268,7 +268,42 @@ class ToolRouterAdapter:
             raise ToolRouterArtifactError(
                 "The normalized OpenAPI artifact contains no endpoints."
             )
-        target_id = f"source-{_sha256(normalized_path)[:16]}"
+        selected_endpoint_ids = tuple(
+            endpoint.id for endpoint in bundle.endpoints
+        )
+        if request.allowed_endpoint_ids is not None:
+            allowed = tuple(request.allowed_endpoint_ids)
+            if not allowed:
+                raise ToolRouterInputError(
+                    "At least one allowed endpoint is required for evalset generation."
+                )
+            if len(set(allowed)) != len(allowed):
+                raise ToolRouterInputError(
+                    "Allowed evalset endpoint identities must be unique."
+                )
+            available = {endpoint.id for endpoint in bundle.endpoints}
+            unknown = sorted(set(allowed) - available)
+            if unknown:
+                raise ToolRouterInputError(
+                    "Every allowed evalset endpoint must exist in the exact Source artifact."
+                )
+            selected_endpoint_ids = allowed
+            allowed_set = set(allowed)
+            bundle = replace(
+                bundle,
+                endpoints=[
+                    endpoint
+                    for endpoint in bundle.endpoints
+                    if endpoint.id in allowed_set
+                ],
+            )
+        normalized_hash = _sha256(normalized_path)
+        target_id = f"source-{normalized_hash[:16]}"
+        if request.allowed_endpoint_ids is not None:
+            subset_hash = stable_hash(
+                {"endpoint_ids": selected_endpoint_ids}
+            )[:12]
+            target_id = f"{target_id}-{subset_hash}"
         tasks = _build_source_grounded_tasks(
             target_id=target_id,
             bundle=bundle,
@@ -278,16 +313,33 @@ class ToolRouterAdapter:
         recipe_pack = load_recipe_pack(recipe_path)
         recipe_pack_hash = stable_hash(recipe_path.read_text(encoding="utf-8"))
         source_hashes = {
-            "openapi_normalized.json": _sha256(normalized_path),
+            "openapi_normalized.json": normalized_hash,
             "recipes/v1.json": _sha256(recipe_path),
         }
+        if request.allowed_endpoint_ids is not None:
+            source_hashes["allowed_endpoint_ids"] = stable_hash(
+                selected_endpoint_ids
+            )
         inputs = ExperimentInputs(
             bundles={target_id: bundle},
             tasks_by_target={target_id: tuple(tasks)},
             source_tasks_by_id={str(task["id"]): task for task in tasks},
             source_locations_by_target={target_id: "corpus_uploaded_api_collection"},
             source_hashes=source_hashes,
-            bundle_hashes={target_id: source_hashes["openapi_normalized.json"]},
+            bundle_hashes={
+                target_id: (
+                    source_hashes["openapi_normalized.json"]
+                    if request.allowed_endpoint_ids is None
+                    else stable_hash(
+                        {
+                            "normalized": source_hashes[
+                                "openapi_normalized.json"
+                            ],
+                            "allowed_endpoint_ids": selected_endpoint_ids,
+                        }
+                    )
+                )
+            },
             reference_endpoints_by_id={
                 endpoint.id: endpoint for endpoint in bundle.endpoints
             },

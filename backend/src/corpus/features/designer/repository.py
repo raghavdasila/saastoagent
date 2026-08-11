@@ -182,6 +182,7 @@ def _source_json(value):
     return {
         "source_id": value.source_id,
         "source_revision_id": value.source_revision_id,
+        "display_name": value.display_name,
         "curation_id": value.curation_id,
         "inventory_fingerprint": value.inventory_fingerprint,
         "included_operation_ids": list(value.included_operation_ids),

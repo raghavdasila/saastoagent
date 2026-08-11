@@ -49,7 +49,7 @@ async def test_live_runtime_opens_workspace_and_proves_ollama_readiness(
         ),
         database=CorpusDatabaseSettings(
             url=f"sqlite+aiosqlite:///{(tmp_path / 'corpus-domain.sqlite3').as_posix()}",
-            migration_revision="0012_builder_navgraph",
+            migration_revision="0015_builder_retry_attempts",
         ),
         auth=AuthSettings(
             reset_secret="r" * 40,

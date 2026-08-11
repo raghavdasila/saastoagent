@@ -71,7 +71,29 @@ class SourceRecord(BaseModel):
     current_revision_id: str = Field(min_length=1)
     created_at: datetime
     updated_at: datetime
+    current_description_id: str | None = Field(default=None, min_length=16, max_length=16)
     contract_revision_proposals: tuple[ContractRevisionProposalRecord, ...] = ()
+
+
+class SourceDescriptionRecord(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    description_id: str = Field(min_length=16, max_length=16)
+    source_id: str = Field(min_length=16, max_length=16)
+    filename: str = Field(min_length=1, max_length=255)
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    created_at: datetime
+
+
+class SourceDescriptionView(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    description_id: str = Field(min_length=1)
+    source_id: str = Field(min_length=16, max_length=16)
+    filename: str = Field(min_length=1, max_length=255)
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    content: str
+    created_at: datetime
 
 
 class SourceRevisionRecord(BaseModel):
@@ -121,6 +143,8 @@ __all__ = [
     "ContractRevisionProposalRecord",
     "ContractRevisionProposalState",
     "PreparedSource",
+    "SourceDescriptionRecord",
+    "SourceDescriptionView",
     "SourceRecord",
     "SourceRevisionRecord",
     "SourceState",

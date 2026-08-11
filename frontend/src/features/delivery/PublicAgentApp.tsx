@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
+import type { AgentConversationMessage, AgentStreamStatus } from "@routedeck/react";
+import { Bot, LockKeyhole } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
+import { Composer } from "@/app/Composer";
+import { Conversation } from "@/app/Conversation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 interface PublicAgentProjection {
   readonly revision: number;
@@ -9,50 +12,115 @@ interface PublicAgentProjection {
   readonly awaiting_clarification: boolean;
 }
 
+const EMPTY_AGENT: PublicAgentProjection = {
+  revision: 0,
+  messages: [],
+  awaiting_clarification: false,
+};
+
 export function PublicAgentApp({ slug }: { slug: string }) {
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [agent, setAgent] = useState<PublicAgentProjection>({ revision: 0, messages: [], awaiting_clarification: false });
-  const [message, setMessage] = useState("");
+  const [agent, setAgent] = useState<PublicAgentProjection>(EMPTY_AGENT);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [conversationGeneration, setConversationGeneration] = useState(0);
+  const messages = useMemo(() => publicMessages(agent), [agent]);
+  const status: AgentStreamStatus = error !== null ? "error" : busy ? "streaming" : "idle";
 
   useEffect(() => {
     let active = true;
-    void fetch(`/api/public/agents/${encodeURIComponent(slug)}/sessions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(await problem(response));
-        return response.json() as Promise<{ session: { session_id: string }; agent: PublicAgentProjection }>;
-      })
-      .then((value) => { if (active) { setSessionId(value.session.session_id); setAgent(value.agent); } })
+    const key = publicSessionKey(slug);
+    const retainedSessionId = window.sessionStorage.getItem(key);
+    const request = retainedSessionId === null
+      ? fetch(`/api/public/agents/${encodeURIComponent(slug)}/sessions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+          .then(async (response) => {
+            if (!response.ok) throw new Error(await problem(response));
+            const value = await response.json() as { session: { session_id: string }; agent: PublicAgentProjection };
+            window.sessionStorage.setItem(key, value.session.session_id);
+            return { sessionId: value.session.session_id, agent: value.agent };
+          })
+      : fetch(`/api/public/agents/${encodeURIComponent(slug)}/sessions/${encodeURIComponent(retainedSessionId)}`)
+          .then(async (response) => {
+            if (!response.ok) throw new Error(await problem(response));
+            return { sessionId: retainedSessionId, agent: await response.json() as PublicAgentProjection };
+          });
+    void request
+      .then((value) => { if (active) { setSessionId(value.sessionId); setAgent(value.agent); setError(null); } })
       .catch((caught) => active && setError(text(caught)))
       .finally(() => active && setBusy(false));
     return () => { active = false; };
-  }, [slug]);
+  }, [conversationGeneration, slug]);
 
-  async function send() {
+  async function send(message: string) {
     if (sessionId === null || message.trim() === "") return;
-    const submitted = message.trim();
-    setBusy(true); setError(null); setMessage("");
+    setBusy(true); setError(null);
     try {
       const response = await fetch(`/api/public/agents/${encodeURIComponent(slug)}/sessions/${encodeURIComponent(sessionId)}/messages`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: submitted }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: message.trim() }),
       });
       if (!response.ok) throw new Error(await problem(response));
       const value = await response.json() as { agent: PublicAgentProjection };
       setAgent(value.agent);
-    } catch (caught) { setError(text(caught)); } finally { setBusy(false); }
+    } catch (caught) {
+      setError(text(caught));
+      throw caught;
+    } finally { setBusy(false); }
   }
 
-  return <main className="public-agent">
-    <header><p>Hosted by Corpus</p><h1>{slug}</h1></header>
-    {error === null ? null : <p role="alert">{error}</p>}
-    {agent.awaiting_clarification ? <section className="public-agent__clarification" aria-label="Agent needs more information">
-      <p>Current request</p><h2>One detail needed</h2>
-      <span>Answer the Agent's question below to continue the same request.</span>
-    </section> : null}
-    <section className="public-agent__messages" aria-live="polite">{agent.messages.length === 0 ? <p>{busy ? "Starting the deployed Agent…" : "Ask the deployed Agent a question."}</p> : agent.messages.map((item, index) => <article key={`${agent.revision}-${index}`}><strong>{String(item.role ?? "agent")}</strong><p>{String(item.content ?? "")}</p></article>)}</section>
-    <form onSubmit={(event) => { event.preventDefault(); void send(); }}><label htmlFor="public-agent-message">Message</label><Input id="public-agent-message" value={message} disabled={busy || sessionId === null} onChange={(event) => setMessage(event.target.value)} /><Button type="submit" disabled={busy || sessionId === null || message.trim() === ""}>Send</Button></form>
-  </main>;
+  function startNewConversation() {
+    window.sessionStorage.removeItem(publicSessionKey(slug));
+    setSessionId(null);
+    setAgent(EMPTY_AGENT);
+    setError(null);
+    setBusy(true);
+    setConversationGeneration((value) => value + 1);
+  }
+
+  return <div className="public-agent" data-public-agent-application="">
+    <header className="public-agent__header">
+      <div className="public-agent__brand"><span className="corpus-mark" aria-hidden="true"><Bot /></span><span><strong>{displayName(slug)}</strong><small>Hosted by Corpus</small></span></div>
+      <span className="public-agent__status" data-status={status}><i aria-hidden="true" />{busy ? "Working…" : error === null ? "Ready" : "Unavailable"}</span>
+    </header>
+    <main className="public-agent__main">
+      <section className="public-agent__identity" aria-labelledby="public-agent-title">
+        <div><p>Deployed Agent</p><h1 id="public-agent-title">{displayName(slug)}</h1><span>Ask a question and continue the same request when the Agent needs one more detail.</span></div>
+        <span><LockKeyhole aria-hidden="true" /> Session-scoped conversation</span>
+      </section>
+      {error === null ? null : <div className="public-agent__error" data-public-agent-recovery="">
+        <p role="alert">{error}</p>
+        <Button type="button" variant="outline" onClick={startNewConversation}>Start a new conversation</Button>
+      </div>}
+      {agent.awaiting_clarification ? <section className="public-agent__clarification" aria-label="Agent needs more information">
+        <p>Current request</p><h2>One detail needed</h2>
+        <span>Answer the Agent's question below to continue the same request.</span>
+      </section> : null}
+      <section className="public-agent__workspace" aria-label={`${displayName(slug)} conversation`}>
+        {messages.length === 0 && !busy ? <p className="public-agent__empty">Ask the deployed Agent a question.</p> : null}
+        <Conversation messages={messages} status={status} suggestedActions={null} />
+        <div data-agent-input-dock="">
+          <Composer disabled={busy || sessionId === null} showCancel={false} disabledReason={error === null ? undefined : "This Agent is currently unavailable."} onSend={send} onCancel={() => undefined} />
+        </div>
+      </section>
+    </main>
+  </div>;
+}
+
+function publicMessages(agent: PublicAgentProjection): AgentConversationMessage[] {
+  return agent.messages.flatMap((item, index) => {
+    const role = item.role;
+    const content = item.content;
+    if ((role !== "user" && role !== "assistant") || typeof content !== "string") return [];
+    return [{ id: `public:${agent.revision}:${index}`, requestId: null, role, content, status: "finalized" as const }];
+  });
+}
+
+function displayName(slug: string): string {
+  const words = slug.split("-").filter(Boolean).map((word) => word[0]?.toUpperCase() + word.slice(1));
+  return words.join(" ") || "Deployed Agent";
+}
+
+function publicSessionKey(slug: string): string {
+  return `corpus.public-agent-session.v1:${slug}`;
 }
 
 async function problem(response: Response) { const value = await response.json().catch(() => ({})) as { message?: string }; return value.message ?? "This public Agent is unavailable."; }

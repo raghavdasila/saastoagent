@@ -23,7 +23,7 @@ from .features.operations.feature import create_operations_feature
 from .features.lounge.declarations import VERIFICATION_PENDING_REF
 from .features.lounge.feature import LOUNGE_NODE, create_lounge_feature
 from .features.sources.feature import SOURCES_FEATURE
-from .features.sources.declarations import SOURCES_API_REF, SOURCES_HOME_REF
+from .features.sources.declarations import SOURCES_API_INTAKE_REF, SOURCES_API_REF, SOURCES_HOME_REF
 from .features.workspace.contracts import HOME_REF
 from .features.workspace.feature import create_workspace_feature
 
@@ -35,21 +35,33 @@ WORKSPACE_FEATURE = create_workspace_feature(
     verification_ref=VERIFICATION_PENDING_REF,
 )
 AGENTS_FEATURE = create_agents_feature(
-    HOME_REF, SOURCES_HOME_REF, SOURCES_API_REF, DESIGNER_HOME_REF, BUILDER_HOME_REF, SANDBOX_HOME_REF,
+    HOME_REF, SOURCES_HOME_REF, SOURCES_API_INTAKE_REF, SOURCES_API_REF, DESIGNER_HOME_REF, BUILDER_HOME_REF, SANDBOX_HOME_REF,
     EVALUATION_HOME_REF, CHANNELS_HOME_REF,
     OPERATIONS_HOME_REF,
 )
-DESIGNER_FEATURE = create_designer_feature(AGENTS_HOME_REF)
-BUILDER_FEATURE = create_builder_feature(AGENTS_HOME_REF)
-SANDBOX_FEATURE = create_sandbox_feature(AGENTS_HOME_REF)
+DESIGNER_FEATURE = create_designer_feature(
+    AGENTS_HOME_REF,
+    BUILDER_HOME_REF,
+    SOURCES_API_REF,
+)
+BUILDER_FEATURE = create_builder_feature(AGENTS_HOME_REF, SANDBOX_HOME_REF)
+SANDBOX_FEATURE = create_sandbox_feature(AGENTS_HOME_REF, EVALUATION_HOME_REF)
 BUILDER_SANDBOX_FEATURE = Feature(
     namespace="builder+sandbox",
     nodes=BUILDER_FEATURE.nodes + SANDBOX_FEATURE.nodes,
     agent_policies=BUILDER_SANDBOX_POLICIES,
     policy_refs=tuple(policy.ref for policy in BUILDER_SANDBOX_POLICIES),
 )
-EVALUATION_FEATURE = create_evaluation_feature(AGENTS_HOME_REF)
-CHANNELS_FEATURE = create_channels_feature(AGENTS_HOME_REF)
+EVALUATION_FEATURE = create_evaluation_feature(
+    AGENTS_HOME_REF,
+    BUILDER_HOME_REF,
+    CHANNELS_HOME_REF,
+)
+CHANNELS_FEATURE = create_channels_feature(
+    AGENTS_HOME_REF,
+    EVALUATION_HOME_REF,
+    OPERATIONS_HOME_REF,
+)
 OPERATIONS_FEATURE = create_operations_feature(AGENTS_HOME_REF)
 
 

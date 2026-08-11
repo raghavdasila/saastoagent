@@ -26,6 +26,7 @@ export interface ComposerProps {
 export interface ChatSourceUpload {
   readonly attachmentId: string;
   readonly displayName: string;
+  readonly kind: "api_definition" | "api_description";
 }
 
 export function Composer({
@@ -71,7 +72,9 @@ export function Composer({
           : await onUploadApiSource(definition);
         const message = uploaded === null
           ? draft.trim()
-          : `${draft.trim()}\n\nI attached the API definition "${uploaded.displayName}" to this conversation.`;
+          : uploaded.kind === "api_description"
+            ? `${draft.trim()}\n\nI attached the Markdown API description "${uploaded.displayName}" to this conversation.`
+            : `${draft.trim()}\n\nI attached the API definition "${uploaded.displayName}" to this conversation.`;
         await onSend(message);
         setDraft("");
         setDefinition(null);
@@ -153,16 +156,16 @@ export function Composer({
       {onUploadApiSource === undefined ? null : (
         <label data-chat-source-upload="">
           <Paperclip aria-hidden="true" />
-          <strong>Attach API definition</strong>
+          <strong>Attach Source file</strong>
           <input
             ref={fileRef}
             type="file"
-            aria-label="Attach API definition"
-            accept=".json,.yaml,.yml,application/json,application/yaml,text/yaml"
+            aria-label="Attach Source file"
+            accept=".json,.yaml,.yml,.md,.markdown,application/json,application/yaml,text/yaml,text/markdown"
             disabled={disabled || uploading || onRetry !== undefined}
             onChange={(event) => setDefinition(event.currentTarget.files?.[0] ?? null)}
           />
-          <span>{definition?.name ?? "No API file attached"}</span>
+          <span>{definition?.name ?? "No Source file attached"}</span>
         </label>
       )}
       <div>
@@ -198,7 +201,7 @@ export function Composer({
         ) : null}
       </div>
       {disabledReason === undefined ? null : <p data-composer-disabled-reason="">{disabledReason}</p>}
-      {uploading ? <p role="status">Adding the API definition to this conversation…</p> : null}
+      {uploading ? <p role="status">Adding the Source file to this conversation…</p> : null}
       {error === null ? null : (
         <p role="alert">Corpus could not complete that request. Try again.</p>
       )}

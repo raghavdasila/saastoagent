@@ -1,3 +1,5 @@
+import { decodeFrontendContract, type FrontendContract } from "@routedeck/core";
+import { NavGraphInspector } from "@routedeck/react";
 import { memo, useMemo } from "react";
 
 import type { AgentBuildView } from "./models";
@@ -30,34 +32,34 @@ interface GraphTransition {
 
 export const BuildNavGraph = memo(function BuildNavGraph({ build }: { readonly build: AgentBuildView }) {
   const graph = useMemo(() => parseGraph(build.compiled_navgraph), [build.compiled_navgraph]);
-  if (build.navgraph_hash === null || graph === null) return <p>RouteDeck NavGraph unavailable for this build.</p>;
-  const nodeById = new Map(graph.nodes.map((node, index) => [node.id, { node, index }]));
+  const frontendContract = useMemo(() => parseFrontendContract(build.frontend_contract), [build.frontend_contract]);
+  if (build.navgraph_hash === null || graph === null) return <p role="alert">The exact immutable RouteDeck NavGraph is unavailable for this build.</p>;
+  if (frontendContract === null) return <p role="alert">The exact RouteDeck frontend contract is unavailable for this build.</p>;
+
+  const currentNode = frontendContract.nodes[frontendContract.entry_node_id];
+  const legalOperationIds = currentNode?.operation_ids ?? [];
+  const reachableNodeIds = Array.from(new Set(frontendContract.transitions
+    .filter((transition) => transition.source === frontendContract.entry_node_id && legalOperationIds.includes(transition.operation_id))
+    .map((transition) => transition.target)));
+  const activeSurfaceIds = currentNode === undefined ? [] : surfaceIds(currentNode.surfaces);
+
   return <section className="build-navgraph" aria-label={`RouteDeck NavGraph for build ${build.id}`}>
     <header>
       <div><p>Immutable RouteDeck application</p><h3>NavGraph</h3></div>
       <code title={build.navgraph_hash}>{build.navgraph_hash.slice(0, 16)}…</code>
     </header>
     {topologyHash(graph.nodes[0]?.public_metadata) === null ? null : <p>Designer topology <code>{topologyHash(graph.nodes[0]!.public_metadata)!.slice(0, 16)}…</code></p>}
-    <svg viewBox={`0 0 ${Math.max(720, graph.nodes.length * 560 + 160)} 230`} role="img" aria-label={`${graph.nodes.length} NavGraph nodes and ${graph.transitions.length} transitions`}>
-      <defs><marker id={`arrow-${build.id}`} markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" /></marker></defs>
-      {graph.transitions.map((transition, index) => {
-        const source = nodeById.get(transition.source.id)?.index ?? 0;
-        const target = nodeById.get(transition.target.id)?.index ?? source;
-        const x1 = 360 + source * 560;
-        const x2 = 360 + target * 560;
-        const loop = source === target;
-        return <g key={`${transition.operation.id}-${index}`}>
-          <path className="build-navgraph__edge" d={loop ? `M ${x1 + 250} 110 C ${x1 + 320} 30, ${x1 - 320} 30, ${x1 - 250} 110` : `M ${x1 + 250} 110 L ${x2 - 250} 110`} markerEnd={`url(#arrow-${build.id})`} />
-          <text x={(x1 + x2) / 2} y={loop ? 34 : 96}>{transition.outcome}</text>
-        </g>;
-      })}
-      {graph.nodes.map((node, index) => <g key={node.id} transform={`translate(${110 + index * 560} 72)`}>
-        <rect width="500" height="96" rx="16" />
-        <foreignObject x="16" y="10" width="468" height="36"><div className="build-navgraph__title">{node.title}</div></foreignObject>
-        <text x="16" y="61">{node.id}</text>
-        <text x="16" y="82">{node.operations.length} tools · {node.capabilities.length} capabilities</text>
-      </g>)}
-    </svg>
+    <div className="build-navgraph__inspector">
+      <NavGraphInspector
+        contract={frontendContract}
+        currentNodeId={frontendContract.entry_node_id}
+        reachableNodeIds={reachableNodeIds}
+        activeSurfaceIds={activeSurfaceIds}
+        legalOperationIds={legalOperationIds}
+        canvasHeight="clamp(26rem, 56vh, 42rem)"
+        showMiniMap
+      />
+    </div>
     <div className="build-navgraph__contracts">
       {graph.nodes.map((node) => <article key={node.id}>
         <h4>{node.title}</h4>
@@ -80,6 +82,14 @@ function parseGraph(value: Readonly<Record<string, unknown>>): { readonly nodes:
   return nodes.length === value.nodes.length && transitions.length === value.transitions.length ? { nodes, transitions } : null;
 }
 
+function parseFrontendContract(value: Readonly<Record<string, unknown>>): FrontendContract | null {
+  try {
+    return decodeFrontendContract(value);
+  } catch {
+    return null;
+  }
+}
+
 function isGraphNode(value: unknown): value is GraphNode {
   if (!record(value)) return false;
   return typeof value.id === "string" && typeof value.title === "string" && Array.isArray(value.operations) && value.operations.every(isGraphOperation) && Array.isArray(value.capabilities) && Array.isArray(value.policy_refs) && Array.isArray(value.suggested_actions) && record(value.surfaces) && record(value.public_metadata);
@@ -95,4 +105,5 @@ function isGraphTransition(value: unknown): value is GraphTransition {
 
 function record(value: unknown): value is Readonly<Record<string, unknown>> { return typeof value === "object" && value !== null && !Array.isArray(value); }
 function surfaceCount(value: Readonly<Record<string, unknown>>): number { return Object.values(value).reduce<number>((total, item) => total + (Array.isArray(item) ? item.length : item === null ? 0 : 1), 0); }
+function surfaceIds(value: object): string[] { return Object.values(value as Readonly<Record<string, unknown>>).flatMap((item) => typeof item === "string" ? [item] : Array.isArray(item) ? item.filter((entry): entry is string => typeof entry === "string") : []); }
 function topologyHash(value: Readonly<Record<string, unknown>> | undefined): string | null { const topology = value?.designer_topology; return record(topology) && typeof topology.topology_hash === "string" ? topology.topology_hash : null; }

@@ -112,7 +112,18 @@ async def test_sql_routedeck_guard_allows_exact_agent_check_and_blocks_stale_sur
             deployment_service=object(),
             operations_service=object(),
             workspace_service=WorkspaceProbe(),
-            source_service=SimpleNamespace(repository=repository),
+            source_service=SimpleNamespace(
+                repository=repository,
+                get_source=lambda *, owner_key, source_id, revision_id=None: (
+                    repository.get(owner_key=owner_key, source_id=source_id)
+                    if revision_id is None
+                    else repository.get_revision(
+                        owner_key=owner_key,
+                        source_id=source_id,
+                        revision_id=revision_id,
+                    )
+                ),
+            ),
             source_graph_presenter=object(),
             source_connection_service=object(),
             source_contract_revision_service=object(),
@@ -158,9 +169,14 @@ async def test_sql_routedeck_guard_allows_exact_agent_check_and_blocks_stale_sur
                 session_id=session_id,
                 request_id="open-api-source-workflow",
                 expected_session_version=hub.session_version,
-                operation_id="sources.open_api_creation",
+                operation_id="sources.open_api_source",
                 source=OperationSource.SURFACE,
-                arguments=FrozenJsonObject({}),
+                arguments=FrozenJsonObject(
+                    {
+                        "source_id": source_id,
+                        "source_revision_id": revision_id,
+                    }
+                ),
             )
         )
         assert api_opened.disposition is OperationDisposition.COMPLETED

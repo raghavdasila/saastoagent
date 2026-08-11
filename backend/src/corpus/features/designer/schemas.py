@@ -64,3 +64,5 @@ class AgentDesignView(BaseModel):
     accepted_revision_id: uuid.UUID | None
     revisions: tuple[DesignRevisionView, ...]
     build_request: BuildRequestView | None
+    current_inputs_ready: bool
+    current_inputs_match: bool

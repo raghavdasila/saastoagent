@@ -16,6 +16,7 @@ class WorkspaceOverviewView(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     agent_count: int = Field(ge=0)
+    source_count: int = Field(ge=0)
     agents: WorkspaceSectionView
     sources: WorkspaceSectionView
     recent_activity: WorkspaceSectionView

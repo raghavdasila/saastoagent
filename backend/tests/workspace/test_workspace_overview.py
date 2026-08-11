@@ -28,6 +28,7 @@ class WorkspaceOverviewProbe:
     def _overview() -> WorkspaceOverview:
         return WorkspaceOverview(
             agent_count=2,
+            source_count=3,
             agents=WorkspaceSectionState(
                 status="available",
                 message="2 active agents in this Workspace.",
@@ -67,6 +68,7 @@ def test_workspace_overview_http_requires_auth_and_preserves_availability_truth(
         assert overview.headers["cache-control"] == "private, no-store"
         assert overview.json() == {
             "agent_count": 2,
+            "source_count": 3,
             "agents": {
                 "status": "available",
                 "message": "2 active agents in this Workspace.",

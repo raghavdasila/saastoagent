@@ -21,11 +21,13 @@ from routedeck_core.contracts.suggestions import SuggestedAction
 
 from corpus.auth.contracts import OWNER_CONTEXT_PROVIDER
 from corpus.features.workspace.contracts import HOME_REF
-from corpus.features.workspace.declarations import OPEN_AGENTS
 from corpus.features.agents.contracts import AGENTS_CREATE_REF, AGENTS_HOME_REF
+from corpus.features.builder.contracts import BUILDER_HOME_REF
 from corpus.features.agents.declarations import (
     AGENT_ENTITY_PROVIDER,
     ATTACH_CREATED_SOURCE,
+    OPEN_AGENT_BUILDS,
+    OPEN_EXISTING_AGENT_FOR_SOURCE,
     OPEN_CREATE,
     RETURN_FROM_SOURCE,
 )
@@ -37,9 +39,14 @@ from .declarations import (
     API_CONNECTION_FORM_ID,
     CONTRACT_REVISION_CURRENT_GUARD,
     CONTRACT_REVISION_PROPOSAL_PROVIDER,
+    SELECTED_API_SOURCE_PROVIDER,
     INSPECT_CURRENT_API,
     OPEN_API_CREATION,
     OPEN_API_SOURCE,
+    OPEN_API_DESCRIPTION,
+    SAVE_API_DESCRIPTION,
+    DELETE_API_SOURCE,
+    SOURCE_DELETE_CURRENT_GUARD,
     PROPOSE_CONTRACT_REVISION,
     PREPARE_ROUTED_API_TEST,
     PROCESS_API,
@@ -57,6 +64,7 @@ from .declarations import (
     ROUTED_API_READ_CURRENT_GUARD,
     ROUTED_API_WRITE_CURRENT_GUARD,
     SOURCES_HOME_REF,
+    SOURCES_API_INTAKE_REF,
     SOURCES_API_REF,
 )
 from . import policies
@@ -82,8 +90,47 @@ SOURCES_HOME_SURFACE = Surface(
         SurfaceAffordance(id="return_to_home", event="open", operation=RETURN_TO_HOME.ref),
         SurfaceAffordance(id="open_api_creation", event="open", operation=OPEN_API_CREATION.ref),
         SurfaceAffordance(id="open_api_source", event="open", operation=OPEN_API_SOURCE.ref),
+        SurfaceAffordance(id="open_api_description", event="open", operation=OPEN_API_DESCRIPTION.ref),
         SurfaceAffordance(id="attach_created_source", event="submit", operation=ATTACH_CREATED_SOURCE.ref),
         SurfaceAffordance(id="return_to_agent", event="open", operation=RETURN_FROM_SOURCE.ref),
+    ),
+)
+
+API_SOURCE_INTAKE_SURFACE = Surface(
+    id="sources.api_intake",
+    component="sources.api_intake",
+    lifecycle=SurfaceLifecycle.STABLE,
+    public_props_schema=FrozenJsonObject(
+        {
+            "type": "object",
+            "properties": {
+                "mode": {"type": "string", "const": "create"},
+                "return_agent_ref": {"type": "string", "minLength": 1},
+                "agent_handoff_mode": {"type": "string", "enum": ["create", "inspect"]},
+            },
+            "additionalProperties": False,
+        }
+    ),
+    affordances=(
+        SurfaceAffordance(
+            id="accept_staged_api",
+            event="submit",
+            operation=ACCEPT_STAGED_API.ref,
+        ),
+        SurfaceAffordance(
+            id="return_to_source_hub",
+            event="open",
+            operation=RETURN_TO_SOURCE_HUB.ref,
+        ),
+        SurfaceAffordance(
+            id="return_to_agent",
+            event="open",
+            operation=RETURN_FROM_SOURCE.ref,
+        ),
+    ),
+    policy_refs=(
+        policies.OWNER_SCOPE.ref,
+        policies.STAGED_SETUP_CONTINUATION.ref,
     ),
 )
 
@@ -101,6 +148,8 @@ API_SOURCE_SURFACE = Surface(
                 "agent_handoff_mode": {"type": "string", "enum": ["create", "inspect"]},
                 "selected_source_id": {"type": "string", "minLength": 16, "maxLength": 16},
                 "selected_source_revision_id": {"type": "string", "minLength": 16, "maxLength": 16},
+                "return_context": {"type": "string", "enum": ["agent", "builder"]},
+                "initial_workspace": {"type": "string", "enum": ["graph", "operations", "connection", "agent", "description"]},
             },
             "required": ["form_handle"],
             "additionalProperties": False,
@@ -155,14 +204,24 @@ API_SOURCE_SURFACE = Surface(
             operation=PREPARE_ROUTED_API_TEST.ref,
         ),
         SurfaceAffordance(
-            id="accept_staged_api",
-            event="submit",
-            operation=ACCEPT_STAGED_API.ref,
-        ),
-        SurfaceAffordance(
             id="process_api",
             event="submit",
             operation=PROCESS_API.ref,
+        ),
+        SurfaceAffordance(
+            id="open_api_description",
+            event="open",
+            operation=OPEN_API_DESCRIPTION.ref,
+        ),
+        SurfaceAffordance(
+            id="save_api_description",
+            event="submit",
+            operation=SAVE_API_DESCRIPTION.ref,
+        ),
+        SurfaceAffordance(
+            id="delete_api_source",
+            event="submit",
+            operation=DELETE_API_SOURCE.ref,
         ),
         SurfaceAffordance(
             id="retry_processing",
@@ -180,9 +239,14 @@ API_SOURCE_SURFACE = Surface(
             operation=RETURN_FROM_SOURCE.ref,
         ),
         SurfaceAffordance(
+            id="return_to_builder",
+            event="open",
+            operation=OPEN_AGENT_BUILDS.ref,
+        ),
+        SurfaceAffordance(
             id="open_agent_inventory",
             event="open",
-            operation=OPEN_AGENTS.ref,
+            operation=OPEN_EXISTING_AGENT_FOR_SOURCE.ref,
         ),
         SurfaceAffordance(
             id="open_agent_creation",
@@ -236,6 +300,24 @@ ROUTED_API_WRITE_REVIEW_SURFACE = Surface(
     policy_refs=(policies.API_ROUTED_EXECUTION_TRUTH.ref,),
 )
 
+SOURCE_DELETE_REVIEW_SURFACE = Surface(
+    id="sources.delete_review",
+    component="sources.delete_review",
+    lifecycle=SurfaceLifecycle.STABLE,
+    public_props_schema=FrozenJsonObject(
+        {
+            "type": "object",
+            "properties": {
+                "state": {"type": "string", "const": "pending"},
+                "review_id": {"type": "string", "minLength": 1},
+                "expires_at": {"type": "string", "minLength": 1},
+            },
+            "additionalProperties": False,
+        }
+    ),
+    policy_refs=(policies.SOURCE_LIFECYCLE_TRUTH.ref,),
+)
+
 CONTRACT_REVISION_PROPOSAL_SURFACE = Surface(
     id="sources.contract_revision_proposal",
     component="sources.contract_revision_proposal",
@@ -282,9 +364,11 @@ SOURCES_CAPABILITY = Capability(
     id="sources.manage",
     title="Manage owner Sources through registered connectors",
     operations=(
-        ACCEPT_STAGED_API.ref,
         OPEN_API_CREATION.ref,
         OPEN_API_SOURCE.ref,
+        OPEN_API_DESCRIPTION.ref,
+        SAVE_API_DESCRIPTION.ref,
+        DELETE_API_SOURCE.ref,
         PROCESS_API.ref,
         INSPECT_CURRENT_API.ref,
         RETRY_PROCESSING.ref,
@@ -301,7 +385,8 @@ SOURCES_CAPABILITY = Capability(
         APPROVE_CONTRACT_REVISION.ref,
         ATTACH_CREATED_SOURCE.ref,
         RETURN_FROM_SOURCE.ref,
-        OPEN_AGENTS.ref,
+        OPEN_AGENT_BUILDS.ref,
+        OPEN_EXISTING_AGENT_FOR_SOURCE.ref,
         OPEN_CREATE.ref,
     ),
     surfaces=(
@@ -311,15 +396,33 @@ SOURCES_CAPABILITY = Capability(
         CONTRACT_REVISION_REVIEW_SURFACE.ref,
         API_OPERATION_TEST_SURFACE.ref,
         ROUTED_API_WRITE_REVIEW_SURFACE.ref,
+        SOURCE_DELETE_REVIEW_SURFACE.ref,
     ),
     policy_refs=(
         policies.OWNER_SCOPE.ref,
         policies.PROCESSING_TRUTH.ref,
         policies.STAGED_SETUP_CONTINUATION.ref,
+        policies.ACTIVE_API_CONTINUATION.ref,
         policies.API_CONNECTION_CHECK_TRUTH.ref,
         policies.API_OPERATION_CURATION_TRUTH.ref,
         policies.API_ROUTE_PLANNING_TRUTH.ref,
         policies.API_ROUTED_EXECUTION_TRUTH.ref,
+        policies.SOURCE_LIFECYCLE_TRUTH.ref,
+    ),
+)
+
+SOURCES_INTAKE_CAPABILITY = Capability(
+    id="sources.intake",
+    title="Add one new API definition",
+    operations=(
+        ACCEPT_STAGED_API.ref,
+        RETURN_TO_SOURCE_HUB.ref,
+        RETURN_FROM_SOURCE.ref,
+    ),
+    surfaces=(API_SOURCE_INTAKE_SURFACE.ref,),
+    policy_refs=(
+        policies.OWNER_SCOPE.ref,
+        policies.STAGED_SETUP_CONTINUATION.ref,
     ),
 )
 
@@ -333,14 +436,15 @@ SOURCES_HOME_NODE = Node(
         deep_link_policy=DeepLinkPolicy.SESSION_BOUND,
     ),
     context_providers=(OWNER_CONTEXT_PROVIDER,),
-    operations=(OPEN_API_CREATION, OPEN_API_SOURCE, RETURN_TO_HOME, ATTACH_CREATED_SOURCE, RETURN_FROM_SOURCE),
+    operations=(OPEN_API_CREATION, OPEN_API_SOURCE, OPEN_API_DESCRIPTION, RETURN_TO_HOME, ATTACH_CREATED_SOURCE, RETURN_FROM_SOURCE),
     outgoing=(
         Transition(
             operation=OPEN_API_CREATION.ref,
             outcome="opened",
-            target=SOURCES_API_REF,
+            target=SOURCES_API_INTAKE_REF,
         ),
         Transition(operation=OPEN_API_SOURCE.ref, outcome="opened", target=SOURCES_API_REF),
+        Transition(operation=OPEN_API_DESCRIPTION.ref, outcome="opened", target=SOURCES_API_REF),
         Transition(
             operation=ATTACH_CREATED_SOURCE.ref,
             outcome="attached",
@@ -375,6 +479,33 @@ SOURCES_HOME_NODE = Node(
         policies.API_OPERATION_CURATION_TRUTH.ref,
         policies.API_ROUTE_PLANNING_TRUTH.ref,
         policies.API_ROUTED_EXECUTION_TRUTH.ref,
+        policies.SOURCE_LIFECYCLE_TRUTH.ref,
+    ),
+)
+
+SOURCES_API_INTAKE_NODE = Node(
+    id=SOURCES_API_INTAKE_REF.id,
+    title="New API Source",
+    kind=NodeKind.WORKFLOW,
+    parent=SOURCES_HOME_REF,
+    route=Route(template="/sources/api/new", deep_link_policy=DeepLinkPolicy.SESSION_BOUND),
+    context_providers=(OWNER_CONTEXT_PROVIDER,),
+    operations=(
+        ACCEPT_STAGED_API,
+        RETURN_TO_SOURCE_HUB,
+        RETURN_FROM_SOURCE,
+    ),
+    outgoing=(
+        Transition(operation=ACCEPT_STAGED_API.ref, outcome="accepted", target=SOURCES_API_REF),
+        Transition(operation=RETURN_TO_SOURCE_HUB.ref, outcome="opened", target=SOURCES_HOME_REF),
+        Transition(operation=RETURN_FROM_SOURCE.ref, outcome="opened", target=AGENTS_HOME_REF),
+    ),
+    capabilities=(SOURCES_INTAKE_CAPABILITY,),
+    entity_providers=(AGENT_ENTITY_PROVIDER,),
+    surfaces=SurfaceSlots(active=API_SOURCE_INTAKE_SURFACE),
+    policy_refs=(
+        policies.OWNER_SCOPE.ref,
+        policies.STAGED_SETUP_CONTINUATION.ref,
     ),
 )
 
@@ -384,10 +515,12 @@ SOURCES_API_NODE = Node(
     kind=NodeKind.WORKFLOW,
     parent=SOURCES_HOME_REF,
     route=Route(template="/sources/api", deep_link_policy=DeepLinkPolicy.SESSION_BOUND),
-    context_providers=(OWNER_CONTEXT_PROVIDER,),
+    context_providers=(OWNER_CONTEXT_PROVIDER, SELECTED_API_SOURCE_PROVIDER),
     operations=(
-        ACCEPT_STAGED_API,
         PROCESS_API,
+        OPEN_API_DESCRIPTION,
+        SAVE_API_DESCRIPTION,
+        DELETE_API_SOURCE,
         INSPECT_CURRENT_API,
         RETRY_PROCESSING,
         RETURN_TO_SOURCE_HUB,
@@ -402,12 +535,15 @@ SOURCES_API_NODE = Node(
         APPROVE_CONTRACT_REVISION,
         ATTACH_CREATED_SOURCE,
         RETURN_FROM_SOURCE,
-        OPEN_AGENTS,
+        OPEN_AGENT_BUILDS,
+        OPEN_EXISTING_AGENT_FOR_SOURCE,
         OPEN_CREATE,
     ),
     outgoing=(
-        Transition(operation=ACCEPT_STAGED_API.ref, outcome="accepted", target=SOURCES_API_REF),
         Transition(operation=PROCESS_API.ref, outcome="queued", target=SOURCES_API_REF),
+        Transition(operation=OPEN_API_DESCRIPTION.ref, outcome="opened", target=SOURCES_API_REF),
+        Transition(operation=SAVE_API_DESCRIPTION.ref, outcome="saved", target=SOURCES_API_REF),
+        Transition(operation=DELETE_API_SOURCE.ref, outcome="deleted", target=SOURCES_HOME_REF),
         Transition(operation=INSPECT_CURRENT_API.ref, outcome="inspected", target=SOURCES_API_REF),
         Transition(operation=PROPOSE_CONTRACT_REVISION.ref, outcome="proposed", target=SOURCES_API_REF),
         Transition(operation=APPROVE_CONTRACT_REVISION.ref, outcome="approved", target=SOURCES_API_REF),
@@ -415,7 +551,8 @@ SOURCES_API_NODE = Node(
         Transition(operation=RETURN_TO_SOURCE_HUB.ref, outcome="opened", target=SOURCES_HOME_REF),
         Transition(operation=ATTACH_CREATED_SOURCE.ref, outcome="attached", target=AGENTS_HOME_REF),
         Transition(operation=RETURN_FROM_SOURCE.ref, outcome="opened", target=AGENTS_HOME_REF),
-        Transition(operation=OPEN_AGENTS.ref, outcome="opened", target=AGENTS_HOME_REF),
+        Transition(operation=OPEN_AGENT_BUILDS.ref, outcome="opened", target=BUILDER_HOME_REF),
+        Transition(operation=OPEN_EXISTING_AGENT_FOR_SOURCE.ref, outcome="opened", target=AGENTS_HOME_REF),
         Transition(operation=OPEN_CREATE.ref, outcome="opened", target=AGENTS_CREATE_REF),
         Transition(operation=SELECT_GRAPH_STAGE.ref, outcome="selected", target=SOURCES_API_REF),
         Transition(operation=SAVE_API_CONNECTION.ref, outcome="saved", target=SOURCES_API_REF),
@@ -433,11 +570,12 @@ SOURCES_API_NODE = Node(
         API_OPERATION_CURATION_CURRENT_GUARD,
         ROUTED_API_READ_CURRENT_GUARD,
         ROUTED_API_WRITE_CURRENT_GUARD,
+        SOURCE_DELETE_CURRENT_GUARD,
     ),
     surfaces=SurfaceSlots(
         active=API_SOURCE_SURFACE,
         detail=(CONTRACT_REVISION_PROPOSAL_SURFACE, API_OPERATION_TEST_SURFACE),
-        review=(CONTRACT_REVISION_REVIEW_SURFACE, ROUTED_API_WRITE_REVIEW_SURFACE),
+        review=(CONTRACT_REVISION_REVIEW_SURFACE, ROUTED_API_WRITE_REVIEW_SURFACE, SOURCE_DELETE_REVIEW_SURFACE),
     ),
     recovery=RecoveryPolicy(
         directives=(
@@ -455,16 +593,18 @@ SOURCES_API_NODE = Node(
     policy_refs=(
         policies.OWNER_SCOPE.ref,
         policies.PROCESSING_TRUTH.ref,
+        policies.ACTIVE_API_CONTINUATION.ref,
         policies.API_CONNECTION_CHECK_TRUTH.ref,
         policies.API_OPERATION_CURATION_TRUTH.ref,
         policies.API_ROUTE_PLANNING_TRUTH.ref,
         policies.API_ROUTED_EXECUTION_TRUTH.ref,
+        policies.SOURCE_LIFECYCLE_TRUTH.ref,
     ),
 )
 
 SOURCES_FEATURE = Feature(
     namespace="sources",
-    nodes=(SOURCES_HOME_NODE, SOURCES_API_NODE),
+    nodes=(SOURCES_HOME_NODE, SOURCES_API_INTAKE_NODE, SOURCES_API_NODE),
     agent_policies=policies.SOURCES_AGENT_POLICIES,
     policy_refs=(
         policies.FEATURE_PROMPT.ref,
@@ -474,6 +614,7 @@ SOURCES_FEATURE = Feature(
         policies.API_OPERATION_CURATION_TRUTH.ref,
         policies.API_ROUTE_PLANNING_TRUTH.ref,
         policies.API_ROUTED_EXECUTION_TRUTH.ref,
+        policies.SOURCE_LIFECYCLE_TRUTH.ref,
     ),
 )
 
@@ -483,6 +624,7 @@ __all__ = [
     "CONTRACT_REVISION_REVIEW_SURFACE",
     "API_OPERATION_TEST_SURFACE",
     "ROUTED_API_WRITE_REVIEW_SURFACE",
+    "SOURCE_DELETE_REVIEW_SURFACE",
     "SOURCES_HOME_SURFACE",
     "API_SOURCE_SURFACE",
     "SOURCES_FEATURE",

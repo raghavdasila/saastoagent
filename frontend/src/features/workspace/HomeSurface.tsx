@@ -69,6 +69,7 @@ export function HomeSurface({
           <article data-status={workspace.overview.sources.status}>
             <DatabaseZap aria-hidden="true" />
             <div><strong>Sources</strong><span>{workspace.overview.sources.message}</span></div>
+            <em>{workspace.overview.source_count}</em>
           </article>
           <article data-status={workspace.overview.recent_activity.status}>
             <span aria-hidden="true">↻</span>

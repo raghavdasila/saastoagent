@@ -36,8 +36,6 @@ from scripts.run_api_contract_revision_journey import (  # noqa: E402
     _proposal_panel,
     _register,
     _review_surface,
-    _source_ids,
-    _upload,
 )
 from scripts.run_api_operation_curation_journey import (  # noqa: E402
     _curation_panel,
@@ -51,7 +49,7 @@ from scripts.run_api_route_planning_journey import (  # noqa: E402
 )
 
 
-EXPECTED_CHECKS = 24
+EXPECTED_CHECKS = 25
 CHAT_EVIDENCE_BACKEND_URL = "http://127.0.0.1:8099"
 ROUTEDECK_MANIFEST = (
     REPOSITORY_ROOT / "contracts" / "corpus-agent-design-routedeck-manifest.json"
@@ -77,15 +75,16 @@ FEATURE_SURFACE_SELECTORS = {
 }
 
 CHAT_PROMPTS = {
-    "prepare_api": "I need to add a new store API definition to this assistant. I have the YAML file ready.",
-    "attach_api": "Here is the store API definition for that assistant. Does it match the store?",
-    "prepare_contract": "Prepare the safest correction for me to review, but do not apply it yet.",
-    "request_contract_decision": "What would that correction change?",
-    "stage_contract": "I am ready to review that correction. Keep it pending until I decide.",
-    "accept_contract": "That correction looks right. Apply it.",
+    "setup_from_file": "Use this file please. Also set up the agent for me.",
+    "choose_new_agent": "Create a new one.",
+    "create_agent": "It is a shopping assistant. It answers product taxonomy questions and must not invent missing information.",
+    "resume_api": "Continue with the store API we just added and show me its analyzed structure.",
+    "prepare_api_update": "Prepare the safest API correction for me to review, but do not apply it yet.",
+    "request_api_update_decision": "What would that API correction change?",
+    "stage_api_update": "I am ready to review that API correction. Keep it pending until I decide.",
+    "accept_api_update": "That API correction looks right. Apply it.",
     "curate_api": "Use only the collection endpoints that list all product tags and all product types. Exclude every other API operation.",
-    "create_agent": "Create a Store Taxonomy Assistant that answers taxonomy questions without making up missing information.",
-    "attach_source": "Use the store API we just checked for this assistant.",
+    "attach_source": "Attach this prepared store API to the shopping assistant.",
     "enter_design": "Turn my requirements into proposed assistant behavior that I can review.",
     "propose_design": "Turn what we've agreed into a draft design for me to review.",
     "request_design_decision": "Put that proposed behavior up for my approval without accepting it.",
@@ -266,6 +265,7 @@ async def main() -> None:
         "pageErrors": [],
         "requestFailures": [],
         "expectedAbortedRequests": [],
+        "expectedConsoleWarnings": [],
     }
     observations: dict[str, object] = {
         "sequence": 0,
@@ -318,97 +318,38 @@ async def main() -> None:
         try:
             await _register(page, args.url, owner)
             ids["conversationId"] = await _selected_conversation_id(page)
-            if args.mode == "chat":
+            setup_response: str | None = None
+            if args.mode in {"chat", "hybrid"}:
                 await _open_chat_evidence_inspector(page, safe_trace)
-                await _chat_dispatch(
+                setup_response = await _chat_upload_source(
                     page,
-                    CHAT_PROMPTS["create_agent"],
+                    MEDUSA_SPEC,
+                    CHAT_PROMPTS["setup_from_file"],
                     (
-                        "workspace.open_agents",
-                        "agents.open_create",
-                        "agents.create_agent",
+                        "workspace.open_sources",
+                        "sources.open_api_creation",
+                        "sources.accept_staged_api",
+                        "sources.process_api",
                     ),
                     safe_trace,
                     interaction_events,
                 )
+                if not _asks_for_agent_choice(setup_response):
+                    raise RuntimeError(
+                        "Corpus did not ask whether to use an existing Agent or create a new one."
+                    )
+                hub = page.locator("section.sources-debug.api-source-workspace")
+                await hub.wait_for(state="visible", timeout=90_000)
             else:
-                await page.get_by_role("button", name="Open Agents", exact=True).click()
-                await page.get_by_role("heading", name="Agents", exact=True).last.wait_for()
-                await page.get_by_role("button", name="Create agent", exact=True).last.click()
-                await page.get_by_role(
-                    "heading", name="Create an agent", exact=True
-                ).wait_for()
-                await _wait_for_product_idle(page)
-                create_form = page.locator("section.agent-create form")
-                if args.mode == "hybrid":
-                    await _open_chat_evidence_inspector(page, safe_trace)
-                    await _chat_dispatch(
-                        page,
-                        CHAT_PROMPTS["create_agent"],
-                        "agents.create_agent",
-                        safe_trace,
-                        interaction_events,
-                    )
-                else:
-                    await page.wait_for_timeout(1_500)
-                    await _type_exact(
-                        create_form.get_by_label("Name", exact=True),
-                        "Store Taxonomy Assistant",
-                        "Agent name",
-                    )
-                    await _type_exact(
-                        create_form.get_by_label("Description", exact=True),
-                        "Answers product taxonomy questions from an approved API.",
-                        "Agent description",
-                    )
-                    await _type_exact(
-                        create_form.get_by_label("Instructions", exact=True),
-                        "For product lookup requests, use the user's exact words and never invent an identifier.",
-                        "Agent instructions",
-                    )
-                    await create_form.get_by_role(
-                        "button", name="Create agent", exact=True
-                    ).click()
-            agent_button = page.get_by_role(
-                "button", name="Store Taxonomy Assistant Version 1", exact=True
-            )
-            await agent_button.wait_for(timeout=30_000)
-            ids["agentId"] = await _latest_agent_id(observations)
-
-            if args.mode in {"chat", "hybrid"}:
-                await _chat_dispatch(
-                    page,
-                    CHAT_PROMPTS["prepare_api"],
-                    "agents.open_source_creation",
-                    safe_trace,
-                    interaction_events,
-                )
-                await page.get_by_role(
-                    "heading", name="Source Hub", exact=True
-                ).wait_for(timeout=90_000)
-                await _chat_upload_source(
-                    page,
-                    MEDUSA_SPEC,
-                    CHAT_PROMPTS["attach_api"],
-                    "sources.inspect_current_api",
-                    safe_trace,
-                    interaction_events,
-                )
-                hub = page.locator("section.sources-debug")
-                await hub.get_by_role(
-                    "heading", name="Source Hub", exact=True
-                ).wait_for(timeout=90_000)
-            else:
-                await page.get_by_role(
-                    "button", name="Back to Workspace", exact=True
-                ).click()
-                await page.get_by_role(
-                    "heading", name="Corpus Workspace", exact=True
-                ).wait_for(timeout=90_000)
                 hub = await _open_sources(page)
-                await _upload(page, hub)
+                await _surface_add_and_analyze_api(
+                    page,
+                    hub,
+                    directory,
+                    screenshots,
+                )
             await hub.get_by_text("ready", exact=True).first.wait_for(timeout=180_000)
-            ids.update(await _source_ids(page, observations))
+            ids.update(await _observed_source_ids(observations))
             _check(
                 checks,
                 "fresh API Source reaches coherent ready inventory",
@@ -422,69 +363,113 @@ async def main() -> None:
             if args.mode in {"chat", "hybrid"}:
                 _check(
                     checks,
-                    "ordinary file chat opens and inspects persisted API architecture without product IDs",
-                    any(
-                        item.get("operationId") == "sources.inspect_current_api"
-                        for item in interaction_events
-                    ),
-                    {"message": CHAT_PROMPTS["attach_api"]},
+                    "ordinary file chat adds and explicitly analyzes the staged API before asking for Agent choice",
+                    all(
+                        any(item.get("operationId") == operation_id for item in interaction_events)
+                        for operation_id in (
+                            "workspace.open_sources",
+                            "sources.open_api_creation",
+                            "sources.accept_staged_api",
+                            "sources.process_api",
+                        )
+                    ) and setup_response is not None and _asks_for_agent_choice(setup_response),
+                    {"message": CHAT_PROMPTS["setup_from_file"]},
                 )
             else:
                 _check(
                     checks,
-                    "surface-only API architecture remains visibly inspectable",
-                    await page.get_by_role(
-                        "img", name="Semantic graph visualization", exact=True
-                    ).is_visible(),
-                    {},
+                    "surface-only file acceptance stays visibly separate from explicit analysis",
+                    any(Path(path).name.startswith("00-api-definition-saved") for path in screenshots),
+                    {"sourceId": ids["sourceId"]},
                 )
+
+            if args.mode == "chat":
+                choice_response = await _chat_dispatch(
+                    page,
+                    CHAT_PROMPTS["choose_new_agent"],
+                    "agents.open_create",
+                    safe_trace,
+                    interaction_events,
+                )
+                if not _asks_for_agent_details(choice_response):
+                    raise RuntimeError("Corpus did not ask for the new Agent's goal or responsibilities.")
+                await _chat_dispatch(
+                    page,
+                    CHAT_PROMPTS["create_agent"],
+                    ("agents.create_agent", "agents.attach_source"),
+                    safe_trace,
+                    interaction_events,
+                )
+                await _chat_dispatch(
+                    page,
+                    CHAT_PROMPTS["resume_api"],
+                    (
+                        "agents.open_attached_source",
+                        "sources.inspect_current_api",
+                    ),
+                    safe_trace,
+                    interaction_events,
+                )
+            else:
+                await hub.get_by_role(
+                    "button", name="Create a new Agent", exact=True
+                ).click()
+                await _create_agent_from_surface(page)
+                await _return_to_only_api_source(page)
+                hub = page.locator("section.sources-debug.api-source-workspace")
+                await hub.wait_for(state="visible", timeout=90_000)
+
+            agent_button = page.get_by_role(
+                "button", name="Store Taxonomy Assistant Version 1", exact=True
+            )
+            ids["agentId"] = await _latest_agent_id(observations)
 
             if args.mode in {"chat", "hybrid"}:
                 await _chat_dispatch(
                     page,
-                    CHAT_PROMPTS["prepare_contract"],
+                    CHAT_PROMPTS["prepare_api_update"],
                     "sources.propose_contract_revision",
                     safe_trace,
                     interaction_events,
                 )
             else:
                 await hub.get_by_role(
-                    "button", name="Prepare contract revision", exact=True
+                    "button", name="Review API changes", exact=True
                 ).click()
             proposal = _proposal_panel(page)
             await proposal.get_by_role(
-                "heading", name="API contract revision proposal", exact=True
+                "heading", name="Proposed API version update", exact=True
             ).wait_for(timeout=90_000)
             proposals = await _observed_proposals(observations, ids["sourceId"])
             ids["proposalId"] = str(proposals[0]["proposal_id"])
             if args.mode in {"chat", "hybrid"}:
                 await _chat_dispatch(
                     page,
-                    CHAT_PROMPTS["request_contract_decision"],
+                    CHAT_PROMPTS["request_api_update_decision"],
                     None,
                     safe_trace,
                     interaction_events,
                 )
                 await _chat_dispatch(
                     page,
-                    CHAT_PROMPTS["stage_contract"],
+                    CHAT_PROMPTS["stage_api_update"],
                     "sources.approve_contract_revision",
                     safe_trace,
                     interaction_events,
                 )
             else:
                 await proposal.get_by_role(
-                    "button", name="Review this revision", exact=True
+                    "button", name="Review this API update", exact=True
                 ).click()
             review = _review_surface(page)
             await review.get_by_role(
-                "heading", name="Create this immutable API contract revision?", exact=True
+                "heading", name="Create this immutable API version?", exact=True
             ).wait_for(timeout=30_000)
             ids["sourceReviewId"] = await _contract_review_id(review)
             if args.mode == "chat":
                 await _chat_dispatch(
                     page,
-                    CHAT_PROMPTS["accept_contract"],
+                    CHAT_PROMPTS["accept_api_update"],
                     "sources.approve_contract_revision",
                     safe_trace,
                     interaction_events,
@@ -492,9 +477,9 @@ async def main() -> None:
                 )
             else:
                 await review.get_by_role(
-                    "button", name="Accept and create new revision", exact=True
+                    "button", name="Accept and create new version", exact=True
                 ).click()
-            await hub.get_by_text("Reviewed contract revision", exact=True).wait_for(
+            await hub.get_by_text("Validated API version", exact=True).wait_for(
                 timeout=60_000
             )
             current = await _observed_current_source(
@@ -505,7 +490,7 @@ async def main() -> None:
             ids["approvedRevisionId"] = str(current["revision"]["revision_id"])
             _check(
                 checks,
-                "exact 6fca contract revision is approved",
+                "exact 6fca API version is approved",
                 current["revision"]["summary"].get("final_canonical_sha256")
                 == EXPECTED_FINAL,
                 {"revisionId": ids["approvedRevisionId"]},
@@ -576,39 +561,40 @@ async def main() -> None:
             )
             await semantic_graph.scroll_into_view_if_needed()
             await _capture(page, directory, screenshots, "01-source-semantic-graph")
+            split_proven = await _prove_split_surface(
+                page,
+                directory,
+                screenshots,
+            )
+            _check(
+                checks,
+                "API Source maximizes beside the continuing chat without changing workflow state",
+                split_proven,
+                {"layout": "chat-left-surface-right"},
+            )
 
-            if args.mode == "hybrid":
-                await hub.get_by_role(
-                    "button", name="Back to Agent", exact=True
-                ).click()
-                await page.get_by_role(
-                    "heading", name="Agents", exact=True
-                ).last.wait_for(timeout=90_000)
-            elif args.mode == "surface":
-                await hub.get_by_role(
-                    "button", name="Back to Home", exact=True
-                ).click()
-                await page.get_by_role(
-                    "heading", name="Corpus Workspace", exact=True
-                ).wait_for(timeout=90_000)
-                await page.get_by_role("button", name="Open Agents", exact=True).click()
-                await page.get_by_role("heading", name="Agents", exact=True).last.wait_for()
-            if args.mode == "chat":
+            if args.mode in {"chat", "hybrid"}:
                 await _chat_dispatch(
                     page,
                     CHAT_PROMPTS["attach_source"],
-                    "agents.attach_created_source",
+                    ("workspace.open_agents", "agents.attach_source"),
                     safe_trace,
                     interaction_events,
                 )
             else:
+                await hub.get_by_role(
+                    "button", name="Use an existing Agent", exact=True
+                ).click()
+                await page.get_by_role(
+                    "heading", name="Agents", exact=True
+                ).last.wait_for(timeout=90_000)
                 await agent_button.click()
                 await page.get_by_label("Ready Workspace Source", exact=True).select_option(
                     ids["sourceId"]
                 )
                 await page.get_by_role("button", name="Attach Source", exact=True).click()
             await page.get_by_text(
-                f"Revision {ids['approvedRevisionId']}", exact=True
+                f"API version {ids['approvedRevisionId']}", exact=True
             ).wait_for(timeout=30_000)
             _check(
                 checks,
@@ -746,6 +732,7 @@ async def main() -> None:
                     prompt=CHAT_PROMPTS["enter_build"],
                     trace=safe_trace,
                     interactions=interaction_events,
+                    continuation="Continue to Builds",
                 )
                 if args.mode == "hybrid":
                     await _chat_dispatch(
@@ -800,6 +787,7 @@ async def main() -> None:
                     prompt=CHAT_PROMPTS["enter_private_trial"],
                     trace=safe_trace,
                     interactions=interaction_events,
+                    continuation="Continue to Sandbox",
                 )
                 if args.mode == "hybrid":
                     await _chat_dispatch(
@@ -886,6 +874,7 @@ async def main() -> None:
                     prompt=CHAT_PROMPTS["enter_evaluation"],
                     trace=safe_trace,
                     interactions=interaction_events,
+                    continuation="Continue to Evaluation",
                 )
             if args.mode == "hybrid":
                 await _chat_dispatch(
@@ -958,6 +947,7 @@ async def main() -> None:
                     prompt=delivery_prompt,
                     trace=safe_trace,
                     interactions=interaction_events,
+                    continuation="Continue to Channels",
                 )
             channel_name = page.get_by_label("Name", exact=True)
             channel_address = page.get_by_label("Address", exact=True)
@@ -1117,6 +1107,7 @@ async def main() -> None:
                 prompt=CHAT_PROMPTS["enter_operations"],
                 trace=safe_trace,
                 interactions=interaction_events,
+                continuation="View Operations",
             )
             await page.get_by_text(
                 "Deployed Agent interactions and redacted execution evidence",
@@ -1194,6 +1185,7 @@ async def main() -> None:
             recording_ended_at = datetime.now(UTC)
 
     recording_metadata = _video_metadata(video_files)
+    _classify_expected_graph_capture_warnings(diagnostics)
 
     expected_checks = EXPECTED_CHECKS + (1 if args.mode == "hybrid" else 0)
     passed = (
@@ -1251,6 +1243,27 @@ async def main() -> None:
     if error:
         print(f"error={error}")
     raise SystemExit(0 if passed else 1)
+
+
+def _classify_expected_graph_capture_warnings(
+    diagnostics: dict[str, list[dict[str, object]]],
+) -> None:
+    unexpected: list[dict[str, object]] = []
+    expected = diagnostics.setdefault("expectedConsoleWarnings", [])
+    for item in diagnostics.get("consoleErrors", []):
+        text = item.get("text")
+        if (
+            item.get("type") == "warning"
+            and item.get("locationPath") == "/sources/api"
+            and isinstance(text, str)
+            and text.startswith("[.WebGL-")
+            and "GL Driver Message" in text
+            and "GPU stall due to ReadPixels" in text
+        ):
+            expected.append(item)
+        else:
+            unexpected.append(item)
+    diagnostics["consoleErrors"] = unexpected
 
 
 def _require_secret_free_evidence(
@@ -1320,9 +1333,22 @@ async def _open_agent_area_for_mode(
     prompt: str,
     trace: list[dict[str, object]],
     interactions: list[dict[str, object]],
+    continuation: str | None = None,
 ) -> None:
     if mode != "chat":
-        await _open_agent_area(page, label, heading)
+        if continuation is None:
+            await _open_agent_area(page, label, heading)
+        else:
+            await _wait_for_product_idle(page)
+            action = page.get_by_role("button", name=continuation, exact=True)
+            await action.wait_for(state="visible", timeout=90_000)
+            if not await action.is_enabled():
+                raise RuntimeError(f"The guided continuation {continuation!r} is disabled.")
+            await action.click()
+            await _feature_surface(page, heading).get_by_role(
+                "heading", name=heading, exact=True
+            ).wait_for(timeout=90_000)
+            await _wait_for_product_idle(page)
         return
     await _chat_dispatch(
         page,
@@ -1392,6 +1418,152 @@ async def _wait_for_unique_locator(
     raise TimeoutError(f"The exact {label} did not appear.")
 
 
+async def _observed_source_ids(
+    observations: dict[str, object],
+) -> dict[str, str]:
+    for _ in range(300):
+        inventory = observations.get("sourceInventory")
+        if isinstance(inventory, list):
+            matches = [
+                item
+                for item in inventory
+                if isinstance(item, dict)
+                and isinstance(item.get("revision"), dict)
+                and item["revision"].get("state") == "ready"
+            ]
+            if len(matches) > 1:
+                raise RuntimeError("The fresh owner has multiple ready API Sources.")
+            if len(matches) == 1:
+                revision = matches[0]["revision"]
+                source_id = matches[0].get("source_id")
+                revision_id = revision.get("revision_id")
+                job_id = revision.get("job_id")
+                if all(isinstance(value, str) and value for value in (
+                    source_id,
+                    revision_id,
+                    job_id,
+                )):
+                    return {
+                        "sourceId": source_id,
+                        "parentRevisionId": revision_id,
+                        "jobId": job_id,
+                    }
+        await asyncio.sleep(0.1)
+    raise RuntimeError("The exact ready API Source identity was not observed.")
+
+
+async def _surface_add_and_analyze_api(
+    page: Page,
+    hub: Locator,
+    directory: Path,
+    screenshots: list[str],
+) -> None:
+    await hub.locator(".sources-header-actions").get_by_role(
+        "button", name="Add API source", exact=True
+    ).click()
+    intake = page.locator("section.sources-debug.api-source-workspace")
+    await intake.get_by_role(
+        "heading", name="Add API source", exact=True
+    ).wait_for(timeout=90_000)
+    await _type_exact(
+        intake.get_by_label("Source name", exact=True),
+        "Reviewed local Medusa Store",
+        "Source name",
+    )
+    definition = intake.get_by_label(
+        "OpenAPI or Swagger definition", exact=True
+    )
+    await definition.set_input_files(MEDUSA_SPEC)
+    if await definition.input_value() == "":
+        raise RuntimeError("The exact API definition was not bound to API intake.")
+    await intake.get_by_role(
+        "button", name="Add API definition", exact=True
+    ).click()
+    await intake.get_by_text("Ready to analyze", exact=True).wait_for(
+        timeout=90_000
+    )
+    if not await intake.get_by_text("Not started", exact=True).is_visible():
+        raise RuntimeError("Adding the API definition started analysis implicitly.")
+    await _capture(
+        page,
+        directory,
+        screenshots,
+        "00-api-definition-saved-before-analysis",
+    )
+    await intake.get_by_role(
+        "button", name="Analyze API operations", exact=True
+    ).click()
+
+
+async def _create_agent_from_surface(page: Page) -> None:
+    await page.get_by_role(
+        "heading", name="Create an agent", exact=True
+    ).wait_for(timeout=90_000)
+    await _wait_for_product_idle(page)
+    form = page.locator("section.agent-create form")
+    await _type_exact(
+        form.get_by_label("Name", exact=True),
+        "Store Taxonomy Assistant",
+        "Agent name",
+    )
+    await _type_exact(
+        form.get_by_label("Description", exact=True),
+        "Answers product taxonomy questions from an approved API.",
+        "Agent description",
+    )
+    await _type_exact(
+        form.get_by_label("Instructions", exact=True),
+        "For product lookup requests, use the user's exact words and never invent an identifier.",
+        "Agent instructions",
+    )
+    await form.get_by_role("button", name="Create agent", exact=True).click()
+    await page.get_by_role(
+        "button", name="Store Taxonomy Assistant Version 1", exact=True
+    ).wait_for(timeout=90_000)
+
+
+async def _return_to_only_api_source(page: Page) -> None:
+    await page.get_by_role("button", name="Back to Workspace", exact=True).click()
+    await page.get_by_role(
+        "heading", name="Corpus Workspace", exact=True
+    ).wait_for(timeout=90_000)
+    hub = await _open_sources(page)
+    inventory = hub.get_by_role("list", name="API sources", exact=True)
+    rows = inventory.get_by_role("listitem")
+    if await rows.count() != 1:
+        raise RuntimeError("The fresh owner does not have exactly one API Source row.")
+    action = rows.get_by_role("button", name="Open API source", exact=True)
+    await _wait_for_unique_locator(
+        action,
+        label="only API source action",
+        timeout_ms=30_000,
+    )
+    await action.click()
+    api = page.locator("section.sources-debug.api-source-workspace")
+    await api.locator("#source-detail-title").filter(
+        has_text=re.compile(r"^Reviewed local Medusa Store$")
+    ).wait_for(timeout=90_000)
+
+
+def _asks_for_agent_choice(message: str) -> bool:
+    normalized = message.casefold()
+    return (
+        "agent" in normalized
+        and ("existing" in normalized or "already have" in normalized)
+        and ("new" in normalized or "create" in normalized)
+    )
+
+
+def _asks_for_agent_details(message: str) -> bool:
+    normalized = message.casefold()
+    return "agent" in normalized and (
+        "goal" in normalized
+        or "responsib" in normalized
+        or "purpose" in normalized
+        or re.search(r"\bdo\b", normalized) is not None
+    )
+
+
 async def _chat_upload_source(
     page: Page,
     source_path: Path,
@@ -1399,13 +1571,13 @@ async def _chat_upload_source(
     expected_operation_id: str | tuple[str, ...],
     trace: list[dict[str, object]],
     interactions: list[dict[str, object]],
-) -> None:
+) -> str:
     attachment = page.get_by_label("Attach API definition", exact=True)
     await attachment.wait_for(state="visible", timeout=120_000)
     await attachment.set_input_files(source_path)
     if await attachment.input_value() == "":
         raise RuntimeError("The exact API definition was not attached to chat.")
-    await _chat_dispatch(
+    return await _chat_dispatch(
         page,
         message,
         expected_operation_id,
@@ -1424,7 +1596,7 @@ async def _chat_dispatch(
     *,
     attachment_name: str | None = None,
     expected_disposition: str | None = None,
-) -> None:
+) -> str:
     conversation_id = await _selected_conversation_id(page)
     durable_message = _durable_chat_message(message, attachment_name)
     authenticated_inspection = await _refresh_chat_evidence_inspector(page, trace)
@@ -1545,6 +1717,7 @@ async def _chat_dispatch(
         )
     # Keep the unprocessed recording readable at the operation boundary.
     await asyncio.sleep(1.5)
+    return _terminal_assistant_content(before_inspection, snapshot, durable_message)
 
 
 async def _save_profile_exact(
@@ -2328,7 +2501,48 @@ async def _load_authenticated_chat_inspection(
 def _durable_chat_message(message: str, attachment_name: str | None) -> str:
     if attachment_name is None:
         return message
-    return f'{message}\n\nI attached the API definition "{attachment_name}".'
+    return (
+        f'{message}\n\nI attached the API definition "{attachment_name}" '
+        "to this conversation."
+    )
+
+
+def _terminal_assistant_content(
+    before: object,
+    after: object,
+    message: str,
+) -> str:
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        raise RuntimeError("The chat inspection cannot prove the assistant response.")
+    before_context = before.get("agent_context")
+    after_context = after.get("agent_context")
+    if not isinstance(before_context, dict) or not isinstance(after_context, dict):
+        raise RuntimeError("The chat inspection has no durable Agent context.")
+    before_messages = before_context.get("messages")
+    after_messages = after_context.get("messages")
+    if not isinstance(before_messages, list) or not isinstance(after_messages, list):
+        raise RuntimeError("The chat inspection has no durable message history.")
+    new_messages = after_messages[len(before_messages):]
+    user_index = next((
+        index
+        for index, item in enumerate(new_messages)
+        if isinstance(item, dict)
+        and item.get("role") in {"human", "user"}
+        and item.get("content") == message
+    ), None)
+    if user_index is None:
+        raise RuntimeError("The exact owner message is absent from durable chat history.")
+    assistant_messages = [
+        str(item["content"]).strip()
+        for item in new_messages[user_index + 1:]
+        if isinstance(item, dict)
+        and item.get("role") in {"ai", "assistant"}
+        and isinstance(item.get("content"), str)
+        and bool(str(item["content"]).strip())
+    ]
+    if not assistant_messages:
+        raise RuntimeError("The exact chat turn has no terminal assistant response.")
+    return assistant_messages[-1]
 
 
 def _inspection_has_terminal_chat_turn(
@@ -2375,14 +2589,9 @@ def _inspection_has_terminal_chat_turn(
         return False
     return any(
         isinstance(item, dict)
-        and (
-            item.get("role") == "tool"
-            or (
-                item.get("role") in {"ai", "assistant"}
-                and isinstance(item.get("content"), str)
-                and bool(item["content"].strip())
-            )
-        )
+        and item.get("role") in {"ai", "assistant"}
+        and isinstance(item.get("content"), str)
+        and bool(item["content"].strip())
         for item in new_messages[user_index + 1:]
     )
 
@@ -2563,6 +2772,28 @@ async def _latest_channel_id(observations: dict) -> str:
                 return str(channels[0]["id"])
         await asyncio.sleep(0.1)
     raise TimeoutError("The exact hosted channel was not observed.")
+
+
+async def _prove_split_surface(
+    page: Page,
+    directory: Path,
+    output: list[str],
+) -> bool:
+    maximize = page.get_by_role("button", name="Maximize surface", exact=True)
+    await maximize.wait_for(state="visible", timeout=30_000)
+    await maximize.click()
+    shell = page.locator("[data-agent-shell]")
+    await shell.locator("[data-agent-conversation]").wait_for(
+        state="visible", timeout=30_000
+    )
+    await shell.locator("[data-agent-surface-dock]").wait_for(
+        state="visible", timeout=30_000
+    )
+    split = await shell.get_attribute("data-surface-layout") == "split"
+    await _capture(page, directory, output, "01b-source-chat-split")
+    await page.get_by_role("button", name="Return to dock", exact=True).click()
+    docked = await shell.get_attribute("data-surface-layout") == "dock"
+    return split and docked
 
 
 async def _capture(page: Page, directory: Path, output: list[str], name: str) -> None:

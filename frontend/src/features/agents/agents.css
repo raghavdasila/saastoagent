@@ -7,6 +7,12 @@
 .agents-heading h1 { margin-top: 3px; font-size: 24px; letter-spacing: -.03em; }
 .agents-heading span { display: block; margin-top: 4px; color: var(--muted-foreground); font-size: 13px; line-height: 1.45; }
 .agents-error { margin: 0; padding: 10px 12px; border: 1px solid color-mix(in oklch, var(--destructive) 35%, white); border-radius: var(--radius); color: var(--destructive); background: color-mix(in oklch, var(--destructive) 6%, white); font-size: 13px; }
+.agent-pending-source { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 12px 14px; border: 1px solid color-mix(in oklch, var(--primary) 28%, var(--border)); border-radius: var(--radius); background: color-mix(in oklch, var(--primary) 5%, var(--background)); }
+.agent-pending-source div { display: grid; gap: 2px; margin-right: auto; }
+.agent-pending-source p, .agent-pending-source span, .agent-pending-source small { margin: 0; }
+.agent-pending-source p { color: var(--muted-foreground); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.agent-pending-source span, .agent-pending-source small { color: var(--muted-foreground); font-size: 12px; }
+.agent-pending-source small { flex-basis: 100%; color: var(--destructive); }
 .agents-layout { display: grid; min-height: 320px; grid-template-columns: minmax(190px, 30%) minmax(0, 1fr); overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
 .agents-layout > aside { min-width: 0; padding: 16px; border-right: 1px solid var(--border); background: var(--muted); }
 .agents-layout > aside h2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 12px; font-size: 13px; }
@@ -41,6 +47,7 @@
 .agent-sources li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 9px; }
 .agent-sources li span { display: grid; min-width: 0; gap: 2px; }
 .agent-sources li small { color: var(--muted-foreground); font-family: var(--font-mono); }
+.agent-source-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
 .agent-source-picker { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
 .agent-source-picker label { grid-column: 1 / -1; color: var(--muted-foreground); font-size: 12px; font-weight: 600; }
 .agent-source-picker select { min-height: 36px; padding: 0 10px; border: 1px solid var(--input); border-radius: var(--radius); background: var(--background); }
@@ -64,5 +71,7 @@
   .agents-layout > aside { border-right: 0; border-bottom: 1px solid var(--border); }
   .agent-create > form { grid-template-columns: minmax(0, 1fr); }
   .agent-sources > header, .agent-sources li { align-items: stretch; flex-direction: column; }
+  .agent-source-actions { justify-content: stretch; }
+  .agent-source-actions > button { flex: 1; }
   .agent-source-picker { grid-template-columns: minmax(0, 1fr); }
 }

@@ -1,5 +1,12 @@
 import { render, screen } from "@testing-library/react";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
+
+vi.mock("@routedeck/react", () => ({
+  NavGraphInspector: ({ contract }: { readonly contract: { readonly nodes: Readonly<Record<string, { readonly title: string }>> } }) => <section data-routedeck-inspector="read-only">
+    <div data-routedeck-navgraph-canvas="" />
+    {Object.values(contract.nodes).map((node) => <strong key={node.title}>{node.title}</strong>)}
+  </section>,
+}));
 
 import { DeployedRuntimeEvidence } from "@/features/operations/DeployedRuntimeEvidence";
 import type { AgentBuildView, OperationsInteractionView } from "@/features/builder/models";
@@ -7,8 +14,21 @@ import type { AgentBuildView, OperationsInteractionView } from "@/features/build
 it("shows the exact deployed build NavGraph and ToolRouter clarification evidence to the owner", () => {
   const build: AgentBuildView = {
     id: "build-deployed", agent_id: "agent-1", build_request_id: "request-1", design_revision_id: "design-1",
-    agent_version: 1, status: "ready", runtime_build_hash: "r".repeat(64), model: "model", model_digest: "digest",
-    allowed_operation_ids: ["GetProductTypesId"], navgraph_hash: "n".repeat(64), frontend_contract: { nodes: {} },
+    agent_version: 1, attempt_number: 1, status: "ready", runtime_lifecycle: "stopped", runtime_build_hash: "r".repeat(64), model: "model", model_digest: "digest",
+    allowed_operation_ids: ["GetProductTypesId"], navgraph_hash: "n".repeat(64), frontend_contract: {
+      name: "corpus-agent-build-deployed", entry_node_id: "agent_runtime.home",
+      nodes: { "agent_runtime.home": {
+        id: "agent_runtime.home", title: "Catalog Agent", route_template: "/", deep_link_policy: "shareable",
+        conversation_input: { enabled: true, disabled_message: "" }, operation_ids: ["agent_runtime.tool.types"],
+        surfaces: { active: "agent_runtime.home", detail: ["agent_runtime.clarification"], status: ["agent_runtime.toolrouter_status"] },
+      } },
+      surfaces: {
+        "agent_runtime.home": { id: "agent_runtime.home", component: "agent_runtime.home", lifecycle: "stable", public_props_schema: {} },
+        "agent_runtime.clarification": { id: "agent_runtime.clarification", component: "agent_runtime.clarification", lifecycle: "stable", public_props_schema: {} },
+        "agent_runtime.toolrouter_status": { id: "agent_runtime.toolrouter_status", component: "agent_runtime.toolrouter_status", lifecycle: "stable", public_props_schema: {} },
+      },
+      transitions: [{ source: "agent_runtime.home", target: "agent_runtime.home", operation_id: "agent_runtime.tool.types", outcome: "observed" }],
+    },
     compiled_navgraph: {
       entry_node: { id: "agent_runtime.home" },
       nodes: [{

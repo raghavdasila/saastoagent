@@ -12,6 +12,14 @@ class SandboxUnavailable(RuntimeError):
     pass
 
 
+class SandboxRunFailed(SandboxUnavailable):
+    """A Sandbox attempt failed after its durable run identity was created."""
+
+    def __init__(self, message: str, *, run_id: uuid.UUID) -> None:
+        super().__init__(message)
+        self.run_id = run_id
+
+
 class SandboxConflict(RuntimeError):
     pass
 

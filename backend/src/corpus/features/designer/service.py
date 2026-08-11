@@ -4,7 +4,7 @@ import hashlib
 import json
 import uuid
 
-from .ports import DesignerInputGateway, DesignerRepository
+from .ports import DesignerInputGateway, DesignerRepository, DesignerUnavailable
 from .schemas import AgentDesignView, BuildRequestView, DesignContent, DesignRevisionView
 from .topology import compile_design_topology
 
@@ -16,7 +16,18 @@ class DesignerService:
 
     async def get(self, organization_id: uuid.UUID, agent_id: uuid.UUID) -> AgentDesignView:
         design, revisions, build = await self.repository.get(organization_id, agent_id)
-        return _view(design, revisions, build)
+        view = _view(design, revisions, build)
+        try:
+            snapshot = await self.inputs.snapshot(organization_id, agent_id)
+        except DesignerUnavailable:
+            return view.model_copy(update={
+                "current_inputs_ready": False,
+                "current_inputs_match": False,
+            })
+        return view.model_copy(update={
+            "current_inputs_ready": True,
+            "current_inputs_match": bool(revisions) and revisions[-1].input_fingerprint == _fingerprint(snapshot),
+        })
 
     async def propose(self, organization_id: uuid.UUID, agent_id: uuid.UUID) -> AgentDesignView:
         snapshot = await self.inputs.snapshot(organization_id, agent_id)
@@ -99,6 +110,8 @@ def _view(design, revisions, build):
             status=build.status,
             created_at=build.created_at,
         ),
+        current_inputs_ready=False,
+        current_inputs_match=False,
     )
 
 
@@ -112,6 +125,7 @@ def _fingerprint(snapshot) -> str:
             {
                 "source_id": item.source_id,
                 "source_revision_id": item.source_revision_id,
+                "display_name": item.display_name,
                 "curation_id": item.curation_id,
                 "inventory_fingerprint": item.inventory_fingerprint,
                 "included_operation_ids": list(item.included_operation_ids),

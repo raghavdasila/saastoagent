@@ -20,16 +20,25 @@ TRUTHFUL_STATE = policy(
     "workspace.node.truthful_state",
     "Distinguish authoritative counts, truthful empty states, and temporarily unavailable information.",
 )
+FILE_FIRST_TASK_ROUTING = policy(
+    "workspace.feature.file_first_task_routing",
+    "When the current owner request includes a staged API definition and asks "
+    "Corpus to use it in broader Agent setup, route to Sources first and continue "
+    "the authorized add-and-analyze work before asking which Agent to use or "
+    "create. Do not treat opening Agents as progress on an unaccepted staged file.",
+)
 
 WORKSPACE_AGENT_POLICIES = (
     FEATURE_PROMPT,
     OWNER_SCOPE,
     OVERVIEW_ONLY,
+    FILE_FIRST_TASK_ROUTING,
     TRUTHFUL_STATE,
 )
 
 __all__ = [
     "FEATURE_PROMPT",
+    "FILE_FIRST_TASK_ROUTING",
     "OVERVIEW_ONLY",
     "OWNER_SCOPE",
     "TRUTHFUL_STATE",

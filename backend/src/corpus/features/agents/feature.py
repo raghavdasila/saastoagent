@@ -25,6 +25,7 @@ from .declarations import (
     ARCHIVE_CURRENT_GUARD,
     ATTACH_CREATED_SOURCE,
     ATTACH_SOURCE,
+    DETACH_SOURCE,
     CANCEL_CREATE,
     CREATE_AGENT,
     DELETE_AGENT,
@@ -38,6 +39,8 @@ from .declarations import (
     OPEN_AGENT_SANDBOX,
     OPEN_BUILD_SOURCE_REVISION,
     OPEN_CREATE,
+    OPEN_EXISTING_AGENT_FOR_SOURCE,
+    PENDING_SOURCE_CONTEXT_PROVIDER,
     OPEN_SOURCE_CREATION,
     RETURN_TO_WORKSPACE,
     SAVE_AGENT_CHANGES,
@@ -54,6 +57,9 @@ AGENTS_HOME_SURFACE = Surface(
             "type": "object",
             "properties": {
                 "selected_agent_ref": {"type": "string", "minLength": 1},
+                "pending_source_id": {"type": "string", "minLength": 16, "maxLength": 16},
+                "pending_source_revision_id": {"type": "string", "minLength": 16, "maxLength": 16},
+                "pending_source_display_name": {"type": "string", "minLength": 1, "maxLength": 240},
                 "selected_agent_area": {
                     "type": "string",
                     "enum": ["hub", "designer", "builds", "sandbox", "evaluation", "channels"],
@@ -64,10 +70,16 @@ AGENTS_HOME_SURFACE = Surface(
     ),
     affordances=(
         SurfaceAffordance(id="open_create", event="open", operation=OPEN_CREATE.ref),
+        SurfaceAffordance(
+            id="choose_existing_for_source",
+            event="open",
+            operation=OPEN_EXISTING_AGENT_FOR_SOURCE.ref,
+        ),
         SurfaceAffordance(id="save_changes", event="submit", operation=SAVE_AGENT_CHANGES.ref),
         SurfaceAffordance(id="return_to_workspace", event="open", operation=RETURN_TO_WORKSPACE.ref),
         SurfaceAffordance(id="select_agent", event="select", operation=SELECT_AGENT.ref),
         SurfaceAffordance(id="attach_source", event="submit", operation=ATTACH_SOURCE.ref),
+        SurfaceAffordance(id="detach_source", event="submit", operation=DETACH_SOURCE.ref),
         SurfaceAffordance(id="open_source_creation", event="open", operation=OPEN_SOURCE_CREATION.ref),
         SurfaceAffordance(id="open_attached_source", event="open", operation=OPEN_ATTACHED_SOURCE.ref),
         SurfaceAffordance(id="archive_agent", event="submit", operation=ARCHIVE_AGENT.ref),
@@ -86,7 +98,17 @@ AGENTS_CREATE_SURFACE = Surface(
     id="agents.create",
     component="agents.create",
     lifecycle=SurfaceLifecycle.STABLE,
-    public_props_schema=FrozenJsonObject(EMPTY_OBJECT_SCHEMA),
+    public_props_schema=FrozenJsonObject(
+        {
+            "type": "object",
+            "properties": {
+                "pending_source_id": {"type": "string", "minLength": 16, "maxLength": 16},
+                "pending_source_revision_id": {"type": "string", "minLength": 16, "maxLength": 16},
+                "pending_source_display_name": {"type": "string", "minLength": 1, "maxLength": 240},
+            },
+            "additionalProperties": False,
+        }
+    ),
     affordances=(
         SurfaceAffordance(id="create_agent", event="submit", operation=CREATE_AGENT.ref),
         SurfaceAffordance(id="cancel_create", event="open", operation=CANCEL_CREATE.ref),
@@ -117,10 +139,12 @@ AGENT_INVENTORY = Capability(
     title="Inspect and edit agents in this Workspace",
     operations=(
         OPEN_CREATE.ref,
+        OPEN_EXISTING_AGENT_FOR_SOURCE.ref,
         SAVE_AGENT_CHANGES.ref,
         RETURN_TO_WORKSPACE.ref,
         SELECT_AGENT.ref,
         ATTACH_SOURCE.ref,
+        DETACH_SOURCE.ref,
         OPEN_SOURCE_CREATION.ref,
         ATTACH_CREATED_SOURCE.ref,
         OPEN_ATTACHED_SOURCE.ref,
@@ -156,6 +180,7 @@ AGENT_CREATION = Capability(
 def create_agents_feature(
     workspace_home_ref: NodeRef,
     sources_home_ref: NodeRef,
+    sources_api_intake_ref: NodeRef,
     sources_api_ref: NodeRef,
     designer_home_ref: NodeRef | None = None,
     builder_home_ref: NodeRef | None = None,
@@ -170,13 +195,15 @@ def create_agents_feature(
         kind=NodeKind.SECTION,
         parent=workspace_home_ref,
         route=Route(template="/agents", deep_link_policy=DeepLinkPolicy.SESSION_BOUND),
-        context_providers=(OWNER_CONTEXT_PROVIDER,),
+        context_providers=(OWNER_CONTEXT_PROVIDER, PENDING_SOURCE_CONTEXT_PROVIDER),
         operations=(
             OPEN_CREATE,
+            OPEN_EXISTING_AGENT_FOR_SOURCE,
             SAVE_AGENT_CHANGES,
             RETURN_TO_WORKSPACE,
             SELECT_AGENT,
             ATTACH_SOURCE,
+            DETACH_SOURCE,
             OPEN_SOURCE_CREATION,
             ATTACH_CREATED_SOURCE,
             OPEN_ATTACHED_SOURCE,
@@ -192,11 +219,17 @@ def create_agents_feature(
         ),
         outgoing=(
             Transition(operation=OPEN_CREATE.ref, outcome="opened", target=AGENTS_CREATE_REF),
+            Transition(
+                operation=OPEN_EXISTING_AGENT_FOR_SOURCE.ref,
+                outcome="opened",
+                target=AGENTS_HOME_REF,
+            ),
             Transition(operation=SAVE_AGENT_CHANGES.ref, outcome="saved", target=AGENTS_HOME_REF),
             Transition(operation=RETURN_TO_WORKSPACE.ref, outcome="opened", target=workspace_home_ref),
             Transition(operation=SELECT_AGENT.ref, outcome="selected", target=AGENTS_HOME_REF),
             Transition(operation=ATTACH_SOURCE.ref, outcome="attached", target=AGENTS_HOME_REF),
-            Transition(operation=OPEN_SOURCE_CREATION.ref, outcome="opened", target=sources_api_ref),
+            Transition(operation=DETACH_SOURCE.ref, outcome="detached", target=AGENTS_HOME_REF),
+            Transition(operation=OPEN_SOURCE_CREATION.ref, outcome="opened", target=sources_api_intake_ref),
             Transition(operation=ATTACH_CREATED_SOURCE.ref, outcome="attached", target=AGENTS_HOME_REF),
             Transition(operation=OPEN_ATTACHED_SOURCE.ref, outcome="opened", target=sources_api_ref),
             Transition(operation=ARCHIVE_AGENT.ref, outcome="archived", target=AGENTS_HOME_REF),
@@ -243,7 +276,7 @@ def create_agents_feature(
         kind=NodeKind.SECTION,
         parent=AGENTS_HOME_REF,
         route=Route(template="/agents/new", deep_link_policy=DeepLinkPolicy.SESSION_BOUND),
-        context_providers=(OWNER_CONTEXT_PROVIDER,),
+        context_providers=(OWNER_CONTEXT_PROVIDER, PENDING_SOURCE_CONTEXT_PROVIDER),
         operations=(CREATE_AGENT, CANCEL_CREATE),
         outgoing=(
             Transition(operation=CREATE_AGENT.ref, outcome="created", target=AGENTS_HOME_REF),

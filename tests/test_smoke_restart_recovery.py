@@ -42,7 +42,7 @@ from scripts.smoke_restart_recovery_isolated import (
 )
 
 
-_REVISION = "0012_builder_navgraph"
+_REVISION = "0015_builder_retry_attempts"
 
 
 def _owner() -> TemporaryOwner:

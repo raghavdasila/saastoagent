@@ -23,7 +23,9 @@ from corpus.features.sources.contracts import API_CONNECTION_FORM_ID
 from .declarations import (
     ATTACH_CREATED_SOURCE,
     ATTACH_SOURCE,
+    DETACH_SOURCE,
     ARCHIVE_AGENT,
+    CANCEL_CREATE,
     CREATE_AGENT,
     DELETE_AGENT,
     OPEN_ATTACHED_SOURCE,
@@ -34,7 +36,9 @@ from .declarations import (
     OPEN_AGENT_OPERATIONS,
     OPEN_AGENT_SANDBOX,
     OPEN_BUILD_SOURCE_REVISION,
+    OPEN_CREATE,
     OPEN_SOURCE_CREATION,
+    OPEN_EXISTING_AGENT_FOR_SOURCE,
     RETURN_FROM_SOURCE,
     RETURN_TO_AGENT_HUB,
     SAVE_AGENT_CHANGES,
@@ -51,11 +55,15 @@ from .ports import (
     AgentSourceAttachmentConflict,
     AgentSourceAttachmentUnavailable,
     AgentVersionConflict,
+    AttachableSource,
 )
 from .schemas import (
     AgentLifecycleArguments,
     AttachSourceArguments,
+    DetachSourceArguments,
     CreateAgentArguments,
+    OpenAgentChoiceForSourceArguments,
+    OpenAgentCreationArguments,
     SelectAgentArguments,
     UpdateAgentArguments,
     OpenBuildSourceReferenceArguments,
@@ -89,8 +97,29 @@ class CreateAgentHandler:
         handle = f"agent-{agent.id.hex[:20]}"
         return _success(
             "created",
-            effects=_agent_surface_effects(handle, str(agent.id)),
-        )
+            effects=_agent_surface_effects(
+                handle,
+                str(agent.id),
+                pending_source=_pending_source(context),
+            ),
+)
+
+
+_SELECTED_AGENT_OPERATION_IDS = (
+    ATTACH_SOURCE.id,
+    DETACH_SOURCE.id,
+    ARCHIVE_AGENT.id,
+    DELETE_AGENT.id,
+    OPEN_SOURCE_CREATION.id,
+    OPEN_ATTACHED_SOURCE.id,
+    OPEN_AGENT_OPERATIONS.id,
+    OPEN_AGENT_DESIGNER.id,
+    OPEN_AGENT_BUILDS.id,
+    OPEN_AGENT_SANDBOX.id,
+    OPEN_AGENT_EVALUATION.id,
+    OPEN_AGENT_CHANNELS.id,
+    OPEN_BUILD_SOURCE_REVISION.id,
+)
 
 
 @dataclass(frozen=True)
@@ -139,6 +168,9 @@ class SelectAgentHandler:
         except AgentOwnerScopeUnavailable as error:
             return _failure(context, SELECT_AGENT.id, "authentication_required", str(error), FailureKind.STATE_CONFLICT)
         handle = f"agent-{agent.id.hex[:20]}"
+        pending_source = _pending_source(context)
+        surface_values = [PublicValue(name="selected_agent_ref", value=FrozenJson(handle))]
+        surface_values.extend(_pending_source_values(pending_source))
         effects = SessionEffects(
             replace_entities=(
                 EntityKindEffects(
@@ -154,20 +186,7 @@ class SelectAgentHandler:
                                 ),
                             ),
                             private_id=SecretStr(str(agent.id)),
-                            allowed_operation_ids=(
-                                ATTACH_SOURCE.id,
-                                ARCHIVE_AGENT.id,
-                                DELETE_AGENT.id,
-                                OPEN_SOURCE_CREATION.id,
-                                    OPEN_ATTACHED_SOURCE.id,
-                                    OPEN_AGENT_OPERATIONS.id,
-                                    OPEN_AGENT_DESIGNER.id,
-                                    OPEN_AGENT_BUILDS.id,
-                                    OPEN_AGENT_SANDBOX.id,
-                                    OPEN_AGENT_EVALUATION.id,
-                                    OPEN_AGENT_CHANNELS.id,
-                                    OPEN_BUILD_SOURCE_REVISION.id,
-                            ),
+                            allowed_operation_ids=_SELECTED_AGENT_OPERATION_IDS,
                         ),
                     ),
                 ),
@@ -175,7 +194,7 @@ class SelectAgentHandler:
             surface_updates=(
                 PublicSurfaceEffect(
                     surface_id="agents.home",
-                    values=(PublicValue(name="selected_agent_ref", value=FrozenJson(handle)),),
+                    values=tuple(surface_values),
                 ),
             ),
         )
@@ -238,15 +257,30 @@ class AttachSourceHandler:
             organization_id = await self.owner_scope.organization_id_for_route(context.session_id)
             agent_id = uuid.UUID(context.private_entity_id("agent_ref"))
             await self.service.get(organization_id, agent_id)
+            pending_source = _pending_source(context)
             source_id = payload.source_id
+            source_revision_id = payload.source_revision_id
+            if pending_source is not None:
+                pending_id, pending_revision_id, _ = pending_source
+                if source_id is not None and source_id != pending_id:
+                    raise ValueError("The pending Source cannot be substituted.")
+                if source_revision_id is not None and source_revision_id != pending_revision_id:
+                    raise ValueError("The pending API version cannot be substituted.")
+                source_id = pending_id
+                source_revision_id = pending_revision_id
             if source_id is None:
-                source_id = (
-                    await self.service.one_unattached_ready_source(
-                        organization_id,
-                        agent_id,
-                    )
-                ).source_id
-            await self.service.attach_source(organization_id, agent_id, source_id)
+                attachable = await self.service.one_attachable_ready_source(
+                    organization_id,
+                    agent_id,
+                )
+                source_id = attachable.source_id
+                source_revision_id = attachable.source_revision_id
+            await self.service.attach_source(
+                organization_id,
+                agent_id,
+                source_id,
+                source_revision_id,
+            )
         except (ValidationError, ValueError, KeyError) as error:
             return _failure(context, self.operation_id, "invalid_source_attachment", str(error), FailureKind.CONTRACT)
         except AgentNotFound as error:
@@ -257,13 +291,110 @@ class AttachSourceHandler:
             return _failure(context, self.operation_id, "source_attachment_unavailable", str(error), FailureKind.BUSINESS)
         except AgentOwnerScopeUnavailable as error:
             return _failure(context, self.operation_id, "authentication_required", str(error), FailureKind.STATE_CONFLICT)
-        effects = SessionEffects()
-        if self.operation_id == ATTACH_CREATED_SOURCE.id:
-            effects = _agent_surface_effects(
+        effects = _agent_surface_effects(
+            payload.agent_ref,
+            context.private_entity_id("agent_ref"),
+        )
+        return _success("attached", effects=effects)
+
+
+@dataclass(frozen=True)
+class DetachSourceHandler:
+    service: AgentService
+    owner_scope: AgentOwnerScopeGateway
+
+    async def __call__(self, arguments: Mapping[str, Any], context: ExecutionContext) -> OperationOutcome:
+        try:
+            payload = DetachSourceArguments.model_validate(dict(arguments))
+            organization_id = await self.owner_scope.organization_id_for_route(context.session_id)
+            agent_id = uuid.UUID(context.private_entity_id("agent_ref"))
+            await self.service.detach_source(
+                organization_id,
+                agent_id,
+                payload.source_id,
+            )
+        except (ValidationError, ValueError, KeyError) as error:
+            return _failure(context, DETACH_SOURCE.id, "invalid_source_detachment", str(error), FailureKind.CONTRACT)
+        except AgentNotFound as error:
+            return _failure(context, DETACH_SOURCE.id, "agent_unavailable", str(error), FailureKind.BUSINESS)
+        except AgentSourceAttachmentUnavailable as error:
+            return _failure(context, DETACH_SOURCE.id, "source_attachment_unavailable", str(error), FailureKind.BUSINESS)
+        except AgentOwnerScopeUnavailable as error:
+            return _failure(context, DETACH_SOURCE.id, "authentication_required", str(error), FailureKind.STATE_CONFLICT)
+        return _success(
+            "detached",
+            effects=_agent_surface_effects(
                 payload.agent_ref,
                 context.private_entity_id("agent_ref"),
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class OpenExistingAgentForSourceHandler:
+    service: AgentService
+    owner_scope: AgentOwnerScopeGateway
+
+    async def __call__(self, arguments: Mapping[str, Any], context: ExecutionContext) -> OperationOutcome:
+        try:
+            payload = OpenAgentChoiceForSourceArguments.model_validate(dict(arguments))
+            organization_id = await self.owner_scope.organization_id_for_route(context.session_id)
+            source = await self.service.exact_ready_source(
+                organization_id,
+                payload.source_id,
+                payload.source_revision_id,
             )
-        return _success("attached", effects=effects)
+        except (ValidationError, ValueError) as error:
+            return _failure(context, OPEN_EXISTING_AGENT_FOR_SOURCE.id, "invalid_source_choice", str(error), FailureKind.CONTRACT)
+        except AgentSourceAttachmentUnavailable as error:
+            return _failure(context, OPEN_EXISTING_AGENT_FOR_SOURCE.id, "source_unavailable", str(error), FailureKind.BUSINESS)
+        except AgentOwnerScopeUnavailable as error:
+            return _failure(context, OPEN_EXISTING_AGENT_FOR_SOURCE.id, "authentication_required", str(error), FailureKind.STATE_CONFLICT)
+        return _success(
+            "opened",
+            effects=_pending_source_open_effects("agents.home", source),
+        )
+
+
+@dataclass(frozen=True)
+class OpenAgentCreationHandler:
+    service: AgentService
+    owner_scope: AgentOwnerScopeGateway
+
+    async def __call__(self, arguments: Mapping[str, Any], context: ExecutionContext) -> OperationOutcome:
+        try:
+            payload = OpenAgentCreationArguments.model_validate(dict(arguments))
+            if payload.source_id is None or payload.source_revision_id is None:
+                return _success("opened")
+            organization_id = await self.owner_scope.organization_id_for_route(context.session_id)
+            source = await self.service.exact_ready_source(
+                organization_id,
+                payload.source_id,
+                payload.source_revision_id,
+            )
+        except (ValidationError, ValueError) as error:
+            return _failure(context, OPEN_CREATE.id, "invalid_source_choice", str(error), FailureKind.CONTRACT)
+        except AgentSourceAttachmentUnavailable as error:
+            return _failure(context, OPEN_CREATE.id, "source_unavailable", str(error), FailureKind.BUSINESS)
+        except AgentOwnerScopeUnavailable as error:
+            return _failure(context, OPEN_CREATE.id, "authentication_required", str(error), FailureKind.STATE_CONFLICT)
+        return _success(
+            "opened",
+            effects=_pending_source_open_effects("agents.create", source),
+        )
+
+
+class CancelAgentCreationHandler:
+    async def __call__(self, arguments: Mapping[str, Any], context: ExecutionContext) -> OperationOutcome:
+        if arguments:
+            raise ValueError(f"{CANCEL_CREATE.id} accepts no arguments")
+        pending_source = _pending_source(context)
+        if pending_source is None:
+            return _success("opened")
+        return _success(
+            "opened",
+            effects=_pending_source_transition_effects("agents.home", pending_source),
+        )
 
 
 @dataclass(frozen=True)
@@ -340,7 +471,13 @@ class OpenAttachedSourceHandler:
                 mode="inspect",
                 source_id=source_id,
                 source_revision_id=attachment.source_revision_id,
-                allowed_operation_ids=(RETURN_FROM_SOURCE.id,),
+                allowed_operation_ids=(
+                    (OPEN_AGENT_BUILDS.id,)
+                    if payload.return_to == "builder"
+                    else (RETURN_FROM_SOURCE.id,)
+                ),
+                return_context=payload.return_to,
+                initial_workspace=payload.target_stage,
             ),
         )
 
@@ -414,12 +551,42 @@ class OpenAgentAreaHandler:
                 )
         else:
             surface_id, operation_ids = {
-                "builds": ("builder.home", ("builder.assemble",)),
-                "sandbox": ("sandbox.home", ("sandbox.start", "sandbox.resume")),
-                "evaluation": ("evaluation.home", ("evaluation.create_case", "evaluation.run_case")),
+                "builds": (
+                    "builder.home",
+                    (
+                        "builder.assemble",
+                        "builder.run",
+                        "builder.stop",
+                        "builder.delete",
+                        "evaluation.generate_set",
+                        OPEN_ATTACHED_SOURCE.id,
+                        OPEN_AGENT_SANDBOX.id,
+                    ),
+                ),
+                "sandbox": ("sandbox.home", ("sandbox.start", "sandbox.resume", OPEN_AGENT_EVALUATION.id)),
+                "evaluation": (
+                    "evaluation.home",
+                    (
+                        "evaluation.create_case",
+                        "evaluation.generate_set",
+                        "evaluation.retry_generation",
+                        "evaluation.edit_case",
+                        "evaluation.delete_case",
+                        "evaluation.run_case",
+                        OPEN_AGENT_BUILDS.id,
+                        OPEN_AGENT_CHANNELS.id,
+                    ),
+                ),
                 "channels": (
                     "channels.home",
-                    ("channels.create", "channels.set_enabled", "deployment.deploy", "deployment.rollback"),
+                    (
+                        "channels.create",
+                        "channels.set_enabled",
+                        "deployment.deploy",
+                        "deployment.rollback",
+                        OPEN_AGENT_EVALUATION.id,
+                        OPEN_AGENT_OPERATIONS.id,
+                    ),
                 ),
                 "operations": ("operations.home", ("operations.promote_evaluation_case",)),
             }[self.area]
@@ -476,6 +643,8 @@ def _source_surface_effects(
     allowed_operation_ids: tuple[str, ...],
     source_id: str | None = None,
     source_revision_id: str | None = None,
+    return_context: str = "agent",
+    initial_workspace: str = "graph",
 ) -> SessionEffects:
     shared_values = [
         PublicValue(name="return_agent_ref", value=FrozenJson(agent_ref)),
@@ -485,20 +654,95 @@ def _source_surface_effects(
         shared_values.append(PublicValue(name="selected_source_id", value=FrozenJson(source_id)))
     if source_revision_id is not None:
         shared_values.append(PublicValue(name="selected_source_revision_id", value=FrozenJson(source_revision_id)))
+    surface_id = "sources.api_intake" if mode == "create" else "sources.api"
+    surface_values = [
+        *shared_values,
+        PublicValue(name="mode", value=FrozenJson(mode)),
+    ]
+    if mode == "inspect":
+        surface_values.extend((
+            PublicValue(name="return_context", value=FrozenJson(return_context)),
+            PublicValue(name="initial_workspace", value=FrozenJson(initial_workspace)),
+        ))
+        surface_values.append(
+            PublicValue(name="form_handle", value=FrozenJson(API_CONNECTION_FORM_ID))
+        )
     return SessionEffects(
         replace_entities=(
-            _agent_binding_effect(agent_ref, private_agent_id, allowed_operation_ids),
+            _agent_binding_effect(
+                agent_ref,
+                private_agent_id,
+                allowed_operation_ids,
+            ),
         ),
         surface_updates=(
             PublicSurfaceEffect(
-                surface_id="sources.api",
-                values=tuple([
-                    *shared_values,
-                    PublicValue(name="form_handle", value=FrozenJson(API_CONNECTION_FORM_ID)),
-                    PublicValue(name="mode", value=FrozenJson(mode)),
-                ]),
+                surface_id=surface_id,
+                values=tuple(surface_values),
             ),
         )
+    )
+
+
+def _pending_source(context: ExecutionContext) -> tuple[str, str, str] | None:
+    provider_values = getattr(context, "provider_values", None)
+    if provider_values is None:
+        return None
+    values = provider_values.to_dict().get("agents.pending_source", {})
+    if not isinstance(values, dict):
+        return None
+    source_id = values.get("source_id")
+    revision_id = values.get("source_revision_id")
+    display_name = values.get("display_name")
+    if (
+        not isinstance(source_id, str)
+        or len(source_id) != 16
+        or not isinstance(revision_id, str)
+        or len(revision_id) != 16
+    ):
+        return None
+    if not isinstance(display_name, str) or not display_name:
+        display_name = source_id
+    return source_id, revision_id, display_name
+
+
+def _pending_source_values(
+    pending_source: tuple[str, str, str] | None,
+) -> list[PublicValue]:
+    if pending_source is None:
+        return []
+    source_id, revision_id, display_name = pending_source
+    return [
+        PublicValue(name="pending_source_id", value=FrozenJson(source_id)),
+        PublicValue(name="pending_source_revision_id", value=FrozenJson(revision_id)),
+        PublicValue(name="pending_source_display_name", value=FrozenJson(display_name)),
+    ]
+
+
+def _pending_source_open_effects(
+    surface_id: str,
+    source: AttachableSource,
+) -> SessionEffects:
+    pending = (
+        source.source_id,
+        source.source_revision_id,
+        source.display_name,
+    )
+    return _pending_source_transition_effects(surface_id, pending)
+
+
+def _pending_source_transition_effects(
+    surface_id: str,
+    pending_source: tuple[str, str, str],
+) -> SessionEffects:
+    return SessionEffects(
+        replace_entities=(EntityKindEffects(entity_kind="agent"),),
+        surface_updates=(
+            PublicSurfaceEffect(
+                surface_id=surface_id,
+                values=tuple(_pending_source_values(pending_source)),
+            ),
+        ),
     )
 
 
@@ -507,35 +751,25 @@ def _agent_surface_effects(
     private_agent_id: str,
     *,
     area: str = "hub",
+    pending_source: tuple[str, str, str] | None = None,
 ) -> SessionEffects:
+    surface_values = [
+        PublicValue(name="selected_agent_ref", value=FrozenJson(agent_ref)),
+        PublicValue(name="selected_agent_area", value=FrozenJson(area)),
+    ]
+    surface_values.extend(_pending_source_values(pending_source))
     return SessionEffects(
         replace_entities=(
             _agent_binding_effect(
                 agent_ref,
                 private_agent_id,
-                (
-                    ATTACH_SOURCE.id,
-                    ARCHIVE_AGENT.id,
-                    DELETE_AGENT.id,
-                    OPEN_SOURCE_CREATION.id,
-                    OPEN_ATTACHED_SOURCE.id,
-                    OPEN_AGENT_OPERATIONS.id,
-                    OPEN_AGENT_DESIGNER.id,
-                    OPEN_AGENT_BUILDS.id,
-                    OPEN_AGENT_SANDBOX.id,
-                    OPEN_AGENT_EVALUATION.id,
-                    OPEN_AGENT_CHANNELS.id,
-                    OPEN_BUILD_SOURCE_REVISION.id,
-                ),
+                _SELECTED_AGENT_OPERATION_IDS,
             ),
         ),
         surface_updates=(
             PublicSurfaceEffect(
                 surface_id="agents.home",
-                values=(
-                    PublicValue(name="selected_agent_ref", value=FrozenJson(agent_ref)),
-                    PublicValue(name="selected_agent_area", value=FrozenJson(area)),
-                ),
+                values=tuple(surface_values),
             ),
         )
     )
@@ -552,6 +786,8 @@ def _designer_surface_effects(agent_ref: str, private_agent_id: str) -> SessionE
                     "designer.customize",
                     "designer.approve",
                     "designer.request_build",
+                    OPEN_ATTACHED_SOURCE.id,
+                    OPEN_AGENT_BUILDS.id,
                     "designer.return_to_agent",
                 ),
             ),
@@ -636,10 +872,14 @@ __all__ = [
     "AgentNavigationHandler",
     "AgentLifecycleHandler",
     "AttachSourceHandler",
+    "DetachSourceHandler",
+    "CancelAgentCreationHandler",
     "CreateAgentHandler",
     "OpenAttachedSourceHandler",
+    "OpenAgentCreationHandler",
     "OpenAgentAreaHandler",
     "OpenBuildSourceRevisionHandler",
+    "OpenExistingAgentForSourceHandler",
     "OpenSourceCreationHandler",
     "ReturnFromSourceHandler",
     "SaveAgentChangesHandler",

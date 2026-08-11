@@ -49,4 +49,6 @@ export interface AgentDesignView {
     readonly status: string;
     readonly created_at: string;
   };
+  readonly current_inputs_ready: boolean;
+  readonly current_inputs_match: boolean;
 }

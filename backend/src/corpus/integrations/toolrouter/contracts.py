@@ -75,6 +75,7 @@ class RetrievalResult:
 class EvalsetRequest:
     artifact_dir: Path
     evalset_id: str
+    allowed_endpoint_ids: tuple[str, ...] | None = None
     categories: tuple[str, ...] = ("paraphrase",)
     tasks_per_category: int = 1
     max_generation_attempts: int = 2

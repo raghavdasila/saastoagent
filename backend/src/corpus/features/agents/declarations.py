@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from routedeck_core.contracts.agent import AgentPolicyRef
 from routedeck_core.contracts.operations import (
+    ContextProvider,
     EntityInput,
     EntityProvider,
     Guard,
@@ -19,7 +20,10 @@ from . import policies
 from .schemas import (
     AgentLifecycleArguments,
     AttachSourceArguments,
+    DetachSourceArguments,
     CreateAgentArguments,
+    OpenAgentChoiceForSourceArguments,
+    OpenAgentCreationArguments,
     SelectAgentArguments,
     OpenBuildSourceReferenceArguments,
     OpenAttachedSourceArguments,
@@ -32,6 +36,24 @@ AGENT_ENTITY_PROVIDER = EntityProvider(
     entity_kind="agent",
     description="The exact selected Agent binding already retained in the RouteDeck session.",
     output_schema=FrozenJsonObject(EMPTY_OBJECT_SCHEMA),
+)
+PENDING_SOURCE_CONTEXT_PROVIDER = ContextProvider(
+    id="agents.pending_source",
+    description=(
+        "The exact ready Source and analyzed API version retained while the owner "
+        "chooses or creates an Agent."
+    ),
+    output_schema=FrozenJsonObject(
+        {
+            "type": "object",
+            "properties": {
+                "source_id": {"type": "string", "minLength": 16, "maxLength": 16},
+                "source_revision_id": {"type": "string", "minLength": 16, "maxLength": 16},
+                "display_name": {"type": "string", "minLength": 1, "maxLength": 240},
+            },
+            "additionalProperties": False,
+        }
+    ),
 )
 ARCHIVE_CURRENT_GUARD = Guard(
     id="agents.archive_current",
@@ -59,6 +81,7 @@ def operation(
     guard_refs=(),
     policy_refs: tuple[AgentPolicyRef, ...] = (),
     public_metadata: dict | None = None,
+    additional_provider_refs=(),
 ) -> Operation:
     return Operation(
         id=operation_id,
@@ -69,7 +92,7 @@ def operation(
         allowed_sources=sources,
         outcomes=(outcome,),
         outcome_schemas=FrozenJsonObject({outcome: EMPTY_OBJECT_SCHEMA}),
-        provider_refs=(OWNER_CONTEXT_PROVIDER.ref,),
+        provider_refs=(OWNER_CONTEXT_PROVIDER.ref, *additional_provider_refs),
         entity_inputs=entity_inputs,
         review_policy=review_policy,
         guard_refs=guard_refs,
@@ -87,7 +110,19 @@ OPEN_CREATE = operation(
         "not follow a successful agent creation for that same request."
     ),
     "opened",
+    input_schema=OpenAgentCreationArguments.model_json_schema(),
     policy_refs=(policies.OPEN_CREATE_SETUP.ref,),
+)
+OPEN_EXISTING_AGENT_FOR_SOURCE = operation(
+    "agents.choose_existing_for_source",
+    "Choose existing Agent for this Source",
+    (
+        "Open the Agent inventory with the exact ready Source and analyzed API version "
+        "retained as the pending attachment. Navigation attaches nothing."
+    ),
+    "opened",
+    input_schema=OpenAgentChoiceForSourceArguments.model_json_schema(),
+    policy_refs=(policies.CHOOSE_EXISTING_SOURCE_CONTEXT.ref,),
 )
 RETURN_TO_WORKSPACE = operation(
     "agents.return_to_workspace",
@@ -111,10 +146,17 @@ RETURN_TO_AGENT_HUB = operation(
 CREATE_AGENT = operation(
     "agents.create_agent",
     "Create agent",
-    "Create an active agent with configuration version 1.",
+    (
+        "Create an active agent with configuration version 1. During an ongoing file-first setup, "
+        "when the owner has chosen creation and supplied a clear role phrase and responsibilities "
+        "but no separate display name, derive a concise display name from the owner's exact role "
+        "phrase and map only the stated responsibilities into description and instructions; do not "
+        "invent capabilities. Otherwise ask for any genuinely missing required identity input."
+    ),
     "created",
     input_schema=CreateAgentArguments.model_json_schema(),
     safety_class=SafetyClass.DRAFT,
+    additional_provider_refs=(PENDING_SOURCE_CONTEXT_PROVIDER.ref,),
 )
 SAVE_AGENT_CHANGES = operation(
     "agents.save_changes",
@@ -129,6 +171,7 @@ CANCEL_CREATE = operation(
     "Cancel agent creation",
     "Return to the agent inventory without creating an agent.",
     "opened",
+    additional_provider_refs=(PENDING_SOURCE_CONTEXT_PROVIDER.ref,),
 )
 SELECT_AGENT = operation(
     "agents.select_agent",
@@ -137,24 +180,43 @@ SELECT_AGENT = operation(
     "selected",
     input_schema=SelectAgentArguments.model_json_schema(),
     safety_class=SafetyClass.STATE_SELECTION,
+    additional_provider_refs=(PENDING_SOURCE_CONTEXT_PROVIDER.ref,),
 )
 ATTACH_SOURCE = operation(
     "agents.attach_source",
     "Attach Source to Agent",
     (
-        "Pin the ready current API version of an owner-scoped Source to the selected Agent. "
-        "When source_id is omitted, resolve only one eligible ready unattached Source and only "
-        "when the owner's ongoing setup request authorizes that exact attachment."
+        "Pin the exact ready API version chosen by the owner to the selected Agent, keeping "
+        "one attachment per Source. Repeating the same current version is idempotent; when that "
+        "Source has a newer reviewed ready API version, advance its pinned revision without changing "
+        "historical build lineage. When source_id is omitted, resolve only one eligible ready Source "
+        "that is unattached or pinned to an earlier version, and only when the owner's ongoing setup "
+        "request authorizes that exact attachment."
     ),
     "attached",
     input_schema=AttachSourceArguments.model_json_schema(),
     safety_class=SafetyClass.DRAFT,
     entity_inputs=(EntityInput(argument_name="agent_ref", entity_kind="agent"),),
+    additional_provider_refs=(PENDING_SOURCE_CONTEXT_PROVIDER.ref,),
     policy_refs=(
         policies.ATTACH_EXACT_SOURCE.ref,
         policies.ATTACH_PERSISTED_SUCCESS.ref,
         policies.SETUP_ATTACH_READY.ref,
     ),
+)
+DETACH_SOURCE = operation(
+    "agents.detach_source",
+    "Detach Source from Agent",
+    (
+        "Remove only the exact current Source association selected by the owner from the "
+        "selected Agent. Preserve the Source and every immutable accepted design, historical "
+        "build, runtime, deployment, and Operations record."
+    ),
+    "detached",
+    input_schema=DetachSourceArguments.model_json_schema(),
+    safety_class=SafetyClass.DRAFT,
+    entity_inputs=(EntityInput(argument_name="agent_ref", entity_kind="agent"),),
+    policy_refs=(policies.DETACH_EXACT_SOURCE.ref, policies.DETACH_PERSISTED_SUCCESS.ref),
 )
 OPEN_SOURCE_CREATION = operation(
     "agents.open_source_creation",
@@ -308,6 +370,7 @@ __all__ = [
     "ARCHIVE_CURRENT_GUARD",
     "ATTACH_CREATED_SOURCE",
     "ATTACH_SOURCE",
+    "DETACH_SOURCE",
     "CANCEL_CREATE",
     "CREATE_AGENT",
     "DELETE_AGENT",
@@ -321,10 +384,12 @@ __all__ = [
     "OPEN_AGENT_SANDBOX",
     "OPEN_BUILD_SOURCE_REVISION",
     "OPEN_CREATE",
+    "OPEN_EXISTING_AGENT_FOR_SOURCE",
     "OPEN_SOURCE_CREATION",
     "RETURN_FROM_SOURCE",
     "RETURN_TO_AGENT_HUB",
     "RETURN_TO_WORKSPACE",
     "SAVE_AGENT_CHANGES",
     "SELECT_AGENT",
+    "PENDING_SOURCE_CONTEXT_PROVIDER",
 ]

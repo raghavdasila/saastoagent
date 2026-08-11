@@ -43,6 +43,32 @@ describe("Source Hub and API Source design gate", () => {
     expect(saved).toEqual(seeded)
   })
 
+  it("keeps new intake separate from continued work on the selected API Source", () => {
+    const apiSource = sourceFeatures(persistedDesignState as WorkbenchState).find(
+      (feature) => feature.id === "api-source",
+    )
+    expect(apiSource?.policies).toContain(
+      "Keep new-definition intake distinct from an accepted or selected API Source. Once an exact API Source is selected, continue its setup and inspection there; return to intake only when the owner explicitly asks to add a different API definition.",
+    )
+    expect(apiSource?.stories.find((story) => story.id === "api-upload-yaml")?.expectedBehavior).toContain(
+      "An already selected API Source never silently reopens intake.",
+    )
+  })
+
+  it("uses standard API terminology in owner-facing behavior", () => {
+    const apiSource = sourceFeatures(persistedDesignState as WorkbenchState).find(
+      (feature) => feature.id === "api-source",
+    )
+    expect(apiSource?.policies).toContain(
+      "Use standard owner-facing terms: API definition, API version, API update, and review. Never call these a contract, contract revision, or contract proposal in chat or surfaces.",
+    )
+    const stage = apiSource?.stories
+      .flatMap((story) => story.operations)
+      .find((operation) => operation.name === "Stage API definition")
+    expect(stage?.outcomes).toContain("API-definition content")
+    expect(stage?.outcomes).not.toContain("contract content")
+  })
+
   it("contains no implementation identifiers in Studio-owned source design", () => {
     const serialized = JSON.stringify(sourceFeatures(persistedDesignState as WorkbenchState))
     expect(serialized).not.toMatch(/sources\.(home|manage|debug|return_to_home)/)

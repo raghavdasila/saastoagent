@@ -126,7 +126,7 @@ class AgentService:
             attachments=tuple(attachments)
         )
 
-    async def one_unattached_ready_source(
+    async def one_attachable_ready_source(
         self,
         organization_id: uuid.UUID,
         agent_id: uuid.UUID,
@@ -136,7 +136,7 @@ class AgentService:
                 "Source attachment details are unavailable."
             )
         attached = {
-            record.source_id
+            record.source_id: record.source_revision_id
             for record in await self.repository.list_source_attachments(
                 organization_id,
                 agent_id,
@@ -145,11 +145,11 @@ class AgentService:
         candidates = tuple(
             source
             for source in await self.sources.ready_inventory(organization_id)
-            if source.source_id not in attached
+            if attached.get(source.source_id) != source.source_revision_id
         )
         if len(candidates) != 1:
             raise AgentSourceAttachmentUnavailable(
-                "This action requires one exact unattached ready Source; choose the Source you mean."
+                "This action requires one exact ready Source that is unattached or has a newer current API version; choose the Source you mean."
             )
         return candidates[0]
 
@@ -158,16 +158,53 @@ class AgentService:
         organization_id: uuid.UUID,
         agent_id: uuid.UUID,
         source_id: str,
+        source_revision_id: str | None = None,
     ) -> AgentSourceAttachmentView:
         if self.sources is None:
             raise AgentSourceAttachmentUnavailable(
                 "Source attachment details are unavailable."
             )
-        source = await self.sources.ready_current(organization_id, source_id)
+        source = (
+            await self.sources.exact_revision(
+                organization_id,
+                source_id,
+                source_revision_id,
+            )
+            if source_revision_id is not None
+            else await self.sources.ready_current(organization_id, source_id)
+        )
         record = await self.repository.attach_source(organization_id, agent_id, source)
         return AgentSourceAttachmentView.from_record(
             record,
             display_name=source.display_name,
+        )
+
+    async def detach_source(
+        self,
+        organization_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        source_id: str,
+    ) -> None:
+        await self.repository.detach_source(
+            organization_id,
+            agent_id,
+            source_id,
+        )
+
+    async def exact_ready_source(
+        self,
+        organization_id: uuid.UUID,
+        source_id: str,
+        source_revision_id: str,
+    ) -> AttachableSource:
+        if self.sources is None:
+            raise AgentSourceAttachmentUnavailable(
+                "Source attachment details are unavailable."
+            )
+        return await self.sources.exact_revision(
+            organization_id,
+            source_id,
+            source_revision_id,
         )
 
     async def open_attached_source(

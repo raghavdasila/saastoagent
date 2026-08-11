@@ -59,6 +59,11 @@ from .connectors.api.staged_attachments import (
     ApiStagedAttachmentService,
     ApiStagedAttachmentUnavailable,
 )
+from .connectors.api.staged_descriptions import (
+    ApiStagedDescriptionError,
+    ApiStagedDescriptionService,
+    ApiStagedDescriptionUnavailable,
+)
 from .connectors.api.contract_revisions import (
     ApiContractRevisionConflict,
     ApiContractRevisionError,
@@ -79,11 +84,17 @@ from .declarations import (
     PROCESS_API,
     OPEN_API_CREATION,
     OPEN_API_SOURCE,
+    OPEN_API_DESCRIPTION,
+    SAVE_API_DESCRIPTION,
+    DELETE_API_SOURCE,
     TEST_API_CONNECTION,
     TEST_ROUTED_API_READ,
     TEST_ROUTED_API_WRITE,
 )
 from .ports import SourceOwnerScopeGateway
+from .models import SourceState
+from .lifecycle import SourceDependencyConflict, SourceLifecycleService
+from .providers import selected_api_source_identity
 from .repository import SourceNotFound, SourceNotReady, SourceRepositoryError
 from .schemas import (
     ApproveContractRevisionArguments,
@@ -91,13 +102,14 @@ from .schemas import (
     ProposeContractRevisionArguments,
     ProcessApiSourceArguments,
     OpenApiSourceArguments,
+    OpenApiDescriptionArguments,
     RetrySourceArguments,
     SaveApiOperationCurationArguments,
     TestApiConnectionArguments,
     ExecuteRoutedApiArguments,
     save_api_operation_curation_arguments,
 )
-from .service import SourceService, one_current_ready_api_source
+from .service import SourceService
 
 
 class SourcesNavigationHandler:
@@ -121,9 +133,8 @@ class OpenApiCreationHandler:
             effects=SessionEffects(
                 surface_updates=(
                     PublicSurfaceEffect(
-                        surface_id="sources.api",
+                        surface_id="sources.api_intake",
                         values=(
-                            PublicValue(name="form_handle", value=FrozenJson(API_CONNECTION_FORM_ID)),
                             PublicValue(name="mode", value=FrozenJson("create")),
                         ),
                     ),
@@ -169,6 +180,201 @@ class OpenApiSourceHandler:
                 ),
             ),
         )
+
+
+@dataclass(frozen=True)
+class OpenApiDescriptionHandler:
+    service: SourceService
+    owner_scope: SourceOwnerScopeGateway
+
+    async def __call__(self, arguments, context) -> OperationOutcome:
+        try:
+            payload = OpenApiDescriptionArguments.model_validate(dict(arguments))
+            owner_id = await self.owner_scope.organization_id_for_route(context.session_id)
+            if payload.source_id is None:
+                identity = selected_api_source_identity(context.provider_values)
+                if identity is None:
+                    raise ValueError(
+                        "Select the exact API Source before opening its description editor."
+                    )
+                source_id, revision_id = identity
+            else:
+                source_id = payload.source_id
+                revision_id = payload.source_revision_id
+            source = await asyncio.to_thread(
+                self.service.get_source,
+                owner_key=str(owner_id),
+                source_id=source_id,
+                revision_id=revision_id,
+            )
+        except (ValidationError, ValueError) as error:
+            return _failure(
+                context,
+                OPEN_API_DESCRIPTION.id,
+                "invalid_api_description_selection",
+                str(error),
+                FailureKind.CONTRACT,
+            )
+        except (SourceNotFound, SourceRepositoryError):
+            return _failure(
+                context,
+                OPEN_API_DESCRIPTION.id,
+                "api_source_unavailable",
+                "The selected API Source is unavailable.",
+                FailureKind.BUSINESS,
+            )
+        except SourceOwnerScopeUnavailable as error:
+            return _failure(
+                context,
+                OPEN_API_DESCRIPTION.id,
+                "authentication_required",
+                str(error),
+                FailureKind.STATE_CONFLICT,
+            )
+        return _success(
+            "opened",
+            effects=SessionEffects(
+                surface_updates=(
+                    PublicSurfaceEffect(
+                        surface_id="sources.api",
+                        values=(
+                            PublicValue(name="form_handle", value=FrozenJson(API_CONNECTION_FORM_ID)),
+                            PublicValue(name="mode", value=FrozenJson("inspect")),
+                            PublicValue(name="selected_source_id", value=FrozenJson(source.source_id)),
+                            PublicValue(
+                                name="selected_source_revision_id",
+                                value=FrozenJson(source.revision.revision_id),
+                            ),
+                            PublicValue(name="initial_workspace", value=FrozenJson("description")),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class SaveApiDescriptionHandler:
+    staged: ApiStagedDescriptionService
+    owner_scope: SourceOwnerScopeGateway
+
+    async def __call__(self, arguments, context) -> OperationOutcome:
+        if arguments:
+            return _failure(
+                context,
+                SAVE_API_DESCRIPTION.id,
+                "invalid_api_description_save",
+                "Saving the attached API description does not accept user-supplied identities.",
+                FailureKind.CONTRACT,
+            )
+        identity = selected_api_source_identity(context.provider_values)
+        if identity is None:
+            return _failure(
+                context,
+                SAVE_API_DESCRIPTION.id,
+                "api_description_selection_stale",
+                "Open the exact API Source before saving its description.",
+                FailureKind.STATE_CONFLICT,
+            )
+        source_id, revision_id = identity
+        try:
+            owner_id = await self.owner_scope.organization_id_for_route(context.session_id)
+            saved = await asyncio.to_thread(
+                self.staged.save_current,
+                owner_key=str(owner_id),
+                conversation_id=None,
+                route_session_id=context.session_id,
+                source_id=source_id,
+                source_revision_id=revision_id,
+            )
+        except SourceOwnerScopeUnavailable as error:
+            return _failure(
+                context,
+                SAVE_API_DESCRIPTION.id,
+                "authentication_required",
+                str(error),
+                FailureKind.STATE_CONFLICT,
+            )
+        except ApiStagedDescriptionUnavailable as error:
+            return _failure(
+                context,
+                SAVE_API_DESCRIPTION.id,
+                "staged_api_description_unavailable",
+                str(error),
+                FailureKind.STATE_CONFLICT,
+            )
+        except (ApiStagedDescriptionError, SourceRepositoryError, ValueError):
+            return _failure(
+                context,
+                SAVE_API_DESCRIPTION.id,
+                "api_description_save_failed",
+                "The API description could not be saved. The prior description remains current.",
+                FailureKind.PERSISTENCE,
+            )
+        return _success(
+            "saved",
+            observation={
+                "source_id": source_id,
+                "source_revision_id": revision_id,
+                "description_id": saved.description_id,
+                "filename": saved.filename,
+                "content_sha256": saved.content_sha256,
+            },
+        )
+
+
+@dataclass(frozen=True)
+class DeleteApiSourceHandler:
+    lifecycle: SourceLifecycleService
+    owner_scope: SourceOwnerScopeGateway
+
+    async def __call__(self, arguments, context) -> OperationOutcome:
+        if arguments:
+            return _failure(
+                context,
+                DELETE_API_SOURCE.id,
+                "invalid_source_delete",
+                "Deleting the selected API Source does not accept user-supplied identities.",
+                FailureKind.CONTRACT,
+            )
+        identity = selected_api_source_identity(context.provider_values)
+        if identity is None:
+            return _failure(
+                context,
+                DELETE_API_SOURCE.id,
+                "source_delete_selection_stale",
+                "Open the exact API Source before confirming deletion.",
+                FailureKind.STATE_CONFLICT,
+            )
+        source_id, _revision_id = identity
+        try:
+            owner_id = await self.owner_scope.organization_id_for_route(context.session_id)
+            await self.lifecycle.delete(owner_id, source_id)
+        except SourceOwnerScopeUnavailable as error:
+            return _failure(
+                context,
+                DELETE_API_SOURCE.id,
+                "authentication_required",
+                str(error),
+                FailureKind.STATE_CONFLICT,
+            )
+        except SourceDependencyConflict as error:
+            return _failure(
+                context,
+                DELETE_API_SOURCE.id,
+                "source_delete_dependency_conflict",
+                str(error),
+                FailureKind.STATE_CONFLICT,
+            )
+        except (SourceNotFound, SourceRepositoryError):
+            return _failure(
+                context,
+                DELETE_API_SOURCE.id,
+                "source_delete_failed",
+                "The API Source could not be deleted. It remains unchanged.",
+                FailureKind.PERSISTENCE,
+            )
+        return _success("deleted", observation={"source_id": source_id})
 
 
 class OpenApiRoutePlanHandler:
@@ -281,11 +487,24 @@ class ProcessApiHandler:
             owner_id = await self.owner_scope.organization_id_for_route(context.session_id)
             source_id = payload.source_id
             if source_id is None:
-                source_id, _ = await asyncio.to_thread(
+                selected = selected_api_source_identity(context.provider_values)
+                if selected is None:
+                    raise SourceNotReady(
+                        "Select the accepted API Source before starting analysis."
+                    )
+                source_id, source_revision_id = selected
+                staged_source_id, staged_revision_id = await asyncio.to_thread(
                     self.staged.accepted_source,
                     owner_key=str(owner_id),
                     route_session_id=context.session_id,
                 )
+                if (source_id, source_revision_id) != (
+                    staged_source_id,
+                    staged_revision_id,
+                ):
+                    raise SourceNotReady(
+                        "The selected API Source no longer matches this conversation."
+                    )
             source = await self.service.process_source(
                 owner_id=owner_id,
                 source_id=source_id,
@@ -363,11 +582,26 @@ class InspectCurrentApiHandler:
             owner_id = await self.owner_scope.organization_id_for_route(
                 context.session_id
             )
-            source = one_current_ready_api_source(self.curations.sources, owner_id)
+            selected = selected_api_source_identity(context.provider_values)
+            if selected is None:
+                raise SourceNotReady(
+                    "Select the API Source you want to inspect before continuing."
+                )
+            source_id, source_revision_id = selected
+            source = self.curations.sources.get_revision(
+                owner_key=str(owner_id),
+                source_id=source_id,
+                revision_id=source_revision_id,
+            )
+            if source.revision.state is not SourceState.READY:
+                raise SourceNotReady(
+                    "The selected API Source is not ready to inspect."
+                )
             graph = await asyncio.to_thread(
-                self.graph.inspect,
+                self.graph.inspect_exact,
                 owner_key=str(owner_id),
                 source_id=source.source_id,
+                revision_id=source.revision.revision_id,
             )
             curation = await asyncio.to_thread(
                 self.curations.inspect,
@@ -777,19 +1011,22 @@ class TestApiConnectionHandler:
                 context.session_id
             )
             if payload.source_id is None:
-                source = one_current_ready_api_source(self.service.sources, owner_id)
+                selected = selected_api_source_identity(context.provider_values)
+                if selected is None:
+                    raise SourceNotReady(
+                        "Select the API Source you want to test before continuing."
+                    )
+                source_id, source_revision_id = selected
                 profiles = await asyncio.to_thread(
                     self.service.profiles.list_exact,
                     owner_key=str(owner_id),
-                    source_id=source.source_id,
-                    revision_id=source.revision.revision_id,
+                    source_id=source_id,
+                    revision_id=source_revision_id,
                 )
                 if len(profiles) != 1:
                     raise ApiConnectionCheckConflict(
                         "Connection checking requires one exact saved profile; select it in Source Hub."
                     )
-                source_id = source.source_id
-                source_revision_id = source.revision.revision_id
                 connection_profile_id = profiles[0].id
             else:
                 assert payload.source_revision_id is not None
@@ -880,12 +1117,17 @@ class SaveApiOperationCurationHandler:
                 context.session_id
             )
             if payload.source_id is None:
-                source = one_current_ready_api_source(self.service.sources, owner_id)
+                selected = selected_api_source_identity(context.provider_values)
+                if selected is None:
+                    raise SourceNotReady(
+                        "Select the API Source you want to curate before continuing."
+                    )
+                source_id, source_revision_id = selected
                 view = await asyncio.to_thread(
                     self.service.inspect,
                     owner_id=owner_id,
-                    source_id=source.source_id,
-                    source_revision_id=source.revision.revision_id,
+                    source_id=source_id,
+                    source_revision_id=source_revision_id,
                 )
                 discovered = tuple(item.operation_id for item in view.operations)
                 included = tuple(payload.included_operation_ids)
@@ -901,8 +1143,8 @@ class SaveApiOperationCurationHandler:
                     else tuple(item for item in discovered if item not in included_set)
                 )
                 save_arguments = {
-                    "source_id": source.source_id,
-                    "source_revision_id": source.revision.revision_id,
+                    "source_id": source_id,
+                    "source_revision_id": source_revision_id,
                     "inventory_fingerprint": view.inventory_fingerprint,
                     "included_operation_ids": included,
                     "excluded_operation_ids": excluded,
@@ -978,9 +1220,12 @@ class ProposeContractRevisionHandler:
                 context.session_id
             )
             if payload.source_id is None:
-                source = one_current_ready_api_source(self.service.repository, owner_id)
-                source_id = source.source_id
-                revision_id = source.revision.revision_id
+                selected = selected_api_source_identity(context.provider_values)
+                if selected is None:
+                    raise SourceNotReady(
+                        "Select the API Source you want to update before continuing."
+                    )
+                source_id, revision_id = selected
             else:
                 assert payload.revision_id is not None
                 source_id = payload.source_id
@@ -1101,7 +1346,7 @@ class ApproveContractRevisionHandler:
             private_identity = context.private_entity_id("proposal_ref")
             source_id, separator, proposal_id = private_identity.partition("|")
             if not separator or len(source_id) != 16 or len(proposal_id) != 16:
-                raise ValueError("The exact contract proposal binding is invalid.")
+                raise ValueError("The exact API update binding is invalid.")
             owner_id = await self.owner_scope.organization_id_for_route(
                 context.session_id
             )
@@ -1207,6 +1452,9 @@ __all__ = [
     "ApproveContractRevisionHandler",
     "GraphStageSelectionHandler",
     "InspectCurrentApiHandler",
+    "OpenApiDescriptionHandler",
+    "SaveApiDescriptionHandler",
+    "DeleteApiSourceHandler",
     "OpenApiRoutePlanHandler",
     "ProcessApiHandler",
     "RoutedApiExecutionHandler",

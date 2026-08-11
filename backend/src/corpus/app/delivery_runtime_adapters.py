@@ -59,9 +59,10 @@ class CorpusDeployedAgentRuntimePort:
             self.routedeck.projection(build, runtime_session_id, tenant_id)
         )
         waiting = self.execution.waiting_run(tenant_id, runtime_session_id, build_hash)
-        if waiting is not None:
-            return _projection(waiting, route_projection)
-        return _projection(None, route_projection)
+        messages = self.execution.session_messages(
+            tenant_id, runtime_session_id, build_hash
+        )
+        return _projection(waiting, route_projection, messages)
 
     def invoke(
         self,
@@ -89,10 +90,14 @@ class CorpusDeployedAgentRuntimePort:
             except ClarificationInputRejected:
                 return _projection(waiting, asyncio.run(
                     self.routedeck.projection(build, runtime_session_id, tenant_id)
+                ), self.execution.session_messages(
+                    tenant_id, runtime_session_id, build_hash
                 ))
             if operation_id is None:
                 return _projection(waiting, asyncio.run(
                     self.routedeck.projection(build, runtime_session_id, tenant_id)
+                ), self.execution.session_messages(
+                    tenant_id, runtime_session_id, build_hash
                 ))
             provided = clarification_inputs(
                 self.bindings.get(build_hash), operation_id, answers
@@ -112,18 +117,21 @@ class CorpusDeployedAgentRuntimePort:
         route_projection = asyncio.run(
             self.routedeck.projection(build, runtime_session_id, tenant_id)
         )
+        messages = self.execution.session_messages(
+            tenant_id, runtime_session_id, build_hash
+        )
         if result.status == "waiting" and result.final_response:
-            return _projection(result, route_projection)
+            return _projection(result, route_projection, messages)
         if result.status != "succeeded" or not result.final_response:
             raise RuntimeError("deployed_agent_run_failed")
-        return _projection(result, route_projection)
+        return _projection(result, route_projection, messages)
 
     def _restore_binding(self, bundle: DeployableAgentBundle, build_hash: str):
         organization_id = uuid.UUID(str(bundle.runtime_config.get("organization_id")))
         agent_id = uuid.UUID(str(bundle.runtime_config.get("agent_id")))
         build_id = uuid.UUID(str(bundle.runtime_config.get("build_id")))
         build = asyncio.run(
-            self.builds.require_ready(organization_id, agent_id, build_id)
+            self.builds.require_immutable_built(organization_id, agent_id, build_id)
         )
         if build.runtime_build_hash != build_hash:
             raise ValueError("deployment_durable_build_binding_mismatch")
@@ -190,18 +198,17 @@ def _operation_subject(operation_id: str) -> tuple[str, ...]:
     return tuple(values)
 
 
-def _projection(result, route_projection: dict[str, object]) -> RuntimeProjection:
+def _projection(
+    result,
+    route_projection: dict[str, object],
+    messages: tuple[dict[str, str], ...],
+) -> RuntimeProjection:
     surfaces = _surfaces(route_projection, result)
     actions = route_projection.get("suggested_actions", ())
     if not isinstance(actions, list):
         raise RuntimeError("deployed_agent_routedeck_actions_invalid")
-    messages = ()
-    if result is not None:
-        if not result.final_response:
-            raise RuntimeError("deployed_agent_response_unavailable")
-        messages = ({"role": "assistant", "content": result.final_response},)
     return RuntimeProjection(
-        revision=max(1, len(result.events)) if result is not None else 0,
+        revision=len(messages),
         messages=messages,
         surfaces=surfaces,
         suggested_actions=tuple(dict(item) for item in actions if isinstance(item, dict)),

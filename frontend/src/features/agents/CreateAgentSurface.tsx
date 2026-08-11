@@ -12,11 +12,18 @@ import { completedOutcome } from "./operationResult";
 
 export function CreateAgentSurface({
   dispatchAffordance,
+  props: surfaceProps,
   store,
 }: RouteDeckSurfaceComponentProps & { store: AgentStore }) {
   const draft = useSyncExternalStore(store.subscribe, store.createDraft);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pendingSourceName = typeof surfaceProps.pending_source_display_name === "string"
+    ? surfaceProps.pending_source_display_name
+    : null;
+  const pendingSourceRevisionId = typeof surfaceProps.pending_source_revision_id === "string"
+    ? surfaceProps.pending_source_revision_id
+    : null;
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -74,6 +81,12 @@ export function CreateAgentSurface({
         </Button>
       </header>
       {error === null ? null : <p className="agents-error" role="alert">{error}</p>}
+      {pendingSourceName === null || pendingSourceRevisionId === null ? null : (
+        <div className="agent-pending-source" role="status">
+          <div><p>After creation</p><strong>{pendingSourceName}</strong></div>
+          <span>API version <code>{pendingSourceRevisionId}</code> will remain ready to attach.</span>
+        </div>
+      )}
       <form onSubmit={(event) => void create(event)}>
         <Bot aria-hidden="true" className="agent-create-icon" />
         <FieldGroup>
@@ -97,7 +110,11 @@ export function CreateAgentSurface({
               const next = event.currentTarget.value;
               store.updateCreateDraft({ instructions: next });
             }} />
-            <FieldDescription>Source attachments can be added after the Agent is created.</FieldDescription>
+            <FieldDescription>
+              {pendingSourceName === null
+                ? "Source attachments can be added after the Agent is created."
+                : "This creates the Agent first; the retained API Source is attached only by the separate attachment action."}
+            </FieldDescription>
           </Field>
           <Button type="submit" disabled={busy}>
             <Plus data-icon="inline-start" />{busy ? "Creating…" : "Create agent"}

@@ -1,12 +1,25 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 
 from corpus.features.evaluation.service import EvaluationService
-from corpus.integrations.agent_delivery import NeutralAgentDeliveryAdapter
+from corpus.integrations.agent_delivery import (
+    InteractionProjection,
+    NeutralAgentDeliveryAdapter,
+)
 
+from .domain import OperationsLineage
 from .ports import OperationsLineageGateway, OperationsUnavailable
 from .schemas import OperationsCollectionView, OperationsEventView, OperationsInteractionView
+
+
+@dataclass
+class _RunInteraction:
+    initial: InteractionProjection
+    latest: InteractionProjection
+    lineage: OperationsLineage
+    continuation_count: int = 0
 
 
 class OperationsService:
@@ -18,22 +31,56 @@ class OperationsService:
         organization_id: uuid.UUID,
         agent_id: uuid.UUID | None = None,
     ) -> OperationsCollectionView:
-        values = []
-        for interaction in self.delivery.interactions():
+        runs: list[_RunInteraction] = []
+        active_by_session: dict[tuple[str, str], _RunInteraction] = {}
+        runs_by_identity: dict[tuple[str, str, str], _RunInteraction] = {}
+        for interaction in reversed(self.delivery.interactions()):
             request_id = interaction.trace.get("request_id")
-            if not isinstance(request_id, str):
+            lineage = (
+                await self.lineage.resolve(
+                    organization_id, interaction.deployment_id, request_id
+                )
+                if isinstance(request_id, str)
+                else None
+            )
+            session_key = (interaction.session_id, interaction.deployment_id)
+            if lineage is not None:
+                run_key = (*session_key, lineage.runtime_run_id)
+                current = runs_by_identity.get(run_key)
+                if current is None:
+                    current = _RunInteraction(interaction, interaction, lineage)
+                    runs.append(current)
+                    runs_by_identity[run_key] = current
+                else:
+                    current.latest = interaction
+                    current.lineage = lineage
+                active_by_session[session_key] = current
                 continue
-            lineage = await self.lineage.resolve(organization_id, interaction.deployment_id, request_id)
-            if lineage is None:
+            current = active_by_session.get(session_key)
+            if current is None or interaction.status != "completed":
                 continue
+            answer_count = sum(
+                event.get("kind") == "clarification.user_answer"
+                for event in current.lineage.safe_events
+            )
+            if current.continuation_count >= answer_count:
+                continue
+            current.latest = interaction
+            current.continuation_count += 1
+
+        values = []
+        for current in reversed(runs):
+            lineage = current.lineage
             if agent_id is not None and lineage.agent_id != agent_id:
                 continue
             values.append(OperationsInteractionView(
-                interaction_id=interaction.interaction_id,
+                interaction_id=current.initial.interaction_id,
                 agent_id=lineage.agent_id, build_id=lineage.build_id,
-                deployment_id=lineage.deployment_id, session_id=interaction.session_id,
-                input_summary=interaction.input_summary,
-                output_summary=interaction.output_summary, status=interaction.status,
+                deployment_id=lineage.deployment_id,
+                session_id=current.initial.session_id,
+                input_summary=current.initial.input_summary,
+                output_summary=current.latest.output_summary,
+                status=current.latest.status,
                 events=tuple(OperationsEventView(
                     sequence=int(item["sequence"]), kind=str(item["kind"]),
                     safe_data=dict(item.get("safe_data", {})),

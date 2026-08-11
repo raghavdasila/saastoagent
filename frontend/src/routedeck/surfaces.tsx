@@ -20,15 +20,19 @@ import { ApiContractRevisionReviewSurface } from "../features/sources/ApiContrac
 import { ApiOperationTestPanel } from "../features/sources/ApiOperationTestPanel";
 import { RoutedApiWriteReviewSurface } from "../features/sources/RoutedApiWriteReviewSurface";
 import { RoutedExecutionStore } from "../features/sources/routedExecutionStore";
+import { SourceLifecycleStore } from "../features/sources/sourceLifecycleStore";
+import { SourceDeleteReviewSurface } from "../features/sources/SourceDeleteReviewSurface";
 import { PrivateFormGate, requireFormHandle } from "./PrivateFormGate";
 import { DesignerSurface } from "../features/designer/DesignerSurface";
 import { DesignerReviewSurface } from "../features/designer/DesignerReviewSurface";
 import type { DesignerClient } from "../features/designer/client";
 import { DesignerRefreshStore } from "../features/designer/refreshStore";
 import { BuilderSurface } from "../features/builder/BuilderSurface";
+import { BuilderDeleteReviewSurface } from "../features/builder/BuilderDeleteReviewSurface";
 import { SandboxSurface } from "../features/builder/SandboxSurface";
 import type { AgentRuntimeClient } from "../features/builder/client";
 import { EvaluationSurface } from "../features/evaluation/EvaluationSurface";
+import { EvaluationDeleteReviewSurface } from "../features/evaluation/EvaluationDeleteReviewSurface";
 import { ChannelsSurface } from "../features/delivery/ChannelsSurface";
 import { ChannelDraftStore } from "../features/delivery/channelDraftStore";
 import { DeploymentReviewSurface } from "../features/delivery/DeploymentReviewSurface";
@@ -43,6 +47,7 @@ export function createCorpusSurfaceRegistry(
 ) {
   const contractRevisionStore = new ContractRevisionStore(sourceClient);
   const routedExecutionStore = new RoutedExecutionStore(sourceClient);
+  const sourceLifecycleStore = new SourceLifecycleStore(sourceClient);
   const activeDesignerClient = designerClient ?? {
     get: async () => { throw new Error("Agent Designer client is unavailable."); },
   } as unknown as DesignerClient;
@@ -82,12 +87,14 @@ export function createCorpusSurfaceRegistry(
     "builder.home": (props) => (
       <BuilderSurface {...props} agentStore={agentStore} designerClient={activeDesignerClient} runtimeClient={activeAgentRuntimeClient} />
     ),
+    "builder.delete_review": BuilderDeleteReviewSurface,
     "sandbox.home": (props) => (
       <SandboxSurface {...props} agentStore={agentStore} runtimeClient={activeAgentRuntimeClient} />
     ),
     "evaluation.home": (props) => (
       <EvaluationSurface {...props} agentStore={agentStore} runtimeClient={activeAgentRuntimeClient} />
     ),
+    "evaluation.delete_case_review": EvaluationDeleteReviewSurface,
     "channels.home": (props) => (
       <ChannelsSurface {...props} agentStore={agentStore} runtimeClient={activeAgentRuntimeClient} draftStore={channelDraftStore} />
     ),
@@ -104,6 +111,17 @@ export function createCorpusSurfaceRegistry(
         sourceClient={sourceClient}
         privateForm={null}
         contractRevisionStore={contractRevisionStore}
+        lifecycleStore={sourceLifecycleStore}
+      />
+    ),
+    "sources.api_intake": (props) => (
+      <SourceHubSurface
+        {...props}
+        view="api"
+        sourceClient={sourceClient}
+        privateForm={null}
+        contractRevisionStore={contractRevisionStore}
+        lifecycleStore={sourceLifecycleStore}
       />
     ),
     "sources.api": (props) => (
@@ -115,6 +133,7 @@ export function createCorpusSurfaceRegistry(
             sourceClient={sourceClient}
             privateForm={privateForm}
             contractRevisionStore={contractRevisionStore}
+            lifecycleStore={sourceLifecycleStore}
           />
         )}
       </PrivateFormGate>
@@ -134,6 +153,9 @@ export function createCorpusSurfaceRegistry(
     ),
     "sources.routed_api_write_review": (props) => (
       <RoutedApiWriteReviewSurface {...props} store={routedExecutionStore} />
+    ),
+    "sources.delete_review": (props) => (
+      <SourceDeleteReviewSurface {...props} store={sourceLifecycleStore} />
     ),
   });
 }

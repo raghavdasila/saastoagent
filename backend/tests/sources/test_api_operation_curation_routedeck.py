@@ -55,6 +55,14 @@ async def test_agent_inspects_current_api_without_user_supplied_product_ids(
             node_id="sources.home",
             source=OperationSource.AGENT,
             context_fingerprint="inspection-context",
+            provider_values=FrozenJsonObject(
+                {
+                    "sources.selected_api_source": {
+                        "source_id": source_id,
+                        "source_revision_id": revision_id,
+                    }
+                }
+            ),
         ),
     )
 
@@ -79,6 +87,24 @@ async def test_sql_routedeck_saves_exact_curation_and_guard_blocks_stale_invento
     tmp_path: Path,
 ) -> None:
     repository, source_id, revision_id = _ready_source(tmp_path)
+    other = repository.begin_source(
+        owner_key=str(OWNER),
+        connector_key="api",
+        display_name="Other API",
+        original_filename="other.yaml",
+        content=b"openapi: 3.0.3\npaths: {}\n",
+    )
+    repository.mark_running(
+        owner_key=str(OWNER),
+        source_id=other.source.source_id,
+        revision_id=other.revision.revision_id,
+    )
+    repository.mark_ready(
+        owner_key=str(OWNER),
+        source_id=other.source.source_id,
+        revision_id=other.revision.revision_id,
+        summary={"endpoint_count": 0},
+    )
     service = ApiOperationCurationService(repository)
     owner = OwnerProbe(OWNER)
     compiled = compile_corpus_app()
@@ -103,7 +129,21 @@ async def test_sql_routedeck_saves_exact_curation_and_guard_blocks_stale_invento
             deployment_service=object(),
             operations_service=object(),
             workspace_service=WorkspaceProbe(),
-            source_service=SimpleNamespace(repository=repository),
+            source_service=SimpleNamespace(
+                repository=repository,
+                get_source=lambda *, owner_key, source_id, revision_id=None: (
+                    repository.get(
+                        owner_key=owner_key,
+                        source_id=source_id,
+                    )
+                    if revision_id is None
+                    else repository.get_revision(
+                        owner_key=owner_key,
+                        source_id=source_id,
+                        revision_id=revision_id,
+                    )
+                ),
+            ),
             source_graph_presenter=ApiGraphPresenter(repository),
             source_connection_service=object(),
             source_contract_revision_service=object(),
@@ -151,13 +191,30 @@ async def test_sql_routedeck_saves_exact_curation_and_guard_blocks_stale_invento
                 session_id=session_id,
                 request_id="open-api-source-workflow",
                 expected_session_version=hub.session_version,
-                operation_id="sources.open_api_creation",
+                operation_id="sources.open_api_source",
                 source=OperationSource.SURFACE,
-                arguments=FrozenJsonObject({}),
+                arguments=FrozenJsonObject(
+                    {
+                        "source_id": source_id,
+                        "source_revision_id": revision_id,
+                    }
+                ),
             )
         )
         assert api_opened.disposition is OperationDisposition.COMPLETED
         selected = await runtime.services.store.load(session_id)
+        selected_surface = next(
+            surface
+            for surface in selected.state.public_state.surface_state
+            if surface.surface_id == "sources.api"
+        )
+        selected_values = {
+            value.name: value.value.to_python() for value in selected_surface.values
+        }
+        assert {
+            "selected_source_id": source_id,
+            "selected_source_revision_id": revision_id,
+        }.items() <= selected_values.items()
         inspected = await runtime.services.runner.run(
             OperationRequest(
                 session_id=session_id,
@@ -168,7 +225,11 @@ async def test_sql_routedeck_saves_exact_curation_and_guard_blocks_stale_invento
                 arguments=FrozenJsonObject({}),
             )
         )
-        assert inspected.disposition is OperationDisposition.COMPLETED
+        assert inspected.disposition is OperationDisposition.COMPLETED, (
+            None
+            if inspected.failure is None
+            else inspected.failure.model_dump(mode="json")
+        )
         assert inspected.outcome == "inspected"
 
         inventory = service.inspect(

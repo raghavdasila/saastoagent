@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from corpus.auth.service import AuthService, SessionUnavailable
 from corpus.features.agents.service import AgentService
+from corpus.features.sources.service import SourceService
 from corpus.features.workspace.models import (
     WorkspaceOverview,
     WorkspaceSectionState,
@@ -19,6 +20,7 @@ from corpus.features.workspace.ports import (
 class CorpusWorkspaceOverviewGateway(WorkspaceOverviewGateway):
     auth: AuthService
     agents: AgentService
+    sources: SourceService
 
     async def overview_for_route(
         self,
@@ -50,8 +52,29 @@ class CorpusWorkspaceOverviewGateway(WorkspaceOverviewGateway):
 
     async def _overview(self, organization_id: uuid.UUID) -> WorkspaceOverview:
         agent_count = len((await self.agents.list(organization_id)).agents)
+        sources = self.sources.list_sources(owner_key=str(organization_id))
+        source_count = len(sources)
+        ready_count = sum(source.revision.state.value == "ready" for source in sources)
+        active_count = sum(
+            source.revision.state.value in {"accepted", "queued", "running"}
+            for source in sources
+        )
+        failed_count = sum(source.revision.state.value == "failed" for source in sources)
+        source_message = "No API sources have been added to this Workspace."
+        if source_count > 0:
+            details = [f"{ready_count} ready"]
+            if active_count > 0:
+                details.append(f"{active_count} awaiting or running analysis")
+            if failed_count > 0:
+                details.append(f"{failed_count} need attention")
+            source_message = (
+                f"{source_count} API source{'s' if source_count != 1 else ''}: "
+                + ", ".join(details)
+                + "."
+            )
         return WorkspaceOverview(
             agent_count=agent_count,
+            source_count=source_count,
             agents=WorkspaceSectionState(
                 status="empty" if agent_count == 0 else "available",
                 message=(
@@ -62,10 +85,8 @@ class CorpusWorkspaceOverviewGateway(WorkspaceOverviewGateway):
                 ),
             ),
             sources=WorkspaceSectionState(
-                status="unavailable",
-                message=(
-                    "Sources overview is not connected to Workspace in this core slice."
-                ),
+                status="empty" if source_count == 0 else "available",
+                message=source_message,
             ),
             recent_activity=WorkspaceSectionState(
                 status="unavailable",
