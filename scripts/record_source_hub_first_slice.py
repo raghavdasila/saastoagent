@@ -24,13 +24,6 @@ paths:
           description: Products returned
 """
 
-INVALID_OPENAPI = """openapi: 3.0.3
-info:
-  title: Corpus Source Hub failure probe
-  version: 1.0.0
-paths: {}
-"""
-
 DESCRIPTION = """# Source Hub evidence probe
 
 This temporary development probe exists only to exercise Source Hub evidence capture.
@@ -52,10 +45,8 @@ async def main() -> None:
     inputs = directory / "inputs"
     inputs.mkdir()
     valid_path = inputs / "source-hub-evidence.yaml"
-    invalid_path = inputs / "source-hub-failure.yaml"
     description_path = inputs / "source-hub-evidence.md"
     valid_path.write_text(VALID_OPENAPI, encoding="utf-8", newline="\n")
-    invalid_path.write_text(INVALID_OPENAPI, encoding="utf-8", newline="\n")
     description_path.write_text(DESCRIPTION, encoding="utf-8", newline="\n")
 
     screenshots: list[str] = []
@@ -63,6 +54,7 @@ async def main() -> None:
     diagnostics: dict[str, list[dict[str, object]]] = {
         "httpErrors": [],
         "consoleErrors": [],
+        "consoleWarnings": [],
         "pageErrors": [],
         "requestFailures": [],
     }
@@ -91,8 +83,6 @@ async def main() -> None:
                 record_video_dir=directory / "videos",
                 record_video_size={"width": 1440, "height": 1000},
             )
-            await context.tracing.start(screenshots=True, snapshots=True, sources=True)
-            tracing_active = True
             page = await context.new_page()
             _attach_diagnostics(page, diagnostics)
             page.on(
@@ -105,22 +95,54 @@ async def main() -> None:
             )
             try:
                 await _register(page, args.url, owner)
+                await context.tracing.start(screenshots=True, snapshots=True, sources=True)
+                tracing_active = True
                 await page.get_by_role("button", name="Open Sources", exact=True).click()
                 await page.get_by_role("heading", name="Source Hub", exact=True).wait_for(
                     timeout=30_000
                 )
+                await page.get_by_role(
+                    "button", name="Maximize surface", exact=True
+                ).click()
+                await page.get_by_role(
+                    "button", name="Return to dock", exact=True
+                ).wait_for(timeout=30_000)
+                _record(
+                    assertions,
+                    "Source Hub is recorded in the maximized chat-and-surface view",
+                    await page.get_by_role(
+                        "button", name="Return to dock", exact=True
+                    ).is_visible(),
+                    {"presentation": "maximized", "chatPosition": "left"},
+                )
                 await _capture(page, repository, directory, screenshots, "01-source-hub-empty")
 
-                _compose(repository, "stop", "source-worker")
-                worker_was_stopped = True
                 await _upload(
                     page,
                     name="Durable catalog probe",
                     definition=valid_path,
                     description=description_path,
                 )
+                await page.get_by_text("accepted", exact=True).first.wait_for(timeout=30_000)
+                await page.get_by_text(
+                    "The API definition is saved. Analysis has not started.",
+                    exact=True,
+                ).wait_for(timeout=30_000)
+                await _capture(page, repository, directory, screenshots, "02-source-staged")
+                _record(
+                    assertions,
+                    "adding the API definition stages it without starting analysis",
+                    await page.get_by_role(
+                        "button", name="Analyze API operations", exact=True
+                    ).is_visible(),
+                    {"state": "accepted", "analysis": "not_started"},
+                )
+
+                _compose(repository, "stop", "source-worker")
+                worker_was_stopped = True
+                await _analyze(page)
                 await page.get_by_text("queued", exact=True).first.wait_for(timeout=30_000)
-                await _capture(page, repository, directory, screenshots, "02-source-queued")
+                await _capture(page, repository, directory, screenshots, "03-source-queued")
                 _record(
                     assertions,
                     "upload remains visibly queued while the durable worker is stopped",
@@ -132,21 +154,19 @@ async def main() -> None:
                 worker_was_stopped = False
                 await page.get_by_text("ready", exact=True).first.wait_for(timeout=60_000)
                 await page.get_by_text(
-                    "The ToolRouter artifacts linked to this revision are available.",
+                    "The ToolRouter graph and analysis for this API version are available.",
                     exact=True,
                 ).wait_for(timeout=30_000)
                 await page.get_by_text(
-                    "The ToolRouter artifacts linked to this revision are available.",
+                    "The ToolRouter graph and analysis for this API version are available.",
                     exact=True,
                 ).scroll_into_view_if_needed()
-                await _capture(page, repository, directory, screenshots, "03-source-ready")
+                await _capture(page, repository, directory, screenshots, "04-source-ready")
                 _record(
                     assertions,
                     "the same persisted source becomes ready after the durable worker resumes",
-                    await page.get_by_label("Source Hub").get_by_text(
-                        "Ready", exact=True
-                    ).is_visible()
-                    and await page.get_by_label("Source Hub").get_by_text(
+                    await page.get_by_text("Ready", exact=True).first.is_visible()
+                    and await page.get_by_text(
                         "source-hub-evidence.md", exact=True
                     ).is_visible(),
                     {"state": "ready", "description": "source-hub-evidence.md"},
@@ -154,33 +174,31 @@ async def main() -> None:
 
                 graph = page.get_by_role("heading", name="Semantic graph", exact=True)
                 await graph.wait_for(timeout=30_000)
-                playback = page.locator(".api-playback-steps button")
-                await playback.first.wait_for(timeout=30_000)
-                selected_stage = (
-                    await playback.nth(1 if await playback.count() > 1 else 0).inner_text()
+                playback = page.get_by_role(
+                    "region", name="Complete semantic graph and recorded construction replay"
                 )
-                await playback.nth(1 if await playback.count() > 1 else 0).click()
-                await page.locator(".api-playback-stage").get_by_text(
-                    selected_stage.split(". ", 1)[-1], exact=True
-                ).wait_for(timeout=30_000)
+                counter = playback.locator(".semantic-playback-meta strong")
+                await counter.wait_for(timeout=30_000)
+                final_counter = await counter.inner_text()
+                await playback.get_by_role(
+                    "button", name="Previous construction event", exact=True
+                ).click()
+                previous_counter = await counter.inner_text()
                 await graph.scroll_into_view_if_needed()
                 await _capture(
                     page,
                     repository,
                     directory,
                     screenshots,
-                    "04-semantic-graph-stages",
+                    "05-semantic-graph-replay",
                 )
                 _record(
                     assertions,
-                    "persisted graph groups and selected construction stage are rendered",
-                    await page.get_by_role(
-                        "heading", name="Semantic groups", exact=True
-                    ).is_visible()
-                    and await page.get_by_role(
-                        "heading", name="Recorded construction stages", exact=True
-                    ).is_visible(),
-                    {"selectedStage": selected_stage},
+                    "the complete persisted graph and construction replay are interactive",
+                    await page.locator("#semantic-groups-title").is_visible()
+                    and await page.locator("#graph-stage-title").is_visible()
+                    and final_counter != previous_counter,
+                    {"finalCounter": final_counter, "previousCounter": previous_counter},
                 )
 
                 # End the retained trace before protected credential entry. Playwright
@@ -189,6 +207,12 @@ async def main() -> None:
                 await context.tracing.stop(path=trace_path)
                 tracing_active = False
 
+                await page.get_by_role(
+                    "navigation", name="Ready API source stages"
+                ).get_by_role("button", name="Connection", exact=True).click()
+                await page.get_by_role(
+                    "heading", name="API connections", exact=True
+                ).wait_for(timeout=30_000)
                 await page.get_by_label("Profile name").fill("Evidence profile")
                 await page.get_by_label("Environment").fill("local-evidence")
                 await page.get_by_label("Base URL").fill("http://127.0.0.1:9000/api")
@@ -198,14 +222,16 @@ async def main() -> None:
                 await page.get_by_role(
                     "button", name="Save connection", exact=True
                 ).click()
+                await graph.wait_for(timeout=30_000)
+                await page.get_by_role(
+                    "navigation", name="Ready API source stages"
+                ).get_by_role("button", name="Connection", exact=True).click()
                 await page.get_by_text(
-                    "Saved profile metadata is revision-bound. Credentials remain protected. No connection check was run.",
+                    "Saved profile metadata is tied to this API version. Credentials remain protected. No connection check was run.",
                     exact=True,
                 ).wait_for(timeout=30_000)
                 await page.get_by_text("Evidence profile", exact=True).wait_for()
-                await page.get_by_text(
-                    "Protected api key · credential v1", exact=True
-                ).wait_for()
+                await page.get_by_text("Protected api key", exact=False).wait_for()
                 await page.get_by_role(
                     "heading", name="API connections", exact=True
                 ).scroll_into_view_if_needed()
@@ -214,14 +240,14 @@ async def main() -> None:
                     repository,
                     directory,
                     screenshots,
-                    "05-protected-api-connection",
+                    "06-protected-api-connection",
                 )
                 detail_rows = page.locator(".source-detail-list > div")
                 revision_id = await detail_rows.filter(
-                    has_text="Revision"
+                    has_text="API version"
                 ).locator("code").inner_text()
                 job_id = await detail_rows.filter(
-                    has_text="Job"
+                    has_text="Analysis job"
                 ).locator("code").inner_text()
                 revision_paths = list(
                     (repository / ".runtime" / "sources").glob(
@@ -267,53 +293,15 @@ async def main() -> None:
                     },
                 )
 
-                await _upload(
-                    page,
-                    name="Deliberate failure probe",
-                    definition=invalid_path,
-                    description=None,
-                )
-                await page.get_by_text("failed", exact=True).first.wait_for(timeout=60_000)
-                await page.get_by_role("button", name="Retry processing", exact=True).wait_for()
                 await page.get_by_role(
-                    "button", name="Retry processing", exact=True
-                ).scroll_into_view_if_needed()
-                await _capture(page, repository, directory, screenshots, "06-source-failed")
-                _record(
-                    assertions,
-                    "a real processing failure is visible and offers an explicit retry",
-                    await page.get_by_text("source_processing_failed", exact=True).is_visible()
-                    and await page.get_by_role(
-                        "button", name="Retry processing", exact=True
-                    ).is_visible(),
-                    {"state": "failed", "failureCode": "source_processing_failed"},
+                    "navigation", name="Ready API source stages"
+                ).get_by_role("button", name="Agent", exact=True).click()
+                await page.get_by_text("Continue Agent setup", exact=True).wait_for(
+                    timeout=30_000
                 )
-
-                await page.get_by_role("button", name="Retry processing", exact=True).click()
-                retry_button = page.get_by_role(
-                    "button", name="Retry processing", exact=True
-                )
-                await retry_button.wait_for(state="hidden", timeout=30_000)
-                await retry_button.wait_for(state="visible", timeout=60_000)
-                _record(
-                    assertions,
-                    "retry runs the same invalid source again and truthfully remains failed",
-                    await retry_button.is_visible() and await retry_button.is_enabled(),
-                    {"stateAfterRetry": "failed"},
-                )
-
                 await page.set_viewport_size({"width": 390, "height": 844})
-                await page.get_by_role("heading", name="Source Hub", exact=True).scroll_into_view_if_needed()
-                await page.wait_for_timeout(500)
-                await _capture(
-                    page,
-                    repository,
-                    directory,
-                    screenshots,
-                    "07-source-hub-mobile-390x844",
-                )
                 await page.get_by_role(
-                    "button", name="Retry processing", exact=True
+                    "button", name="Use an existing Agent", exact=True
                 ).scroll_into_view_if_needed()
                 await page.wait_for_timeout(500)
                 await _capture(
@@ -321,14 +309,16 @@ async def main() -> None:
                     repository,
                     directory,
                     screenshots,
-                    "08-source-failure-mobile-390x844",
+                    "07-agent-continuation-mobile-390x844",
                 )
                 _record(
                     assertions,
-                    "Source Hub remains usable at the representative mobile viewport",
-                    await page.get_by_role("heading", name="Source Hub", exact=True).is_visible()
+                    "the analyzed Source offers existing-or-new Agent continuation on mobile",
+                    await page.get_by_role(
+                        "button", name="Use an existing Agent", exact=True
+                    ).is_visible()
                     and await page.get_by_role(
-                        "button", name="Retry processing", exact=True
+                        "button", name="Create a new Agent", exact=True
                     ).is_visible(),
                     {"viewport": {"width": 390, "height": 844}},
                 )
@@ -368,7 +358,7 @@ async def main() -> None:
         and all(bool(item["passed"]) for item in assertions)
     )
     result = {
-        "schema": "corpus.source-hub-first-slice.v2",
+        "schema": "corpus.source-hub-first-slice.v3",
         "runId": run_id,
         "status": "passed" if passed else "failed",
         "classification": "temporary development probes, not real Medusa execution evidence",
@@ -390,7 +380,7 @@ async def main() -> None:
             "This run does not prove real local Medusa operation execution.",
             "Saving a profile does not run a connection check.",
             "This slice does not execute API operations.",
-            "Recorded stages can be inspected individually; ordered pause, resume, and step replay is not implemented.",
+            "The persisted construction replay is product evidence, not a re-execution of graph construction.",
             "The browser trace ends before protected credential entry so no secret-bearing private-form request is retained.",
         ],
     }
@@ -429,15 +419,15 @@ def _attach_diagnostics(page: Page, diagnostics: dict[str, list[dict[str, object
             entry["body"] = "unavailable"
         diagnostics["httpErrors"].append(entry)
 
+    def capture_console(message) -> None:
+        entry = {"type": message.type, "text": message.text}
+        if message.type == "error":
+            diagnostics["consoleErrors"].append(entry)
+        elif message.type == "warning":
+            diagnostics["consoleWarnings"].append(entry)
+
     page.on("response", capture_error_response)
-    page.on(
-        "console",
-        lambda message: diagnostics["consoleErrors"].append(
-            {"type": message.type, "text": message.text}
-        )
-        if message.type in {"warning", "error"}
-        else None,
-    )
+    page.on("console", capture_console)
     page.on(
         "pageerror",
         lambda exception: diagnostics["pageErrors"].append({"message": str(exception)}),
@@ -478,10 +468,20 @@ async def _register(page: Page, url: str, owner: dict[str, str]) -> None:
             if attempt == 2:
                 raise
             await page.wait_for_timeout(1_000)
-    await page.get_by_label("Display name").fill(owner["display_name"])
-    await page.get_by_label("Email").fill(owner["email"])
-    await page.get_by_label("Password").fill(owner["password"])
-    await page.wait_for_timeout(1_000)
+    for attempt in range(3):
+        await page.get_by_label("Display name").fill(owner["display_name"])
+        await page.get_by_label("Email").fill(owner["email"])
+        await page.get_by_label("Password").fill(owner["password"])
+        await page.wait_for_timeout(750)
+        if (
+            await page.get_by_label("Display name").input_value()
+            == owner["display_name"]
+            and await page.get_by_label("Email").input_value() == owner["email"]
+            and await page.get_by_label("Password").input_value() == owner["password"]
+        ):
+            break
+        if attempt == 2:
+            raise RuntimeError("The account form did not retain the exact owner input.")
     sign_out = page.get_by_label("Sign out", exact=True)
     submit = page.locator("form").get_by_role(
         "button", name="Create account", exact=True
@@ -505,15 +505,49 @@ async def _upload(
     description: Path | None,
 ) -> None:
     source_hub = page.get_by_label("Source Hub")
-    await source_hub.get_by_role("button", name="Add API source", exact=True).click()
+    await source_hub.get_by_role(
+        "button", name="Add API source", exact=True
+    ).first.click()
     await page.get_by_role("heading", name="Add an API source", exact=True).wait_for()
-    await page.get_by_label("Source name").fill(name)
-    await page.get_by_label("OpenAPI or Swagger definition").set_input_files(definition)
-    if description is not None:
-        await page.get_by_label("Markdown description (optional)").set_input_files(
-            description
+    for attempt in range(3):
+        await page.get_by_label("Source name").fill(name)
+        await page.get_by_label("OpenAPI or Swagger definition").set_input_files(
+            definition
         )
-    await page.get_by_role("button", name="Upload and process", exact=True).click()
+        if description is not None:
+            await page.get_by_label("Markdown description (optional)").set_input_files(
+                description
+            )
+        await page.wait_for_timeout(750)
+        definition_value = await page.get_by_label(
+            "OpenAPI or Swagger definition"
+        ).input_value()
+        description_value = (
+            await page.get_by_label("Markdown description (optional)").input_value()
+            if description is not None
+            else ""
+        )
+        if (
+            await page.get_by_label("Source name").input_value() == name
+            and definition_value.endswith(definition.name)
+            and (
+                description is None
+                or description_value.endswith(description.name)
+            )
+        ):
+            break
+        if attempt == 2:
+            raise RuntimeError("The Source intake did not retain the exact files and name.")
+    await page.get_by_role("button", name="Add API definition", exact=True).click()
+
+
+async def _analyze(page: Page) -> None:
+    await page.get_by_role(
+        "button", name="Analyze API operations", exact=True
+    ).wait_for(timeout=30_000)
+    await page.get_by_role(
+        "button", name="Analyze API operations", exact=True
+    ).click()
 
 
 async def _capture(

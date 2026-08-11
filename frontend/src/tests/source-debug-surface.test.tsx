@@ -120,6 +120,40 @@ it("keeps Source Hub as inventory and opens one exact API Source workflow", asyn
 });
 
 
+it("keeps the selected API Source handoff truthful while its inventory loads", async () => {
+  const ready = sourceView("ready");
+  let resolveSources!: (value: Response) => void;
+  const response = new Promise<Response>((resolve) => { resolveSources = resolve; });
+  const sourceClient = new SourceClient({
+    fetch: vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === "/api/sources") return response;
+      throw new Error(`Unexpected request: ${String(input)}`);
+    }),
+  });
+  const rendered = await renderSourceHub(
+    vi.fn(async (id: string) => dispatchResult(id, "opened")),
+    sourceClient,
+    {
+      form_handle: "sources-api-connection",
+      mode: "inspect",
+      selected_source_id: ready.source_id,
+      selected_source_revision_id: ready.revision.revision_id,
+    },
+  );
+
+  expect(await screen.findByRole("status", {
+    name: "Loading the selected API source",
+  })).toBeVisible();
+  expect(screen.queryByRole("heading", {
+    name: "Open an API source from Source Hub",
+  })).not.toBeInTheDocument();
+
+  resolveSources(jsonResponse([ready]));
+  expect(await screen.findByRole("heading", { name: "Widget API", level: 1 })).toBeVisible();
+  rendered.dispose();
+});
+
+
 it("updates supporting Markdown separately and blocks deletion on exact dependencies", async () => {
   const ready = sourceView("ready");
   let descriptionReads = 0;

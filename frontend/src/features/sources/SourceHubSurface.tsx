@@ -565,7 +565,13 @@ export function SourceHubSurface({
         </aside>
 
         <main className="sources-workbench">
-          {showIntake ? null : selected === null ? (
+          {showIntake ? null : selected === null && busy === "loading" && selectedFromHandoff !== null ? (
+            <div className="sources-workbench-empty" role="status" aria-labelledby="selected-source-loading-title">
+              <RefreshCcw aria-hidden="true" />
+              <h2 id="selected-source-loading-title">Loading the selected API source</h2>
+              <p>Corpus is restoring its exact saved API version and analysis state.</p>
+            </div>
+          ) : selected === null ? (
             <div className="sources-workbench-empty"><FileJson aria-hidden="true" /><h2>Open an API source from Source Hub</h2><p>Its exact saved version and analysis state will appear here.</p></div>
           ) : (
             <section className="source-detail" aria-labelledby="source-detail-title">
