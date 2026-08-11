@@ -44,16 +44,57 @@ it("runs one stopped build and exposes Sandbox only after authoritative running 
     runtimeClient={{ builds } as never}
   />);
 
-  expect(await screen.findByText("Draft runtime:")).toHaveTextContent("Stopped");
+  expect(await screen.findByText(/Stopped\. Start this runtime/)).toBeVisible();
   expect(screen.queryByRole("button", { name: "Continue to Sandbox" })).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Pause unavailable" })).toBeDisabled();
-  fireEvent.click(screen.getByRole("button", { name: "Run build" }));
+  expect(screen.queryByRole("button", { name: "Pause runtime" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Start runtime" }));
   await waitFor(() => expect(dispatch).toHaveBeenCalledWith("run", {
     agent_ref: agentRef,
     build_id: stopped.id,
   }));
   expect(await screen.findByText("Running")).toBeVisible();
   expect(screen.getByRole("button", { name: "Continue to Sandbox" })).toBeEnabled();
+});
+
+
+it("pauses admission durably and resumes only through the exact build action", async () => {
+  const agentId = "7db3745e-6f77-4b92-929c-4d2292fb3708";
+  const agentRef = `agent-${agentId.replaceAll("-", "").slice(0, 20)}`;
+  const running = build(agentId, "running");
+  const paused = { ...running, runtime_lifecycle: "paused" as const };
+  const builds = vi.fn()
+    .mockResolvedValueOnce({ agent_id: agentId, builds: [running] })
+    .mockResolvedValueOnce({ agent_id: agentId, builds: [paused] })
+    .mockResolvedValue({ agent_id: agentId, builds: [running] });
+  const dispatch = vi.fn(async (affordance: string) => ({
+    disposition: "completed",
+    outcome: affordance === "pause" ? "paused" : "running",
+    failure: null,
+  }));
+
+  render(<BuilderSurface
+    {...surfaceProps(agentRef, dispatch)}
+    agentStore={agentStore(agentId)}
+    designerClient={{ get: vi.fn(async () => emptyDesign(agentId)) } as never}
+    runtimeClient={{ builds } as never}
+  />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Pause runtime" }));
+  await waitFor(() => expect(dispatch).toHaveBeenCalledWith("pause", {
+    agent_ref: agentRef,
+    build_id: running.id,
+  }));
+  expect(await screen.findByText(/Paused\. New Sandbox, Evaluation, and deployment work is blocked/)).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Continue to Sandbox" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Generate evaluation set" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Delete build runtime" })).toBeDisabled();
+
+  fireEvent.click(screen.getByRole("button", { name: "Resume runtime" }));
+  await waitFor(() => expect(dispatch).toHaveBeenCalledWith("run", {
+    agent_ref: agentRef,
+    build_id: running.id,
+  }));
+  expect(await screen.findByText(/Ready for new Sandbox, Evaluation, and deployment work/)).toBeVisible();
 });
 
 
@@ -171,7 +212,7 @@ it("guides a failed build to its exact Source setup and permits an explicit reta
   expect(await screen.findByRole("button", { name: "Retry failed build" })).toBeEnabled();
   expect(screen.getByText(`API Source ${sourceId}`)).toBeVisible();
   expect(screen.getByText(`API version ${sourceRevisionId}`)).toBeVisible();
-  expect(screen.getByText("Attempt 1")).toBeVisible();
+  expect(screen.getByText("Build attempt 1")).toBeVisible();
 
   expect(screen.getByText("Resolve the exact pinned API version. If its version changes, update the accepted design before retrying explicitly.")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Open API setup" }));
@@ -187,8 +228,8 @@ it("guides a failed build to its exact Source setup and permits an explicit reta
     agent_ref: agentRef,
     build_request_id: buildRequestId,
   }));
-  expect(await screen.findByText("Attempt 2")).toBeVisible();
-  expect(screen.getByText("Attempt 1")).toBeVisible();
+  expect(await screen.findByText("Build attempt 2")).toBeVisible();
+  expect(screen.getByText("Build attempt 1")).toBeVisible();
 });
 
 

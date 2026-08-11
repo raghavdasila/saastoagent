@@ -52,7 +52,7 @@ def create_channels_router(channels, deployments, owner_scope, delivery) -> APIR
         await deployments.prepare_public(channel)
         session, projection = await asyncio.to_thread(delivery.create_public_session, channel.slug)
         return JSONResponse(
-            content=jsonable_encoder({"session": session, "agent": _public_agent(projection)}),
+            content=jsonable_encoder({"session": session, "agent": _public_agent(projection, display_name=channel.name)}),
             headers={"Cache-Control": "no-store"},
         )
 
@@ -63,7 +63,7 @@ def create_channels_router(channels, deployments, owner_scope, delivery) -> APIR
         await deployments.prepare_public(channel)
         projection = await asyncio.to_thread(delivery.public_projection, channel.slug, session_id)
         return JSONResponse(
-            content=jsonable_encoder(_public_agent(projection)),
+            content=jsonable_encoder(_public_agent(projection, display_name=channel.name)),
             headers={"Cache-Control": "no-store"},
         )
 
@@ -81,7 +81,7 @@ def create_channels_router(channels, deployments, owner_scope, delivery) -> APIR
         )
         return JSONResponse(
             content=jsonable_encoder(
-                {"agent": _public_agent(projection), "interaction": interaction}
+                {"agent": _public_agent(projection, display_name=channel.name), "interaction": interaction}
             ),
             headers={"Cache-Control": "no-store"},
         )
@@ -110,7 +110,7 @@ def _private(value):
     )
 
 
-def _public_agent(projection) -> dict[str, object]:
+def _public_agent(projection, *, display_name: str) -> dict[str, object]:
     """Project only end-user conversation state; runtime diagnostics are owner-only."""
     awaiting_clarification = False
     for surface in projection.surfaces:
@@ -123,10 +123,20 @@ def _public_agent(projection) -> dict[str, object]:
         }:
             awaiting_clarification = True
             break
+    suggested_prompts: list[str] = []
+    for action in projection.suggested_actions:
+        label = action.get("label")
+        if not isinstance(label, str) or not label.strip() or len(label.strip()) > 160:
+            raise RuntimeError("deployed_agent_suggested_action_invalid")
+        cleaned = label.strip()
+        if cleaned not in suggested_prompts:
+            suggested_prompts.append(cleaned)
     return {
+        "display_name": display_name,
         "revision": projection.revision,
         "messages": projection.messages,
         "awaiting_clarification": awaiting_clarification,
+        "suggested_prompts": suggested_prompts,
     }
 
 

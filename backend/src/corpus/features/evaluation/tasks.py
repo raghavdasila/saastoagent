@@ -5,6 +5,7 @@ import uuid
 
 from huey import SqliteHuey
 
+from .execution import EvaluationRunProcessor
 from .generation import EvaluationGenerationProcessor
 
 
@@ -19,4 +20,18 @@ def register_evaluation_generation_task(
     return generate_build_evaluation_set
 
 
-__all__ = ["register_evaluation_generation_task"]
+def register_evaluation_run_task(
+    huey: SqliteHuey,
+    processor: EvaluationRunProcessor,
+):
+    @huey.task(retries=0)
+    def run_evaluation_case(job_id: str) -> dict[str, object]:
+        return asyncio.run(processor.process(uuid.UUID(job_id)))
+
+    return run_evaluation_case
+
+
+__all__ = [
+    "register_evaluation_generation_task",
+    "register_evaluation_run_task",
+]

@@ -60,6 +60,26 @@ class EvaluationRunRecord:
 
 
 @dataclass(frozen=True)
+class EvaluationRunAttemptRecord:
+    id: uuid.UUID
+    organization_id: uuid.UUID
+    agent_id: uuid.UUID
+    evaluation_set_id: uuid.UUID
+    case_id: uuid.UUID
+    build_id: uuid.UUID
+    case_revision: int
+    job_id: uuid.UUID | None
+    retry_of_attempt_id: uuid.UUID | None
+    status: str
+    failure_code: str | None
+    failure_message: str | None
+    runtime_evaluation_run_id: str | None
+    created_at: datetime
+    updated_at: datetime
+    completed_at: datetime | None
+
+
+@dataclass(frozen=True)
 class EligibilityRecord:
     id: uuid.UUID
     organization_id: uuid.UUID

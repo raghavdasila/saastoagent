@@ -72,6 +72,7 @@ class Repository:
     async def add_run(self, owner, case, runtime):
         self.run = EvaluationRunRecord(uuid.uuid4(), owner, case.id, case.build_id, runtime.evaluation_run_id, runtime.status, runtime.deterministic_pass, runtime.review_pass, case.current_revision, runtime.reasons, datetime.now(UTC)); return self.run
     async def runs(self, owner, evaluation_set_id): return (self.run,) if self.run else ()
+    async def run_attempts(self, owner, evaluation_set_id): return ()
     async def add_eligibility(self, owner, agent, build, build_hash, runtime):
         self.eligibility = EligibilityRecord(uuid.uuid4(), owner, agent, build, build_hash, runtime.eligible, runtime.supporting_evaluation_run_ids, runtime.reasons, datetime.now(UTC)); return self.eligibility
     async def latest_eligibility(self, owner, agent, build): return self.eligibility

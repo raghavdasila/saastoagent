@@ -8,7 +8,7 @@ from routedeck_core.ports.executor import ExecutionContext
 
 from corpus.features.agents.ports import AgentOwnerScopeGateway, AgentOwnerScopeUnavailable
 
-from .declarations import ASSEMBLE_BUILD, DELETE_BUILD, RUN_BUILD, STOP_BUILD
+from .declarations import ASSEMBLE_BUILD, DELETE_BUILD, PAUSE_BUILD, RUN_BUILD, STOP_BUILD
 from .ports import BuilderConflict, BuilderUnavailable
 from .schemas import AssembleBuildArguments
 from .schemas import BuildRuntimeLifecycleArguments
@@ -61,6 +61,11 @@ class BuildRuntimeLifecycleHandler:
                     organization_id, agent_id, build_id=payload.build_id
                 )
                 outcome = "running"
+            elif self.action == "pause":
+                await self.service.pause(
+                    organization_id, agent_id, build_id=payload.build_id
+                )
+                outcome = "paused"
             elif self.action == "stop":
                 await self.service.stop(
                     organization_id, agent_id, build_id=payload.build_id

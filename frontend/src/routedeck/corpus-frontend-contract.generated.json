@@ -84,6 +84,7 @@
         "builder.assemble",
         "agents.open_attached_source",
         "builder.run",
+        "builder.pause",
         "builder.stop",
         "builder.delete",
         "agents.open_sandbox",
@@ -115,9 +116,11 @@
       "operation_ids": [
         "agents.return_to_hub",
         "agents.open_evaluation",
+        "agents.open_builds",
         "channels.create",
         "channels.set_enabled",
         "deployment.deploy",
+        "deployment.retry",
         "deployment.rollback",
         "agents.open_operations"
       ],
@@ -132,6 +135,7 @@
         "peer": [],
         "review": [
           "deployment.deploy_review",
+          "deployment.retry_review",
           "deployment.rollback_review",
           "channels.availability_review"
         ],
@@ -187,7 +191,8 @@
         "evaluation.edit_case",
         "evaluation.delete_case",
         "evaluation.run_case",
-        "agents.open_channels"
+        "agents.open_channels",
+        "evaluation.retry_case_run"
       ],
       "route_template": "/agents/evaluation",
       "surfaces": {
@@ -911,6 +916,13 @@
         },
         {
           "event": "submit",
+          "id": "pause",
+          "operation": {
+            "id": "builder.pause"
+          }
+        },
+        {
+          "event": "submit",
           "id": "stop",
           "operation": {
             "id": "builder.stop"
@@ -996,6 +1008,13 @@
           }
         },
         {
+          "event": "open",
+          "id": "continue_to_builds",
+          "operation": {
+            "id": "agents.open_builds"
+          }
+        },
+        {
           "event": "submit",
           "id": "create",
           "operation": {
@@ -1014,6 +1033,13 @@
           "id": "deploy",
           "operation": {
             "id": "deployment.deploy"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "retry_deployment",
+          "operation": {
+            "id": "deployment.retry"
           }
         },
         {
@@ -1052,6 +1078,30 @@
       "affordances": [],
       "component": "deployment.deploy_review",
       "id": "deployment.deploy_review",
+      "lifecycle": "stable",
+      "public_props_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "review_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "state": {
+            "const": "pending",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "deployment.retry_review": {
+      "affordances": [],
+      "component": "deployment.retry_review",
+      "id": "deployment.retry_review",
       "lifecycle": "stable",
       "public_props_schema": {
         "additionalProperties": false,
@@ -1269,6 +1319,13 @@
           "id": "run_case",
           "operation": {
             "id": "evaluation.run_case"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "retry_case_run",
+          "operation": {
+            "id": "evaluation.retry_case_run"
           }
         },
         {
@@ -2415,6 +2472,12 @@
       "target": "builder.home"
     },
     {
+      "operation_id": "builder.pause",
+      "outcome": "paused",
+      "source": "builder.home",
+      "target": "builder.home"
+    },
+    {
       "operation_id": "builder.stop",
       "outcome": "stopped",
       "source": "builder.home",
@@ -2506,7 +2569,13 @@
     },
     {
       "operation_id": "evaluation.run_case",
-      "outcome": "evaluated",
+      "outcome": "queued",
+      "source": "evaluation.home",
+      "target": "evaluation.home"
+    },
+    {
+      "operation_id": "evaluation.retry_case_run",
+      "outcome": "queued",
       "source": "evaluation.home",
       "target": "evaluation.home"
     },
@@ -2529,6 +2598,12 @@
       "target": "evaluation.home"
     },
     {
+      "operation_id": "agents.open_builds",
+      "outcome": "opened",
+      "source": "channels.home",
+      "target": "builder.home"
+    },
+    {
       "operation_id": "channels.create",
       "outcome": "created",
       "source": "channels.home",
@@ -2542,7 +2617,13 @@
     },
     {
       "operation_id": "deployment.deploy",
-      "outcome": "deployed",
+      "outcome": "queued",
+      "source": "channels.home",
+      "target": "channels.home"
+    },
+    {
+      "operation_id": "deployment.retry",
+      "outcome": "queued",
       "source": "channels.home",
       "target": "channels.home"
     },

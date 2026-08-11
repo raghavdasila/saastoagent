@@ -86,4 +86,21 @@ describe("horizontal chat, surface, and mixed evidence contract", () => {
     expect(feature?.stories.find((item) => item.id === "channels-set-availability")?.expectedBehavior)
       .toContain("never selects, activates, publishes, rolls back, or substitutes an Agent build")
   })
+
+  it("requires a real durable pause and explicit resume for the exact draft runtime", () => {
+    const feature = horizontalFeatures(persistedDesignState as WorkbenchState)
+      .find((item) => item.id === "builder-sandbox")
+    const lifecycle = feature?.stories.find((item) => item.id === "builder-control-runtime")
+
+    expect(lifecycle?.userIntent).toContain("pause")
+    expect(lifecycle?.userIntent).toContain("resume")
+    expect(lifecycle?.operations.map((operation) => operation.name)).toEqual([
+      "Run Agent build",
+      "Pause Agent build",
+      "Stop Agent build",
+      "Delete Agent build",
+    ])
+    expect(lifecycle?.expectedBehavior).toContain("blocks new Sandbox, Evaluation, and deployment work")
+    expect(lifecycle?.expectedBehavior).toContain("only a stopped runtime can be removed")
+  })
 })

@@ -20,6 +20,12 @@ class RollbackArguments(BaseModel):
     deployment_id: uuid.UUID | None = None
 
 
+class RetryDeploymentArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    agent_ref: str = Field(min_length=1, max_length=64)
+    deployment_id: uuid.UUID
+
+
 class DeploymentView(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
@@ -30,6 +36,8 @@ class DeploymentView(BaseModel):
     bundle_hash: str
     failure_code: str | None
     failure_message: str | None
+    job_id: uuid.UUID | None
+    retry_of_deployment_id: uuid.UUID | None
     created_at: datetime
 
 
@@ -38,4 +46,10 @@ class DeploymentCollectionView(BaseModel):
     deployments: tuple[DeploymentView, ...]
 
 
-__all__ = ["DeployArguments", "DeploymentCollectionView", "DeploymentView", "RollbackArguments"]
+__all__ = [
+    "DeployArguments",
+    "DeploymentCollectionView",
+    "DeploymentView",
+    "RetryDeploymentArguments",
+    "RollbackArguments",
+]

@@ -6,6 +6,34 @@ import { Composer } from "../app/Composer";
 import { Conversation } from "../app/Conversation";
 import type { ConversationScrollState } from "../app/Conversation";
 
+it("marks only a genuinely empty conversation so mobile surfaces can reclaim the unused chat space", () => {
+  const view = render(
+    <Conversation messages={[]} status="idle" suggestedActions={null} />,
+  );
+  const conversation = document.querySelector<HTMLElement>("[data-agent-conversation]");
+  expect(conversation).toHaveAttribute("data-agent-conversation-empty");
+
+  view.rerender(
+    <Conversation messages={[]} status="streaming" suggestedActions={null} />,
+  );
+  expect(conversation).not.toHaveAttribute("data-agent-conversation-empty");
+
+  view.rerender(
+    <Conversation
+      messages={[{
+        id: "user-empty-marker",
+        requestId: "request-empty-marker",
+        role: "user",
+        content: "Continue with the current build.",
+        status: "finalized",
+      }]}
+      status="idle"
+      suggestedActions={null}
+    />,
+  );
+  expect(conversation).not.toHaveAttribute("data-agent-conversation-empty");
+});
+
 it("returns keyboard focus to the composer when an Enter send becomes available again", async () => {
   let finishSend!: () => void;
   const send = vi.fn(

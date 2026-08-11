@@ -1299,6 +1299,7 @@
           },
           "operations": {
             "Run Agent build": "builder.run",
+            "Pause Agent build": "builder.pause",
             "Stop Agent build": "builder.stop",
             "Delete Agent build": "builder.delete"
           }
@@ -1404,13 +1405,13 @@
           "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
         }
       },
-      "runtimeBoundary": "Corpus persists the full owner/design/Source-curation/profile binding in SQL and stores the neutral immutable build and run records through Corpus-owned runtime storage. A separate persisted draft-runtime lifecycle begins stopped for new builds: Run validates the immutable runtime artifact and enables new Sandbox, Evaluation, and deployment work; Stop disables new draft work; reviewed Delete decommissions the stopped draft runtime while retaining immutable lineage and every already-deployed runtime. Pause remains visibly unavailable because the neutral runtime exposes no durable pause contract. Build evaluation generation queues one durable owner-scoped job, filters each Source artifact to the exact curated operation subset before the real ToolRouter generator and reviewer run, and persists accepted draft cases independently of build success. Sandbox runs the exact running build through curated subset routing, the owner vault and one response-validating API adapter; validated bodies remain memory-only while safe events and the response-derived final answer persist. When ToolRouter waits, Corpus binds exact natural candidate labels from the immutable compiled NavGraph into the persisted safe event and the RouteDeck tool observation so ordinary chat can resolve the same run without asking the user for an internal operation identity.",
+      "runtimeBoundary": "Corpus persists the full owner/design/Source-curation/profile binding in SQL and stores the neutral immutable build and run records through Corpus-owned runtime storage. A separate persisted draft-runtime admission lifecycle begins stopped for new builds: Run validates the immutable runtime artifact and starts or explicitly resumes it; Pause moves only a running runtime to a durable paused state that blocks new Sandbox, Evaluation, and deployment work without cancelling or rewriting an already in-flight synchronous operation; Stop moves a running or paused runtime fully offline; reviewed Delete decommissions only a stopped draft runtime while retaining immutable lineage, recorded runs, and every already-deployed runtime. Build evaluation generation queues one durable owner-scoped job, filters each Source artifact to the exact curated operation subset before the real ToolRouter generator and reviewer run, and persists accepted draft cases independently of build success. Sandbox runs the exact running build through curated subset routing, the owner vault and one response-validating API adapter; validated bodies remain memory-only while safe events and the response-derived final answer persist. When ToolRouter waits, Corpus binds exact natural candidate labels from the immutable compiled NavGraph into the persisted safe event and the RouteDeck tool observation so ordinary chat can resolve the same run without asking the user for an internal operation identity.",
       "guidedContinuations": [
         {"operation": "agents.open_attached_source", "transition": "builder.home -> sources.api -> builder.home", "precondition": "A failed or pending build names one exact accepted-design Source version that needs setup; Source inspection and return do not alter the failed attempt."},
         {"operation": "agents.open_sandbox", "transition": "builder.home -> sandbox.home", "precondition": "One exact immutable draft build is running."},
         {"operation": "agents.open_evaluation", "transition": "sandbox.home -> evaluation.home", "precondition": "A successful immutable Sandbox run is visible."}
       ],
-      "evidenceStatus": "Focused runtime lifecycle, cross-feature readiness, and frontend review gates pass. Surface-only 20260809T153004Z-7cd51d776b, ordinary-chat-only 20260809T165131Z-63d1c6220b, and hybrid 20260809T210136Z-853c33486c independently prove assembled-build and same-run ToolRouter clarification paths in normal-speed uncut recordings. The newly compiled Builder runtime-control behavior and generated-evalset behavior remain pending replacement external evidence where their individual bindings still say pending_external_evidence."
+      "evidenceStatus": "Focused runtime lifecycle, cross-feature readiness, and frontend review gates pass. A real signed-in local product check on 2026-08-11 exercised one persisted immutable build through pause, reload, resume, stop, and start; verified that paused and stopped states suppress new draft work; restored the build to its original running state; and inspected the desktop split plus 390x844 mobile surface without synthetic data. Surface-only 20260809T153004Z-7cd51d776b, ordinary-chat-only 20260809T165131Z-63d1c6220b, and hybrid 20260809T210136Z-853c33486c independently prove assembled-build and same-run ToolRouter clarification paths in normal-speed uncut recordings. Replacement chat-only, surface-only, and hybrid evidence for the newly added runtime controls and generated-evalset behavior remains pending_external_evidence."
     },
     {
       "designFeature": "Evaluation",
@@ -1497,6 +1498,7 @@
             "Evaluation": "evaluation.home"
           },
           "operations": {
+            "Retry failed evaluation run": "evaluation.retry_case_run"
           }
         }
       ],
@@ -1527,7 +1529,7 @@
           "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
         }
       },
-      "runtimeBoundary": "ToolRouter generation is a durable owner-scoped queued job over the exact immutable build and its pre-generation curated endpoint subset; accepted cases persist as drafts and generation failure never changes build status or eligibility. Generated cases run through the real exact-build Sandbox runtime before neutral Evaluation promotion and evaluation. Case edits append revisions, reviewed removal tombstones future use, and prior run attribution retains its exact case revision. Existing evaluation execution remains synchronous inside the supervised operation, so the shared durable queued/running/retry lifecycle for long evaluation execution remains an explicit incomplete runtime gap. Runs persist derived eligible or ineligible evidence without retargeting a later build.",
+      "runtimeBoundary": "ToolRouter generation is a durable owner-scoped queued job over the exact immutable build and its pre-generation curated endpoint subset; accepted cases persist as drafts and generation failure never changes build status or eligibility. Evaluation execution also queues one durable owner-scoped attempt pinned to the exact case revision and build. The worker runs the real exact-build Sandbox and neutral Evaluation path, persists queued/running/succeeded/failed state, and never retries automatically. One database constraint permits only one active attempt per case; an explicit retry appends a new attempt linked to the exact failed current-revision attempt. Case edits append revisions, reviewed removal tombstones future use, and prior run attribution retains its exact case revision. Runs persist derived eligible or ineligible evidence without retargeting a later build.",
       "prerequisiteContinuation": {
         "operation": "agents.open_builds",
         "transition": "evaluation.home -> builder.home",
@@ -1538,7 +1540,7 @@
         "transition": "evaluation.home -> channels.home",
         "precondition": "The exact selected build has durable eligible evaluation evidence."
       },
-      "evidenceStatus": "Focused runtime gates pass. Surface-only 20260809T153004Z-7cd51d776b, ordinary-chat-only 20260809T165131Z-63d1c6220b, and hybrid 20260809T210136Z-853c33486c independently prove case creation, evaluation, and eligibility derived from the exact successful Sandbox run. Generated-set and case-management depth remain pending."
+      "evidenceStatus": "Focused runtime gates pass. Surface-only 20260809T153004Z-7cd51d776b, ordinary-chat-only 20260809T165131Z-63d1c6220b, and hybrid 20260809T210136Z-853c33486c independently prove case creation, evaluation, and eligibility derived from the exact successful Sandbox run. A real signed-in local product check on 2026-08-11 queued an existing exact-build case, visibly observed Running, completed through the source worker in 2.536 seconds, returned to passed, and retained the same result after page reload and backend/worker restart. SQL retained one succeeded attempt and one succeeded durable job with attempt_count 1 and max_attempts 1. Explicit failed-attempt retry and one-active-attempt concurrency are proven in focused service, SQL repository, and frontend gates; a real browser failure/retry path and replacement complete interaction-mode evidence remain pending_external_evidence."
     },
     {
       "designFeature": "Channels and Deployment",
@@ -1610,9 +1612,13 @@
             "Channels and Deployment": "channels.manage"
           },
           "surfaces": {
-            "Channels and Deployment": "channels.home"
+            "Channels and Deployment": "channels.home",
+            "Deployment review": "deployment.retry_review"
           },
-          "operations": {}
+          "operations": {
+            "Open Agent Builds": "agents.open_builds",
+            "Retry failed deployment": "deployment.retry"
+          }
         },
         {
           "designBehavior": "Roll back the hosted Agent",

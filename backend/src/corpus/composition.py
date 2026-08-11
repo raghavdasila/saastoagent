@@ -59,6 +59,7 @@ EVALUATION_FEATURE = create_evaluation_feature(
 )
 CHANNELS_FEATURE = create_channels_feature(
     AGENTS_HOME_REF,
+    BUILDER_HOME_REF,
     EVALUATION_HOME_REF,
     OPERATIONS_HOME_REF,
 )

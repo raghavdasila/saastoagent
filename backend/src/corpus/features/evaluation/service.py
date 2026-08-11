@@ -12,12 +12,30 @@ from corpus.integrations.agent_execution import EligibilityProjection
 
 from .eligibility import current_eligibility
 from .ports import EvaluationConflict, EvaluationRepository, EvaluationRuntimeGateway, EvaluationUnavailable
-from .schemas import EvaluationCaseView, EvaluationCollectionView, EvaluationSetView
+from .schemas import (
+    EvaluationCaseView,
+    EvaluationCollectionView,
+    EvaluationRunAttemptView,
+    EvaluationSetView,
+)
 
 
 class EvaluationService:
-    def __init__(self, repository: EvaluationRepository, runtime: EvaluationRuntimeGateway, builds: BuilderService, sandbox: SandboxService, jobs: DurableJobPort | None = None) -> None:
-        self.repository, self.runtime, self.builds, self.sandbox, self.jobs = repository, runtime, builds, sandbox, jobs
+    def __init__(
+        self,
+        repository: EvaluationRepository,
+        runtime: EvaluationRuntimeGateway,
+        builds: BuilderService,
+        sandbox: SandboxService,
+        generation_jobs: DurableJobPort | None = None,
+        run_jobs: DurableJobPort | None = None,
+    ) -> None:
+        self.repository = repository
+        self.runtime = runtime
+        self.builds = builds
+        self.sandbox = sandbox
+        self.generation_jobs = generation_jobs
+        self.run_jobs = run_jobs
 
     async def generate_set(
         self,
@@ -28,7 +46,7 @@ class EvaluationService:
         set_name: str,
         categories: tuple[str, ...],
     ) -> EvaluationCollectionView:
-        if self.jobs is None:
+        if self.generation_jobs is None:
             raise EvaluationUnavailable("Evaluation generation is unavailable.")
         build = await self._exact_build(organization_id, agent_id, build_id)
         evaluation_set = await self.repository.create_set(
@@ -39,7 +57,7 @@ class EvaluationService:
                 "That exact build evaluation set already has generation history."
             )
         try:
-            job = await self.jobs.enqueue(
+            job = await self.generation_jobs.enqueue(
                 owner_id=organization_id,
                 job_type="evaluation.generate_build_evalset",
                 payload={
@@ -69,7 +87,7 @@ class EvaluationService:
         agent_id: uuid.UUID,
         evaluation_set_id: uuid.UUID,
     ) -> EvaluationCollectionView:
-        if self.jobs is None:
+        if self.generation_jobs is None:
             raise EvaluationUnavailable("Evaluation generation is unavailable.")
         evaluation_set = await self.repository.get_set(
             organization_id, agent_id, evaluation_set_id
@@ -77,7 +95,7 @@ class EvaluationService:
         if evaluation_set.generation_status != "failed" or evaluation_set.generation_job_id is None:
             raise EvaluationConflict("Only a failed generated evaluation set can be retried.")
         try:
-            job = await self.jobs.retry(
+            job = await self.generation_jobs.retry(
                 owner_id=organization_id,
                 job_id=evaluation_set.generation_job_id,
             )
@@ -205,10 +223,129 @@ class EvaluationService:
             mandatory=mandatory,
         )
 
+    async def queue_case(
+        self,
+        organization_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        case_id: uuid.UUID,
+        *,
+        retry_of_attempt_id: uuid.UUID | None = None,
+    ) -> EvaluationCollectionView:
+        if self.run_jobs is None:
+            raise EvaluationUnavailable("Evaluation execution is unavailable.")
+        evaluation_set, case = await self.repository.get_case(
+            organization_id, agent_id, case_id
+        )
+        if case.removed_at is not None:
+            raise EvaluationConflict("A removed evaluation case cannot be run.")
+        await self.builds.require_running(
+            organization_id, agent_id, evaluation_set.build_id
+        )
+        attempt = await self.repository.create_run_attempt(
+            organization_id,
+            agent_id,
+            case.id,
+            retry_of_attempt_id=retry_of_attempt_id,
+        )
+        try:
+            job = await self.run_jobs.enqueue(
+                owner_id=organization_id,
+                job_type="evaluation.run_case",
+                payload={
+                    "agent_id": str(agent_id),
+                    "case_id": str(case.id),
+                    "case_revision": case.current_revision,
+                    "attempt_id": str(attempt.id),
+                },
+                max_attempts=1,
+            )
+            await self.repository.link_run_attempt_job(
+                organization_id, attempt.id, job.id
+            )
+        except DurableJobEnqueueError as error:
+            await self.repository.mark_run_attempt_failed(
+                organization_id,
+                attempt.id,
+                code="queue_unavailable",
+                message="The evaluation queue rejected this run.",
+            )
+            raise EvaluationUnavailable(
+                "The evaluation run could not be queued."
+            ) from error
+        return await self.list(organization_id, agent_id)
+
+    async def retry_case_run(
+        self,
+        organization_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        attempt_id: uuid.UUID,
+    ) -> EvaluationCollectionView:
+        _evaluation_set, case, attempt = await self.repository.get_run_attempt(
+            organization_id, agent_id, attempt_id
+        )
+        if attempt.status != "failed":
+            raise EvaluationConflict(
+                "Only a failed evaluation run can be retried."
+            )
+        if attempt.case_revision != case.current_revision:
+            raise EvaluationConflict(
+                "The evaluation case changed; run the current revision instead."
+            )
+        return await self.queue_case(
+            organization_id,
+            agent_id,
+            case.id,
+            retry_of_attempt_id=attempt.id,
+        )
+
+    async def queue_current_case(
+        self,
+        organization_id: uuid.UUID,
+        agent_id: uuid.UUID,
+    ) -> EvaluationCollectionView:
+        pending = tuple(
+            case
+            for evaluation_set in (await self.list(
+                organization_id, agent_id
+            )).evaluation_sets
+            for case in evaluation_set.cases
+            if case.latest_status is None
+            and not case.removed
+            and (
+                case.latest_run_attempt is None
+                or case.latest_run_attempt.status == "failed"
+            )
+        )
+        if len(pending) != 1:
+            raise EvaluationUnavailable(
+                "Run evaluation requires one exact pending evaluation case."
+            )
+        return await self.queue_case(
+            organization_id, agent_id, pending[0].id
+        )
+
     async def run_case(self, organization_id: uuid.UUID, agent_id: uuid.UUID, case_id: uuid.UUID) -> EvaluationCollectionView:
+        await self.execute_case(organization_id, agent_id, case_id)
+        return await self.list(organization_id, agent_id)
+
+    async def execute_case(
+        self,
+        organization_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        case_id: uuid.UUID,
+        *,
+        expected_case_revision: int | None = None,
+    ):
         evaluation_set, case = await self.repository.get_case(organization_id, agent_id, case_id)
         if case.removed_at is not None:
             raise EvaluationConflict("A removed evaluation case cannot be run.")
+        if (
+            expected_case_revision is not None
+            and case.current_revision != expected_case_revision
+        ):
+            raise EvaluationConflict(
+                "The evaluation case changed before its queued run started."
+            )
         build = await self.builds.require_running(organization_id, agent_id, evaluation_set.build_id)
         if case.runtime_case_id is None:
             case = await self._materialize_generated_case(
@@ -219,7 +356,7 @@ class EvaluationService:
         result = await asyncio.to_thread(self.runtime.evaluate, str(organization_id), case.runtime_case_id)
         if result.build_hash != build.runtime_build_hash or result.case_id != case.runtime_case_id:
             raise EvaluationConflict("The evaluation result did not retain the exact case and build identity.")
-        await self.repository.add_run(organization_id, case, result)
+        stored_run = await self.repository.add_run(organization_id, case, result)
         cases, _runs = await self._build_evaluation_state(
             organization_id, agent_id, build.id
         )
@@ -245,7 +382,7 @@ class EvaluationService:
         await self.repository.add_eligibility(
             organization_id, agent_id, build.id, build.runtime_build_hash, eligibility,
         )
-        return await self.list(organization_id, agent_id)
+        return stored_run
 
     async def run_current_case(
         self,
@@ -301,7 +438,10 @@ class EvaluationService:
         for value in sets:
             cases = await self.repository.cases(organization_id, value.id)
             runs = await self.repository.runs(organization_id, value.id)
-            state_by_set[value.id] = (cases, runs)
+            attempts = await self.repository.run_attempts(
+                organization_id, value.id
+            )
+            state_by_set[value.id] = (cases, runs, attempts)
             cases_by_build.setdefault(value.build_id, []).extend(cases)
             runs_by_build.setdefault(value.build_id, []).extend(runs)
         eligibility_by_build = {}
@@ -314,8 +454,11 @@ class EvaluationService:
             )
         views = []
         for value in sets:
-            cases, runs = state_by_set[value.id]
+            cases, runs, attempts = state_by_set[value.id]
             latest_by_case = {run.case_id: run for run in runs}
+            latest_attempt_by_case = {
+                attempt.case_id: attempt for attempt in attempts
+            }
             eligibility = eligibility_by_build[value.build_id]
             views.append(EvaluationSetView(
                 id=value.id, agent_id=value.agent_id, build_id=value.build_id,
@@ -333,6 +476,19 @@ class EvaluationService:
                     removed=case.removed_at is not None,
                     runnable=case.runtime_case_id is not None,
                     latest_status=(latest_by_case[case.id].status if case.id in latest_by_case else None),
+                    latest_run_attempt=(
+                        EvaluationRunAttemptView(
+                            id=latest_attempt_by_case[case.id].id,
+                            status=latest_attempt_by_case[case.id].status,
+                            failure_code=latest_attempt_by_case[case.id].failure_code,
+                            failure_message=latest_attempt_by_case[case.id].failure_message,
+                            retry_of_attempt_id=latest_attempt_by_case[case.id].retry_of_attempt_id,
+                            created_at=latest_attempt_by_case[case.id].created_at,
+                            updated_at=latest_attempt_by_case[case.id].updated_at,
+                        )
+                        if case.id in latest_attempt_by_case
+                        else None
+                    ),
                 ) for case in cases),
                 eligible=eligibility.eligible,
                 eligibility_reasons=eligibility.reasons,

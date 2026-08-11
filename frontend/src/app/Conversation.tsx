@@ -88,6 +88,7 @@ export function Conversation({
       ref={conversationRef}
       aria-busy={status === "streaming"}
       data-agent-conversation=""
+      data-agent-conversation-empty={messages.length === 0 && !isThinking ? "" : undefined}
       onScroll={updateBottomPin}
     >
       <ol aria-live="polite" aria-relevant="additions text">

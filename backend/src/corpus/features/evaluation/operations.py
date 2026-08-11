@@ -13,6 +13,7 @@ from .declarations import (
     DELETE_CASE,
     EDIT_CASE,
     GENERATE_SET,
+    RETRY_CASE_RUN,
     RETRY_GENERATION,
     RUN_CASE,
 )
@@ -22,6 +23,7 @@ from .schemas import (
     DeleteEvaluationCaseArguments,
     EditEvaluationCaseArguments,
     GenerateEvaluationSetArguments,
+    RetryEvaluationRunArguments,
     RetryEvaluationGenerationArguments,
     RunEvaluationCaseArguments,
 )
@@ -80,9 +82,9 @@ class RunCaseHandler:
             owner = await self.owner_scope.organization_id_for_route(context.session_id)
             agent_id = uuid.UUID(context.private_entity_id("agent_ref"))
             if payload.case_id is None:
-                await self.service.run_current_case(owner, agent_id)
+                await self.service.queue_current_case(owner, agent_id)
             else:
-                await self.service.run_case(owner, agent_id, payload.case_id)
+                await self.service.queue_case(owner, agent_id, payload.case_id)
         except (ValidationError, ValueError, KeyError) as error:
             return _failure(context, RUN_CASE.id, "invalid_evaluation_run", str(error), FailureKind.CONTRACT)
         except (EvaluationUnavailable, AgentOwnerScopeUnavailable) as error:
@@ -91,7 +93,27 @@ class RunCaseHandler:
             return _failure(context, RUN_CASE.id, "evaluation_conflict", str(error), FailureKind.BUSINESS)
         except Exception:
             return _failure(context, RUN_CASE.id, "evaluation_failed", "The evaluation run failed.", FailureKind.PROVIDER_PROTOCOL)
-        return OperationOutcome(outcome="evaluated", delivery_phase=DeliveryPhase.RESPONSE_RECEIVED)
+        return OperationOutcome(outcome="queued", delivery_phase=DeliveryPhase.RESPONSE_RECEIVED)
+
+
+@dataclass(frozen=True)
+class RetryCaseRunHandler:
+    service: EvaluationService
+    owner_scope: AgentOwnerScopeGateway
+
+    async def __call__(self, arguments, context: ExecutionContext) -> OperationOutcome:
+        try:
+            payload = RetryEvaluationRunArguments.model_validate(dict(arguments))
+            owner = await self.owner_scope.organization_id_for_route(context.session_id)
+            agent_id = uuid.UUID(context.private_entity_id("agent_ref"))
+            await self.service.retry_case_run(owner, agent_id, payload.attempt_id)
+        except (ValidationError, ValueError, KeyError) as error:
+            return _failure(context, RETRY_CASE_RUN.id, "invalid_evaluation_retry", str(error), FailureKind.CONTRACT)
+        except (EvaluationUnavailable, AgentOwnerScopeUnavailable) as error:
+            return _failure(context, RETRY_CASE_RUN.id, "evaluation_unavailable", str(error), FailureKind.STATE_CONFLICT)
+        except EvaluationConflict as error:
+            return _failure(context, RETRY_CASE_RUN.id, "evaluation_conflict", str(error), FailureKind.BUSINESS)
+        return OperationOutcome(outcome="queued", delivery_phase=DeliveryPhase.RESPONSE_RECEIVED)
 
 
 @dataclass(frozen=True)

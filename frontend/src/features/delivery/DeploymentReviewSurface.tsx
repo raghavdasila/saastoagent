@@ -3,7 +3,7 @@ import type { RouteDeckSurfaceComponentProps } from "@routedeck/react";
 import { useRouteDeckReviewActions } from "@routedeck/react";
 
 
-export type HostedAgentReviewKind = "deploy" | "rollback" | "availability";
+export type HostedAgentReviewKind = "deploy" | "retry" | "rollback" | "availability";
 
 export function DeploymentReviewSurface({ props, kind }: RouteDeckSurfaceComponentProps & { kind: HostedAgentReviewKind }) {
   const actions = useRouteDeckReviewActions();
@@ -31,6 +31,11 @@ export function hostedAgentReviewCopy(kind: HostedAgentReviewKind) {
     heading: "Approve hosted Agent rollback",
     consequence: "Approval activates the exact reviewed earlier deployment on this public channel. Rejection leaves the current deployment unchanged.",
     accept: "Roll back to reviewed deployment", reject: "Keep current deployment",
+  } as const;
+  if (kind === "retry") return {
+    heading: "Approve a new deployment attempt",
+    consequence: "Approval queues one new attempt linked to the exact failed deployment. It does not reuse or rewrite the failed attempt and Corpus will not retry automatically.",
+    accept: "Queue reviewed retry", reject: "Keep failed deployment",
   } as const;
   return {
     heading: "Approve hosted Web availability change",

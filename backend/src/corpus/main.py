@@ -48,44 +48,31 @@ from corpus.features.designer.http import create_designer_router
 from corpus.features.designer.repository import SqlAlchemyDesignerRepository
 from corpus.features.designer.service import DesignerService
 from corpus.features.builder.http import create_builder_router
-from corpus.features.builder.repository import SqlAlchemyBuilderRepository
-from corpus.features.builder.service import BuilderService
 from corpus.features.sandbox.http import create_sandbox_router
-from corpus.features.sandbox.repository import SqlAlchemySandboxRepository
-from corpus.features.sandbox.service import SandboxService
 from corpus.features.evaluation.http import create_evaluation_router
 from corpus.features.evaluation.repository import SqlAlchemyEvaluationRepository
 from corpus.features.evaluation.service import EvaluationService
+from corpus.features.evaluation.execution import EvaluationRunProcessor
 from corpus.features.evaluation.generation import EvaluationGenerationProcessor
-from corpus.features.evaluation.tasks import register_evaluation_generation_task
+from corpus.features.evaluation.tasks import (
+    register_evaluation_generation_task,
+    register_evaluation_run_task,
+)
 from corpus.jobs import HueyDurableJobPort
 from corpus.features.channels.http import create_channels_router
 from corpus.features.channels.repository import SqlAlchemyChannelRepository
 from corpus.features.channels.service import ChannelService
 from corpus.features.deployment.repository import SqlAlchemyDeploymentRepository
 from corpus.features.deployment.service import DeploymentService
+from corpus.features.deployment.execution import DeploymentProcessor
+from corpus.features.deployment.tasks import register_deployment_task
 from corpus.features.operations.http import create_operations_router
 from corpus.features.operations.service import OperationsService
 from corpus.app.operations_adapters import CorpusOperationsLineageGateway
-from corpus.app.builder_adapters import CorpusBuilderInputGateway
-from corpus.app.agent_runtime_adapters import (
-    CorpusAgentModelPort,
-    CorpusApiExecutorPort,
-    CorpusBuilderRuntimeGateway,
-    CorpusEvaluationReviewerPort,
-    CorpusEvaluationRuntimeGateway,
-    CorpusExecutionBindingRegistry,
-    CorpusSandboxRuntimeGateway,
-    CorpusToolRouterPort,
-    resolve_ollama_model_identity,
-    resolve_openai_model_identity,
-)
-from corpus.app.agent_runtime_store import CorpusLocalAgentRuntimeStore
+from corpus.app.agent_product_runtime import create_agent_product_runtime
 from corpus.app.delivery_runtime_store import CorpusLocalDeliveryStore
 from corpus.app.delivery_runtime_adapters import CorpusDeployedAgentRuntimePort
-from corpus.app.agent_routedeck_runtime import AgentRouteDeckSupervisor
 from corpus.app.delivery_adapters import CorpusEligibilityGateway
-from corpus.integrations.agent_execution import NeutralAgentExecutionAdapter, NeutralEvaluationAdapter
 from corpus.integrations.agent_delivery import NeutralAgentDeliveryAdapter
 from corpus.features.workspace.http import (
     WorkspaceHttpProblem,
@@ -96,7 +83,6 @@ from corpus.features.workspace.service import WorkspaceService
 from corpus.persistence import CorpusDatabase
 from corpus.runtime.application import open_live_corpus_application
 from corpus.runtime.config import CorpusRuntimeSettings
-from corpus.runtime.model import create_chat_model
 
 
 def create_live_app(settings: CorpusRuntimeSettings | None = None):
@@ -151,59 +137,19 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
             source_runtime.graph_presenter,
         ),
     )
-    runtime_store = CorpusLocalAgentRuntimeStore(
-        configured.sources.data_root.parent / "agent-execution" / "runtime.sqlite3"
+    product_runtime = create_agent_product_runtime(
+        settings=configured,
+        database=database,
+        sources=source_runtime,
+        agents=agent_service,
     )
-    runtime_bindings = CorpusExecutionBindingRegistry()
-    plain_json_model = configured.model_provider == "ollama"
-    runtime_model = CorpusAgentModelPort(
-        create_chat_model(configured), plain_json=plain_json_model
-    )
-    runtime_router = CorpusToolRouterPort(source_runtime.api_engine, runtime_bindings)
-    runtime_executor = CorpusApiExecutorPort(
-        source_runtime.routed_execution_adapter, runtime_bindings
-    )
-    agent_routedeck = AgentRouteDeckSupervisor(
-        configured.sources.data_root.parent / "agent-routedeck",
-        configured.host.routedeck_state_encryption_key.get_secret_value(),
-        runtime_executor,
-    )
-    runtime_executor.attach_supervisor(agent_routedeck)
-    neutral_execution = NeutralAgentExecutionAdapter(
-        store=runtime_store,
-        model=runtime_model,
-        router=runtime_router,
-        executor=runtime_executor,
-    )
-
-    def model_identity():
-        if configured.model_provider == "ollama":
-            assert configured.ollama_base_url is not None
-            assert configured.ollama_model is not None
-            return resolve_ollama_model_identity(
-                str(configured.ollama_base_url).rstrip("/"), configured.ollama_model
-            )
-        assert configured.model_provider == "openai"
-        assert configured.openai_model is not None
-        return resolve_openai_model_identity(configured.openai_model)
-
-    builder_repository = SqlAlchemyBuilderRepository(database)
-    builder_service = BuilderService(
-        builder_repository,
-        CorpusBuilderInputGateway(
-            database,
-            source_runtime.service.repository,
-            source_runtime.connection_profiles,
-            source_runtime.operation_curation_service,
-        ),
-        CorpusBuilderRuntimeGateway(neutral_execution, model_identity),
-        agent_service,
-    )
-    sandbox_service = SandboxService(
-        SqlAlchemySandboxRepository(database),
-        CorpusSandboxRuntimeGateway(neutral_execution, runtime_bindings, agent_routedeck),
-        builder_service,
-    )
+    runtime_store = product_runtime.runtime_store
+    runtime_bindings = product_runtime.bindings
+    agent_routedeck = product_runtime.supervisor
+    neutral_execution = product_runtime.execution
+    builder_repository = product_runtime.builder_repository
+    builder_service = product_runtime.builder_service
+    sandbox_service = product_runtime.sandbox_service
     evaluation_repository = SqlAlchemyEvaluationRepository(database)
     evaluation_generation_task = register_evaluation_generation_task(
         source_runtime.infrastructure.huey,
@@ -219,21 +165,32 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
         source_runtime.infrastructure.huey,
         evaluation_generation_task,
     )
+    evaluation_worker_service = EvaluationService(
+        evaluation_repository,
+        product_runtime.evaluation_runtime,
+        builder_service,
+        sandbox_service,
+    )
+    evaluation_run_task = register_evaluation_run_task(
+        source_runtime.infrastructure.huey,
+        EvaluationRunProcessor(
+            source_runtime.infrastructure.job_repository,
+            evaluation_repository,
+            evaluation_worker_service,
+        ),
+    )
+    evaluation_run_jobs = HueyDurableJobPort(
+        source_runtime.infrastructure.job_repository,
+        source_runtime.infrastructure.huey,
+        evaluation_run_task,
+    )
     evaluation_service = EvaluationService(
         evaluation_repository,
-        CorpusEvaluationRuntimeGateway(
-            NeutralEvaluationAdapter(
-                runtime_store,
-                CorpusEvaluationReviewerPort(
-                    runtime_model.model,
-                    model_identity,
-                    plain_json=plain_json_model,
-                ),
-            )
-        ),
+        product_runtime.evaluation_runtime,
         builder_service,
         sandbox_service,
         evaluation_jobs,
+        evaluation_run_jobs,
     )
     delivery_store = CorpusLocalDeliveryStore(
         configured.sources.data_root.parent / "agent-delivery" / "runtime.sqlite3"
@@ -247,13 +204,36 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
     channel_service = ChannelService(
         SqlAlchemyChannelRepository(database), neutral_delivery, agent_service
     )
-    deployment_service = DeploymentService(
-        SqlAlchemyDeploymentRepository(database),
+    deployment_repository = SqlAlchemyDeploymentRepository(database)
+    deployment_worker_service = DeploymentService(
+        deployment_repository,
         channel_service,
         builder_service,
         CorpusEligibilityGateway(evaluation_repository),
         neutral_delivery,
         runtime_bindings,
+    )
+    deployment_task = register_deployment_task(
+        source_runtime.infrastructure.huey,
+        DeploymentProcessor(
+            source_runtime.infrastructure.job_repository,
+            deployment_repository,
+            deployment_worker_service,
+        ),
+    )
+    deployment_jobs = HueyDurableJobPort(
+        source_runtime.infrastructure.job_repository,
+        source_runtime.infrastructure.huey,
+        deployment_task,
+    )
+    deployment_service = DeploymentService(
+        deployment_repository,
+        channel_service,
+        builder_service,
+        CorpusEligibilityGateway(evaluation_repository),
+        neutral_delivery,
+        runtime_bindings,
+        deployment_jobs,
     )
     operations_service = OperationsService(
         neutral_delivery,

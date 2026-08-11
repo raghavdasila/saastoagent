@@ -20,6 +20,8 @@ class DeploymentRecord:
     failure_message: str | None
     created_at: datetime
     updated_at: datetime
+    job_id: uuid.UUID | None = None
+    retry_of_deployment_id: uuid.UUID | None = None
 
 
 @dataclass(frozen=True)

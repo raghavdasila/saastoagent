@@ -1,7 +1,28 @@
-.operations-home { display: grid; gap: 1rem; }
-.operations-promotion-controls { display: grid; gap: .75rem; max-width: 42rem; }
+.operations-home { container-name: operations-surface; container-type: inline-size; display: grid; min-width: 0; gap: 1rem; }
+.operations-home > header { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: start; gap: .25rem 1rem; }
+.operations-home > header > p,.operations-home > header > h1,.operations-home > header > span { grid-column: 1; margin: 0; }
+.operations-home > header > button { grid-column: 2; grid-row: 1 / span 3; }
+.operations-home__loading { margin: 0; padding: .85rem 1rem; border: 1px solid var(--border); border-radius: .75rem; color: var(--muted-foreground); background: var(--card); }
+.operations-home__summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .75rem; }
+.operations-home__summary > div { display: grid; gap: .25rem; padding: .85rem 1rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--card); }
+.operations-home__summary span { color: var(--muted-foreground); font-size: .75rem; }
+.operations-home__summary strong { font-size: 1.35rem; }
+.operations-promotion-controls { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .75rem; }
 .operations-home ol { display: grid; gap: .75rem; list-style: none; margin: 0; padding: 0; }
-.operations-home li { display: grid; gap: .4rem; }
+.operations-home li { display: grid; gap: .75rem; }
+.operations-home__interactions > li { padding: 1rem; border: 1px solid var(--border); border-radius: 1rem; background: var(--card); }
+.operations-home__interactions > li > header { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
+.operations-home__interactions > li > header > div { display: grid; gap: .35rem; }
+.operations-home__interactions h2 { margin: 0; font-size: 1.1rem; }
+.operations-home__status { width: fit-content; padding: .2rem .55rem; border-radius: 999px; color: var(--primary); background: color-mix(in srgb,var(--primary) 10%,transparent); font-size: .72rem; font-weight: 700; text-transform: capitalize; }
+.operations-home__outcome { display: grid; gap: .3rem; padding: .85rem 1rem; border-left: .2rem solid var(--primary); border-radius: .4rem; background: var(--background); }
+.operations-home__outcome p { margin: 0; color: var(--muted-foreground); font-size: .75rem; }
+.operations-home__lineage dl { display: grid; gap: .5rem; }
+.operations-home__lineage dl > div { display: grid; grid-template-columns: 7rem minmax(0,1fr); gap: .75rem; }
+.operations-home__lineage dt { color: var(--muted-foreground); }
+.operations-home__lineage dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.operations-home__promotion { display: grid; gap: .75rem; padding: .85rem 1rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--background); }
+.operations-home__promotion p,.operations-home__not-promotable { margin: 0; color: var(--muted-foreground); }
 .operations-home code { white-space: pre-wrap; overflow-wrap: anywhere; }
 .deployed-runtime { display: grid; gap: 1rem; padding: 1rem; border: 1px solid var(--border); border-radius: 1rem; background: color-mix(in srgb, var(--card) 94%, var(--primary) 6%); }
 .deployed-runtime > header, .deployed-runtime__router > header { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
@@ -10,3 +31,4 @@
 .deployed-runtime__router ol { display: grid; gap: .5rem; }
 .deployed-runtime__router li { grid-template-columns: auto minmax(10rem, .4fr) minmax(0, 1fr); align-items: start; }
 @media (max-width: 640px) { .deployed-runtime > header, .deployed-runtime__router > header { display: grid; } .deployed-runtime__router li { grid-template-columns: 1fr; } }
+@container operations-surface (max-width: 46rem) { .operations-home > header,.operations-home__summary,.operations-promotion-controls { grid-template-columns: 1fr; } .operations-home > header > button { grid-column: 1; grid-row: auto; justify-self: start; } .operations-home__interactions > li > header { display: grid; } .operations-home__lineage dl > div { grid-template-columns: 1fr; gap: .15rem; } }

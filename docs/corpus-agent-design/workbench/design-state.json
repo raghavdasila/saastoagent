@@ -10017,14 +10017,14 @@
         {
           "id": "builder-control-runtime",
           "title": "Control an Agent build runtime",
-          "userIntent": "Start, stop, or remove one exact isolated build runtime.",
-          "agentIntent": "The owner can run, stop, or delete one exact build without affecting another Agent build, Corpus conversation, Sandbox history, deployed runtime, or immutable lineage. Unsupported lifecycle controls remain visibly unavailable rather than simulated.",
-          "expectedBehavior": "The owner can run, stop, or delete one exact build without affecting another Agent build, Corpus conversation, Sandbox history, deployed runtime, or immutable lineage. Unsupported lifecycle controls remain visibly unavailable rather than simulated.",
+          "userIntent": "Start, pause, resume, stop, or remove one exact isolated build runtime.",
+          "agentIntent": "The owner can start a stopped runtime, pause or resume the exact running runtime, stop it, or remove it after review without affecting another Agent build, Corpus conversation, recorded Sandbox history, deployed runtime, or immutable lineage. Pausing is a durable admission state that blocks new Sandbox, Evaluation, and deployment work while preserving the immutable build and recorded runs; resuming is explicit. Stopping also blocks new draft work, and only a stopped runtime can be removed. A synchronous operation already in flight is allowed to finish and is never reported as paused mid-call.",
+          "expectedBehavior": "The owner can start a stopped runtime, pause or resume the exact running runtime, stop it, or remove it after review without affecting another Agent build, Corpus conversation, recorded Sandbox history, deployed runtime, or immutable lineage. Pausing is a durable admission state that blocks new Sandbox, Evaluation, and deployment work while preserving the immutable build and recorded runs; resuming is explicit. Stopping also blocks new draft work, and only a stopped runtime can be removed. A synchronous operation already in flight is allowed to finish and is never reported as paused mid-call.",
           "messages": [
             {
               "id": "builder-control-runtime-owner",
               "actor": "Owner",
-              "content": "Start, stop, or remove one exact isolated build runtime."
+              "content": "Start, pause, resume, stop, or remove one exact isolated build runtime."
             },
             {
               "id": "builder-control-runtime-corpus",
@@ -10037,9 +10037,10 @@
           "capabilities": [
             {
               "name": "Agent build lifecycle",
-              "purpose": "The owner can run, stop, or delete one exact build without affecting another Agent build, Corpus conversation, Sandbox history, deployed runtime, or immutable lineage. Unsupported lifecycle controls remain visibly unavailable rather than simulated.",
+              "purpose": "The owner can start a stopped runtime, pause or resume the exact running runtime, stop it, or remove it after review without affecting another Agent build, Corpus conversation, recorded Sandbox history, deployed runtime, or immutable lineage. Pausing is a durable admission state that blocks new Sandbox, Evaluation, and deployment work while preserving the immutable build and recorded runs; resuming is explicit. Stopping also blocks new draft work, and only a stopped runtime can be removed. A synchronous operation already in flight is allowed to finish and is never reported as paused mid-call.",
               "operationNames": [
                 "Run Agent build",
+                "Pause Agent build",
                 "Stop Agent build",
                 "Delete Agent build"
               ],
@@ -10060,27 +10061,37 @@
             {
               "name": "Run Agent build",
               "availableThrough": "both",
-              "purpose": "The owner can run, stop, or delete one exact build without affecting another Agent build, Corpus conversation, Sandbox history, deployed runtime, or immutable lineage. Unsupported lifecycle controls remain visibly unavailable rather than simulated.",
+              "purpose": "The owner can start a stopped runtime, pause or resume the exact running runtime, stop it, or remove it after review without affecting another Agent build, Corpus conversation, recorded Sandbox history, deployed runtime, or immutable lineage. Pausing is a durable admission state that blocks new Sandbox, Evaluation, and deployment work while preserving the immutable build and recorded runs; resuming is explicit. Stopping also blocks new draft work, and only a stopped runtime can be removed. A synchronous operation already in flight is allowed to finish and is never reported as paused mid-call.",
               "inputs": "Exact authenticated owner, selected Agent, and persisted upstream identities required by this operation.",
               "outcomes": "Persist and present the actual completed result, or preserve the explicit failure without substitution.",
-              "safetyAndReview": "Explicit owner-supervised runtime lifecycle change with exact build identity.",
+              "safetyAndReview": "Explicit owner-supervised start or resume for one exact immutable draft runtime; it never changes compiled lineage.",
+              "recovery": "Reload authoritative state and require an explicit corrected or reviewed attempt; never retry automatically.",
+              "policies": []
+            },
+            {
+              "name": "Pause Agent build",
+              "availableThrough": "both",
+              "purpose": "The owner can start a stopped runtime, pause or resume the exact running runtime, stop it, or remove it after review without affecting another Agent build, Corpus conversation, recorded Sandbox history, deployed runtime, or immutable lineage. Pausing is a durable admission state that blocks new Sandbox, Evaluation, and deployment work while preserving the immutable build and recorded runs; resuming is explicit. Stopping also blocks new draft work, and only a stopped runtime can be removed. A synchronous operation already in flight is allowed to finish and is never reported as paused mid-call.",
+              "inputs": "Exact authenticated owner, selected Agent, and persisted upstream identities required by this operation.",
+              "outcomes": "Persist and present the actual completed result, or preserve the explicit failure without substitution.",
+              "safetyAndReview": "Explicit owner-supervised admission pause for one exact running draft runtime; it does not cancel or rewrite an in-flight operation.",
               "recovery": "Reload authoritative state and require an explicit corrected or reviewed attempt; never retry automatically.",
               "policies": []
             },
             {
               "name": "Stop Agent build",
               "availableThrough": "both",
-              "purpose": "The owner can run, stop, or delete one exact build without affecting another Agent build, Corpus conversation, Sandbox history, deployed runtime, or immutable lineage. Unsupported lifecycle controls remain visibly unavailable rather than simulated.",
+              "purpose": "The owner can start a stopped runtime, pause or resume the exact running runtime, stop it, or remove it after review without affecting another Agent build, Corpus conversation, recorded Sandbox history, deployed runtime, or immutable lineage. Pausing is a durable admission state that blocks new Sandbox, Evaluation, and deployment work while preserving the immutable build and recorded runs; resuming is explicit. Stopping also blocks new draft work, and only a stopped runtime can be removed. A synchronous operation already in flight is allowed to finish and is never reported as paused mid-call.",
               "inputs": "Exact authenticated owner, selected Agent, and persisted upstream identities required by this operation.",
               "outcomes": "Persist and present the actual completed result, or preserve the explicit failure without substitution.",
-              "safetyAndReview": "Explicit owner-supervised runtime lifecycle change with exact build identity.",
+              "safetyAndReview": "Explicit owner-supervised stop for one exact running or paused draft runtime while deployed runtimes remain unchanged.",
               "recovery": "Reload authoritative state and require an explicit corrected or reviewed attempt; never retry automatically.",
               "policies": []
             },
             {
               "name": "Delete Agent build",
               "availableThrough": "both",
-              "purpose": "The owner can run, stop, or delete one exact build without affecting another Agent build, Corpus conversation, Sandbox history, deployed runtime, or immutable lineage. Unsupported lifecycle controls remain visibly unavailable rather than simulated.",
+              "purpose": "The owner can start a stopped runtime, pause or resume the exact running runtime, stop it, or remove it after review without affecting another Agent build, Corpus conversation, recorded Sandbox history, deployed runtime, or immutable lineage. Pausing is a durable admission state that blocks new Sandbox, Evaluation, and deployment work while preserving the immutable build and recorded runs; resuming is explicit. Stopping also blocks new draft work, and only a stopped runtime can be removed. A synchronous operation already in flight is allowed to finish and is never reported as paused mid-call.",
               "inputs": "Exact authenticated owner, selected Agent, and persisted upstream identities required by this operation.",
               "outcomes": "Persist and present the actual completed result, or preserve the explicit failure without substitution.",
               "safetyAndReview": "Destructive lifecycle change requiring explicit consequence review and dependency checks.",
@@ -10100,10 +10111,10 @@
                 "state",
                 "boundary"
               ],
-              "input": "Start, stop, or remove one exact isolated build runtime.",
+              "input": "Start, pause, resume, stop, or remove one exact isolated build runtime.",
               "referenceResponse": "Use the exact persisted upstream identities and show the actual result.",
               "requiredCriteria": [
-                "The owner can run, stop, or delete one exact build without affecting another Agent build, Corpus conversation, Sandbox history, deployed runtime, or immutable lineage. Unsupported lifecycle controls remain visibly unavailable rather than simulated."
+                "The owner can start a stopped runtime, pause or resume the exact running runtime, stop it, or remove it after review without affecting another Agent build, Corpus conversation, recorded Sandbox history, deployed runtime, or immutable lineage. Pausing is a durable admission state that blocks new Sandbox, Evaluation, and deployment work while preserving the immutable build and recorded runs; resuming is explicit. Stopping also blocks new draft work, and only a stopped runtime can be removed. A synchronous operation already in flight is allowed to finish and is never reported as paused mid-call."
               ],
               "forbiddenCriteria": [
                 "Uses a fixture, silently retargets state, exposes a secret, or reports failure as success."
@@ -10114,11 +10125,13 @@
                 "authentication": "unchanged",
                 "requiredOperations": [
                   "Run Agent build",
+                  "Pause Agent build",
                   "Stop Agent build",
                   "Delete Agent build"
                 ],
                 "allowedOperations": [
                   "Run Agent build",
+                  "Pause Agent build",
                   "Stop Agent build",
                   "Delete Agent build"
                 ],
@@ -10142,14 +10155,14 @@
                     "id": "builder-control-runtime-submit",
                     "kind": "surface-submit",
                     "surface": "Agent Builds",
-                    "inputIntent": "Start, stop, or remove one exact isolated build runtime."
+                    "inputIntent": "Start, pause, resume, stop, or remove one exact isolated build runtime."
                   },
                   {
                     "id": "builder-control-runtime-result",
                     "kind": "checkpoint",
                     "label": "Persisted result",
                     "stateAssertions": [
-                      "The owner can run, stop, or delete one exact build without affecting another Agent build, Corpus conversation, Sandbox history, deployed runtime, or immutable lineage. Unsupported lifecycle controls remain visibly unavailable rather than simulated."
+                      "The owner can start a stopped runtime, pause or resume the exact running runtime, stop it, or remove it after review without affecting another Agent build, Corpus conversation, recorded Sandbox history, deployed runtime, or immutable lineage. Pausing is a durable admission state that blocks new Sandbox, Evaluation, and deployment work while preserving the immutable build and recorded runs; resuming is explicit. Stopping also blocks new draft work, and only a stopped runtime can be removed. A synchronous operation already in flight is allowed to finish and is never reported as paused mid-call."
                     ]
                   }
                 ]
@@ -11382,8 +11395,8 @@
           "id": "evaluation-run-build",
           "title": "Run evaluation against the exact Agent build",
           "userIntent": "Evaluate this exact draft version and tell me whether it is eligible to publish.",
-          "agentIntent": "Evaluation runs one immutable case against its pinned Agent build, persists the actual metrics and result, and derives eligible or ineligible for that exact version without retargeting, fixture success, or fallback. When the exact build becomes eligible, Evaluation offers explicit continuation to hosted delivery for the same selected Agent.",
-          "expectedBehavior": "Evaluation runs one immutable case against its pinned Agent build, persists the actual metrics and result, and derives eligible or ineligible for that exact version without retargeting, fixture success, or fallback. When the exact build becomes eligible, Evaluation offers explicit continuation to hosted delivery for the same selected Agent.",
+          "agentIntent": "Evaluation queues one durable owner-scoped run for the immutable case and pinned Agent build, shows queued and running state while the owner leaves or returns, persists the actual terminal metrics and result, and derives eligible or ineligible for that exact version without retargeting, fixture success, fallback, or automatic retry. When the exact build becomes eligible, Evaluation offers explicit continuation to hosted delivery for the same selected Agent.",
+          "expectedBehavior": "Evaluation queues one durable owner-scoped run for the immutable case and pinned Agent build, shows queued and running state while the owner leaves or returns, persists the actual terminal metrics and result, and derives eligible or ineligible for that exact version without retargeting, fixture success, fallback, or automatic retry. When the exact build becomes eligible, Evaluation offers explicit continuation to hosted delivery for the same selected Agent.",
           "messages": [
             {
               "id": "evaluation-run-build-owner",
@@ -11403,7 +11416,7 @@
           "capabilities": [
             {
               "name": "Evaluation",
-              "purpose": "Evaluation runs one immutable case against its pinned Agent build, persists the actual metrics and result, and derives eligible or ineligible for that exact version without retargeting, fixture success, or fallback. When the exact build becomes eligible, Evaluation offers explicit continuation to hosted delivery for the same selected Agent.",
+              "purpose": "Evaluation queues one durable owner-scoped run for the immutable case and pinned Agent build, shows queued and running state while the owner leaves or returns, persists the actual terminal metrics and result, and derives eligible or ineligible for that exact version without retargeting, fixture success, fallback, or automatic retry. When the exact build becomes eligible, Evaluation offers explicit continuation to hosted delivery for the same selected Agent.",
               "operationNames": [
                 "Run evaluation case"
               ],
@@ -11428,10 +11441,10 @@
             {
               "name": "Run evaluation case",
               "availableThrough": "both",
-              "purpose": "Evaluation runs one immutable case against its pinned Agent build, persists the actual metrics and result, and derives eligible or ineligible for that exact version without retargeting, fixture success, or fallback. When the exact build becomes eligible, Evaluation offers explicit continuation to hosted delivery for the same selected Agent.",
+              "purpose": "Evaluation queues one durable owner-scoped run for the immutable case and pinned Agent build, shows queued and running state while the owner leaves or returns, persists the actual terminal metrics and result, and derives eligible or ineligible for that exact version without retargeting, fixture success, fallback, or automatic retry. When the exact build becomes eligible, Evaluation offers explicit continuation to hosted delivery for the same selected Agent.",
               "inputs": "Exact authenticated owner, selected Agent, and persisted upstream identities required by this operation.",
               "outcomes": "Persist and present the actual completed result, or preserve the explicit failure without substitution.",
-              "safetyAndReview": "Supervised read/evidence operation against the exact private build; it does not deploy the Agent.",
+              "safetyAndReview": "Queues one supervised read/evidence run against the exact private build; it does not deploy the Agent or retry automatically.",
               "recovery": "Reload authoritative state and require an explicit corrected or reviewed attempt; never retry automatically.",
               "policies": [
                 "Keep Evaluation state owner-scoped, immutable where recorded, and bound to exact persisted identities; failures remain failures and no fallback or automatic retry is permitted."
@@ -11453,7 +11466,7 @@
               "input": "Evaluate this exact draft version and tell me whether it is eligible to publish.",
               "referenceResponse": "Use the exact persisted upstream identities and show the actual result.",
               "requiredCriteria": [
-                "Evaluation runs one immutable case against its pinned Agent build, persists the actual metrics and result, and derives eligible or ineligible for that exact version without retargeting, fixture success, or fallback. When the exact build becomes eligible, Evaluation offers explicit continuation to hosted delivery for the same selected Agent."
+                "Evaluation queues one durable owner-scoped run for the immutable case and pinned Agent build, shows queued and running state while the owner leaves or returns, persists the actual terminal metrics and result, and derives eligible or ineligible for that exact version without retargeting, fixture success, fallback, or automatic retry. When the exact build becomes eligible, Evaluation offers explicit continuation to hosted delivery for the same selected Agent."
               ],
               "forbiddenCriteria": [
                 "Uses a fixture, silently retargets state, exposes a secret, or reports failure as success."
@@ -11495,7 +11508,7 @@
                     "kind": "checkpoint",
                     "label": "Persisted result",
                     "stateAssertions": [
-                      "Evaluation runs one immutable case against its pinned Agent build, persists the actual metrics and result, and derives eligible or ineligible for that exact version without retargeting, fixture success, or fallback. When the exact build becomes eligible, Evaluation offers explicit continuation to hosted delivery for the same selected Agent."
+                      "Evaluation queues one durable owner-scoped run for the immutable case and pinned Agent build, shows queued and running state while the owner leaves or returns, persists the actual terminal metrics and result, and derives eligible or ineligible for that exact version without retargeting, fixture success, fallback, or automatic retry. When the exact build becomes eligible, Evaluation offers explicit continuation to hosted delivery for the same selected Agent."
                     ]
                   }
                 ]
@@ -11532,7 +11545,9 @@
             {
               "name": "Evaluation",
               "purpose": "Evaluation separately shows durable queued, running, succeeded, failed, eligible, or ineligible state and exact-build metrics across navigation and restart. Failures remain failures and retry is explicit.",
-              "operationNames": [],
+              "operationNames": [
+                "Retry failed evaluation run"
+              ],
               "surfaceNames": [
                 "Evaluation"
               ],
@@ -11550,7 +11565,20 @@
               ]
             }
           ],
-          "operations": [],
+          "operations": [
+            {
+              "name": "Retry failed evaluation run",
+              "availableThrough": "both",
+              "purpose": "Evaluation separately shows durable queued, running, succeeded, failed, eligible, or ineligible state and exact-build metrics across navigation and restart. Failures remain failures and retry is explicit.",
+              "inputs": "Exact authenticated owner, selected Agent, and persisted upstream identities required by this operation.",
+              "outcomes": "Persist and present the actual completed result, or preserve the explicit failure without substitution.",
+              "safetyAndReview": "Explicitly queues a new attempt for one exact failed evaluation run; it never retries automatically or rewrites the failed attempt.",
+              "recovery": "Reload authoritative state and require an explicit corrected or reviewed attempt; never retry automatically.",
+              "policies": [
+                "Keep Evaluation state owner-scoped, immutable where recorded, and bound to exact persisted identities; failures remain failures and no fallback or automatic retry is permitted."
+              ]
+            }
+          ],
           "suggestedActions": [],
           "behaviorEvals": [
             {
@@ -11575,8 +11603,12 @@
                 "startingBehavior": "Observe durable evaluation status and eligibility",
                 "finalBehavior": "Observe durable evaluation status and eligibility",
                 "authentication": "unchanged",
-                "requiredOperations": [],
-                "allowedOperations": [],
+                "requiredOperations": [
+                  "Retry failed evaluation run"
+                ],
+                "allowedOperations": [
+                  "Retry failed evaluation run"
+                ],
                 "forbiddenOperations": [],
                 "requiredSurfaces": [
                   "Evaluation"
@@ -12153,8 +12185,8 @@
           "id": "deployment-publish-eligible-build",
           "title": "Deploy an eligible Agent build",
           "userIntent": "Publish the evaluated Agent version for customers.",
-          "agentIntent": "Deployment stages durable consequence review for one exact eligible immutable build and configured channel. Acceptance rechecks eligibility and current context, activates that build once, and preserves unknown external outcomes without automatic retry.",
-          "expectedBehavior": "Deployment stages durable consequence review for one exact eligible immutable build and configured channel. Acceptance rechecks eligibility and current context, activates that build once, and preserves unknown external outcomes without automatic retry.",
+          "agentIntent": "Deployment stages durable consequence review for one exact eligible immutable build and configured channel. Acceptance rechecks eligibility and current context, queues one durable deployment attempt, and returns control immediately. The worker activates that build at most once and preserves unknown external outcomes without automatic retry.",
+          "expectedBehavior": "Deployment stages durable consequence review for one exact eligible immutable build and configured channel. Acceptance rechecks eligibility and current context, queues one durable deployment attempt, and returns control immediately. The worker activates that build at most once and preserves unknown external outcomes without automatic retry.",
           "messages": [
             {
               "id": "deployment-publish-eligible-build-owner",
@@ -12172,7 +12204,7 @@
           "capabilities": [
             {
               "name": "Channels and Deployment",
-              "purpose": "Deployment stages durable consequence review for one exact eligible immutable build and configured channel. Acceptance rechecks eligibility and current context, activates that build once, and preserves unknown external outcomes without automatic retry.",
+              "purpose": "Deployment stages durable consequence review for one exact eligible immutable build and configured channel. Acceptance rechecks eligibility and current context, queues one durable deployment attempt, and returns control immediately. The worker activates that build at most once and preserves unknown external outcomes without automatic retry.",
               "operationNames": [
                 "Deploy eligible Agent build"
               ],
@@ -12198,7 +12230,7 @@
             {
               "name": "Deploy eligible Agent build",
               "availableThrough": "both",
-              "purpose": "Deployment stages durable consequence review for one exact eligible immutable build and configured channel. Acceptance rechecks eligibility and current context, activates that build once, and preserves unknown external outcomes without automatic retry.",
+              "purpose": "Deployment stages durable consequence review for one exact eligible immutable build and configured channel. Acceptance rechecks eligibility and current context, queues one durable deployment attempt, and returns control immediately. The worker activates that build at most once and preserves unknown external outcomes without automatic retry.",
               "inputs": "Exact authenticated owner, selected Agent, and persisted upstream identities required by this operation.",
               "outcomes": "Persist and present the actual completed result, or preserve the explicit failure without substitution.",
               "safetyAndReview": "External write requiring durable consequence review and accept-time authoritative recheck.",
@@ -12221,7 +12253,7 @@
               "input": "Publish the evaluated Agent version for customers.",
               "referenceResponse": "Use the exact persisted upstream identities and show the actual result.",
               "requiredCriteria": [
-                "Deployment stages durable consequence review for one exact eligible immutable build and configured channel. Acceptance rechecks eligibility and current context, activates that build once, and preserves unknown external outcomes without automatic retry."
+                "Deployment stages durable consequence review for one exact eligible immutable build and configured channel. Acceptance rechecks eligibility and current context, queues one durable deployment attempt, and returns control immediately. The worker activates that build at most once and preserves unknown external outcomes without automatic retry."
               ],
               "forbiddenCriteria": [
                 "Uses a fixture, silently retargets state, exposes a secret, or reports failure as success."
@@ -12264,7 +12296,7 @@
                     "kind": "checkpoint",
                     "label": "Persisted result",
                     "stateAssertions": [
-                      "Deployment stages durable consequence review for one exact eligible immutable build and configured channel. Acceptance rechecks eligibility and current context, activates that build once, and preserves unknown external outcomes without automatic retry."
+                      "Deployment stages durable consequence review for one exact eligible immutable build and configured channel. Acceptance rechecks eligibility and current context, queues one durable deployment attempt, and returns control immediately. The worker activates that build at most once and preserves unknown external outcomes without automatic retry."
                     ]
                   }
                 ]
@@ -12279,8 +12311,8 @@
           "id": "deployment-observe-lifecycle",
           "title": "Observe durable deployment status",
           "userIntent": "Show whether publishing finished and what is active now.",
-          "agentIntent": "Deployment status, failure, active build, public URL, and unknown delivery state remain durable across navigation and restart. An active deployment offers explicit continuation to owner-only Operations for the same selected Agent. Failure remains failure; retry or reconciliation is explicit and never duplicates an uncertain external change.",
-          "expectedBehavior": "Deployment status, failure, active build, public URL, and unknown delivery state remain durable across navigation and restart. An active deployment offers explicit continuation to owner-only Operations for the same selected Agent. Failure remains failure; retry or reconciliation is explicit and never duplicates an uncertain external change.",
+          "agentIntent": "Deployment separately shows durable queued, running, ready, failed, active-build, public-URL, and unknown-delivery state across navigation and restart. An eligible build that is not running offers explicit continuation to Builds for the same selected Agent. An active deployment offers explicit continuation to owner-only Operations. A definite failure remains immutable and can be retried only through a new reviewed attempt; an uncertain external outcome requires reconciliation and cannot be retried.",
+          "expectedBehavior": "Deployment separately shows durable queued, running, ready, failed, active-build, public-URL, and unknown-delivery state across navigation and restart. An eligible build that is not running offers explicit continuation to Builds for the same selected Agent. An active deployment offers explicit continuation to owner-only Operations. A definite failure remains immutable and can be retried only through a new reviewed attempt; an uncertain external outcome requires reconciliation and cannot be retried.",
           "messages": [
             {
               "id": "deployment-observe-lifecycle-owner",
@@ -12298,8 +12330,11 @@
           "capabilities": [
             {
               "name": "Channels and Deployment",
-              "purpose": "Deployment status, failure, active build, public URL, and unknown delivery state remain durable across navigation and restart. An active deployment offers explicit continuation to owner-only Operations for the same selected Agent. Failure remains failure; retry or reconciliation is explicit and never duplicates an uncertain external change.",
-              "operationNames": [],
+              "purpose": "Deployment separately shows durable queued, running, ready, failed, active-build, public-URL, and unknown-delivery state across navigation and restart. An eligible build that is not running offers explicit continuation to Builds for the same selected Agent. An active deployment offers explicit continuation to owner-only Operations. A definite failure remains immutable and can be retried only through a new reviewed attempt; an uncertain external outcome requires reconciliation and cannot be retried.",
+              "operationNames": [
+                "Open Agent Builds",
+                "Retry failed deployment"
+              ],
               "surfaceNames": [
                 "Channels and Deployment"
               ],
@@ -12311,9 +12346,35 @@
               "name": "Channels and Deployment",
               "purpose": "Present the exact Channels and Deployment state owned by this behavior.",
               "policies": []
+            },
+            {
+              "name": "Deployment review",
+              "purpose": "Present the exact Channels and Deployment state owned by this behavior.",
+              "policies": []
             }
           ],
-          "operations": [],
+          "operations": [
+            {
+              "name": "Open Agent Builds",
+              "availableThrough": "both",
+              "purpose": "Deployment separately shows durable queued, running, ready, failed, active-build, public-URL, and unknown-delivery state across navigation and restart. An eligible build that is not running offers explicit continuation to Builds for the same selected Agent. An active deployment offers explicit continuation to owner-only Operations. A definite failure remains immutable and can be retried only through a new reviewed attempt; an uncertain external outcome requires reconciliation and cannot be retried.",
+              "inputs": "Exact authenticated owner, selected Agent, and persisted upstream identities required by this operation.",
+              "outcomes": "Persist and present the actual completed result, or preserve the explicit failure without substitution.",
+              "safetyAndReview": "Navigation only; it preserves the selected Agent and does not start a build.",
+              "recovery": "Reload authoritative state and require an explicit corrected or reviewed attempt; never retry automatically.",
+              "policies": []
+            },
+            {
+              "name": "Retry failed deployment",
+              "availableThrough": "both",
+              "purpose": "Deployment separately shows durable queued, running, ready, failed, active-build, public-URL, and unknown-delivery state across navigation and restart. An eligible build that is not running offers explicit continuation to Builds for the same selected Agent. An active deployment offers explicit continuation to owner-only Operations. A definite failure remains immutable and can be retried only through a new reviewed attempt; an uncertain external outcome requires reconciliation and cannot be retried.",
+              "inputs": "Exact authenticated owner, selected Agent, and persisted upstream identities required by this operation.",
+              "outcomes": "Persist and present the actual completed result, or preserve the explicit failure without substitution.",
+              "safetyAndReview": "External write requiring a new durable consequence review for one exact definitely failed deployment; it never retries automatically and cannot retry an unknown outcome.",
+              "recovery": "Reload authoritative state and require an explicit corrected or reviewed attempt; never retry automatically.",
+              "policies": []
+            }
+          ],
           "suggestedActions": [],
           "behaviorEvals": [
             {
@@ -12329,7 +12390,7 @@
               "input": "Show whether publishing finished and what is active now.",
               "referenceResponse": "Use the exact persisted upstream identities and show the actual result.",
               "requiredCriteria": [
-                "Deployment status, failure, active build, public URL, and unknown delivery state remain durable across navigation and restart. An active deployment offers explicit continuation to owner-only Operations for the same selected Agent. Failure remains failure; retry or reconciliation is explicit and never duplicates an uncertain external change."
+                "Deployment separately shows durable queued, running, ready, failed, active-build, public-URL, and unknown-delivery state across navigation and restart. An eligible build that is not running offers explicit continuation to Builds for the same selected Agent. An active deployment offers explicit continuation to owner-only Operations. A definite failure remains immutable and can be retried only through a new reviewed attempt; an uncertain external outcome requires reconciliation and cannot be retried."
               ],
               "forbiddenCriteria": [
                 "Uses a fixture, silently retargets state, exposes a secret, or reports failure as success."
@@ -12338,11 +12399,18 @@
                 "startingBehavior": "Observe durable deployment status",
                 "finalBehavior": "Observe durable deployment status",
                 "authentication": "unchanged",
-                "requiredOperations": [],
-                "allowedOperations": [],
+                "requiredOperations": [
+                  "Open Agent Builds",
+                  "Retry failed deployment"
+                ],
+                "allowedOperations": [
+                  "Open Agent Builds",
+                  "Retry failed deployment"
+                ],
                 "forbiddenOperations": [],
                 "requiredSurfaces": [
-                  "Channels and Deployment"
+                  "Channels and Deployment",
+                  "Deployment review"
                 ],
                 "requiredSuggestedActions": [],
                 "forbiddenOutcomes": [
@@ -12367,7 +12435,7 @@
                     "kind": "checkpoint",
                     "label": "Persisted result",
                     "stateAssertions": [
-                      "Deployment status, failure, active build, public URL, and unknown delivery state remain durable across navigation and restart. An active deployment offers explicit continuation to owner-only Operations for the same selected Agent. Failure remains failure; retry or reconciliation is explicit and never duplicates an uncertain external change."
+                      "Deployment separately shows durable queued, running, ready, failed, active-build, public-URL, and unknown-delivery state across navigation and restart. An eligible build that is not running offers explicit continuation to Builds for the same selected Agent. An active deployment offers explicit continuation to owner-only Operations. A definite failure remains immutable and can be retried only through a new reviewed attempt; an uncertain external outcome requires reconciliation and cannot be retried."
                     ]
                   }
                 ]

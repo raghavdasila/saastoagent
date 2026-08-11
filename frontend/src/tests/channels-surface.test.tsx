@@ -58,7 +58,7 @@ it("restores the exact Agent-scoped hosted-channel draft after a RouteDeck remou
   render(<ChannelsSurface {...surfaceProps(dispatch)} agentStore={store} runtimeClient={runtimeClient} draftStore={drafts} />);
   expect(await screen.findByLabelText("Name")).toHaveValue("Catalog Web");
   expect(screen.getByLabelText("Address")).toHaveValue("catalog-web");
-  fireEvent.click(screen.getByRole("button", { name: "Create channel" }));
+  fireEvent.click(screen.getByRole("button", { name: "Create hosted channel" }));
 
   await waitFor(() => expect(dispatch).toHaveBeenCalledWith("create", {
     agent_ref: agentRef,
@@ -79,6 +79,7 @@ it("stages deployment review without misreporting the required review as failure
     deployments: vi.fn(async () => ({ deployments: [] })),
     builds: vi.fn(async () => ({ builds: [{
       id: "build-1", status: "ready", runtime_lifecycle: "running", agent_version: 3,
+      attempt_number: 1, created_at: "2026-08-11T00:00:00Z",
     }] })),
     evaluations: vi.fn(async () => ({ evaluation_sets: [{
       id: "set-1", build_id: "build-1", eligible: true, cases: [],
@@ -113,6 +114,99 @@ it("explains missing eligibility and continues the same selected Agent to Evalua
   await waitFor(() => expect(dispatch).toHaveBeenCalledWith("continue_to_evaluation", {
     agent_ref: agentRef,
   }));
+});
+
+it("keeps delivery prerequisites truthful while the exact Agent inventories are loading", async () => {
+  let resolveBuilds!: (value: { builds: readonly [] }) => void;
+  const pendingBuilds = new Promise<{ builds: readonly [] }>((resolve) => { resolveBuilds = resolve; });
+  const loadingClient = {
+    channels: vi.fn(async () => ({ channels: [] })),
+    deployments: vi.fn(async () => ({ deployments: [] })),
+    builds: vi.fn(() => pendingBuilds),
+    evaluations: vi.fn(async () => ({ evaluation_sets: [] })),
+  } as unknown as AgentRuntimeClient;
+
+  render(<ChannelsSurface {...surfaceProps(vi.fn())} agentStore={agentStore()} runtimeClient={loadingClient} draftStore={new ChannelDraftStore()} />);
+
+  expect(await screen.findByRole("status")).toHaveTextContent("Loading exact channel, build, evaluation, and deployment state");
+  expect(screen.queryByText("No evaluated build is eligible to publish.")).not.toBeInTheDocument();
+  expect(screen.queryByText("Finish Evaluation first")).not.toBeInTheDocument();
+
+  resolveBuilds({ builds: [] });
+  expect(await screen.findByText("No evaluated build is eligible to publish.")).toBeVisible();
+});
+
+it("returns an eligible but paused build to the exact selected Agent Builds surface", async () => {
+  const dispatch = vi.fn(async () => completed("agents.open_builds", "opened"));
+  const pausedClient = {
+    channels: vi.fn(async () => ({ channels: [{
+      id: "channel-1", name: "Catalog Web", slug: "catalog-web", status: "ready",
+      enabled: true, active_deployment_id: null,
+    }] })),
+    deployments: vi.fn(async () => ({ deployments: [] })),
+    builds: vi.fn(async () => ({ builds: [{
+      id: "build-1", status: "ready", runtime_lifecycle: "paused", agent_version: 3,
+      attempt_number: 1, created_at: "2026-08-11T00:00:00Z",
+    }] })),
+    evaluations: vi.fn(async () => ({ evaluation_sets: [{
+      id: "set-1", build_id: "build-1", eligible: true, cases: [],
+    }] })),
+  } as unknown as AgentRuntimeClient;
+
+  render(<ChannelsSurface {...surfaceProps(dispatch)} agentStore={agentStore()} runtimeClient={pausedClient} draftStore={new ChannelDraftStore()} />);
+
+  expect(await screen.findByText("The eligible build is not running.")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Review deployment" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Continue in Builds" }));
+
+  await waitFor(() => expect(dispatch).toHaveBeenCalledWith("continue_to_builds", {
+    agent_ref: agentRef,
+  }));
+});
+
+it("shows durable deployment state and stages a new reviewed attempt only for failure", async () => {
+  const dispatch = vi.fn(async () => requiredReview("deployment.retry"));
+  const deliveryClient = {
+    channels: vi.fn(async () => ({ channels: [{
+      id: "channel-1", name: "Catalog Web", slug: "catalog-web", status: "ready",
+      enabled: true, active_deployment_id: null,
+    }] })),
+    deployments: vi.fn(async () => ({ deployments: [
+      {
+        id: "deployment-running", agent_id: agentId, channel_id: "channel-1",
+        build_id: "build-1", status: "running", bundle_hash: "b".repeat(64),
+        failure_code: null, failure_message: null, job_id: "job-running",
+        retry_of_deployment_id: null, created_at: "2026-08-11T00:00:00Z",
+      },
+      {
+        id: "deployment-failed", agent_id: agentId, channel_id: "channel-1",
+        build_id: "build-1", status: "failed", bundle_hash: "b".repeat(64),
+        failure_code: "runtime_not_ready", failure_message: "Runtime was not ready.",
+        job_id: "job-failed", retry_of_deployment_id: null,
+        created_at: "2026-08-11T00:00:00Z",
+      },
+    ] })),
+    builds: vi.fn(async () => ({ builds: [{
+      id: "build-1", status: "ready", runtime_lifecycle: "running", agent_version: 3,
+      attempt_number: 1, created_at: "2026-08-11T00:00:00Z",
+    }] })),
+    evaluations: vi.fn(async () => ({ evaluation_sets: [{
+      id: "set-1", build_id: "build-1", eligible: true, cases: [],
+    }] })),
+  } as unknown as AgentRuntimeClient;
+
+  render(<ChannelsSurface {...surfaceProps(dispatch)} agentStore={agentStore()} runtimeClient={deliveryClient} draftStore={new ChannelDraftStore()} />);
+
+  expect(await screen.findByText("Publishing in the background")).toBeVisible();
+  expect(screen.getByText("Runtime was not ready.")).toBeVisible();
+  expect(screen.getAllByRole("button", { name: "Review new attempt" })).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "Review new attempt" }));
+
+  await waitFor(() => expect(dispatch).toHaveBeenCalledWith("retry_deployment", {
+    agent_ref: agentRef,
+    deployment_id: "deployment-failed",
+  }));
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
 
 function completed(operationId: string, outcome: string): RouteDeckDispatchResult {

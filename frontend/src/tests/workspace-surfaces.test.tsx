@@ -67,6 +67,7 @@ it("registers the complete Corpus lifecycle surface set", () => {
     "channels.availability_review",
     "channels.home",
     "deployment.deploy_review",
+    "deployment.retry_review",
     "deployment.rollback_review",
     "designer.home",
     "designer.review",

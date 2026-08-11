@@ -104,6 +104,42 @@ it("does not report a missing build while authoritative Evaluation state is load
 });
 
 
+it("shows durable run failure and retries the exact failed attempt", async () => {
+  const agentId = "7db3745e-6f77-4b92-929c-4d2292fb3708";
+  const agentRef = `agent-${agentId.replaceAll("-", "").slice(0, 20)}`;
+  const build = buildView(agentId);
+  const baseSet = setView(agentId, build.id);
+  const attemptId = "4fd0585f-9102-44df-972f-8e8a8b57de33";
+  const evaluationSet: EvaluationSetView = {
+    ...baseSet,
+    cases: [{
+      ...baseSet.cases[0],
+      latest_run_attempt: {
+        id: attemptId, status: "failed",
+        retry_of_attempt_id: null, failure_code: "evaluation_run_failed",
+        failure_message: "The queued evaluation run failed.",
+        created_at: "2026-08-11T00:00:00Z",
+        updated_at: "2026-08-11T00:01:00Z",
+      },
+    }],
+  };
+  const dispatch = vi.fn(async () => ({ disposition: "completed", outcome: "queued", failure: null }));
+  const runtimeClient = {
+    builds: vi.fn(async () => ({ agent_id: agentId, builds: [build] })),
+    sandbox: vi.fn(async () => ({ agent_id: agentId, runs: [] })),
+    evaluations: vi.fn(async () => ({ agent_id: agentId, evaluation_sets: [evaluationSet] })),
+  };
+
+  render(<EvaluationSurface {...surfaceProps(agentRef, dispatch)} agentStore={agentStore(agentId)} runtimeClient={runtimeClient as never} />);
+
+  expect(await screen.findByText("The queued evaluation run failed.")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Retry failed run" }));
+  await waitFor(() => expect(dispatch).toHaveBeenCalledWith("retry_case_run", {
+    agent_ref: agentRef, attempt_id: attemptId,
+  }));
+});
+
+
 function buildView(agentId: string): AgentBuildView {
   return {
     id: "4bf642f8-18d2-45a9-8a77-b6d293a4fd7a", agent_id: agentId,
@@ -129,7 +165,7 @@ function setView(agentId: string, buildId: string): EvaluationSetView {
       message: "List every product type", source_kind: "toolrouter",
       category: "paraphrase", difficulty: "easy", mandatory: true,
       expected_operation_ids: ["GetProductTypes"], current_revision: 1,
-      removed: false, runnable: false, latest_status: null,
+      removed: false, runnable: false, latest_status: null, latest_run_attempt: null,
     }],
   };
 }

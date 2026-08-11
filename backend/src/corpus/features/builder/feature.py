@@ -9,7 +9,7 @@ from corpus.features.agents.declarations import AGENT_ENTITY_PROVIDER, OPEN_AGEN
 from corpus.features.sources.declarations import SOURCES_API_REF
 
 from .contracts import BUILDER_HOME_REF
-from .declarations import ASSEMBLE_BUILD, DELETE_BUILD, RUN_BUILD, STOP_BUILD
+from .declarations import ASSEMBLE_BUILD, DELETE_BUILD, PAUSE_BUILD, RUN_BUILD, STOP_BUILD
 from corpus.features.evaluation.declarations import GENERATE_SET
 
 
@@ -25,6 +25,7 @@ BUILDER_HOME_SURFACE = Surface(
         SurfaceAffordance(id="assemble", event="submit", operation=ASSEMBLE_BUILD.ref),
         SurfaceAffordance(id="open_source_prerequisite", event="open", operation=OPEN_ATTACHED_SOURCE.ref),
         SurfaceAffordance(id="run", event="submit", operation=RUN_BUILD.ref),
+        SurfaceAffordance(id="pause", event="submit", operation=PAUSE_BUILD.ref),
         SurfaceAffordance(id="stop", event="submit", operation=STOP_BUILD.ref),
         SurfaceAffordance(id="delete", event="submit", operation=DELETE_BUILD.ref),
         SurfaceAffordance(id="generate_evaluation_set", event="submit", operation=GENERATE_SET.ref),
@@ -49,7 +50,7 @@ BUILDER_CAPABILITY = Capability(
     id="builder.assembly", title="Assemble and control one immutable Agent build",
     operations=(
         RETURN_TO_AGENT_HUB.ref, ASSEMBLE_BUILD.ref, OPEN_ATTACHED_SOURCE.ref, RUN_BUILD.ref,
-        STOP_BUILD.ref, DELETE_BUILD.ref, OPEN_AGENT_SANDBOX.ref,
+        PAUSE_BUILD.ref, STOP_BUILD.ref, DELETE_BUILD.ref, OPEN_AGENT_SANDBOX.ref,
         GENERATE_SET.ref,
     ),
     surfaces=(BUILDER_HOME_SURFACE.ref, BUILDER_DELETE_REVIEW_SURFACE.ref),
@@ -64,7 +65,7 @@ def create_builder_feature(agents_home_ref: NodeRef, sandbox_home_ref: NodeRef) 
         context_providers=(OWNER_CONTEXT_PROVIDER,), entity_providers=(AGENT_ENTITY_PROVIDER,),
         operations=(
             RETURN_TO_AGENT_HUB, ASSEMBLE_BUILD, OPEN_ATTACHED_SOURCE, RUN_BUILD,
-            STOP_BUILD, DELETE_BUILD, OPEN_AGENT_SANDBOX,
+            PAUSE_BUILD, STOP_BUILD, DELETE_BUILD, OPEN_AGENT_SANDBOX,
             GENERATE_SET,
         ),
         outgoing=(
@@ -72,6 +73,7 @@ def create_builder_feature(agents_home_ref: NodeRef, sandbox_home_ref: NodeRef) 
             Transition(operation=ASSEMBLE_BUILD.ref, outcome="assembled", target=BUILDER_HOME_REF),
             Transition(operation=OPEN_ATTACHED_SOURCE.ref, outcome="opened", target=SOURCES_API_REF),
             Transition(operation=RUN_BUILD.ref, outcome="running", target=BUILDER_HOME_REF),
+            Transition(operation=PAUSE_BUILD.ref, outcome="paused", target=BUILDER_HOME_REF),
             Transition(operation=STOP_BUILD.ref, outcome="stopped", target=BUILDER_HOME_REF),
             Transition(operation=DELETE_BUILD.ref, outcome="removed", target=BUILDER_HOME_REF),
             Transition(operation=GENERATE_SET.ref, outcome="queued", target=BUILDER_HOME_REF),

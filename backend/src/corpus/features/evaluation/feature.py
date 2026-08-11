@@ -13,7 +13,7 @@ from corpus.features.agents.declarations import (
 )
 
 from .contracts import EVALUATION_HOME_REF
-from .declarations import CREATE_CASE, DELETE_CASE, EDIT_CASE, GENERATE_SET, RETRY_GENERATION, RUN_CASE
+from .declarations import CREATE_CASE, DELETE_CASE, EDIT_CASE, GENERATE_SET, RETRY_CASE_RUN, RETRY_GENERATION, RUN_CASE
 from .policies import EVALUATION_POLICIES, EXACT_STATE
 
 
@@ -32,6 +32,7 @@ EVALUATION_HOME_SURFACE = Surface(
         SurfaceAffordance(id="edit_case", event="submit", operation=EDIT_CASE.ref),
         SurfaceAffordance(id="delete_case", event="submit", operation=DELETE_CASE.ref),
         SurfaceAffordance(id="run_case", event="submit", operation=RUN_CASE.ref),
+        SurfaceAffordance(id="retry_case_run", event="submit", operation=RETRY_CASE_RUN.ref),
         SurfaceAffordance(id="continue_to_channels", event="open", operation=OPEN_AGENT_CHANNELS.ref),
     ),
     policy_refs=(EXACT_STATE.ref,),
@@ -55,6 +56,7 @@ EVALUATION_CAPABILITY = Capability(
     operations=(
         RETURN_TO_AGENT_HUB.ref, OPEN_AGENT_BUILDS.ref, GENERATE_SET.ref, RETRY_GENERATION.ref,
         CREATE_CASE.ref, EDIT_CASE.ref, DELETE_CASE.ref, RUN_CASE.ref,
+        RETRY_CASE_RUN.ref,
         OPEN_AGENT_CHANNELS.ref,
     ),
     surfaces=(EVALUATION_HOME_SURFACE.ref, EVALUATION_DELETE_REVIEW_SURFACE.ref),
@@ -75,6 +77,7 @@ def create_evaluation_feature(
         operations=(
             RETURN_TO_AGENT_HUB, OPEN_AGENT_BUILDS, GENERATE_SET, RETRY_GENERATION,
             CREATE_CASE, EDIT_CASE, DELETE_CASE, RUN_CASE, OPEN_AGENT_CHANNELS,
+            RETRY_CASE_RUN,
         ),
         outgoing=(
             Transition(operation=RETURN_TO_AGENT_HUB.ref, outcome="opened", target=agents_home_ref),
@@ -84,7 +87,8 @@ def create_evaluation_feature(
             Transition(operation=RETRY_GENERATION.ref, outcome="queued", target=EVALUATION_HOME_REF),
             Transition(operation=EDIT_CASE.ref, outcome="edited", target=EVALUATION_HOME_REF),
             Transition(operation=DELETE_CASE.ref, outcome="removed", target=EVALUATION_HOME_REF),
-            Transition(operation=RUN_CASE.ref, outcome="evaluated", target=EVALUATION_HOME_REF),
+            Transition(operation=RUN_CASE.ref, outcome="queued", target=EVALUATION_HOME_REF),
+            Transition(operation=RETRY_CASE_RUN.ref, outcome="queued", target=EVALUATION_HOME_REF),
             Transition(operation=OPEN_AGENT_CHANNELS.ref, outcome="opened", target=channels_home_ref),
         ),
         capabilities=(EVALUATION_CAPABILITY,),

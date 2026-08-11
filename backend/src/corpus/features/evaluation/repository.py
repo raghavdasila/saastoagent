@@ -8,12 +8,19 @@ from sqlalchemy.exc import IntegrityError
 
 from corpus.persistence import CorpusDatabase
 
-from .domain import EvaluationCaseRecord, EvaluationRunRecord, EvaluationSetRecord, EligibilityRecord
+from .domain import (
+    EvaluationCaseRecord,
+    EvaluationRunAttemptRecord,
+    EvaluationRunRecord,
+    EvaluationSetRecord,
+    EligibilityRecord,
+)
 from .models import (
     AgentEvaluationCase,
     AgentEvaluationCaseRevision,
     AgentEvaluationEligibility,
     AgentEvaluationRun,
+    AgentEvaluationRunAttempt,
     AgentEvaluationSet,
 )
 from .ports import EvaluationConflict, EvaluationUnavailable
@@ -316,6 +323,197 @@ class SqlAlchemyEvaluationRepository:
             ).order_by(AgentEvaluationRun.created_at))).all()
             return tuple(_run(value) for value in values)
 
+    async def create_run_attempt(
+        self, organization_id, agent_id, case_id, *, retry_of_attempt_id=None,
+    ):
+        now = utc_now()
+        async with self.database.session() as session:
+            async with session.begin():
+                row = (await session.execute(select(
+                    AgentEvaluationSet, AgentEvaluationCase
+                ).join(
+                    AgentEvaluationCase,
+                    AgentEvaluationCase.evaluation_set_id == AgentEvaluationSet.id,
+                ).where(
+                    AgentEvaluationCase.id == case_id,
+                    AgentEvaluationCase.organization_id == organization_id,
+                    AgentEvaluationSet.agent_id == agent_id,
+                ).with_for_update())).first()
+                if row is None:
+                    raise EvaluationUnavailable(
+                        "The selected evaluation case is unavailable."
+                    )
+                evaluation_set, case = row
+                if case.removed_at is not None:
+                    raise EvaluationConflict(
+                        "A removed evaluation case cannot be run."
+                    )
+                if retry_of_attempt_id is not None:
+                    retry = await session.scalar(select(
+                        AgentEvaluationRunAttempt
+                    ).where(
+                        AgentEvaluationRunAttempt.id == retry_of_attempt_id,
+                        AgentEvaluationRunAttempt.organization_id == organization_id,
+                        AgentEvaluationRunAttempt.agent_id == agent_id,
+                        AgentEvaluationRunAttempt.case_id == case.id,
+                    ).with_for_update())
+                    if (
+                        retry is None
+                        or retry.status != "failed"
+                        or retry.case_revision != case.current_revision
+                    ):
+                        raise EvaluationConflict(
+                            "Only the exact failed current evaluation attempt can be retried."
+                        )
+                value = AgentEvaluationRunAttempt(
+                    id=uuid.uuid4(), organization_id=organization_id,
+                    agent_id=agent_id, evaluation_set_id=evaluation_set.id,
+                    case_id=case.id, build_id=case.build_id,
+                    case_revision=case.current_revision, job_id=None,
+                    retry_of_attempt_id=retry_of_attempt_id,
+                    active_case_id=case.id, status="queued",
+                    failure_code=None, failure_message=None,
+                    runtime_evaluation_run_id=None,
+                    created_at=now, updated_at=now, completed_at=None,
+                )
+                session.add(value)
+                try:
+                    await session.flush()
+                except IntegrityError as error:
+                    raise EvaluationConflict(
+                        "That evaluation case already has an active run."
+                    ) from error
+                return _attempt(value)
+
+    async def link_run_attempt_job(
+        self, organization_id, attempt_id, job_id,
+    ):
+        async with self.database.session() as session:
+            async with session.begin():
+                value = await session.scalar(select(
+                    AgentEvaluationRunAttempt
+                ).where(
+                    AgentEvaluationRunAttempt.id == attempt_id,
+                    AgentEvaluationRunAttempt.organization_id == organization_id,
+                ).with_for_update())
+                if value is None:
+                    raise EvaluationUnavailable(
+                        "The evaluation run attempt is unavailable."
+                    )
+                if value.job_id is not None and value.job_id != job_id:
+                    raise EvaluationConflict(
+                        "The evaluation run attempt is already linked to another job."
+                    )
+                value.job_id = job_id
+                value.updated_at = utc_now()
+                await session.flush()
+                return _attempt(value)
+
+    async def get_run_attempt(
+        self, organization_id, agent_id, attempt_id,
+    ):
+        async with self.database.session() as session:
+            row = (await session.execute(select(
+                AgentEvaluationSet,
+                AgentEvaluationCase,
+                AgentEvaluationRunAttempt,
+            ).join(
+                AgentEvaluationCase,
+                AgentEvaluationCase.evaluation_set_id == AgentEvaluationSet.id,
+            ).join(
+                AgentEvaluationRunAttempt,
+                AgentEvaluationRunAttempt.case_id == AgentEvaluationCase.id,
+            ).where(
+                AgentEvaluationRunAttempt.id == attempt_id,
+                AgentEvaluationRunAttempt.organization_id == organization_id,
+                AgentEvaluationRunAttempt.agent_id == agent_id,
+                AgentEvaluationSet.agent_id == agent_id,
+            ))).first()
+            if row is None:
+                raise EvaluationUnavailable(
+                    "The evaluation run attempt is unavailable."
+                )
+            return _set(row[0]), _case(row[1]), _attempt(row[2])
+
+    async def mark_run_attempt_running(
+        self, organization_id, attempt_id, job_id,
+    ):
+        return await self._update_run_attempt(
+            organization_id, attempt_id, expected=("queued",),
+            status="running", job_id=job_id,
+        )
+
+    async def mark_run_attempt_succeeded(
+        self, organization_id, attempt_id, runtime_evaluation_run_id,
+    ):
+        return await self._update_run_attempt(
+            organization_id, attempt_id, expected=("running",),
+            status="succeeded",
+            runtime_evaluation_run_id=runtime_evaluation_run_id,
+        )
+
+    async def mark_run_attempt_failed(
+        self, organization_id, attempt_id, *, code, message,
+    ):
+        return await self._update_run_attempt(
+            organization_id, attempt_id, expected=("queued", "running"),
+            status="failed", failure_code=code,
+            failure_message=message[:500],
+        )
+
+    async def _update_run_attempt(
+        self, organization_id, attempt_id, *, expected, status,
+        job_id=None, runtime_evaluation_run_id=None,
+        failure_code=None, failure_message=None,
+    ):
+        async with self.database.session() as session:
+            async with session.begin():
+                value = await session.scalar(select(
+                    AgentEvaluationRunAttempt
+                ).where(
+                    AgentEvaluationRunAttempt.id == attempt_id,
+                    AgentEvaluationRunAttempt.organization_id == organization_id,
+                ).with_for_update())
+                if value is None:
+                    raise EvaluationUnavailable(
+                        "The evaluation run attempt is unavailable."
+                    )
+                if value.status == status:
+                    return _attempt(value)
+                if value.status not in expected:
+                    raise EvaluationConflict(
+                        "The evaluation run attempt changed before this update."
+                    )
+                if job_id is not None:
+                    if value.job_id is not None and value.job_id != job_id:
+                        raise EvaluationConflict(
+                            "The evaluation run attempt job identity changed."
+                        )
+                    value.job_id = job_id
+                value.status = status
+                value.failure_code = failure_code
+                value.failure_message = failure_message
+                value.runtime_evaluation_run_id = runtime_evaluation_run_id
+                value.updated_at = utc_now()
+                if status in {"succeeded", "failed"}:
+                    value.active_case_id = None
+                    value.completed_at = value.updated_at
+                await session.flush()
+                return _attempt(value)
+
+    async def run_attempts(self, organization_id, evaluation_set_id):
+        async with self.database.session() as session:
+            values = (await session.scalars(select(
+                AgentEvaluationRunAttempt
+            ).where(
+                AgentEvaluationRunAttempt.organization_id == organization_id,
+                AgentEvaluationRunAttempt.evaluation_set_id == evaluation_set_id,
+            ).order_by(
+                AgentEvaluationRunAttempt.created_at,
+                AgentEvaluationRunAttempt.id,
+            ))).all()
+            return tuple(_attempt(value) for value in values)
+
     async def add_eligibility(self, organization_id, agent_id, build_id, runtime_build_hash, runtime):
         value = AgentEvaluationEligibility(
             id=uuid.uuid4(), organization_id=organization_id, agent_id=agent_id,
@@ -366,6 +564,17 @@ def _run(value):
         value.id, value.organization_id, value.case_id, value.build_id,
         value.runtime_evaluation_run_id, value.status, value.deterministic_pass,
         value.review_pass, value.case_revision, tuple(value.reasons), value.created_at,
+    )
+
+
+def _attempt(value):
+    return EvaluationRunAttemptRecord(
+        value.id, value.organization_id, value.agent_id,
+        value.evaluation_set_id, value.case_id, value.build_id,
+        value.case_revision, value.job_id, value.retry_of_attempt_id,
+        value.status, value.failure_code, value.failure_message,
+        value.runtime_evaluation_run_id, value.created_at,
+        value.updated_at, value.completed_at,
     )
 
 

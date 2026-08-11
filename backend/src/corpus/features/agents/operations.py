@@ -556,6 +556,7 @@ class OpenAgentAreaHandler:
                     (
                         "builder.assemble",
                         "builder.run",
+                        "builder.pause",
                         "builder.stop",
                         "builder.delete",
                         "evaluation.generate_set",

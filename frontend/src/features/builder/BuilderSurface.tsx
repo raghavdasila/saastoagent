@@ -87,7 +87,7 @@ export function BuilderSurface({ dispatchAffordance, props, agentStore, designer
   }
 
   async function changeRuntime(
-    action: "run" | "stop" | "delete",
+    action: "run" | "pause" | "stop" | "delete",
     buildId: string,
   ) {
     if (selectedRef === null || selected === null) return;
@@ -105,7 +105,7 @@ export function BuilderSurface({ dispatchAffordance, props, agentStore, designer
       }
       const failure = completedOutcome(
         result,
-        action === "run" ? "running" : "stopped",
+        action === "run" ? "running" : action === "pause" ? "paused" : "stopped",
       );
       if (failure !== null) setError(failure);
       else setBuilds((await runtimeClient.builds(selected.id)).builds);
@@ -160,22 +160,27 @@ export function BuilderSurface({ dispatchAffordance, props, agentStore, designer
       </li>)}</ul>
     </section> : null}
     {runningBuilds.length > 0 ? <Button type="button" disabled={busy} onClick={() => void continueToSandbox()}>Continue to Sandbox</Button> : null}
-    <ul>{builds.map((build) => <li key={build.id} data-status={build.status} data-runtime-lifecycle={build.runtime_lifecycle}>
-      <strong>{build.status}</strong>
-      <span>Build {build.id}</span>
-      <span>Agent version {build.agent_version}</span>
-      <span>Attempt {build.attempt_number}</span>
-      <span>{build.allowed_operation_ids.length} operations</span>
+    <ul className="builder-build-list">{builds.map((build) => <li className="builder-build-card" key={build.id} data-status={build.status} data-runtime-lifecycle={build.runtime_lifecycle}>
+      <div className="builder-build-card__heading">
+        <div><p>Build attempt {build.attempt_number}</p><h2>Agent version {build.agent_version}</h2></div>
+        <span className="builder-build-card__status">{build.status}</span>
+      </div>
+      <dl className="builder-build-card__facts">
+        <div><dt>Runtime</dt><dd>{runtimeLabel(build.runtime_lifecycle)}</dd></div>
+        <div><dt>Allowed operations</dt><dd>{build.allowed_operation_ids.length}</dd></div>
+        <div><dt>Build identity</dt><dd><code>{build.id}</code></dd></div>
+      </dl>
       {build.status === "ready" ? <p className="builder-runtime-state">
-        Draft runtime: <strong>{runtimeLabel(build.runtime_lifecycle)}</strong>
+        {runtimeAvailabilityCopy(build.runtime_lifecycle)}
       </p> : null}
       {build.failure_message ? <p>{build.failure_message}</p> : null}
       {build.status === "ready" && build.runtime_lifecycle !== "removed" ? <div className="builder-runtime-actions">
-        <Button type="button" variant="outline" disabled={busy} onClick={() => void generateEvaluationSet(build.id)}>Generate evaluation set</Button>
-        {build.runtime_lifecycle === "stopped" ? <Button type="button" disabled={busy} onClick={() => void changeRuntime("run", build.id)}>Run build</Button> : null}
-        {build.runtime_lifecycle === "running" ? <Button type="button" variant="outline" disabled={busy} onClick={() => void changeRuntime("stop", build.id)}>Stop build</Button> : null}
+        {build.runtime_lifecycle === "running" ? <Button type="button" variant="outline" disabled={busy} onClick={() => void generateEvaluationSet(build.id)}>Generate evaluation set</Button> : null}
+        {build.runtime_lifecycle === "stopped" ? <Button type="button" disabled={busy} onClick={() => void changeRuntime("run", build.id)}>Start runtime</Button> : null}
+        {build.runtime_lifecycle === "paused" ? <Button type="button" disabled={busy} onClick={() => void changeRuntime("run", build.id)}>Resume runtime</Button> : null}
+        {build.runtime_lifecycle === "running" ? <Button type="button" variant="outline" disabled={busy} onClick={() => void changeRuntime("pause", build.id)}>Pause runtime</Button> : null}
+        {build.runtime_lifecycle === "running" || build.runtime_lifecycle === "paused" ? <Button type="button" variant="outline" disabled={busy} onClick={() => void changeRuntime("stop", build.id)}>Stop runtime</Button> : null}
         <Button type="button" variant="destructive" disabled={busy || build.runtime_lifecycle !== "stopped"} onClick={() => void changeRuntime("delete", build.id)}>Delete build runtime</Button>
-        <Button type="button" variant="outline" disabled title="The runtime does not expose a durable pause contract.">Pause unavailable</Button>
       </div> : null}
       {build.runtime_lifecycle === "removed" ? <p>The draft runtime was removed. Immutable build, Sandbox, Evaluation, deployment, and Operations history is retained.</p> : null}
       {build.status === "ready" ? <BuildNavGraph build={build} /> : null}
@@ -187,6 +192,14 @@ function message(value: unknown) { return value instanceof Error ? value.message
 
 function runtimeLabel(value: AgentBuildView["runtime_lifecycle"]): string {
   if (value === "running") return "Running";
+  if (value === "paused") return "Paused";
   if (value === "stopped") return "Stopped";
   return "Removed";
+}
+
+function runtimeAvailabilityCopy(value: AgentBuildView["runtime_lifecycle"]): string {
+  if (value === "running") return "Ready for new Sandbox, Evaluation, and deployment work.";
+  if (value === "paused") return "Paused. New Sandbox, Evaluation, and deployment work is blocked until you resume this runtime.";
+  if (value === "stopped") return "Stopped. Start this runtime before beginning new Sandbox, Evaluation, or deployment work.";
+  return "Removed. Immutable build and activity history remain available.";
 }

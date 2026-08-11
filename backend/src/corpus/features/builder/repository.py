@@ -123,7 +123,7 @@ class SqlAlchemyBuilderRepository:
         return _record(value)
 
     async def set_runtime_lifecycle(self, organization_id, agent_id, build_id, *, lifecycle):
-        if lifecycle not in {"stopped", "running", "removed"}:
+        if lifecycle not in {"stopped", "running", "paused", "removed"}:
             raise BuilderConflict("The requested draft runtime lifecycle is invalid.")
         async with self.database.session() as session:
             async with session.begin():
@@ -136,9 +136,9 @@ class SqlAlchemyBuilderRepository:
                     raise BuilderConflict(
                         "A removed draft runtime cannot be started or stopped."
                     )
-                if lifecycle == "removed" and value.runtime_lifecycle == "running":
+                if lifecycle == "removed" and value.runtime_lifecycle != "stopped":
                     raise BuilderConflict(
-                        "Stop the draft Agent runtime before removing it."
+                        "Only a stopped draft Agent runtime can be removed."
                     )
                 value.runtime_lifecycle = lifecycle
                 value.updated_at = datetime.now(UTC)

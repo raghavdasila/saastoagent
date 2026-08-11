@@ -9,6 +9,7 @@ from .schemas import (
     DeleteEvaluationCaseArguments,
     EditEvaluationCaseArguments,
     GenerateEvaluationSetArguments,
+    RetryEvaluationRunArguments,
     RetryEvaluationGenerationArguments,
     RunEvaluationCaseArguments,
 )
@@ -33,13 +34,28 @@ CREATE_CASE = Operation(
 RUN_CASE = Operation(
     id="evaluation.run_case", title="Run evaluation case",
     description=(
-        "Check the exact Agent build against one saved evaluation case and append the observed "
-        "result without changing the case or build."
+        "Queue one durable evaluation of the exact saved case and Agent build; preserve queued, "
+        "running, failed, and terminal truth without changing the case or build."
     ),
     input_schema=FrozenJsonObject(RunEvaluationCaseArguments.model_json_schema()),
     safety_class=SafetyClass.READ_EXTERNAL,
     allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
-    outcomes=("evaluated",), outcome_schemas=FrozenJsonObject({"evaluated": EMPTY_OBJECT_SCHEMA}),
+    outcomes=("queued",), outcome_schemas=FrozenJsonObject({"queued": EMPTY_OBJECT_SCHEMA}),
+    provider_refs=(OWNER_CONTEXT_PROVIDER.ref,),
+    entity_inputs=(EntityInput(argument_name="agent_ref", entity_kind="agent"),),
+    review_policy=ReviewPolicy.NONE,
+    policy_refs=(EXACT_STATE.ref,),
+)
+RETRY_CASE_RUN = Operation(
+    id="evaluation.retry_case_run", title="Retry failed evaluation run",
+    description=(
+        "Explicitly queue a new attempt for one exact failed evaluation run while retaining the "
+        "failed attempt and current case revision."
+    ),
+    input_schema=FrozenJsonObject(RetryEvaluationRunArguments.model_json_schema()),
+    safety_class=SafetyClass.READ_EXTERNAL,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
+    outcomes=("queued",), outcome_schemas=FrozenJsonObject({"queued": EMPTY_OBJECT_SCHEMA}),
     provider_refs=(OWNER_CONTEXT_PROVIDER.ref,),
     entity_inputs=(EntityInput(argument_name="agent_ref", entity_kind="agent"),),
     review_policy=ReviewPolicy.NONE,
@@ -104,4 +120,7 @@ DELETE_CASE = Operation(
     policy_refs=(EXACT_STATE.ref,),
 )
 
-__all__ = ["CREATE_CASE", "DELETE_CASE", "EDIT_CASE", "GENERATE_SET", "RETRY_GENERATION", "RUN_CASE"]
+__all__ = [
+    "CREATE_CASE", "DELETE_CASE", "EDIT_CASE", "GENERATE_SET",
+    "RETRY_CASE_RUN", "RETRY_GENERATION", "RUN_CASE",
+]

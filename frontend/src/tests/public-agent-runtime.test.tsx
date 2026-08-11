@@ -12,19 +12,21 @@ it("renders a natural clarification without leaking owner-only runtime diagnosti
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
     session: { session_id: "public-session" },
     agent: {
+      display_name: "Shopping assistant",
       revision: 4,
       messages: [
         { role: "user", content: "Get product taxonomy" },
         { role: "assistant", content: "Which operation should I use?" },
       ],
       awaiting_clarification: true,
+      suggested_prompts: [],
     },
   }), { status: 200, headers: { "Content-Type": "application/json" } })));
 
   render(<PublicAgentApp slug="store-agent" />);
 
   expect(await screen.findByRole("heading", { name: "One detail needed" })).toBeVisible();
-  expect(screen.getByRole("heading", { name: "Store Agent" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Shopping assistant" })).toBeVisible();
   expect(screen.getByText("Session-scoped conversation")).toBeVisible();
   expect(screen.getByText("Get product taxonomy")).toBeVisible();
   expect(screen.getByText("Which operation should I use?")).toBeVisible();
@@ -41,6 +43,7 @@ it("restores the exact public session after a page or backend restart", async ()
       { role: "assistant", content: "No product tags are available." },
     ],
     awaiting_clarification: false,
+    suggested_prompts: [],
   }), { status: 200, headers: { "Content-Type": "application/json" } }));
   vi.stubGlobal("fetch", fetchProbe);
 
@@ -59,7 +62,7 @@ it("requires an explicit new-conversation action when a retained session cannot 
     .mockResolvedValueOnce(new Response(JSON.stringify({ message: "This conversation can no longer be loaded." }), { status: 409, headers: { "Content-Type": "application/json" } }))
     .mockResolvedValueOnce(new Response(JSON.stringify({
       session: { session_id: "replacement-session" },
-      agent: { revision: 0, messages: [], awaiting_clarification: false },
+      agent: { revision: 0, messages: [], awaiting_clarification: false, suggested_prompts: [] },
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
   vi.stubGlobal("fetch", fetchProbe);
 
@@ -72,4 +75,42 @@ it("requires an explicit new-conversation action when a retained session cannot 
   expect(fetchProbe).toHaveBeenCalledTimes(2);
   expect(fetchProbe.mock.calls[1]?.[1]).toMatchObject({ method: "POST" });
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+it("renders public-safe current RouteDeck suggestions and sends the owner's selected prompt", async () => {
+  const fetchProbe = vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({
+      session: { session_id: "public-session" },
+      agent: {
+        display_name: "Shopping assistant",
+        revision: 0,
+        messages: [],
+        awaiting_clarification: false,
+        suggested_prompts: ["GetProductTags", "GetProductTypes"],
+      },
+    }), { status: 200, headers: { "Content-Type": "application/json" } }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({
+      agent: {
+        display_name: "Shopping assistant",
+        revision: 2,
+        messages: [
+          { role: "user", content: "Get Product Tags" },
+          { role: "assistant", content: "No product tags are available." },
+        ],
+        awaiting_clarification: false,
+        suggested_prompts: ["GetProductTags", "GetProductTypes"],
+      },
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+  vi.stubGlobal("fetch", fetchProbe);
+
+  render(<PublicAgentApp slug="store-agent" />);
+
+  expect(await screen.findByRole("heading", { name: "Ways to get started" })).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Get Product Tags" }));
+
+  await waitFor(() => expect(fetchProbe).toHaveBeenCalledTimes(2));
+  expect(fetchProbe.mock.calls[1]?.[0]).toBe("/api/public/agents/store-agent/sessions/public-session/messages");
+  expect(JSON.parse(String(fetchProbe.mock.calls[1]?.[1]?.body))).toEqual({ message: "Get Product Tags" });
+  expect(await screen.findByText("No product tags are available.")).toBeVisible();
+  expect(screen.queryByText(/RouteDeck|NavGraph|ToolRouter|agent_runtime/)).not.toBeInTheDocument();
 });

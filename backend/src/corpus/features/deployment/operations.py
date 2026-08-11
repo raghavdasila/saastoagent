@@ -6,9 +6,9 @@ from routedeck_core.contracts.failures import FailureKind, FailureSafeDetails, R
 from routedeck_core.contracts.operations import DeliveryPhase, OperationOutcome
 from routedeck_core.ports.executor import ExecutionContext
 
-from .declarations import DEPLOY_AGENT, ROLLBACK_DEPLOYMENT
+from .declarations import DEPLOY_AGENT, RETRY_DEPLOYMENT, ROLLBACK_DEPLOYMENT
 from .ports import DeploymentConflict, DeploymentUnavailable
-from .schemas import DeployArguments, RollbackArguments
+from .schemas import DeployArguments, RetryDeploymentArguments, RollbackArguments
 
 
 @dataclass(frozen=True)
@@ -29,6 +29,32 @@ class RollbackHandler:
         return await _run(self, arguments, context, deploy=False)
 
 
+@dataclass(frozen=True)
+class RetryDeploymentHandler:
+    service: object
+    owner_scope: object
+
+    async def __call__(self, arguments, context: ExecutionContext) -> OperationOutcome:
+        try:
+            payload = RetryDeploymentArguments.model_validate(dict(arguments))
+            organization_id = await self.owner_scope.organization_id_for_route(
+                context.session_id
+            )
+            agent_id = uuid.UUID(context.private_entity_id("agent_ref"))
+            await self.service.retry_deployment(
+                organization_id, agent_id, payload.deployment_id
+            )
+        except (ValidationError, ValueError, KeyError) as error:
+            return _failure(context, RETRY_DEPLOYMENT, "invalid_deployment", str(error), FailureKind.CONTRACT)
+        except DeploymentConflict as error:
+            return _failure(context, RETRY_DEPLOYMENT, "deployment_conflict", str(error), FailureKind.STATE_CONFLICT)
+        except DeploymentUnavailable as error:
+            return _failure(context, RETRY_DEPLOYMENT, "deployment_unavailable", str(error), FailureKind.BUSINESS)
+        return OperationOutcome(
+            outcome="queued", delivery_phase=DeliveryPhase.RESPONSE_RECEIVED
+        )
+
+
 async def _run(handler, arguments, context, *, deploy: bool):
     operation = DEPLOY_AGENT if deploy else ROLLBACK_DEPLOYMENT
     try:
@@ -37,13 +63,13 @@ async def _run(handler, arguments, context, *, deploy: bool):
         agent_id = uuid.UUID(context.private_entity_id("agent_ref"))
         if deploy:
             if payload.channel_id is None and payload.build_id is None:
-                await handler.service.deploy_current(organization_id, agent_id)
+                await handler.service.queue_current(organization_id, agent_id)
             elif payload.channel_id is None or payload.build_id is None:
                 raise DeploymentConflict(
                     "Channel and build must be selected together."
                 )
             else:
-                await handler.service.deploy(
+                await handler.service.queue_deploy(
                     organization_id, agent_id,
                     channel_id=payload.channel_id, build_id=payload.build_id,
                 )
@@ -66,7 +92,7 @@ async def _run(handler, arguments, context, *, deploy: bool):
     except DeploymentUnavailable as error:
         return _failure(context, operation, "deployment_unavailable", str(error), FailureKind.BUSINESS)
     return OperationOutcome(
-        outcome="deployed" if deploy else "rolled_back",
+        outcome="queued" if deploy else "rolled_back",
         delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
     )
 
@@ -80,4 +106,4 @@ def _failure(context, operation, code, message, kind):
     ))
 
 
-__all__ = ["DeployHandler", "RollbackHandler"]
+__all__ = ["DeployHandler", "RetryDeploymentHandler", "RollbackHandler"]

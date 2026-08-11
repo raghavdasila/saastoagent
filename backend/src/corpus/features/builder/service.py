@@ -39,8 +39,20 @@ class BuilderService:
         value = await self.require_immutable_built(organization_id, agent_id, build_id)
         if value.runtime_lifecycle == "removed":
             raise BuilderConflict("The selected draft Agent runtime was removed.")
+        if value.runtime_lifecycle == "running":
+            raise BuilderConflict("The selected draft Agent runtime is already running.")
+        if value.runtime_lifecycle not in {"stopped", "paused"}:
+            raise BuilderConflict("The selected draft Agent runtime cannot be started or resumed from its current state.")
         return _view(await self.repository.set_runtime_lifecycle(
             organization_id, agent_id, build_id, lifecycle="running"
+        ))
+
+    async def pause(self, organization_id: uuid.UUID, agent_id: uuid.UUID, *, build_id: uuid.UUID) -> AgentBuildView:
+        value = await self.require_immutable_built(organization_id, agent_id, build_id)
+        if value.runtime_lifecycle != "running":
+            raise BuilderConflict("Only a running draft Agent runtime can be paused.")
+        return _view(await self.repository.set_runtime_lifecycle(
+            organization_id, agent_id, build_id, lifecycle="paused"
         ))
 
     async def stop(self, organization_id: uuid.UUID, agent_id: uuid.UUID, *, build_id: uuid.UUID) -> AgentBuildView:
@@ -49,6 +61,8 @@ class BuilderService:
             raise BuilderUnavailable("The selected Agent build is not ready.")
         if value.runtime_lifecycle == "removed":
             raise BuilderConflict("The selected draft Agent runtime was removed.")
+        if value.runtime_lifecycle not in {"running", "paused"}:
+            raise BuilderConflict("Only a running or paused draft Agent runtime can be stopped.")
         return _view(await self.repository.set_runtime_lifecycle(
             organization_id, agent_id, build_id, lifecycle="stopped"
         ))
@@ -63,8 +77,8 @@ class BuilderService:
         value = await self.repository.get(organization_id, agent_id, build_id)
         if value.status != "ready" or value.runtime_build_hash is None:
             raise BuilderUnavailable("The selected Agent build is not ready.")
-        if value.runtime_lifecycle == "running":
-            raise BuilderConflict("Stop the draft Agent runtime before removing it.")
+        if value.runtime_lifecycle != "stopped":
+            raise BuilderConflict("Only a stopped draft Agent runtime can be removed.")
         return _view(await self.repository.set_runtime_lifecycle(
             organization_id, agent_id, build_id, lifecycle="removed"
         ))

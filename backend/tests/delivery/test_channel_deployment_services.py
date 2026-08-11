@@ -29,7 +29,7 @@ from corpus.integrations.agent_execution import SandboxEventProjection, SandboxR
 def test_publishing_and_channel_availability_have_distinct_agent_contracts() -> None:
     assert "does not select, activate, or publish" in SET_CHANNEL_ENABLED.description
     assert (
-        "publish one exact eligible immutable agent build"
+        "queue one reviewed deployment attempt"
         in DEPLOY_AGENT.description.lower()
     )
     assert "never satisfies a request to publish" in FEATURE_PROMPT.instruction
@@ -64,12 +64,14 @@ def test_public_projection_keeps_owner_runtime_diagnostics_private() -> None:
         suggested_actions=({"action_id": "catalog", "label": "Read catalog"},),
     )
 
-    public = _public_agent(projection)
+    public = _public_agent(projection, display_name="Store shopping assistant")
 
     assert public == {
+        "display_name": "Store shopping assistant",
         "revision": 4,
         "messages": projection.messages,
         "awaiting_clarification": True,
+        "suggested_prompts": ["Read catalog"],
     }
     serialized = json.dumps(public)
     assert "agent_runtime" not in serialized
@@ -131,12 +133,41 @@ class Deployments:
     def __init__(self): self.values = {}
     async def reserve(self, owner, agent, **values):
         now = datetime.now(UTC)
-        record = DeploymentRecord(uuid.uuid4(), owner, agent, values["channel_id"], values["build_id"], values["eligibility_id"], None, "verifying", values["bundle_hash"], None, None, now, now)
+        record = DeploymentRecord(
+            uuid.uuid4(), owner, agent, values["channel_id"], values["build_id"],
+            values["eligibility_id"], None, "queued", values["bundle_hash"],
+            None, None, now, now, None, values.get("retry_of_deployment_id"),
+        )
+        self.values[record.id] = record
+        return record
+    async def link_job(self, owner, deployment_id, job_id):
+        old = self.values[deployment_id]
+        record = DeploymentRecord(
+            old.id, owner, old.agent_id, old.channel_id, old.build_id,
+            old.eligibility_id, None, "queued", old.bundle_hash, None, None,
+            old.created_at, datetime.now(UTC), job_id, old.retry_of_deployment_id,
+        )
+        self.values[record.id] = record
+        return record
+    async def mark_running(self, owner, deployment_id, job_id):
+        old = self.values[deployment_id]
+        assert old.job_id == job_id
+        record = DeploymentRecord(
+            old.id, owner, old.agent_id, old.channel_id, old.build_id,
+            old.eligibility_id, None, "running", old.bundle_hash, None, None,
+            old.created_at, datetime.now(UTC), job_id, old.retry_of_deployment_id,
+        )
         self.values[record.id] = record
         return record
     async def complete(self, owner, deployment_id, **values):
         old = self.values[deployment_id]
-        record = DeploymentRecord(old.id, owner, old.agent_id, old.channel_id, old.build_id, old.eligibility_id, values["runtime_deployment_id"], values["status"], old.bundle_hash, values.get("failure_code"), values.get("failure_message"), old.created_at, datetime.now(UTC))
+        record = DeploymentRecord(
+            old.id, owner, old.agent_id, old.channel_id, old.build_id,
+            old.eligibility_id, values["runtime_deployment_id"], values["status"],
+            old.bundle_hash, values.get("failure_code"), values.get("failure_message"),
+            old.created_at, datetime.now(UTC), old.job_id,
+            old.retry_of_deployment_id,
+        )
         self.values[record.id] = record
         return record
     async def get(self, owner, agent, deployment_id):
@@ -152,6 +183,13 @@ class Bindings:
     def get(self, build_hash): return self.values[build_hash]
 
 
+class Jobs:
+    def __init__(self): self.values = []
+    async def enqueue(self, **values):
+        self.values.append(values)
+        return SimpleNamespace(id=uuid.uuid4())
+
+
 @pytest.mark.asyncio
 async def test_channel_deploy_public_session_and_restart_binding_are_exact(tmp_path):
     owner, agent = uuid.uuid4(), uuid.uuid4()
@@ -165,12 +203,31 @@ async def test_channel_deploy_public_session_and_restart_binding_are_exact(tmp_p
     channel_repository = Channels(owner, agent)
     channels = ChannelService(channel_repository, delivery, Agents())
     bindings = Bindings()
+    deployment_repository = Deployments()
+    jobs = Jobs()
     deployments = DeploymentService(
-        Deployments(), channels, Builds(build), Eligibility(build), delivery, bindings
+        deployment_repository, channels, Builds(build), Eligibility(build),
+        delivery, bindings, jobs,
     )
 
     channel = await channels.create(owner, agent, name="Store Agent", slug="store-agent")
-    deployment = await deployments.deploy(owner, agent, channel_id=channel.id, build_id=build.id)
+    queued = await deployments.queue_deploy(
+        owner, agent, channel_id=channel.id, build_id=build.id
+    )
+    assert queued.status == "queued"
+    assert len(jobs.values) == 1
+    assert jobs.values[0]["job_type"] == "deployment.publish"
+    assert jobs.values[0]["max_attempts"] == 1
+    await deployment_repository.mark_running(owner, queued.id, queued.job_id)
+    deployment = await deployments.execute_deployment(
+        owner,
+        agent,
+        queued.id,
+        expected_channel_id=queued.channel_id,
+        expected_build_id=queued.build_id,
+        expected_eligibility_id=queued.eligibility_id,
+        expected_bundle_hash=queued.bundle_hash,
+    )
     active = channel_repository.values[channel.id]
 
     assert deployment.status == "ready"
@@ -195,6 +252,46 @@ async def test_channel_deploy_public_session_and_restart_binding_are_exact(tmp_p
     with pytest.raises(DeliveryError) as invoke_error:
         delivery.invoke("store-agent", session.session_id, "still there?", "after-disable")
     assert invoke_error.value.code == "channel_disabled"
+
+
+@pytest.mark.asyncio
+async def test_failed_deployment_retry_is_a_new_reviewed_lineage() -> None:
+    owner, agent = uuid.uuid4(), uuid.uuid4()
+    now = datetime.now(UTC)
+    build = BuilderRecord(
+        uuid.uuid4(), owner, agent, uuid.uuid4(), uuid.uuid4(), 2, "ready",
+        "running", "f" * 64, "model", "digest", ({"source_id": "source-1"},),
+        ("GetProductTypes",), "n" * 64, {"nodes": []}, {"nodes": {}},
+        None, None, now, now,
+    )
+    channel_repository = Channels(owner, agent)
+    channel = ChannelRecord(
+        uuid.uuid4(), owner, agent, "runtime-channel", "Store Agent", "store-agent",
+        "ready", True, None, None, None, now, now,
+    )
+    channel_repository.values[channel.id] = channel
+    deployment_repository = Deployments()
+    failed = await deployment_repository.reserve(
+        owner, agent, channel_id=channel.id, build_id=build.id,
+        eligibility_id=uuid.uuid4(), bundle_hash=build.runtime_build_hash,
+    )
+    failed = await deployment_repository.complete(
+        owner, failed.id, runtime_deployment_id=None, status="failed",
+        failure_code="runtime_not_ready", failure_message="Runtime was not ready.",
+    )
+    jobs = Jobs()
+    service = DeploymentService(
+        deployment_repository,
+        SimpleNamespace(repository=channel_repository),
+        Builds(build), Eligibility(build), SimpleNamespace(), Bindings(), jobs,
+    )
+
+    retried = await service.retry_deployment(owner, agent, failed.id)
+
+    assert retried.id != failed.id
+    assert retried.retry_of_deployment_id == failed.id
+    assert retried.status == "queued"
+    assert len(jobs.values) == 1
 
 
 class Execution:

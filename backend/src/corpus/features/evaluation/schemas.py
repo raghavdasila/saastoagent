@@ -21,6 +21,18 @@ class EvaluationCaseView(BaseModel):
     removed: bool
     runnable: bool
     latest_status: str | None = None
+    latest_run_attempt: "EvaluationRunAttemptView | None" = None
+
+
+class EvaluationRunAttemptView(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: uuid.UUID
+    status: Literal["queued", "running", "succeeded", "failed"]
+    failure_code: str | None
+    failure_message: str | None
+    retry_of_attempt_id: uuid.UUID | None
+    created_at: datetime
+    updated_at: datetime
 
 
 class EvaluationSetView(BaseModel):
@@ -62,6 +74,12 @@ class RunEvaluationCaseArguments(BaseModel):
     model_config = ConfigDict(extra="forbid")
     agent_ref: str = Field(min_length=1, max_length=64)
     case_id: uuid.UUID | None = None
+
+
+class RetryEvaluationRunArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    agent_ref: str = Field(min_length=1, max_length=64)
+    attempt_id: uuid.UUID
 
 
 class GenerateEvaluationSetArguments(BaseModel):

@@ -18,7 +18,7 @@ class AgentRunnableBuild(Base):
         ),
         UniqueConstraint("runtime_build_hash", name="uq_runnable_build_hash"),
         CheckConstraint(
-            "runtime_lifecycle IN ('stopped', 'running', 'removed')",
+            "runtime_lifecycle IN ('stopped', 'running', 'paused', 'removed')",
             name="ck_runnable_build_runtime_lifecycle",
         ),
     )

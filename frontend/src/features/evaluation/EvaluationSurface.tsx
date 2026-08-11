@@ -55,7 +55,11 @@ export function EvaluationSurface({ dispatchAffordance, props, agentStore, runti
     return () => { active = false; };
   }, [runtimeClient, selected?.id, sessionVersion]);
   useEffect(() => {
-    if (selected === null || !sets.some((set) => set.generation_status === "queued" || set.generation_status === "running")) return;
+    if (selected === null || !sets.some((set) =>
+      set.generation_status === "queued"
+      || set.generation_status === "running"
+      || set.cases.some((item) => item.latest_run_attempt?.status === "queued" || item.latest_run_attempt?.status === "running")
+    )) return;
     const interval = window.setInterval(() => void refresh(selected.id).catch((caught) => setError(message(caught))), 2000);
     return () => window.clearInterval(interval);
   }, [selected?.id, sets]);
@@ -103,7 +107,12 @@ export function EvaluationSurface({ dispatchAffordance, props, agentStore, runti
 
   async function runCase(caseId: string) {
     if (selectedRef === null) return;
-    await dispatch("run_case", { agent_ref: selectedRef, case_id: caseId }, "evaluated");
+    await dispatch("run_case", { agent_ref: selectedRef, case_id: caseId }, "queued");
+  }
+
+  async function retryCaseRun(attemptId: string) {
+    if (selectedRef === null) return;
+    await dispatch("retry_case_run", { agent_ref: selectedRef, attempt_id: attemptId }, "queued");
   }
 
   async function saveEdit() {
@@ -181,8 +190,16 @@ export function EvaluationSurface({ dispatchAffordance, props, agentStore, runti
             <Button type="button" disabled={busy} onClick={() => void saveEdit()}>Save revision</Button><Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
           </> : <>
             <div role="cell"><strong>{item.title}</strong><span>{item.category} · {item.difficulty} · revision {item.current_revision}</span><span>{item.source_kind === "toolrouter" ? "ToolRouter generated" : "Recorded interaction"}</span></div>
-            <div role="cell"><span>{item.latest_status ?? "Not run"}</span>{item.removed ? <span>Removed from future evaluation</span> : null}</div>
-            {!item.removed ? <div role="cell" className="evaluation-case-actions"><Button type="button" disabled={busy || !selectedBuildRunning} onClick={() => void runCase(item.id)}>{item.source_kind === "toolrouter" && !item.runnable ? "Run generated case" : "Run exact case"}</Button><Button type="button" variant="outline" disabled={busy} onClick={() => setEditing(item)}>Edit</Button><Button type="button" variant="destructive" disabled={busy} onClick={() => void deleteCase(item)}>Remove</Button></div> : null}
+            <div role="cell">
+              <span>{runStatus(item)}</span>
+              {item.latest_run_attempt?.failure_message ? <span role="alert">{item.latest_run_attempt.failure_message}</span> : null}
+              {item.removed ? <span>Removed from future evaluation</span> : null}
+            </div>
+            {!item.removed ? <div role="cell" className="evaluation-case-actions">
+              {item.latest_run_attempt?.status === "failed" ? <Button type="button" variant="outline" disabled={busy || !selectedBuildRunning} onClick={() => void retryCaseRun(item.latest_run_attempt!.id)}>Retry failed run</Button> : <Button type="button" disabled={busy || !selectedBuildRunning || item.latest_run_attempt?.status === "queued" || item.latest_run_attempt?.status === "running"} onClick={() => void runCase(item.id)}>{item.source_kind === "toolrouter" && !item.runnable ? "Run generated case" : "Run exact case"}</Button>}
+              <Button type="button" variant="outline" disabled={busy || item.latest_run_attempt?.status === "queued" || item.latest_run_attempt?.status === "running"} onClick={() => setEditing(item)}>Edit</Button>
+              <Button type="button" variant="destructive" disabled={busy || item.latest_run_attempt?.status === "queued" || item.latest_run_attempt?.status === "running"} onClick={() => void deleteCase(item)}>Remove</Button>
+            </div> : null}
           </>}
         </div>)}
       </div>
@@ -196,6 +213,14 @@ function generationLabel(value: EvaluationSetView["generation_status"]): string 
   if (value === "running") return "Generating";
   if (value === "ready") return "Generated";
   return "Failed";
+}
+
+function runStatus(item: EvaluationCaseView): string {
+  if (item.latest_run_attempt?.status === "queued") return "Queued";
+  if (item.latest_run_attempt?.status === "running") return "Running";
+  if (item.latest_run_attempt?.status === "failed") return "Failed";
+  if (item.latest_run_attempt?.status === "succeeded") return item.latest_status ?? "Succeeded";
+  return item.latest_status ?? "Not run";
 }
 
 function message(value: unknown) { return value instanceof Error ? value.message : "Agent Evaluation is unavailable."; }

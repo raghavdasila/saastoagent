@@ -6,7 +6,7 @@ export interface AgentBuildView {
   readonly agent_version: number;
   readonly attempt_number: number;
   readonly status: string;
-  readonly runtime_lifecycle: "stopped" | "running" | "removed";
+  readonly runtime_lifecycle: "stopped" | "running" | "paused" | "removed";
   readonly runtime_build_hash: string | null;
   readonly model: string | null;
   readonly model_digest: string | null;
@@ -70,6 +70,17 @@ export interface EvaluationCaseView {
   readonly removed: boolean;
   readonly runnable: boolean;
   readonly latest_status: string | null;
+  readonly latest_run_attempt: EvaluationRunAttemptView | null;
+}
+
+export interface EvaluationRunAttemptView {
+  readonly id: string;
+  readonly status: "queued" | "running" | "succeeded" | "failed";
+  readonly failure_code: string | null;
+  readonly failure_message: string | null;
+  readonly retry_of_attempt_id: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
 }
 
 export interface EvaluationSetView {
@@ -136,6 +147,8 @@ export interface DeploymentView {
   readonly bundle_hash: string;
   readonly failure_code: string | null;
   readonly failure_message: string | null;
+  readonly job_id: string | null;
+  readonly retry_of_deployment_id: string | null;
   readonly created_at: string;
 }
 

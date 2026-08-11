@@ -387,7 +387,9 @@ source manifests + owner intent
   -> Agent Builder compiles the same topology into an immutable RouteDeck Application
   -> exact runtime build and NavGraph
   -> Sandbox
-  -> Evaluation and evalsets
+  -> Evaluation queues one exact case/build/revision attempt
+  -> source worker persists queued/running/terminal state with no automatic retry
+  -> explicit retry appends lineage only from the exact failed current attempt
   -> Channels and deployment configuration
   -> Deployment
   -> Operations

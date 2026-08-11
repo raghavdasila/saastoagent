@@ -38,6 +38,24 @@ RUN_BUILD = Operation(
     review_policy=ReviewPolicy.NONE,
 )
 
+PAUSE_BUILD = Operation(
+    id="builder.pause",
+    title="Pause Agent build",
+    description=(
+        "Pause admission of new Sandbox, Evaluation, and deployment work for "
+        "the exact running draft Agent build while preserving immutable "
+        "lineage, recorded runs, and already-deployed runtimes."
+    ),
+    input_schema=FrozenJsonObject(BuildRuntimeLifecycleArguments.model_json_schema()),
+    safety_class=SafetyClass.DRAFT,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
+    outcomes=("paused",),
+    outcome_schemas=FrozenJsonObject({"paused": EMPTY_OBJECT_SCHEMA}),
+    provider_refs=(OWNER_CONTEXT_PROVIDER.ref,),
+    entity_inputs=(EntityInput(argument_name="agent_ref", entity_kind="agent"),),
+    review_policy=ReviewPolicy.NONE,
+)
+
 STOP_BUILD = Operation(
     id="builder.stop",
     title="Stop Agent build",
@@ -74,4 +92,10 @@ DELETE_BUILD = Operation(
     public_metadata=FrozenJsonObject({"review_surface_id": "builder.delete_review"}),
 )
 
-__all__ = ["ASSEMBLE_BUILD", "DELETE_BUILD", "RUN_BUILD", "STOP_BUILD"]
+__all__ = [
+    "ASSEMBLE_BUILD",
+    "DELETE_BUILD",
+    "PAUSE_BUILD",
+    "RUN_BUILD",
+    "STOP_BUILD",
+]

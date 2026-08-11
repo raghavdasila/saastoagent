@@ -99,6 +99,7 @@ export function createCorpusSurfaceRegistry(
       <ChannelsSurface {...props} agentStore={agentStore} runtimeClient={activeAgentRuntimeClient} draftStore={channelDraftStore} />
     ),
     "deployment.deploy_review": (props) => <DeploymentReviewSurface {...props} kind="deploy" />,
+    "deployment.retry_review": (props) => <DeploymentReviewSurface {...props} kind="retry" />,
     "deployment.rollback_review": (props) => <DeploymentReviewSurface {...props} kind="rollback" />,
     "channels.availability_review": (props) => <DeploymentReviewSurface {...props} kind="availability" />,
     "operations.home": (props) => (

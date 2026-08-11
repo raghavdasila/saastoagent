@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from corpus.features.builder.domain import BuilderInputSnapshot, BuilderRecord, BuilderSourceBinding, RuntimeBuildArtifact
+from corpus.features.builder.ports import BuilderConflict
 from corpus.features.builder.service import BuilderService
 from corpus.features.sandbox.domain import RuntimeSandboxRun, SandboxRecord
 from corpus.features.sandbox.ports import SandboxRunFailed
@@ -132,14 +133,26 @@ async def test_builder_runtime_lifecycle_is_explicit_and_removal_preserves_build
     repository = BuilderRepo(ready)
     service = BuilderService(repository, Inputs(None), BuildRuntime(), Agents())
 
-    stopped = await service.stop(
+    paused = await service.pause(
         ready.organization_id, ready.agent_id, build_id=ready.id
     )
-    assert stopped.runtime_lifecycle == "stopped"
+    assert paused.runtime_lifecycle == "paused"
+    with pytest.raises(BuilderConflict, match="stopped"):
+        await service.remove_runtime(
+            ready.organization_id, ready.agent_id, build_id=ready.id
+        )
     running = await service.run(
         ready.organization_id, ready.agent_id, build_id=ready.id
     )
     assert running.runtime_lifecycle == "running"
+    stopped = await service.stop(
+        ready.organization_id, ready.agent_id, build_id=ready.id
+    )
+    assert stopped.runtime_lifecycle == "stopped"
+    restarted = await service.run(
+        ready.organization_id, ready.agent_id, build_id=ready.id
+    )
+    assert restarted.runtime_lifecycle == "running"
     await service.stop(ready.organization_id, ready.agent_id, build_id=ready.id)
     removed = await service.remove_runtime(
         ready.organization_id, ready.agent_id, build_id=ready.id
