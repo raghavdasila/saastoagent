@@ -261,8 +261,9 @@ function AgentConversationShell({
   useEffect(() => {
     if (surfaceDockRef.current !== null) {
       surfaceDockRef.current.scrollTop = 0;
+      surfaceDockRef.current.scrollLeft = 0;
     }
-  }, [currentNodeId]);
+  }, [currentNodeId, surfaceExpanded]);
 
   return (
     <main ref={onShellElementChange} data-agent-shell="" data-surface-layout={surfaceExpanded ? "split" : "dock"}>

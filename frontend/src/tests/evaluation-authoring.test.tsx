@@ -87,6 +87,23 @@ it("explains the missing build prerequisite and continues the same Agent to Buil
 });
 
 
+it("does not report a missing build while authoritative Evaluation state is loading", async () => {
+  const agentId = "7db3745e-6f77-4b92-929c-4d2292fb3708";
+  const agentRef = `agent-${agentId.replaceAll("-", "").slice(0, 20)}`;
+  const never = new Promise<never>(() => undefined);
+  const runtimeClient = {
+    builds: vi.fn(() => never),
+    sandbox: vi.fn(() => never),
+    evaluations: vi.fn(() => never),
+  };
+
+  render(<EvaluationSurface {...surfaceProps(agentRef, vi.fn())} agentStore={agentStore(agentId)} runtimeClient={runtimeClient as never} />);
+
+  expect(await screen.findByText("Loading exact Evaluation…")).toBeVisible();
+  expect(screen.queryByText("A ready immutable build is required.")).not.toBeInTheDocument();
+});
+
+
 function buildView(agentId: string): AgentBuildView {
   return {
     id: "4bf642f8-18d2-45a9-8a77-b6d293a4fd7a", agent_id: agentId,

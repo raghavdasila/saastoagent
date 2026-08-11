@@ -6,6 +6,7 @@ import type { WorkbenchState } from "@/workbench/types"
 
 const EXPECTED_BEHAVIORS: Readonly<Record<string, readonly string[]>> = {
   "agent-designer": [
+    "agent-designer-resolve-source-inputs",
     "agent-designer-propose",
     "agent-designer-customize",
     "agent-designer-inspect-navgraph",
@@ -16,6 +17,7 @@ const EXPECTED_BEHAVIORS: Readonly<Record<string, readonly string[]>> = {
   "builder-sandbox": [
     "builder-assemble",
     "builder-observe-lifecycle",
+    "builder-resolve-prerequisites",
     "builder-control-runtime",
     "builder-generate-evalset",
     "sandbox-start-run",
@@ -24,6 +26,7 @@ const EXPECTED_BEHAVIORS: Readonly<Record<string, readonly string[]>> = {
     "sandbox-inspect-operation-trace",
   ],
   evaluation: [
+    "evaluation-resolve-missing-build",
     "evaluation-generate-evalset",
     "evaluation-create-case",
     "evaluation-manage-cases",
@@ -33,6 +36,7 @@ const EXPECTED_BEHAVIORS: Readonly<Record<string, readonly string[]>> = {
   "channels-deployment": [
     "channels-create-hosted-web",
     "channels-view-hosted-address",
+    "channels-resolve-missing-eligibility",
     "channels-link-custom-domain",
     "deployment-publish-eligible-build",
     "deployment-observe-lifecycle",

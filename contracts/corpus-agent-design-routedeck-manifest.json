@@ -883,7 +883,7 @@
         },
         "persistence": "Corpus appends immutable owner-scoped design revisions, retains exact Agent version plus Source revision/curation identities, advances proposal and accepted pointers only under exact-current CAS, and appends one immutable build request for one accepted design revision.",
         "boundary": "Designer performs no API call, credential resolution, build execution, Sandbox run, evaluation, deployment, or public-session work. RouteDeck owns operation legality, exact selected-Agent entity binding, required review, navigation, projection, and accept-time recheck.",
-        "topologyBoundary": "Corpus compiles one shared Designer topology from the immutable design revision. The Designer renders that exact topology and stable hash; Builder consumes the same topology to create the immutable per-build RouteDeck Application. The current executable Agent topology is one real runtime node with exact capabilities, curated operations, policies, clarification/status/delivery surfaces, and no decorative lifecycle nodes."
+        "topologyBoundary": "Corpus compiles one shared Designer topology from the immutable design revision. Designer renders that exact topology and stable hash; Builder consumes the same topology to create the immutable per-build RouteDeck Application. The executable Agent topology has one general entry area plus capability-owned runtime areas and legal navigation transitions, with exact curated operations, policies, and clarification/status/delivery surfaces. Nodes express real interaction areas, never lifecycle decoration."
       },
       "corpusImplementationOwners": {
         "backend": ["backend/src/corpus/features/designer/**", "backend/src/corpus/features/builder/navgraph.py", "backend/src/corpus/app/designer_adapters.py"],
@@ -964,6 +964,9 @@
             "operations": [
               "sources.open_api_creation",
               "sources.open_api_source",
+              "sources.open_api_description",
+              "sources.save_api_description",
+              "sources.delete_api_source",
               "sources.process_api",
               "sources.retry_processing",
               "sources.return_to_source_hub",
@@ -976,7 +979,8 @@
             ],
             "surfaces": [
               "sources.home",
-              "sources.api"
+              "sources.api",
+              "sources.delete_review"
             ]
           }
         },
@@ -987,6 +991,7 @@
             "affordances": {
               "open_api_creation": "sources.open_api_creation",
               "open_api_source": "sources.open_api_source",
+              "open_api_description": "sources.open_api_description",
               "return_to_home": "sources.return_to_home",
               "attach_created_source": "agents.attach_created_source",
               "return_to_agent": "agents.return_from_source"
@@ -1021,6 +1026,9 @@
               "process_api": "sources.process_api",
               "retry_processing": "sources.retry_processing",
               "return_to_source_hub": "sources.return_to_source_hub",
+              "open_api_description": "sources.open_api_description",
+              "save_api_description": "sources.save_api_description",
+              "delete_api_source": "sources.delete_api_source",
               "select_graph_stage": "sources.select_graph_stage",
               "save_api_connection": "sources.save_api_connection",
               "attach_created_source": "agents.attach_created_source",
@@ -1086,6 +1094,44 @@
             },
             "review": "none"
           },
+          "sources.open_api_description": {
+            "safetyClass": "navigation",
+            "allowedSources": [
+              "agent",
+              "surface"
+            ],
+            "outcomes": {
+              "opened": "sources.api"
+            },
+            "review": "none",
+            "purpose": "Open the exact selected API Source at its Markdown description editor without changing Source state."
+          },
+          "sources.save_api_description": {
+            "safetyClass": "draft",
+            "allowedSources": [
+              "agent",
+              "surface"
+            ],
+            "outcomes": {
+              "saved": "sources.api"
+            },
+            "review": "none",
+            "inputKind": "empty",
+            "purpose": "Persist only the exact Markdown file staged in the current authenticated conversation while leaving the immutable API definition version unchanged."
+          },
+          "sources.delete_api_source": {
+            "safetyClass": "destructive",
+            "allowedSources": [
+              "agent",
+              "surface"
+            ],
+            "outcomes": {
+              "deleted": "sources.home"
+            },
+            "review": "required",
+            "inputKind": "empty",
+            "purpose": "Permanently delete the reviewed exact Source only when analysis is inactive and declared Agent, design, and build dependencies are absent."
+          },
           "sources.process_api": {
             "safetyClass": "draft",
             "allowedSources": [
@@ -1148,7 +1194,7 @@
           "sources.staged_setup_continuation",
           "sources.active_api_continuation"
         ],
-        "reviewBehavior": "Source Hub is the inventory and guided entry point. New-definition intake is a distinct sources.api_intake workflow and canonical surface containing only staged-file acceptance and explicit return actions. Acceptance transitions to the exact sources.api detail workflow; that selected API Source owns explicit analysis, the complete persisted ToolRouter semantic graph and exact recorded construction replay, exhaustive operation curation, connection setup and Agent attachment, and cannot accept another staged definition. A Sources-owned context provider reads the exact selected Source and revision from that surface so agent inspection and follow-up operations continue the visible selection even when the owner has multiple ready APIs; no Source identity is guessed or supplied by the model. API-source intake is a direct authenticated upload because it carries files; accepting that staged file never starts analysis. Failed-step retry is draft class. Recorded-stage selection validates the authenticated owner, exact source, exact revision and membership in persisted construction evidence. Connection save is surface-only credential class and loads secret material from the private form. No external API write is executed by graph inspection or setup."
+        "reviewBehavior": "Source Hub is the inventory and guided entry point. New-definition intake is a distinct sources.api_intake workflow and canonical surface containing only staged-file acceptance and explicit return actions. Acceptance transitions to the exact sources.api detail workflow; that selected API Source owns explicit analysis, the complete persisted ToolRouter semantic graph and exact recorded construction replay, exhaustive operation curation, connection setup, Markdown description lifecycle, dependency-aware deletion and Agent attachment, and cannot accept another staged definition. A Sources-owned context provider reads the exact selected Source and revision from that surface so agent inspection and follow-up operations continue the visible selection even when the owner has multiple ready APIs; no Source identity is guessed or supplied by the model. API-source intake and Markdown bytes use direct authenticated staging because they carry files; accepting the definition never starts analysis, and saving description content never changes the immutable API definition version. Deletion is destructive, requires durable review, and rechecks active analysis plus Agent, design, and build dependencies before mutation. Failed-step retry is draft class. Recorded-stage selection validates the authenticated owner, exact source, exact revision and membership in persisted construction evidence. Connection save is surface-only credential class and loads secret material from the private form. No external API write is executed by graph inspection or setup."
       },
       "corpusImplementationOwners": {
         "existingDomainAndPersistence": [
@@ -1190,8 +1236,8 @@
       },
       "mappingStatus": {
         "runtimeTruth": "Corpus has one owner-scoped Source inventory and immutable ToolRouter revision chain. API YAML or JSON plus optional Markdown is first staged against the exact authenticated conversation and RouteDeck session. Staging creates no Source, job, ToolRouter run, or Agent attachment. The distinct sources.api_intake workflow permits sources.accept_staged_api and then transitions to the exact selected sources.api detail; the detail workflow cannot accept another staged definition. The selected Source and exact revision are projected from current RouteDeck surface state through sources.selected_api_source for agent inspection, analysis, curation, connection testing and update preparation; those operations never infer one Source from the owner's inventory. sources.process_api explicitly queues the real worker. Corpus exposes durable accepted/queued/running/ready/failed state, supports explicit failed-job retry, renders persisted semantic evidence, protects revision-bound connection profiles, curates exact operations, prepares and clarifies a route, and executes reviewed or read-only routed operations with redacted immutable evidence. Agent-owned source selection and attachment remain separate Agents operations.",
-        "notMapped": "Source Hub remains a partial mapping because existing-source selection for an Agent is Agents-owned, API description bytes use authenticated Corpus HTTP, and dependency-aware Source deletion is not implemented. These boundaries are explicit; the separate inventory and API workflow runtime is not used to overstate the complete Source Hub behavior.",
-        "frameworkGap": "No missing RouteDeck framework primitive was proven. Dependency-aware Source deletion remains a Corpus-owned product gap; complete graph visualization and recorded replay are implemented over persisted ToolRouter evidence.",
+        "notMapped": "No accepted Source Hub behavior is intentionally unmapped. Existing-source selection remains Agents-owned and file bytes remain authenticated Corpus HTTP boundaries, while RouteDeck owns the supervised navigation, lifecycle, review and state transitions. Replacement per-behavior ordinary-chat-only, surface-only and hybrid evidence is still required before claiming completion.",
+        "frameworkGap": "No missing RouteDeck framework primitive was proven. Existing navigation, draft, destructive required-review, guard, provider, surface projection and transition contracts implement this Source lifecycle without a RouteDeck change.",
         "directHttpBoundary": "API definition and optional Markdown bytes use one authenticated same-origin Corpus staging endpoint because they carry files. The staged record is bound to owner, public conversation and RouteDeck session. RouteDeck owns Source acceptance, explicit analysis, navigation, retry, graph-stage selection, credential-form submission, curation, route preparation, reviewed execution, and cross-feature attachment handoff."
       }
     },
@@ -2175,6 +2221,8 @@
       "completedDesignBehaviors": [
         "Upload an API YAML file",
         "Add the API description during intake",
+        "Add or update the API description",
+        "Delete an API source",
         "Process the API through ToolRouter",
         "Monitor API processing",
         "Inspect the semantic graph",
@@ -2196,12 +2244,16 @@
         "sources.home",
         "sources.api_intake",
         "sources.api",
+          "sources.delete_review",
           "sources.contract_revision_proposal",
           "sources.contract_revision_review",
           "sources.api_operation_test",
           "sources.routed_api_write_review"
         ],
         "operations": [
+          "sources.open_api_description",
+          "sources.save_api_description",
+          "sources.delete_api_source",
           "sources.select_graph_stage",
           "sources.inspect_current_api",
           "sources.save_api_connection",
@@ -2216,9 +2268,13 @@
       "affordances": {
         "sources.home.open_api_creation": "sources.open_api_creation",
         "sources.home.open_api_source": "sources.open_api_source",
+        "sources.home.open_api_description": "sources.open_api_description",
         "sources.api_intake.accept_staged_api": "sources.accept_staged_api",
         "sources.api_intake.return_to_source_hub": "sources.return_to_source_hub",
         "sources.api.return_to_source_hub": "sources.return_to_source_hub",
+          "sources.api.open_api_description": "sources.open_api_description",
+          "sources.api.save_api_description": "sources.save_api_description",
+          "sources.api.delete_api_source": "sources.delete_api_source",
           "sources.api.select_graph_stage": "sources.select_graph_stage",
           "sources.api.save_api_connection": "sources.save_api_connection",
           "sources.api.test_api_connection": "sources.test_api_connection",
@@ -2246,6 +2302,7 @@
       "acceptedDesignBehaviors": [
         "Upload an API YAML file",
         "Add or update the API description",
+        "Delete an API source",
         "Configure the API connection",
         "Process the API through ToolRouter",
         "Monitor API processing",
@@ -2293,7 +2350,6 @@
         ]
       },
       "unresolvedImplementationBlockers": [
-        "Dependency-aware Source deletion and the Markdown description lifecycle are not implemented.",
         "The new staged-file orchestration and distinct intake/detail RouteDeck workflows require replacement ordinary-chat-only, surface-only, and hybrid browser evidence against the current compiled contract."
       ],
       "frameworkGap": "No missing RouteDeck framework primitive was proven by the read-only audit. These are Corpus-owned declarations and implementations; any later proven upstream gap triggers the cross-repository stop condition."

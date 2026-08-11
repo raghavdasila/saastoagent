@@ -92,8 +92,16 @@ async def test_designer_appends_exact_revisions_accepts_and_requests_one_build(t
         assert first.content.capabilities == (
             "Product taxonomy: GetProductTypes, GetProductTags",
         )
+        assert tuple(item.model_dump(mode="json") for item in first.content.runtime_areas) == ({
+            "title": "Product taxonomy",
+            "capability_titles": ["Product taxonomy"],
+        },)
         assert first.topology.entry_node_id == "agent_runtime.home"
-        assert first.topology.nodes[0].capability_ids == (
+        assert first.topology.mode == "capability_areas"
+        assert len(first.topology.nodes) == 2
+        assert first.topology.nodes[0].title == "Agent home"
+        assert first.topology.nodes[0].capability_ids == ()
+        assert first.topology.nodes[1].capability_ids == (
             first.topology.capabilities[0].id,
         )
         assert first.topology.capabilities[0].title == "Product taxonomy"
@@ -101,6 +109,15 @@ async def test_designer_appends_exact_revisions_accepts_and_requests_one_build(t
             "GetProductTypes",
             "GetProductTags",
         )
+        assert first.topology.capabilities[0].node_id == first.topology.nodes[1].id
+        assert {
+            (item.source_node_id, item.target_node_id, item.outcome)
+            for item in first.topology.transitions
+        } >= {
+            ("agent_runtime.home", first.topology.nodes[1].id, "opened"),
+            (first.topology.nodes[1].id, "agent_runtime.home", "opened"),
+            (first.topology.nodes[1].id, first.topology.nodes[1].id, "observed"),
+        }
         assert len(first.topology.topology_hash) == 64
         assert first.source_inputs[0]["source_revision_id"] == "revision-ready01"
         assert first.source_inputs[0]["semantic_groups"] == [
@@ -112,6 +129,15 @@ async def test_designer_appends_exact_revisions_accepts_and_requests_one_build(t
         assert proposed.accepted_revision_id is None
         assert proposed.current_inputs_ready is True
         assert proposed.current_inputs_match is True
+
+        with pytest.raises(DesignerConflict, match="locked to the exact saved Source"):
+            await service.customize(
+                OWNER_ID,
+                agent.id,
+                expected_revision_id=first.id,
+                content=first.content.model_copy(update={"tools": ("GetProductTypes",)}),
+            )
+        assert len((await service.get(OWNER_ID, agent.id)).revisions) == 1
 
         invalid = first.content.model_copy(update={
             "capabilities": (
@@ -243,6 +269,10 @@ async def test_designer_proposal_partitions_overlapping_semantic_groups(tmp_path
         assert revision.content.capabilities == (
             "product_tags: GetProductTags",
             "product_types: GetProductTypes",
+        )
+        assert tuple(area.title for area in revision.content.runtime_areas) == (
+            "Product tags",
+            "Product types",
         )
         assert tuple(
             operation_id

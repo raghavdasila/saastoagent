@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@routedeck/react", () => ({
-  NavGraphInspector: ({ contract }: { readonly contract: { readonly nodes: Readonly<Record<string, { readonly title: string }>>; readonly transitions: readonly unknown[] } }) => <section data-routedeck-inspector="read-only">
+  NavGraphInspector: ({ contract, showMiniMap }: { readonly contract: { readonly nodes: Readonly<Record<string, { readonly title: string }>>; readonly transitions: readonly unknown[] }; readonly showMiniMap?: boolean }) => <section data-routedeck-inspector="read-only" data-mini-map={String(showMiniMap)}>
     <div data-routedeck-navgraph-canvas="" />
     <span>{Object.keys(contract.nodes).length} nodes · {contract.transitions.length} transitions</span>
     {Object.values(contract.nodes).map((node) => <strong key={node.title}>{node.title}</strong>)}
@@ -56,7 +56,8 @@ describe("immutable Agent build NavGraph", () => {
     expect(screen.getByRole("region", { name: "RouteDeck NavGraph for build build-1" })).toBeVisible();
     await waitFor(() => expect(document.querySelector("[data-routedeck-inspector='read-only']")).toBeInTheDocument());
     expect(document.querySelector("[data-routedeck-navgraph-canvas]")).toBeInTheDocument();
-    expect(screen.getAllByText("Answers product taxonomy questions from an approved API.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Agent home").length).toBeGreaterThan(0);
+    expect(document.querySelector("[data-routedeck-inspector='read-only']")).toHaveAttribute("data-mini-map", "false");
     expect(screen.getByText("1 nodes · 1 transitions")).toBeVisible();
     expect(screen.getByText("PostCarts")).toBeVisible();
     expect(screen.getByText("POST /store/carts")).toBeVisible();

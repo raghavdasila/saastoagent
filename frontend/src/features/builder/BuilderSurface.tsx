@@ -159,7 +159,7 @@ export function BuilderSurface({ dispatchAffordance, props, agentStore, designer
         <Button type="button" variant="outline" disabled={busy} onClick={() => void openSourcePrerequisite(source.sourceId)}>Open API setup</Button>
       </li>)}</ul>
     </section> : null}
-    {runningBuilds.length === 1 ? <Button type="button" disabled={busy} onClick={() => void continueToSandbox()}>Continue to Sandbox</Button> : null}
+    {runningBuilds.length > 0 ? <Button type="button" disabled={busy} onClick={() => void continueToSandbox()}>Continue to Sandbox</Button> : null}
     <ul>{builds.map((build) => <li key={build.id} data-status={build.status} data-runtime-lifecycle={build.runtime_lifecycle}>
       <strong>{build.status}</strong>
       <span>Build {build.id}</span>

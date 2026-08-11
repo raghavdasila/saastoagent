@@ -81,6 +81,7 @@ class CorpusBuilderInputGateway:
             name=agent_version.name, goal=content.goal, instructions=content.instructions,
             features=content.features, behaviors=content.behaviors, policies=content.policies,
             capabilities=content.capabilities, tools=content.tools,
+            runtime_areas=tuple(item.model_dump(mode="json") for item in content.runtime_areas),
             source_bindings=source_bindings,
         )
 

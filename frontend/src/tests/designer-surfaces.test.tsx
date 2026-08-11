@@ -13,7 +13,7 @@ vi.mock("@routedeck/react", async (importOriginal) => {
   const original = await importOriginal<typeof import("@routedeck/react")>();
   return {
     ...original,
-    NavGraphInspector: ({ contract }: { readonly contract: { readonly nodes: Readonly<Record<string, { readonly title: string }>>; readonly transitions: readonly unknown[] } }) => <section data-routedeck-inspector="read-only">
+    NavGraphInspector: ({ contract, showMiniMap }: { readonly contract: { readonly nodes: Readonly<Record<string, { readonly title: string }>>; readonly transitions: readonly unknown[] }; readonly showMiniMap?: boolean }) => <section data-routedeck-inspector="read-only" data-mini-map={String(showMiniMap)}>
       <div data-routedeck-navgraph-canvas="" />
       <span>{Object.keys(contract.nodes).length} nodes · {contract.transitions.length} transitions</span>
       {Object.values(contract.nodes).map((node) => <strong key={node.title}>{node.title}</strong>)}
@@ -35,12 +35,21 @@ it("adopts accepted design refresh and requests only that exact revision", async
       revision: 1,
       agent_version: 1,
       input_fingerprint: "a".repeat(64),
-      content: { goal: "Serve store operators", instructions: "Use curated tools.", features: ["API Source"], behaviors: ["Answer taxonomy questions"], policies: ["Use exact inputs"], capabilities: ["Taxonomy: GetProductTypes"], tools: ["GetProductTypes"] },
+      content: { goal: "Serve store operators", instructions: "Use curated tools.", features: ["API Source"], behaviors: ["Answer taxonomy questions"], policies: ["Use exact inputs"], capabilities: ["Taxonomy: GetProductTypes"], tools: ["GetProductTypes"], runtime_areas: [{ title: "Taxonomy", capability_titles: ["Taxonomy"] }] },
       topology: {
         topology_hash: "t".repeat(64),
+        mode: "capability_areas",
         entry_node_id: "agent_runtime.home",
-        nodes: [{ id: "agent_runtime.home", title: "Serve store operators", capability_ids: ["agent_runtime.capability.taxonomy"], operation_ids: ["GetProductTypes"], surface_ids: ["agent_runtime.home", "agent_runtime.clarification", "agent_runtime.toolrouter_status", "agent_runtime.delivery_status"], policy_count: 2 }],
-        capabilities: [{ id: "agent_runtime.capability.taxonomy", title: "Taxonomy", operation_ids: ["GetProductTypes"] }],
+        nodes: [
+          { id: "agent_runtime.home", title: "Serve store operators", route_template: "/", capability_ids: [], operation_ids: [], navigation_operation_ids: ["agent_runtime.open_area.taxonomy"], surface_ids: ["agent_runtime.home", "agent_runtime.clarification", "agent_runtime.toolrouter_status", "agent_runtime.delivery_status"], policy_count: 2 },
+          { id: "agent_runtime.area.taxonomy", title: "Taxonomy", route_template: "/areas/taxonomy", capability_ids: ["agent_runtime.capability.taxonomy"], operation_ids: ["GetProductTypes"], navigation_operation_ids: ["agent_runtime.return_home"], surface_ids: ["agent_runtime.area.taxonomy.home", "agent_runtime.clarification", "agent_runtime.toolrouter_status", "agent_runtime.delivery_status"], policy_count: 2 },
+        ],
+        capabilities: [{ id: "agent_runtime.capability.taxonomy", title: "Taxonomy", operation_ids: ["GetProductTypes"], node_id: "agent_runtime.area.taxonomy" }],
+        transitions: [
+          { source_node_id: "agent_runtime.home", target_node_id: "agent_runtime.area.taxonomy", operation_id: "agent_runtime.open_area.taxonomy", outcome: "opened" },
+          { source_node_id: "agent_runtime.area.taxonomy", target_node_id: "agent_runtime.home", operation_id: "agent_runtime.return_home", outcome: "opened" },
+          { source_node_id: "agent_runtime.area.taxonomy", target_node_id: "agent_runtime.area.taxonomy", operation_id: "GetProductTypes", outcome: "observed" },
+        ],
         operation_ids: ["GetProductTypes"],
       },
       source_inputs: [{
@@ -100,8 +109,9 @@ it("adopts accepted design refresh and requests only that exact revision", async
   expect(screen.getByRole("region", { name: "Immutable Source lineage" })).toHaveTextContent("revision-ready01");
   expect(screen.getByRole("region", { name: "Proposed RouteDeck NavGraph preview" })).toHaveTextContent("Taxonomy");
   expect(document.querySelector("[data-routedeck-inspector='read-only']")).toBeInTheDocument();
+  expect(document.querySelector("[data-routedeck-inspector='read-only']")).toHaveAttribute("data-mini-map", "false");
   expect(document.querySelector("[data-routedeck-navgraph-canvas]")).toBeInTheDocument();
-  expect(screen.getByText("1 nodes · 1 transitions")).toBeVisible();
+  expect(screen.getByText("2 nodes · 3 transitions")).toBeVisible();
   expect(screen.getByRole("button", { name: "Request build" })).toBeDisabled();
   refreshStore.notify();
   await waitFor(() => expect(screen.getByText("Accepted")).toBeVisible());
@@ -125,8 +135,8 @@ it("offers an immutable refresh when current Agent inputs changed and ignores an
   const agentRef = `agent-${agentId.replaceAll("-", "").slice(0, 20)}`;
   const priorRevisionId = "5c1ad911-849f-4ef6-aadb-b2a793ac4ae0";
   const nextRevisionId = "875eb1f6-a6c4-4bc2-b444-eccbb9a63880";
-  const content = { goal: "Serve store operators", instructions: "Use curated tools.", features: ["API Source"], behaviors: ["Answer taxonomy questions"], policies: ["Use exact inputs"], capabilities: ["Taxonomy: GetProductTypes"], tools: ["GetProductTypes"] };
-  const topology = { topology_hash: "t".repeat(64), entry_node_id: "agent_runtime.home", nodes: [{ id: "agent_runtime.home", title: "Serve store operators", capability_ids: ["agent_runtime.capability.taxonomy"], operation_ids: ["GetProductTypes"], surface_ids: ["agent_runtime.home"], policy_count: 2 }], capabilities: [{ id: "agent_runtime.capability.taxonomy", title: "Taxonomy", operation_ids: ["GetProductTypes"] }], operation_ids: ["GetProductTypes"] };
+  const content = { goal: "Serve store operators", instructions: "Use curated tools.", features: ["API Source"], behaviors: ["Answer taxonomy questions"], policies: ["Use exact inputs"], capabilities: ["Taxonomy: GetProductTypes"], tools: ["GetProductTypes"], runtime_areas: [] };
+  const topology = { topology_hash: "t".repeat(64), mode: "legacy_single_area" as const, entry_node_id: "agent_runtime.home", nodes: [{ id: "agent_runtime.home", title: "Serve store operators", route_template: "/", capability_ids: ["agent_runtime.capability.taxonomy"], operation_ids: ["GetProductTypes"], navigation_operation_ids: [], surface_ids: ["agent_runtime.home"], policy_count: 2 }], capabilities: [{ id: "agent_runtime.capability.taxonomy", title: "Taxonomy", operation_ids: ["GetProductTypes"], node_id: "agent_runtime.home" }], transitions: [{ source_node_id: "agent_runtime.home", target_node_id: "agent_runtime.home", operation_id: "GetProductTypes", outcome: "observed" }], operation_ids: ["GetProductTypes"] };
   const stale: AgentDesignView = {
     agent_id: agentId,
     current_revision_id: priorRevisionId,

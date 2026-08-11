@@ -171,16 +171,23 @@ export function DesignerSurface({ dispatchAffordance, props, agentStore, client,
               <Button type="button" disabled={busy || selectedRef === null} onClick={() => void action("propose")}>Update proposal from current inputs</Button>
             </section>
           )}
+          {savedRevision?.topology.mode === "legacy_single_area" && view.current_inputs_ready ? (
+            <section className="designer-home__input-change" role="status">
+              <div><strong>A richer runtime map is available</strong><span>Create a new immutable proposal from the same Agent and operation selections. Existing accepted designs and builds remain unchanged.</span></div>
+              <Button type="button" disabled={busy || selectedRef === null} onClick={() => void action("propose")}>Create capability-area proposal</Button>
+            </section>
+          ) : null}
           <details className="designer-home__identities"><summary>Inspect immutable design identities</summary><dl><div><dt>Current revision ID</dt><dd><code>{view.current_revision_id}</code></dd></div><div><dt>Accepted revision ID</dt><dd><code>{view.accepted_revision_id ?? "None"}</code></dd></div><div><dt>History</dt><dd>{view.revisions.length} immutable revisions</dd></div></dl></details>
           <DesignerBlueprint
             content={draft}
             topology={topologyCurrent ? savedRevision!.topology : null}
             sourceInputs={view.revisions.at(-1)?.source_inputs ?? []}
           />
-          <details className="designer-home__editor"><summary>Customize goals, behaviors, policies, capabilities, and tools</summary><FieldGroup>
+          <details className="designer-home__editor"><summary>Customize the Agent goal, behaviors, and policies</summary><FieldGroup>
             <Field><FieldLabel htmlFor="designer-goal">Goal</FieldLabel><Input id="designer-goal" value={draft.goal} onChange={(event) => setDraft({ ...draft, goal: event.target.value })} /></Field>
             <Field><FieldLabel htmlFor="designer-instructions">Instructions</FieldLabel><Textarea id="designer-instructions" value={draft.instructions} onChange={(event) => setDraft({ ...draft, instructions: event.target.value })} /></Field>
-            {(["features", "behaviors", "policies", "capabilities", "tools"] as const).map((field) => <Field key={field}><FieldLabel htmlFor={`designer-${field}`}>{field === "capabilities" ? "Capabilities (Title: operation IDs)" : field[0].toUpperCase() + field.slice(1)}</FieldLabel><Textarea id={`designer-${field}`} value={draft[field].join("\n")} onChange={(event) => setDraft({ ...draft, [field]: lines(event.target.value) })} /></Field>)}
+            {(["features", "behaviors", "policies"] as const).map((field) => <Field key={field}><FieldLabel htmlFor={`designer-${field}`}>{field[0].toUpperCase() + field.slice(1)}</FieldLabel><Textarea id={`designer-${field}`} value={draft[field].join("\n")} onChange={(event) => setDraft({ ...draft, [field]: lines(event.target.value) })} /></Field>)}
+            <section className="designer-home__locked-mapping" aria-label="Source-owned capability mapping"><div><strong>Capabilities and API tools</strong><span>Locked to the exact saved Source operation selections. Change them in Source setup, then create a new proposal.</span></div><ul>{draft.capabilities.map((capability) => <li key={capability}>{capability}</li>)}</ul></section>
           </FieldGroup></details>
           <div className="designer-home__actions">
             <Button type="button" disabled={busy} onClick={() => void action("customize")}>Save customization</Button>
@@ -204,6 +211,7 @@ function contentArguments(value: DesignContent) {
     policies: [...value.policies],
     capabilities: [...value.capabilities],
     tools: [...value.tools],
+    runtime_areas: value.runtime_areas.map((item) => ({ title: item.title, capability_titles: [...item.capability_titles] })),
   };
 }
 function message(error: unknown): string { return error instanceof Error ? error.message : "Agent Designer is unavailable."; }

@@ -47,6 +47,7 @@ def test_accepted_design_compiles_to_stable_routedeck_navgraph(tmp_path):
         name="Catalog agent", goal="Answer catalog questions", instructions="Use exact catalog evidence.",
         features=("Catalog",), behaviors=("Answer one product lookup",),
         policies=("Never invent a product.",), capabilities=("Product lookup: GetProduct, PostCarts",), tools=("GetProduct", "PostCarts"),
+        runtime_areas=({"title": "Catalog", "capability_titles": ("Product lookup",)},),
         source_bindings=(binding,),
     )
 
@@ -57,6 +58,7 @@ def test_accepted_design_compiles_to_stable_routedeck_navgraph(tmp_path):
     assert len(first.navgraph_hash) == 64
     graph = first.compiled_navgraph
     assert graph["entry_node"]["id"] == "agent_runtime.home"
+    assert len(graph["nodes"]) == 2
     assert graph["nodes"][0]["public_metadata"]["accepted_design"]["goal"] == "Answer catalog questions"
     expected_topology = compile_design_topology(DesignContent(
         goal=snapshot.goal,
@@ -66,15 +68,21 @@ def test_accepted_design_compiles_to_stable_routedeck_navgraph(tmp_path):
         policies=snapshot.policies,
         capabilities=snapshot.capabilities,
         tools=snapshot.tools,
+        runtime_areas=snapshot.runtime_areas,
     ))
     assert graph["nodes"][0]["public_metadata"]["designer_topology"]["topology_hash"] == expected_topology.topology_hash
-    assert [item["id"] for item in graph["nodes"][0]["capabilities"]] == [
+    runtime_node = next(item for item in graph["nodes"] if item["id"] != "agent_runtime.home")
+    assert [item["id"] for item in runtime_node["capabilities"]] == [
         item.id for item in expected_topology.capabilities
     ]
-    assert [item["title"] for item in graph["nodes"][0]["capabilities"]] == [
+    assert [item["title"] for item in runtime_node["capabilities"]] == [
         item.title for item in expected_topology.capabilities
     ]
-    operations = {item["public_metadata"]["source_operation_id"]: item for item in graph["nodes"][0]["operations"]}
+    operations = {
+        item["public_metadata"]["source_operation_id"]: item
+        for item in runtime_node["operations"]
+        if "source_operation_id" in item["public_metadata"]
+    }
     assert operations["GetProduct"]["safety_class"] == "read_external"
     assert operations["GetProduct"]["review_policy"] == "none"
     assert operations["PostCarts"]["safety_class"] == "write_external"

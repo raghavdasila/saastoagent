@@ -3,6 +3,7 @@ import { NavGraphInspector } from "@routedeck/react";
 import { ArrowRight } from "lucide-react";
 import { memo, useMemo } from "react";
 
+import { presentNavGraphContract, presentNavGraphNodeTitle } from "@/lib/navgraphPresentation";
 import type { DesignContent, DesignTopology } from "./models";
 
 
@@ -48,20 +49,28 @@ function TopologyPreview({ topology }: { readonly topology: DesignTopology }) {
   const node = topology.nodes[0];
   const contract = useMemo(() => designFrontendContract(topology), [topology]);
   if (node === undefined) return <p role="alert">The proposed RouteDeck NavGraph is unavailable.</p>;
+  const reachableNodeIds = topology.transitions
+    .filter((transition) => transition.source_node_id === topology.entry_node_id)
+    .map((transition) => transition.target_node_id);
   return <section className="designer-navgraph" aria-label="Proposed RouteDeck NavGraph preview">
     <header><div><p>Exact Designer topology</p><h3>Proposed RouteDeck NavGraph</h3></div><code title={topology.topology_hash}>{topology.topology_hash.slice(0, 16)}…</code></header>
-    <p>The same topology identity is compiled into the immutable build after approval. Select the runtime area to inspect its surfaces, tools, and transitions.</p>
+    <p>The same topology identity is compiled into the immutable build after approval. Select a runtime area to inspect its surfaces, tools, and legal transitions.</p>
+    {topology.mode === "legacy_single_area" ? <p className="designer-navgraph__legacy" role="status">This immutable proposal predates capability-owned runtime areas. Its existing build remains reproducible; create a fresh proposal to use the current multi-area design.</p> : null}
     <div className="designer-navgraph__inspector">
       <NavGraphInspector
         contract={contract}
         currentNodeId={topology.entry_node_id}
-        reachableNodeIds={[topology.entry_node_id]}
+        reachableNodeIds={reachableNodeIds}
         activeSurfaceIds={node.surface_ids}
-        legalOperationIds={node.operation_ids}
-        canvasHeight="clamp(24rem, 52vh, 38rem)"
-        showMiniMap={topology.nodes.length > 1}
+        legalOperationIds={[...node.navigation_operation_ids, ...node.operation_ids]}
+        canvasHeight={topology.nodes.length === 1 ? "16rem" : "clamp(22rem, 44vh, 32rem)"}
+        showMiniMap={false}
       />
     </div>
+    <div className="designer-navgraph__areas" aria-label="Runtime areas">{topology.nodes.map((runtimeNode) => <article key={runtimeNode.id}>
+      <div><h4>{presentNavGraphNodeTitle(runtimeNode.id, runtimeNode.title, topology.entry_node_id)}</h4><span>{runtimeNode.id === topology.entry_node_id ? "Entry" : "Capability area"}</span></div>
+      <p>{runtimeNode.capability_ids.length} capabilities · {runtimeNode.operation_ids.length} API tools · {runtimeNode.navigation_operation_ids.length} navigation actions</p>
+    </article>)}</div>
     <div className="designer-navgraph__capabilities" aria-label="Proposed capability map">{topology.capabilities.map((capability) => <article key={capability.id}><div><h4>{capability.title}</h4><span>{capability.operation_ids.length} tools</span></div><ul>{capability.operation_ids.map((operation) => <li key={operation}>{operation}</li>)}</ul></article>)}</div>
   </section>;
 }
@@ -70,10 +79,10 @@ function designFrontendContract(topology: DesignTopology): FrontendContract {
   const nodes = Object.fromEntries(topology.nodes.map((node) => [node.id, {
     id: node.id,
     title: node.title,
-    route_template: node.id === topology.entry_node_id ? "/" : `/${node.id.replaceAll(".", "/")}`,
+    route_template: node.route_template,
     deep_link_policy: "shareable" as const,
     conversation_input: { enabled: true, disabled_message: null },
-    operation_ids: [...node.operation_ids],
+    operation_ids: [...node.navigation_operation_ids, ...node.operation_ids],
     surfaces: surfaceSlots(node.surface_ids),
   }]));
   const surfaces = Object.fromEntries(Array.from(new Set(topology.nodes.flatMap((node) => node.surface_ids))).map((id) => [id, {
@@ -83,13 +92,18 @@ function designFrontendContract(topology: DesignTopology): FrontendContract {
     affordances: [],
     public_props_schema: {},
   }]));
-  return {
+  return presentNavGraphContract({
     name: "corpus-agent-design-preview",
     entry_node_id: topology.entry_node_id,
     nodes,
     surfaces,
-    transitions: topology.nodes.flatMap((node) => node.operation_ids.map((operationId) => ({ source: node.id, target: node.id, operation_id: operationId, outcome: "observed" }))),
-  };
+    transitions: topology.transitions.map((transition) => ({
+      source: transition.source_node_id,
+      target: transition.target_node_id,
+      operation_id: transition.operation_id,
+      outcome: transition.outcome,
+    })),
+  });
 }
 
 function surfaceSlots(surfaceIds: readonly string[]) {

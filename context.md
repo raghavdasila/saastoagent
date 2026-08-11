@@ -81,7 +81,15 @@ fixtures or fallbacks.
 
 ## Restart Owners
 
-- Active plan: `plans/2026-08-09-designer-navgraph-alignment.md`
+- First controlling authority:
+  `docs/corpus-agent-design/final-integration-tasks-and-process.md`
+- Owner-authored behavior authority (read-only):
+  `docs/corpus-agent-design/feature-behavior-notes.md`
+- The active work is the complete final-integration task recorded in the first
+  authority above. No narrow feature plan, recorder failure, or previous
+  implementation checkpoint supersedes it.
+- Supporting historical plan:
+  `plans/2026-08-09-designer-navgraph-alignment.md`
 - Superseded baseline checkpoint: `context_checkpoints/2026-08-08-horizontal-product-completion.md`
 - Accepted horizontal checkpoint: `context_checkpoints/2026-08-10-horizontal-evidence-closeout.md`
 - Current validation: `docs/superpowers/validation/2026-08-10-horizontal-chat-surface-hybrid.md`

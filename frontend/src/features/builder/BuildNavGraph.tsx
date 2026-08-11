@@ -2,6 +2,7 @@ import { decodeFrontendContract, type FrontendContract } from "@routedeck/core";
 import { NavGraphInspector } from "@routedeck/react";
 import { memo, useMemo } from "react";
 
+import { presentNavGraphContract, presentNavGraphNodeTitle, presentSemanticLabel } from "@/lib/navgraphPresentation";
 import type { AgentBuildView } from "./models";
 
 interface GraphNode {
@@ -35,6 +36,7 @@ export const BuildNavGraph = memo(function BuildNavGraph({ build }: { readonly b
   const frontendContract = useMemo(() => parseFrontendContract(build.frontend_contract), [build.frontend_contract]);
   if (build.navgraph_hash === null || graph === null) return <p role="alert">The exact immutable RouteDeck NavGraph is unavailable for this build.</p>;
   if (frontendContract === null) return <p role="alert">The exact RouteDeck frontend contract is unavailable for this build.</p>;
+  const presentedContract = presentNavGraphContract(frontendContract);
 
   const currentNode = frontendContract.nodes[frontendContract.entry_node_id];
   const legalOperationIds = currentNode?.operation_ids ?? [];
@@ -51,20 +53,20 @@ export const BuildNavGraph = memo(function BuildNavGraph({ build }: { readonly b
     {topologyHash(graph.nodes[0]?.public_metadata) === null ? null : <p>Designer topology <code>{topologyHash(graph.nodes[0]!.public_metadata)!.slice(0, 16)}…</code></p>}
     <div className="build-navgraph__inspector">
       <NavGraphInspector
-        contract={frontendContract}
+        contract={presentedContract}
         currentNodeId={frontendContract.entry_node_id}
         reachableNodeIds={reachableNodeIds}
         activeSurfaceIds={activeSurfaceIds}
         legalOperationIds={legalOperationIds}
         canvasHeight="clamp(26rem, 56vh, 42rem)"
-        showMiniMap
+        showMiniMap={false}
       />
     </div>
     <div className="build-navgraph__contracts">
       {graph.nodes.map((node) => <article key={node.id}>
-        <h4>{node.title}</h4>
+        <h4>{presentNavGraphNodeTitle(node.id, node.title, frontendContract.entry_node_id)}</h4>
         <dl><div><dt>Policies</dt><dd>{node.policy_refs.length}</dd></div><div><dt>Suggested actions</dt><dd>{node.suggested_actions.length}</dd></div><div><dt>Surface slots</dt><dd>{surfaceCount(node.surfaces)}</dd></div></dl>
-        <ul>{node.capabilities.map((capability) => <li key={capability.id}><strong>{capability.title}</strong><span>{capability.operations?.length ?? 0} tools</span></li>)}</ul>
+        <ul>{node.capabilities.map((capability) => <li key={capability.id}><strong>{presentSemanticLabel(capability.title)}</strong><span>{capability.operations?.length ?? 0} tools</span></li>)}</ul>
         <ul>{node.operations.map((operation) => <li key={operation.id}>
           <strong>{String(operation.public_metadata.source_operation_id ?? operation.title)}</strong>
           <span>{String(operation.public_metadata.method ?? "")} {String(operation.public_metadata.path_template ?? "")}</span>

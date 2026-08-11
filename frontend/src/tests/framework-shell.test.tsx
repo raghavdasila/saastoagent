@@ -451,6 +451,30 @@ it("docks the projected surface immediately above the composer outside chat hist
   harness.dispose();
 });
 
+it("resets hidden horizontal surface scroll when the owner maximizes the workspace", async () => {
+  const harness = await renderRouteDeckComponent(
+    <AgentShell registry={testRegistry} client={idleChatClient} />,
+    {
+      contract: frameworkContractFixture(),
+      projection: frameworkProjectionFixture(),
+    },
+  );
+  const shell = document.querySelector<HTMLElement>("[data-agent-shell]");
+  const surfaceDock = document.querySelector<HTMLElement>("[data-agent-surface-dock]");
+  expect(shell).not.toBeNull();
+  expect(surfaceDock).not.toBeNull();
+  if (shell === null || surfaceDock === null) {
+    throw new Error("Expected the Agent shell and surface dock to render.");
+  }
+  surfaceDock.scrollLeft = 180;
+
+  fireEvent.click(screen.getByRole("button", { name: "Maximize surface" }));
+
+  await waitFor(() => expect(shell).toHaveAttribute("data-surface-layout", "split"));
+  expect(surfaceDock.scrollLeft).toBe(0);
+  harness.dispose();
+});
+
 it("resets the surface dock scroll position when the current node changes", async () => {
   const projection = frameworkProjectionFixture();
   const harness = await renderRouteDeckComponent(

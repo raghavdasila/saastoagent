@@ -75,6 +75,7 @@ def compile_agent_navgraph(snapshot: BuilderInputSnapshot) -> AgentNavGraphArtif
         policies=snapshot.policies,
         capabilities=snapshot.capabilities,
         tools=snapshot.tools,
+        runtime_areas=snapshot.runtime_areas,
     ))
     declarations = tuple(
         _operation_declaration(binding, operation_id)
@@ -86,23 +87,7 @@ def compile_agent_navgraph(snapshot: BuilderInputSnapshot) -> AgentNavGraphArtif
     if {item[0] for item in declarations} != set(snapshot.tools):
         raise BuilderConflict("The accepted Designer tools do not match the exact Source curation.")
 
-    home_ref = NodeRef(id="agent_runtime.home")
-    operations = tuple(item[1] for item in declarations)
-    affordances = tuple(
-        SurfaceAffordance(
-            id=f"tool-{_identity(source_operation_id)}",
-            event="submit",
-            operation=operation.ref,
-        )
-        for source_operation_id, operation in declarations
-    )
-    surface = Surface(
-        id="agent_runtime.home",
-        component="agent_runtime.home",
-        lifecycle=SurfaceLifecycle.STABLE,
-        affordances=affordances,
-        public_props_schema=FrozenJsonObject(_EMPTY_SCHEMA),
-    )
+    home_ref = NodeRef(id=topology.entry_node_id)
     error_surface = Surface(
         id="agent_runtime.delivery_status",
         component="agent_runtime.delivery_status",
@@ -132,6 +117,7 @@ def compile_agent_navgraph(snapshot: BuilderInputSnapshot) -> AgentNavGraphArtif
             "policies": list(snapshot.policies),
             "capabilities": list(snapshot.capabilities),
             "tools": list(snapshot.tools),
+            "runtime_areas": [dict(item) for item in snapshot.runtime_areas],
         },
         "designer_topology": topology.model_dump(mode="json"),
     })
@@ -139,54 +125,48 @@ def compile_agent_navgraph(snapshot: BuilderInputSnapshot) -> AgentNavGraphArtif
         source_operation_id: operation
         for source_operation_id, operation in declarations
     }
-    capabilities = tuple(
-        Capability(
-            id=item.id,
-            title=item.title,
-            operations=tuple(operation_by_source_id[operation_id].ref for operation_id in item.operation_ids),
-            surfaces=(surface.ref,),
-            policy_refs=tuple(policy.ref for policy in policies),
+    navigation_operations = _navigation_operations(topology)
+    operation_by_topology_id = {
+        **operation_by_source_id,
+        **{operation.id: operation for operation in navigation_operations},
+    }
+    active_surfaces = {
+        node.id: Surface(
+            id=node.surface_ids[0],
+            component="agent_runtime.home",
+            lifecycle=SurfaceLifecycle.STABLE,
+            affordances=tuple(
+                SurfaceAffordance(
+                    id=f"action-{_identity(operation_id)}",
+                    event="submit",
+                    operation=operation_by_topology_id[operation_id].ref,
+                )
+                for operation_id in (*node.navigation_operation_ids, *node.operation_ids)
+            ),
+            public_props_schema=FrozenJsonObject(_EMPTY_SCHEMA),
         )
-        for item in topology.capabilities
-    )
-    node = Node(
-        id=home_ref.id,
-        title=topology.nodes[0].title,
-        kind=NodeKind.SECTION,
-        route=Route(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
-        operations=operations,
-        outgoing=tuple(
-            Transition(operation=item.ref, outcome="observed", target=home_ref)
-            for item in operations
-        ),
-        capabilities=capabilities,
-        surfaces=SurfaceSlots(
-            active=surface,
-            detail=(clarification_surface,),
-            status=(router_status_surface,),
-            error=(error_surface,),
-        ),
-        policy_refs=tuple(item.ref for item in policies),
-        suggested_actions=tuple(
-            SuggestedAction(
-                id=f"invoke-{_identity(source_operation_id)}",
-                operation_id=operation.id,
-                label=operation.title,
-                arguments=FrozenJsonObject({}),
-            )
-            for source_operation_id, operation in declarations
-            if not operation.input_schema_value().get("required")
-        ),
-        public_metadata=metadata,
-        recovery=RecoveryPolicy(
-            directives=(_UNKNOWN_WRITE_RECOVERY,),
-            failure_surface=error_surface.ref,
-        ),
+        for node in topology.nodes
+    }
+    capability_by_id = {item.id: item for item in topology.capabilities}
+    nodes = tuple(
+        _node(
+            topology_node=topology_node,
+            topology=topology,
+            operation_by_topology_id=operation_by_topology_id,
+            capability_by_id=capability_by_id,
+            active_surface=active_surfaces[topology_node.id],
+            clarification_surface=clarification_surface,
+            router_status_surface=router_status_surface,
+            error_surface=error_surface,
+            policies=policies,
+            metadata=metadata,
+        )
+        for topology_node in topology.nodes
     )
     compiled = compile_app(Application(
         name=f"corpus-agent-{snapshot.build_id}",
         entry_node=home_ref,
-        features=(Feature(namespace="agent_runtime", nodes=(node,), agent_policies=policies),),
+        features=(Feature(namespace="agent_runtime", nodes=nodes, agent_policies=policies),),
     ))
     documents = compiled.contract_documents()
     navgraph = _stable(json.loads(documents["compiled-navgraph.json"]))
@@ -206,12 +186,14 @@ def load_agent_navgraph(navgraph_hash: str, compiled_navgraph: Mapping[str, obje
     if not isinstance(raw_nodes, list) or not isinstance(entry, Mapping) or not isinstance(name, str):
         raise BuilderUnavailable("The immutable RouteDeck NavGraph is invalid.")
     try:
-        nodes = tuple(Node.model_validate(item) for item in raw_nodes)
+        nodes = _canonical_contract_nodes(raw_nodes)
     except (TypeError, ValueError) as error:
         raise BuilderUnavailable("The immutable RouteDeck NavGraph cannot be reconstructed.") from error
-    if len(nodes) != 1:
-        raise BuilderUnavailable("This Agent runtime requires one exact compiled root node.")
-    accepted = nodes[0].public_metadata_value().get("accepted_design")
+    entry_id = NodeRef.model_validate(entry).id
+    entry_nodes = tuple(node for node in nodes if node.id == entry_id)
+    if len(entry_nodes) != 1:
+        raise BuilderUnavailable("The immutable RouteDeck NavGraph entry area is unavailable.")
+    accepted = entry_nodes[0].public_metadata_value().get("accepted_design")
     if not isinstance(accepted, Mapping):
         raise BuilderUnavailable("The compiled Agent design identity is unavailable.")
     instructions = accepted.get("instructions")
@@ -225,7 +207,7 @@ def load_agent_navgraph(navgraph_hash: str, compiled_navgraph: Mapping[str, obje
     )
     compiled = compile_app(Application(
         name=name,
-        entry_node=NodeRef.model_validate(entry),
+        entry_node=NodeRef(id=entry_id),
         features=(Feature(namespace="agent_runtime", nodes=nodes, agent_policies=policies),),
     ))
     if _compiled_navgraph_hash(compiled) != navgraph_hash:
@@ -239,6 +221,157 @@ def _policies(snapshot: BuilderInputSnapshot) -> tuple[AgentPolicy, ...]:
         AgentPolicy(id=f"agent_runtime.policy.{index}", instruction=value)
         for index, value in enumerate(instructions, start=1)
         if value.strip()
+    )
+
+
+def _canonical_contract_nodes(raw_nodes: list[object]) -> tuple[Node, ...]:
+    parsed = tuple(Node.model_validate(item) for item in raw_nodes)
+    operations: dict[str, Operation] = {}
+    surfaces: dict[str, Surface] = {}
+    for node in parsed:
+        for operation in node.operations:
+            existing = operations.setdefault(operation.id, operation)
+            if existing != operation:
+                raise BuilderUnavailable("The immutable RouteDeck NavGraph repeats an inconsistent operation.")
+        for surface in _slot_surfaces(node.surfaces):
+            existing = surfaces.setdefault(surface.id, surface)
+            if existing != surface:
+                raise BuilderUnavailable("The immutable RouteDeck NavGraph repeats an inconsistent surface.")
+    return tuple(
+        node.model_copy(update={
+            "operations": tuple(operations[item.id] for item in node.operations),
+            "surfaces": node.surfaces.model_copy(update={
+                field_name: (
+                    None
+                    if value is None
+                    else surfaces[value.id]
+                    if isinstance(value, Surface)
+                    else tuple(surfaces[item.id] for item in value)
+                )
+                for field_name in node.surfaces.__class__.model_fields
+                for value in (getattr(node.surfaces, field_name),)
+            }),
+        })
+        for node in parsed
+    )
+
+
+def _slot_surfaces(slots: SurfaceSlots) -> tuple[Surface, ...]:
+    return tuple(
+        item
+        for field_name in slots.__class__.model_fields
+        for value in (getattr(slots, field_name),)
+        for item in (
+            ()
+            if value is None
+            else (value,)
+            if isinstance(value, Surface)
+            else value
+        )
+    )
+
+
+def _navigation_operations(topology) -> tuple[Operation, ...]:
+    titles = {node.id: node.title for node in topology.nodes}
+    operations: dict[str, Operation] = {}
+    for transition in topology.transitions:
+        if transition.outcome != "opened":
+            continue
+        operation = Operation(
+            id=transition.operation_id,
+            title=(
+                "Return to agent home"
+                if transition.target_node_id == topology.entry_node_id
+                else f"Open {titles[transition.target_node_id]}"
+            ),
+            description=(
+                "Return to the general Agent area without invoking an external API."
+                if transition.target_node_id == topology.entry_node_id
+                else f"Open the {titles[transition.target_node_id]} runtime area without invoking an external API."
+            ),
+            input_schema=FrozenJsonObject(_EMPTY_SCHEMA),
+            safety_class=SafetyClass.NAVIGATION,
+            allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
+            review_policy=ReviewPolicy.NONE,
+            outcomes=("opened",),
+            outcome_schemas=FrozenJsonObject({"opened": _EMPTY_SCHEMA}),
+            public_outcome_schemas=FrozenJsonObject({"opened": _EMPTY_SCHEMA}),
+            public_metadata=FrozenJsonObject({
+                "navigation_kind": "runtime_area",
+                "target_node_id": transition.target_node_id,
+            }),
+        )
+        existing = operations.get(operation.id)
+        if existing is not None and existing != operation:
+            raise BuilderConflict("One navigation operation cannot target multiple runtime areas.")
+        operations[operation.id] = operation
+    return tuple(operations.values())
+
+
+def _node(
+    *,
+    topology_node,
+    topology,
+    operation_by_topology_id,
+    capability_by_id,
+    active_surface,
+    clarification_surface,
+    router_status_surface,
+    error_surface,
+    policies,
+    metadata,
+) -> Node:
+    local_operation_ids = (*topology_node.navigation_operation_ids, *topology_node.operation_ids)
+    operations = tuple(operation_by_topology_id[operation_id] for operation_id in local_operation_ids)
+    capabilities = tuple(
+        Capability(
+            id=(definition := capability_by_id[capability_id]).id,
+            title=definition.title,
+            operations=tuple(operation_by_topology_id[operation_id].ref for operation_id in definition.operation_ids),
+            surfaces=(active_surface.ref,),
+            policy_refs=tuple(policy.ref for policy in policies),
+        )
+        for capability_id in topology_node.capability_ids
+    )
+    outgoing = tuple(
+        Transition(
+            operation=operation_by_topology_id[transition.operation_id].ref,
+            outcome=transition.outcome,
+            target=NodeRef(id=transition.target_node_id),
+        )
+        for transition in topology.transitions
+        if transition.source_node_id == topology_node.id
+    )
+    return Node(
+        id=topology_node.id,
+        title=topology_node.title,
+        kind=NodeKind.SECTION,
+        route=Route(template=topology_node.route_template, deep_link_policy=DeepLinkPolicy.SHAREABLE),
+        operations=operations,
+        outgoing=outgoing,
+        capabilities=capabilities,
+        surfaces=SurfaceSlots(
+            active=active_surface,
+            detail=(clarification_surface,),
+            status=(router_status_surface,),
+            error=(error_surface,),
+        ),
+        policy_refs=tuple(item.ref for item in policies),
+        suggested_actions=tuple(
+            SuggestedAction(
+                id=f"invoke-{_identity(operation.id)}",
+                operation_id=operation.id,
+                label=operation.title,
+                arguments=FrozenJsonObject({}),
+            )
+            for operation in operations
+            if not operation.input_schema_value().get("required")
+        ),
+        public_metadata=metadata,
+        recovery=RecoveryPolicy(
+            directives=(_UNKNOWN_WRITE_RECOVERY,),
+            failure_surface=error_surface.ref,
+        ),
     )
 
 

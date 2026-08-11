@@ -8,6 +8,13 @@ from pydantic import BaseModel, ConfigDict, Field
 from .topology import DesignTopology
 
 
+class DesignRuntimeArea(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    title: str = Field(min_length=1, max_length=240)
+    capability_titles: tuple[str, ...] = Field(min_length=1, max_length=64)
+
+
 class DesignContent(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     goal: str = Field(max_length=500)
@@ -17,6 +24,7 @@ class DesignContent(BaseModel):
     policies: tuple[str, ...] = Field(max_length=64)
     capabilities: tuple[str, ...] = Field(max_length=64)
     tools: tuple[str, ...] = Field(max_length=512)
+    runtime_areas: tuple[DesignRuntimeArea, ...] = Field(default=(), max_length=64)
 
 
 class DesignerAgentArguments(BaseModel):

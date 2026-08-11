@@ -19,13 +19,13 @@ it("shows the exact deployed build NavGraph and ToolRouter clarification evidenc
       name: "corpus-agent-build-deployed", entry_node_id: "agent_runtime.home",
       nodes: { "agent_runtime.home": {
         id: "agent_runtime.home", title: "Catalog Agent", route_template: "/", deep_link_policy: "shareable",
-        conversation_input: { enabled: true, disabled_message: "" }, operation_ids: ["agent_runtime.tool.types"],
+        conversation_input: { enabled: true, disabled_message: null }, operation_ids: ["agent_runtime.tool.types"],
         surfaces: { active: "agent_runtime.home", detail: ["agent_runtime.clarification"], status: ["agent_runtime.toolrouter_status"] },
       } },
       surfaces: {
-        "agent_runtime.home": { id: "agent_runtime.home", component: "agent_runtime.home", lifecycle: "stable", public_props_schema: {} },
-        "agent_runtime.clarification": { id: "agent_runtime.clarification", component: "agent_runtime.clarification", lifecycle: "stable", public_props_schema: {} },
-        "agent_runtime.toolrouter_status": { id: "agent_runtime.toolrouter_status", component: "agent_runtime.toolrouter_status", lifecycle: "stable", public_props_schema: {} },
+        "agent_runtime.home": { id: "agent_runtime.home", component: "agent_runtime.home", lifecycle: "stable", public_props_schema: {}, affordances: [] },
+        "agent_runtime.clarification": { id: "agent_runtime.clarification", component: "agent_runtime.clarification", lifecycle: "stable", public_props_schema: {}, affordances: [] },
+        "agent_runtime.toolrouter_status": { id: "agent_runtime.toolrouter_status", component: "agent_runtime.toolrouter_status", lifecycle: "stable", public_props_schema: {}, affordances: [] },
       },
       transitions: [{ source: "agent_runtime.home", target: "agent_runtime.home", operation_id: "agent_runtime.tool.types", outcome: "observed" }],
     },

@@ -6078,8 +6078,8 @@
           "id": "agent-designer-inspect-navgraph",
           "title": "Inspect the proposed RouteDeck NavGraph",
           "userIntent": "Show how this proposed Agent will be organized before I approve it.",
-          "agentIntent": "Designer visibly presents the exact shared topology hash, runtime node, capabilities, curated operations, policies, clarification/status/delivery surfaces, and RouteDeck NavGraph that Builder will compile. It never substitutes a decorative lifecycle diagram for the runnable topology.",
-          "expectedBehavior": "Designer visibly presents the exact shared topology hash, runtime node, capabilities, curated operations, policies, clarification/status/delivery surfaces, and RouteDeck NavGraph that Builder will compile. It never substitutes a decorative lifecycle diagram for the runnable topology.",
+          "agentIntent": "Designer visibly presents the exact shared topology hash, one general entry area, capability-owned runtime areas, legal navigation transitions, curated operations, policies, clarification/status/delivery surfaces, and the RouteDeck NavGraph that Builder will compile. Runtime areas come from the explicit Agent design, not from decorative lifecycle stages.",
+          "expectedBehavior": "Designer visibly presents the exact shared topology hash, one general entry area, capability-owned runtime areas, legal navigation transitions, curated operations, policies, clarification/status/delivery surfaces, and the RouteDeck NavGraph that Builder will compile. Runtime areas come from the explicit Agent design, not from decorative lifecycle stages.",
           "messages": [
             {
               "id": "agent-designer-inspect-navgraph-owner",
@@ -6103,7 +6103,7 @@
           "capabilities": [
             {
               "name": "Agent design authoring",
-              "purpose": "Designer visibly presents the exact shared topology hash, runtime node, capabilities, curated operations, policies, clarification/status/delivery surfaces, and RouteDeck NavGraph that Builder will compile. It never substitutes a decorative lifecycle diagram for the runnable topology.",
+              "purpose": "Designer visibly presents the exact shared topology hash, one general entry area, capability-owned runtime areas, legal navigation transitions, curated operations, policies, clarification/status/delivery surfaces, and the RouteDeck NavGraph that Builder will compile. Runtime areas come from the explicit Agent design, not from decorative lifecycle stages.",
               "operationNames": [],
               "surfaceNames": [
                 "Agent Designer"
@@ -6141,9 +6141,9 @@
                 "boundary"
               ],
               "input": "Show how this proposed Agent will be organized before I approve it.",
-              "referenceResponse": "Designer visibly presents the exact shared topology hash, runtime node, capabilities, curated operations, policies, clarification/status/delivery surfaces, and RouteDeck NavGraph that Builder will compile. It never substitutes a decorative lifecycle diagram for the runnable topology.",
+              "referenceResponse": "Designer visibly presents the exact shared topology hash, one general entry area, capability-owned runtime areas, legal navigation transitions, curated operations, policies, clarification/status/delivery surfaces, and the RouteDeck NavGraph that Builder will compile. Runtime areas come from the explicit Agent design, not from decorative lifecycle stages.",
               "requiredCriteria": [
-                "Designer visibly presents the exact shared topology hash, runtime node, capabilities, curated operations, policies, clarification/status/delivery surfaces, and RouteDeck NavGraph that Builder will compile. It never substitutes a decorative lifecycle diagram for the runnable topology."
+                "Designer visibly presents the exact shared topology hash, one general entry area, capability-owned runtime areas, legal navigation transitions, curated operations, policies, clarification/status/delivery surfaces, and the RouteDeck NavGraph that Builder will compile. Runtime areas come from the explicit Agent design, not from decorative lifecycle stages."
               ],
               "forbiddenCriteria": [
                 "Overwrites immutable design state, retargets inputs, executes a build implicitly, or exposes credentials."
@@ -6175,7 +6175,7 @@
                     "kind": "checkpoint",
                     "label": "Inspect the proposed RouteDeck NavGraph",
                     "stateAssertions": [
-                      "Designer visibly presents the exact shared topology hash, runtime node, capabilities, curated operations, policies, clarification/status/delivery surfaces, and RouteDeck NavGraph that Builder will compile. It never substitutes a decorative lifecycle diagram for the runnable topology."
+                      "Designer visibly presents the exact shared topology hash, one general entry area, capability-owned runtime areas, legal navigation transitions, curated operations, policies, clarification/status/delivery surfaces, and the RouteDeck NavGraph that Builder will compile. Runtime areas come from the explicit Agent design, not from decorative lifecycle stages."
                     ]
                   }
                 ]

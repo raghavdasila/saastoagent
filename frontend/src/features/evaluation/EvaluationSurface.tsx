@@ -28,6 +28,7 @@ export function EvaluationSurface({ dispatchAffordance, props, agentStore, runti
   const [category, setCategory] = useState("routing");
   const [difficulty, setDifficulty] = useState("easy");
   const [editing, setEditing] = useState<EvaluationCaseView | null>(null);
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,9 +46,12 @@ export function EvaluationSurface({ dispatchAffordance, props, agentStore, runti
   useEffect(() => { void agentStore.refresh(); }, [agentStore]);
   useEffect(() => { agentStore.syncSelectionFromHandle(selectedRef); }, [agentStore, agents.agents, selectedRef]);
   useEffect(() => {
-    if (selected === null) return;
+    if (selected === null) { setLoading(true); return; }
     let active = true;
-    void refresh(selected.id).catch((caught) => active && setError(message(caught)));
+    setLoading(true);
+    void refresh(selected.id)
+      .catch((caught) => active && setError(message(caught)))
+      .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [runtimeClient, selected?.id, sessionVersion]);
   useEffect(() => {
@@ -138,7 +142,10 @@ export function EvaluationSurface({ dispatchAffordance, props, agentStore, runti
     <header><p>Selected Agent</p><h1 id="evaluation-title">Evaluation</h1><span>{selected?.name ?? "Loading exact Agent..."}</span><Button type="button" variant="outline" disabled={busy || selectedRef === null} onClick={() => void navigate("return_to_agent")}>Back to Agent</Button></header>
     <p>Generate, refine, and run evaluation coverage against one exact immutable build. Prior results remain attributable when a case changes.</p>
     {error === null ? null : <p role="alert">{error}</p>}
-    {builds.length === 0 ? <section className="evaluation-prerequisite" aria-labelledby="evaluation-prerequisite-title">
+    {loading ? <section className="evaluation-loading" role="status" aria-live="polite">
+      <strong>Loading exact Evaluation…</strong>
+      <span>Resolving the selected Agent, immutable builds, Sandbox interactions, and evaluation history.</span>
+    </section> : builds.length === 0 ? <section className="evaluation-prerequisite" aria-labelledby="evaluation-prerequisite-title">
       <div><p>Build prerequisite</p><h2 id="evaluation-prerequisite-title">A ready immutable build is required.</h2><span>Continue with this exact Agent in Builds. Corpus will not start or substitute a build.</span></div>
       <Button type="button" variant="outline" disabled={busy || selectedRef === null} onClick={() => void navigate("continue_to_builds")}>Continue to Builds</Button>
     </section> : <>
@@ -158,9 +165,9 @@ export function EvaluationSurface({ dispatchAffordance, props, agentStore, runti
         <Button type="button" disabled={busy || !runId || !setName.trim() || !title.trim() || !category.trim()} onClick={() => void createCase()}>Add evaluation case</Button>
       </details>
     </>}
-    {selectedBuild?.status === "ready" ? <BuildNavGraph build={selectedBuild} /> : null}
-    {sets.some((set) => set.build_id === buildId && set.eligible === true) ? <Button type="button" disabled={busy} onClick={() => void navigate("continue_to_channels")}>Continue to Channels</Button> : null}
-    <div className="evaluation-sets">{sets.filter((set) => set.build_id === buildId).map((set) => <article key={set.id} className="evaluation-set-card">
+    {!loading && selectedBuild?.status === "ready" ? <BuildNavGraph build={selectedBuild} /> : null}
+    {!loading && sets.some((set) => set.build_id === buildId && set.eligible === true) ? <Button type="button" disabled={busy} onClick={() => void navigate("continue_to_channels")}>Continue to Channels</Button> : null}
+    <div className="evaluation-sets">{loading ? null : sets.filter((set) => set.build_id === buildId).map((set) => <article key={set.id} className="evaluation-set-card">
       <header><div><h2>{set.name}</h2><p>Generation: <strong>{generationLabel(set.generation_status)}</strong></p></div><p>{set.eligible === null ? "Not evaluated" : set.eligible ? "Eligible for deployment" : "Not eligible for deployment"}</p></header>
       {set.generation_failure_message ? <p role="alert">{set.generation_failure_message}</p> : null}
       {set.generation_status === "failed" ? <Button type="button" variant="outline" disabled={busy} onClick={() => void retryGeneration(set.id)}>Retry generation</Button> : null}

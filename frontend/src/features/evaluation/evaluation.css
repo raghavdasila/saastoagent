@@ -1,4 +1,4 @@
-.evaluation-home { display: grid; gap: 1rem; min-width: 0; }
+.evaluation-home { container-name: evaluation-surface; container-type: inline-size; display: grid; gap: 1rem; min-width: 0; }
 .evaluation-home > header,
 .evaluation-set-card > header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; }
 .evaluation-build-context,
@@ -22,10 +22,17 @@
 .evaluation-prerequisite p, .evaluation-prerequisite h2 { margin: 0; }
 .evaluation-prerequisite p { color: var(--primary); font-size: .72rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
 .evaluation-prerequisite span { color: var(--muted-foreground); line-height: 1.45; }
+.evaluation-loading { display: grid; gap: .3rem; padding: 1rem; border: 1px solid var(--border); border-radius: .85rem; background: var(--card); }
+.evaluation-loading span { color: var(--muted-foreground); line-height: 1.45; }
 
 @media (max-width: 760px) {
   .evaluation-case-table [role="row"] { grid-template-columns: 1fr; }
   .evaluation-case-actions { justify-content: flex-start; }
   .evaluation-prerequisite { align-items: stretch; flex-direction: column; }
   .evaluation-prerequisite button { width: 100%; }
+}
+
+@container evaluation-surface (max-width: 46rem) {
+  .evaluation-case-table [role="row"] { grid-template-columns: minmax(0, 1fr); }
+  .evaluation-case-actions { min-width: 0; justify-content: flex-start; }
 }

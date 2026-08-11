@@ -41,6 +41,7 @@ class BuilderInputSnapshot:
     policies: tuple[str, ...]
     capabilities: tuple[str, ...]
     tools: tuple[str, ...]
+    runtime_areas: tuple[dict[str, object], ...]
     source_bindings: tuple[BuilderSourceBinding, ...]
 
 

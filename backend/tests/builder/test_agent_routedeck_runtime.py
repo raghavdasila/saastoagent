@@ -45,8 +45,14 @@ async def test_read_and_reviewed_write_run_in_one_durable_isolated_routedeck_ses
     snapshot = BuilderInputSnapshot(
         uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), 1, uuid.uuid4(), "i" * 64,
         "Store Agent", "Serve store requests", "Use only exact results.", ("Store",),
-        ("Answer and create carts",), ("Never invent.",), ("Store tools: GetProducts, PostCarts",),
-        ("GetProducts", "PostCarts"), (binding,),
+        ("Answer and create carts",), ("Never invent.",),
+        ("Catalog reads: GetProducts", "Cart creation: PostCarts"),
+        ("GetProducts", "PostCarts"),
+        (
+            {"title": "Catalog", "capability_titles": ("Catalog reads",)},
+            {"title": "Cart", "capability_titles": ("Cart creation",)},
+        ),
+        (binding,),
     )
     artifact = compile_agent_navgraph(snapshot)
     now = datetime.now(UTC)
@@ -74,8 +80,9 @@ async def test_read_and_reviewed_write_run_in_one_durable_isolated_routedeck_ses
     assert staged.operation.disposition is OperationDisposition.REQUIRES_REVIEW
     assert staged.api_result is None
     assert len(direct.calls) == 1
-    assert read.projection["current"]["node_id"] == "agent_runtime.home"
+    assert read.projection["current"]["node_id"] != "agent_runtime.home"
     assert staged.operation.review is not None
+    assert staged.projection["current"]["node_id"] != read.projection["current"]["node_id"]
 
     accepted = await supervisor.accept(
         build=build, tenant_id=str(snapshot.organization_id), session_id="sandbox-session",
@@ -107,7 +114,13 @@ async def test_parallel_read_tools_share_one_durable_agent_session_without_sqlit
         uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), 1, uuid.uuid4(), "i" * 64,
         "Taxonomy Agent", "Serve taxonomy requests", "Use only exact results.",
         ("Store",), ("Answer taxonomy requests",), ("Never invent.",),
-        ("Store tools: GetProductTypes, GetProductTags",), ("GetProductTypes", "GetProductTags"), (binding,),
+        ("Types: GetProductTypes", "Tags: GetProductTags"),
+        ("GetProductTypes", "GetProductTags"),
+        (
+            {"title": "Types", "capability_titles": ("Types",)},
+            {"title": "Tags", "capability_titles": ("Tags",)},
+        ),
+        (binding,),
     )
     artifact = compile_agent_navgraph(snapshot)
     now = datetime.now(UTC)

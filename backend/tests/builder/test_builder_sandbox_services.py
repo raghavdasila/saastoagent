@@ -91,7 +91,9 @@ async def test_builder_persists_exact_runtime_binding_and_historical_lineage(tmp
         pending.id, pending.build_request_id, pending.organization_id, pending.agent_id,
         pending.agent_version, pending.design_revision_id, "i" * 64, "Agent", "Answer exactly.",
         "Answer exactly.", ("Catalog",), ("Answer questions",), ("Use exact data.",),
-        ("Catalog lookup",), ("GetProductTypes",), (binding,),
+        ("Catalog lookup",), ("GetProductTypes",),
+        ({"title": "Catalog", "capability_titles": ("Catalog lookup",)},),
+        (binding,),
     )
     agents, repository = Agents(), BuilderRepo(pending)
     service = BuilderService(repository, Inputs(snapshot), BuildRuntime(), agents)

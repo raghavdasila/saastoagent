@@ -57,6 +57,23 @@ it("runs one stopped build and exposes Sandbox only after authoritative running 
 });
 
 
+it("keeps Sandbox navigation available when immutable history contains multiple running builds", async () => {
+  const agentId = "7db3745e-6f77-4b92-929c-4d2292fb3708";
+  const agentRef = "agent-" + agentId.replaceAll("-", "").slice(0, 20);
+  const current = { ...build(agentId, "running"), id: "4bf642f8-18d2-45a9-8a77-b6d293a4fd7d" };
+  const prior = { ...build(agentId, "running"), id: "4bf642f8-18d2-45a9-8a77-b6d293a4fd7e" };
+
+  render(<BuilderSurface
+    {...surfaceProps(agentRef, vi.fn())}
+    agentStore={agentStore(agentId)}
+    designerClient={{ get: vi.fn(async () => emptyDesign(agentId)) } as never}
+    runtimeClient={{ builds: vi.fn(async () => ({ agent_id: agentId, builds: [current, prior] })) } as never}
+  />);
+
+  expect(await screen.findByRole("button", { name: "Continue to Sandbox" })).toBeEnabled();
+});
+
+
 it("requires review before removing a stopped draft runtime", async () => {
   const agentId = "7db3745e-6f77-4b92-929c-4d2292fb3708";
   const agentRef = `agent-${agentId.replaceAll("-", "").slice(0, 20)}`;

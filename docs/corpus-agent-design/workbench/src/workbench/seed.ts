@@ -1304,7 +1304,7 @@ function clarificationFeature(): DesignFeature {
       "agent-designer-inspect-navgraph",
       "Inspect the proposed RouteDeck NavGraph",
       "Show how this proposed Agent will be organized before I approve it.",
-      "Designer visibly presents the exact shared topology hash, runtime node, capabilities, curated operations, policies, clarification/status/delivery surfaces, and RouteDeck NavGraph that Builder will compile. It never substitutes a decorative lifecycle diagram for the runnable topology.",
+      "Designer visibly presents the exact shared topology hash, one general entry area, capability-owned runtime areas, legal navigation transitions, curated operations, policies, clarification/status/delivery surfaces, and the RouteDeck NavGraph that Builder will compile. Runtime areas come from the explicit Agent design, not from decorative lifecycle stages.",
       [],
       ["Agent Designer"],
     ),

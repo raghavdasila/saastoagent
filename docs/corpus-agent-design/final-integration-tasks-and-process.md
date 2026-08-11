@@ -9,6 +9,42 @@ process second. It is not an implementation plan or a status report. It does
 not replace the owner-authored
 `docs/corpus-agent-design/feature-behavior-notes.md`.
 
+## Read this before doing anything else
+
+This is the first restart authority for the remaining Corpus work. After any
+pause, context compaction, handoff, goal reset, or resumed session, the agent
+must read this file and the owner-authored Behavior Notes before making a plan,
+editing source, debugging a narrow failure, or launching evidence.
+
+## Execution lock: tasks before plans or implementation
+
+The owner task list in this file must be recorded and acknowledged before any
+working plan is created or resumed. The active Goal Mode objective must name
+this file and `docs/corpus-agent-design/feature-behavior-notes.md` explicitly.
+Until both conditions are true, product implementation, narrow defect work,
+browser campaigns, recorder work, and evidence polishing are prohibited.
+
+This file is the task authority, not another implementation plan. A working
+plan may order the next few actions only after this document is established;
+it may never replace, summarize away, or narrow the owner tasks below.
+
+The current task is not "design another plan" and it is not "finish the last
+module touched." The task is to finish Corpus as one integrated product:
+
+- retain the functionality that already works inside each feature;
+- connect the 11 Behavior Note features into one understandable owner journey;
+- close missing behavior, lifecycle, CRUD, recovery, and handoff gaps;
+- make chat, surfaces, navigation, RouteDeck state, and persisted product state
+  cooperate on the same task;
+- make the surfaces and deployed Agent clear, polished, responsive, and useful;
+- prove chat-only, surface-only, and hybrid use through the real product; and
+- preserve complete, normal-speed internal evidence without omitting failures
+  or awkward portions.
+
+No narrower implementation plan, failing recorder, isolated feature, test
+suite, or UI defect may replace this task. Plans are subordinate working aids;
+this owner task list and the Behavior Notes remain the completion authority.
+
 ## Owner tasks — controlling list
 
 1. Preserve the current working baseline in one meaningful `[WIP]` commit and

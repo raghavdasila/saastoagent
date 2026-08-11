@@ -4,8 +4,14 @@ import hashlib
 import json
 import uuid
 
-from .ports import DesignerInputGateway, DesignerRepository, DesignerUnavailable
-from .schemas import AgentDesignView, BuildRequestView, DesignContent, DesignRevisionView
+from .ports import DesignerConflict, DesignerInputGateway, DesignerRepository, DesignerUnavailable
+from .schemas import (
+    AgentDesignView,
+    BuildRequestView,
+    DesignContent,
+    DesignRevisionView,
+    DesignRuntimeArea,
+)
 from .topology import compile_design_topology
 
 
@@ -38,6 +44,7 @@ class DesignerService:
             for group in source.semantic_groups
         )
         capabilities = _exclusive_capabilities(groups, tools)
+        capability_titles = tuple(value.partition(":")[0].strip() for value in capabilities)
         content = DesignContent(
             goal=snapshot.description or snapshot.agent_name,
             instructions=snapshot.instructions,
@@ -59,6 +66,13 @@ class DesignerService:
             ),
             capabilities=capabilities,
             tools=tools,
+            runtime_areas=tuple(
+                DesignRuntimeArea(
+                    title=_runtime_area_title(title),
+                    capability_titles=(title,),
+                )
+                for title in capability_titles
+            ),
         )
         compile_design_topology(content)
         fingerprint = _fingerprint(snapshot)
@@ -71,6 +85,21 @@ class DesignerService:
         return await self.get(organization_id, agent_id)
 
     async def customize(self, organization_id, agent_id, *, expected_revision_id, content):
+        current = await self.get(organization_id, agent_id)
+        if not current.current_inputs_ready or not current.current_inputs_match:
+            raise DesignerConflict(
+                "The Agent or Source inputs changed. Create a new proposal before customizing it."
+            )
+        snapshot = await self.inputs.snapshot(organization_id, agent_id)
+        expected_tools = tuple(sorted({
+            operation
+            for source in snapshot.sources
+            for operation in source.included_operation_ids
+        }))
+        if content.tools != expected_tools:
+            raise DesignerConflict(
+                "API tools are locked to the exact saved Source operation selections."
+            )
         compile_design_topology(content)
         await self.repository.customize(
             organization_id,
@@ -176,3 +205,12 @@ def _exclusive_capabilities(groups, tools: tuple[str, ...]) -> tuple[str, ...]:
             f"Curated operations: {', '.join(operation for operation in tools if operation in remaining)}"
         )
     return tuple(capabilities)
+
+
+def _runtime_area_title(capability_title: str) -> str:
+    """Turn semantic graph identifiers into stable owner-facing area labels."""
+
+    words = capability_title.replace("_", " ").replace("-", " ").split()
+    if not words:
+        return "Curated operations"
+    return " ".join(words).capitalize()
