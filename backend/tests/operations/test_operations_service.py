@@ -5,6 +5,7 @@ import uuid
 import pytest
 
 from corpus.features.operations.domain import OperationsLineage
+from corpus.features.operations.ports import OperationsUnavailable
 from corpus.features.operations.service import OperationsService
 from corpus.integrations.agent_delivery import InteractionProjection
 
@@ -45,10 +46,43 @@ async def test_owner_operations_projects_safe_trace_and_promotes_exact_runtime_r
     service = OperationsService(Delivery(interaction), Lineage(owner, lineage), evaluation)
 
     inventory = await service.list(owner)
+    assert inventory.interactions[0].status == "completed"
     assert inventory.interactions[0].events[0].safe_data["operation_id"] == "GetProductTypes"
     await service.promote(owner, interaction_id="interaction-1", set_name="Production", title="Taxonomy", category="operations", difficulty="medium", mandatory=True)
     assert evaluation.values[2]["runtime_run_id"] == "runtime-run"
     assert evaluation.values[2]["expected_operation_ids"] == ("GetProductTypes",)
+
+
+@pytest.mark.asyncio
+async def test_operations_rejects_failed_api_result_as_evaluation_evidence():
+    owner, agent, build, deployment = (
+        uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    )
+    interaction = InteractionProjection(
+        "interaction-failed-result", "public-session", "runtime-deployment",
+        "List product types", "The API request failed.", "completed",
+        {"request_id": "runtime-run"},
+    )
+    lineage = OperationsLineage(agent, build, deployment, "runtime-run", ({
+        "sequence": 1,
+        "kind": "api.result",
+        "safe_data": {
+            "operation_id": "GetProductTypes",
+            "status": "failed",
+        },
+    },))
+    service = OperationsService(Delivery(interaction), Lineage(owner, lineage), Evaluation())
+
+    with pytest.raises(OperationsUnavailable, match="no completed API operation"):
+        await service.promote(
+            owner,
+            interaction_id="interaction-failed-result",
+            set_name="Production",
+            title="Taxonomy",
+            category="operations",
+            difficulty="medium",
+            mandatory=True,
+        )
 
 
 @pytest.mark.asyncio

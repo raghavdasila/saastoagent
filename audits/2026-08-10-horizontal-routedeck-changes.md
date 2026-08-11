@@ -120,6 +120,28 @@ from that checkout before the accepted hybrid run.
      summary and wait; Corpus could not repair the framework-owned model loop,
      lease, mutation, and replay transaction without duplicating RouteDeck.
 
+9. **Exact one-review-surface projection**
+   - RouteDeck files: `routedeck_core/supervision/review_staging.py`,
+     `tests/supervision/conftest.py`, and
+     `tests/supervision/test_fail_closed_branches.py`.
+   - Proven framework gap: after an accepted deployment review, staging a
+     distinct rollback review made both the terminal deployment review and the
+     current rollback review visible. RouteDeck correctly persisted the first
+     review as accepted, but retained its old public surface props and
+     reprojected every declared review surface whenever any later review was
+     pending.
+   - Smallest change: staging a review now clears the public props of every
+     other declared review surface before populating only the exact surface
+     named by the current operation. Review authority, arguments, expiry,
+     acceptance, rejection, guards, and operation execution are unchanged.
+   - Purpose: a product with consequence-specific review surfaces shows only
+     the current review and cannot resurrect stale accepted or rejected review
+     copy when another operation is staged.
+   - Validation: the focused RouteDeck supervision set passes 48/48, including
+     a regression with stale props on one review surface followed by a new
+     review targeting another surface. Replacement Corpus browser validation
+     is required before the rollback/availability slice is closed.
+
 ## Explicitly rejected/removed approach
 
 A generic mechanical “post-completion backtrack” guard was tested and removed.

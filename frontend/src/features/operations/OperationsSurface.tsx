@@ -83,7 +83,7 @@ export function OperationsSurface({ dispatchAffordance, props, runtimeClient, ag
     <header><p>Owner activity</p><h1 id="operations-title">Operations</h1><span>Deployed Agent interactions and redacted execution evidence</span><Button type="button" variant="outline" disabled={busy !== null || selectedAgentRef === null} onClick={() => void returnToAgent()}>Back to Agent</Button></header>
     {error === null ? null : <p role="alert">{error}</p>}
     {loading ? <p className="operations-home__loading" role="status">Loading exact deployed interactions and immutable build lineageâ€¦</p> : null}
-    {!loading ? <section className="operations-home__summary" aria-label="Operations summary"><div><span>Interactions</span><strong>{interactions.length}</strong></div><div><span>Successful</span><strong>{interactions.filter((item) => item.status === "succeeded").length}</strong></div><div><span>Evaluation candidates</span><strong>{interactions.filter(isEvaluationCandidate).length}</strong></div></section> : null}
+    {!loading ? <section className="operations-home__summary" aria-label="Operations summary"><div><span>Interactions</span><strong>{interactions.length}</strong></div><div><span>Successful</span><strong>{interactions.filter(isEvaluationCandidate).length}</strong></div><div><span>Evaluation candidates</span><strong>{interactions.filter(isEvaluationCandidate).length}</strong></div></section> : null}
     {selectedAgentId === null ? !loading ? <p>Select an Agent to inspect Operations.</p> : null : !loading && interactions.length === 0 ? <p>No deployed Agent interactions yet.</p> : <ol className="operations-home__interactions">{interactions.map((interaction) => <li key={interaction.interaction_id}>
       <header><div><span className="operations-home__status" data-status={interaction.status}>{interaction.status}</span><h2>{interaction.input_summary}</h2></div><span>Deployed interaction</span></header>
       <section className="operations-home__outcome" aria-label="Agent response"><p>Agent response</p><strong>{interaction.output_summary}</strong></section>
@@ -102,5 +102,10 @@ export function OperationsSurface({ dispatchAffordance, props, runtimeClient, ag
 function message(value: unknown) { return value instanceof Error ? value.message : "Agent Operations are unavailable."; }
 
 function isEvaluationCandidate(interaction: OperationsInteractionView): boolean {
-  return interaction.status === "succeeded" && interaction.events.some((event) => event.kind === "api.result");
+  return interaction.status === "completed" && interaction.events.some((event) =>
+    (event.kind === "api.result" || event.kind === "api.verification_result")
+    && event.safe_data.status === "succeeded"
+    && typeof event.safe_data.operation_id === "string"
+    && event.safe_data.operation_id.length > 0
+  );
 }

@@ -50,8 +50,8 @@ it("presents one deployed interaction as a readable outcome and promotes it expl
   const runtimeClient = {
     operations: vi.fn(async () => ({ interactions: [{
       interaction_id: "interaction-1", agent_id: agentId, build_id: "build-1", deployment_id: "deployment-1", session_id: "session-1",
-      input_summary: "List product types", output_summary: "Three product types are available.", status: "succeeded",
-      events: [{ sequence: 1, kind: "api.result", safe_data: { status: "succeeded", http_status: 200 } }],
+      input_summary: "List product types", output_summary: "Three product types are available.", status: "completed",
+      events: [{ sequence: 1, kind: "api.result", safe_data: { operation_id: "GetProductTypes", status: "succeeded", http_status: 200 } }],
     }] })),
     builds: vi.fn(async () => ({ builds: [] })),
   } as unknown as AgentRuntimeClient;
@@ -60,6 +60,7 @@ it("presents one deployed interaction as a readable outcome and promotes it expl
 
   expect(await screen.findByRole("heading", { name: "List product types" })).toBeVisible();
   expect(screen.getByText("Three product types are available.")).toBeVisible();
+  expect(screen.getByText("Successful").nextElementSibling).toHaveTextContent("1");
   fireEvent.click(screen.getByText("Create an Evaluation case from this interaction"));
   fireEvent.click(screen.getByRole("button", { name: "Create Evaluation case" }));
 

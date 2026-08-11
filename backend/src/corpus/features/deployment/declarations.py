@@ -23,7 +23,7 @@ DEPLOY_AGENT = Operation(
     unknown_recovery_directive=(
         "Do not retry deployment automatically. Reload the exact durable deployment status and verify the hosted activation before any new reviewed attempt."
     ),
-    public_metadata=FrozenJsonObject({"review_surface_id": "deployment.retry_review"}),
+    public_metadata=FrozenJsonObject({"review_surface_id": "deployment.deploy_review"}),
 )
 RETRY_DEPLOYMENT = Operation(
     id="deployment.retry", title="Retry failed deployment",
@@ -40,7 +40,7 @@ RETRY_DEPLOYMENT = Operation(
     unknown_recovery_directive=(
         "Do not retry deployment automatically. Reload the exact failed deployment and stage a new owner review only when its external outcome is definite."
     ),
-    public_metadata=FrozenJsonObject({"review_surface_id": "deployment.deploy_review"}),
+    public_metadata=FrozenJsonObject({"review_surface_id": "deployment.retry_review"}),
 )
 ROLLBACK_DEPLOYMENT = Operation(
     id="deployment.rollback", title="Roll back hosted Agent",

@@ -90,6 +90,10 @@ class OperationsService:
 
     async def promote(self, organization_id: uuid.UUID, *, interaction_id: str, set_name: str, title: str, category: str, difficulty: str, mandatory: bool):
         interaction = self.delivery.interaction(interaction_id)
+        if interaction.status != "completed":
+            raise OperationsUnavailable(
+                "The interaction did not complete successfully."
+            )
         request_id = interaction.trace.get("request_id")
         if not isinstance(request_id, str):
             raise OperationsUnavailable("The interaction does not have runnable evaluation lineage.")
@@ -101,6 +105,7 @@ class OperationsService:
             for item in lineage.safe_events
             if item.get("kind") in {"api.result", "api.verification_result"}
             and isinstance(item.get("safe_data"), dict)
+            and item["safe_data"].get("status") == "succeeded"
             and item["safe_data"].get("operation_id")
         ))
         if not operations:

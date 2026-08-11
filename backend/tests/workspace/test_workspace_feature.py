@@ -48,6 +48,7 @@ from corpus.features.agents.declarations import (
     RETURN_TO_WORKSPACE,
     SAVE_AGENT_CHANGES,
 )
+from corpus.features.deployment.declarations import DEPLOY_AGENT, RETRY_DEPLOYMENT
 from corpus.features.workspace.declarations import OPEN_AGENTS, OPEN_SOURCES
 from corpus.features.workspace.policies import FILE_FIRST_TASK_ROUTING
 from corpus.features.sources.declarations import OPEN_API_CREATION, RETURN_TO_HOME
@@ -236,6 +237,15 @@ def test_agents_home_exposes_exact_lifecycle_affordances() -> None:
     }
     assert affordances["archive_agent"] == "agents.archive_agent"
     assert affordances["delete_agent"] == "agents.delete_agent"
+
+
+def test_deployment_operations_target_their_exact_review_surfaces() -> None:
+    assert DEPLOY_AGENT.public_metadata_value() == {
+        "review_surface_id": "deployment.deploy_review"
+    }
+    assert RETRY_DEPLOYMENT.public_metadata_value() == {
+        "review_surface_id": "deployment.retry_review"
+    }
 
 
 def test_selected_agent_work_areas_expose_guided_navigation_without_mutation() -> None:
