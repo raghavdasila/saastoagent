@@ -569,6 +569,7 @@ async def test_agent_operation_handlers_report_action_result_and_state_errors(
             "evaluation.edit_case",
             "evaluation.delete_case",
             "evaluation.run_case",
+            "evaluation.retry_case_run",
             "agents.open_builds",
             "agents.open_channels",
             "agents.return_to_hub",

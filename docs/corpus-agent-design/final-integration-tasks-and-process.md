@@ -802,6 +802,59 @@ truth is actually invalidated.
   errors. This closes the sole missing Phase 4 behavior without replaying
   Source, Designer, Builder, Sandbox, Evaluation execution, or Deployment.
 
+#### Phase 5 checkpoint — 2026-08-12
+
+- **Builder lifecycle is accepted without rebuilding the Agent.** The retained
+  exact build was started, paused, reloaded, resumed, stopped, and its draft
+  runtime was removed through reject-then-accept review. Immutable build,
+  Source, NavGraph, and Evaluation lineage remained unchanged. The product
+  mutation run `20260812T115751Z-1f42126f` completed the lifecycle but retained
+  a recorder-only terminal copy mismatch; read-only continuation
+  `20260812T120029Z-0acc5777` accepted the durable removed state. Its 12.040s
+  1440x1000 normal-speed maximized film is
+  `artifacts/phase5-builder-lifecycle/20260812T120029Z-0acc5777/phase5-builder-lifecycle-normal-speed.webm`
+  (SHA-256 `02ff798a3f56bbac4707ae9d0c60ad2ed301212e65bbdc9a1fd23b7fe50feed3`).
+- **Evaluation CRUD and explicit retry are accepted.** Live evidence exposed a
+  real Corpus integration gap: the Evaluation node declared
+  `evaluation.retry_case_run`, but the exact selected-Agent binding omitted it,
+  so RouteDeck correctly blocked the surface action before its handler. The
+  binding now includes the operation and 36 focused Agent/Evaluation/Workspace
+  tests pass. One explicit retry appended a distinct immutable attempt linked
+  to the original and truthfully failed with the same unresolved natural
+  Sandbox-answer requirement; no automatic retry occurred. Run
+  `20260812T122357Z-ce380e01` then appended Evaluation case revision 2,
+  rejected one removal review, accepted a fresh removal review, and preserved
+  both revisions after reload. Its 25.280s 1440x1000 normal-speed maximized
+  film is `artifacts/phase5-evaluation-management/20260812T122357Z-ce380e01/phase5-evaluation-management-normal-speed.webm`
+  (SHA-256 `3432eeb8b36aa5c6eeaf18200a9ff4bea7163cec88a3771dfe3b3e840ca9fa88`).
+- **Hosted Web availability is accepted against the real public-session
+  contract.** Run `20260812T123012Z-d40850a1` rejected one pause review, then
+  accepted pause and resume. Public session creation was 200 before, the exact
+  intentional 503 while paused, and 200 after resume; channel ID, deployment
+  ID, hosted address, and active build were restored exactly after reload. Its
+  24.840s 1440x1000 normal-speed maximized film is
+  `artifacts/phase5-channel-availability/20260812T123012Z-d40850a1/phase5-channel-availability-normal-speed.webm`
+  (SHA-256 `86d41ecc5ddb7d4db87bec90d836a8daea25e6bdd3967aa6742b36e1dc199bbd`).
+- **Deployment rollback and restart recovery are accepted.** The retained
+  hosted channel has exactly two immutable successful releases. Run
+  `20260812T123342Z-ca35e945` rejected one rollback, accepted rollback to the
+  alternate release, restarted the backend, proved the alternate release still
+  active, then accepted restoration to the original release. It created no new
+  deployment and the complete channel/deployment records matched preflight at
+  close. Its 66.200s 1440x1000 normal-speed maximized film is
+  `artifacts/phase5-deployment-recovery/20260812T123342Z-ca35e945/phase5-deployment-recovery-normal-speed.webm`
+  (SHA-256 `f4af5a138863ae5746ac77071b2a2b17f7e9e8b80bfa2c953c4ee9b787833689`).
+  No retained product deployment is failed, so failed-deployment retry was not
+  fabricated for browser evidence. Its real service/persistence boundary is
+  covered by focused tests: only a definitely failed deployment can create one
+  new reviewed lineage, and no automatic retry is permitted.
+- **Retained failures remain failures.** Setup/readiness and recorder-locator
+  failures under `artifacts/phase5-*` are not accepted evidence. The first
+  Channel film also used the wrong public HTTP method and remains failed; the
+  accepted film uses the actual `POST /api/public/agents/{slug}/sessions`
+  contract. Phase 5 did not replay Source, Designer, Sandbox, public-agent
+  interaction, Operations, or any full chat journey.
+
 ### Phase 2 — close one feature at a time
 
 For each open row, in the operational-Agent-first order above:

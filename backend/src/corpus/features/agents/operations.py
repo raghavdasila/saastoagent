@@ -594,6 +594,7 @@ class OpenAgentAreaHandler:
                         "evaluation.edit_case",
                         "evaluation.delete_case",
                         "evaluation.run_case",
+                        "evaluation.retry_case_run",
                         OPEN_AGENT_BUILDS.id,
                         OPEN_AGENT_CHANNELS.id,
                     ),
