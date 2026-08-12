@@ -171,7 +171,7 @@ button, input, textarea { font: inherit; }
 }
 [data-routedeck-suggested-actions] button:hover:not(:disabled) { border-color: color-mix(in oklch, var(--primary) 35%, var(--border)); color: var(--primary); background: var(--accent); }
 
-[data-agent-surface-dock] { width: min(860px, 100%); max-width: 100%; max-height: min(46dvh, 520px); min-width: 0; overflow-x: clip; overflow-y: auto; margin: 0 auto; padding-top: 10px; background: linear-gradient(to bottom, transparent, var(--background) 18%); overscroll-behavior: contain; scrollbar-gutter: stable; }
+[data-agent-surface-dock] { width: min(860px, 100%); max-width: 100%; max-height: min(46dvh, 520px); min-width: 0; overflow-x: clip; overflow-y: auto; margin: 10px auto 0; background: var(--background); overscroll-behavior: contain; scrollbar-gutter: stable; }
 [data-agent-surface-dock]:not(:has([data-routedeck-surface])) { display: none; }
 [data-agent-surface-toolbar] { position: sticky; z-index: 6; top: 0; display: flex; min-height: 38px; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 8px; border: 1px solid var(--border); border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0; background: color-mix(in oklch, var(--background) 94%, transparent); backdrop-filter: blur(12px); }
 [data-agent-surface-toolbar] > span { color: var(--muted-foreground); font-size: 11px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
@@ -317,7 +317,7 @@ button, input, textarea { font: inherit; }
   [data-agent-quick-actions] { overflow-x: auto; padding-bottom: 3px; margin-left: 2px; }
   [data-routedeck-suggested-actions] > [role="group"] { width: max-content; max-width: none; flex-wrap: nowrap; }
   [data-routedeck-suggested-actions] button { width: min(210px, 66vw); min-height: 44px; }
-  [data-agent-surface-dock] { max-height: 42dvh; padding-top: 8px; scrollbar-gutter: auto; }
+  [data-agent-surface-dock] { max-height: 42dvh; margin-top: 8px; scrollbar-gutter: auto; }
   [data-agent-input-dock] { padding-top: 8px; }
   [data-agent-composer] { gap: 7px; padding: 7px; border-radius: 13px; }
   [data-agent-composer] > textarea { min-height: 44px; }

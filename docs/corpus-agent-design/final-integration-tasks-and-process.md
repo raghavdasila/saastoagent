@@ -695,6 +695,113 @@ later regression can add a bounded correction to the owning active phase, but
 cannot reopen or replay the completed feature film unless its accepted product
 truth is actually invalidated.
 
+#### Deferred product-language and surface-design gaps — 2026-08-12
+
+- Several evidence prompts repeat the word `consequences` to elicit the
+  required-review path for deployment, rollback, and channel availability.
+  Consequence disclosure is a valid internal review invariant and valid review
+  copy, but the repeated word is tester vocabulary that can spoonfeed the
+  model. Before final interaction-mode acceptance, replace those prompts with
+  varied ordinary owner language such as asking what will change or requesting
+  a review, while retaining the exact review and separate-acceptance checks.
+- Several later feature surfaces, including Operations, are functionally
+  styled but visually under-designed. They expose the correct headings,
+  controls, state, and evidence, yet often read as lightly formatted document
+  text rather than intentional Corpus product surfaces. Treat visual hierarchy,
+  grouping, empty/loading/error states, responsive composition, and consistent
+  polish with the stronger early Corpus surfaces as unfinished product work,
+  not as optional cosmetic cleanup.
+- Docked non-maximized surfaces can overflow toward the wrong axis/direction.
+  Preserve this as a shared-shell responsive defect to verify across complex
+  surfaces at representative dock widths. Do not hide it with per-feature
+  clipping that would make content inaccessible.
+
+#### Phase 4 checkpoint — 2026-08-12
+
+- **Implementation and focused contracts are green:** Channels retains one
+  unique hosted-Web destination; Deployment accepts only an exact eligible
+  immutable build through required review and durable status; the public Agent
+  owns a session-scoped conversation and real clarification continuation; and
+  Operations projects owner-only result/API/decision evidence and promotes one
+  exact successful interaction into an Evaluation case. Focused backend gates
+  passed 13/13 and focused frontend gates passed 14/14. No RouteDeck change was
+  required.
+- **Live public behavior passed interactively:** existing hosted Agent
+  `store-taxonomy-5b1edb` accepted the ordinary question `What product taxonomy
+  is available?`, asked `Should I use product tags or product types?`, accepted
+  `Product types.` in the same public session, and returned the real current
+  `Apparel` type. The Browser console had no warning or error. This also
+  supersedes the older sparse-data observation for the current local runtime;
+  the Agent did not invent or suppress the type.
+- **The one isolated recorder attempt remains failed evidence:** run
+  `20260812T083522Z` retained a 69.760-second normal-speed 1440x1000 raw video
+  and visually reached the real `Apparel` result, but the recorder awaited one
+  exact text node even though the rendered sentence and bold value are separate
+  DOM nodes. It timed out after the product result. The run is not reclassified
+  as accepted evidence and was not retried automatically.
+- **A bounded retained Phase 4 interval is accepted as partial evidence:** the
+  immutable failed source campaign `20260812T034730Z-9f675b1edb` reached ten
+  exact Phase 4 assertions: first reviewed deployment, exact deployed NavGraph,
+  second reviewed release, rollback, reviewed pause/resume, backend and worker
+  restart, public ToolRouter clarification with zero call, one resolved public
+  read, and public privacy. The continuous derived film
+  `phase4-deployment-public-operations-normal-speed.webm` is the unmodified
+  305.920-second 1440x1000 interval from that source recording at 1.0x. It also
+  visibly reaches the owner-only Operations surface with one interaction, one
+  success, and one Evaluation candidate. The source campaign truthfully remains
+  `failed`: its recorder used an ambiguous Operations heading locator and
+  stopped before promotion. The committed recorder now scopes feature readiness
+  to the direct surface header, but the retained run is not reclassified.
+- **The partial milestone is fail-closed and reproducible:**
+  `scripts/verify_phase4_retained_milestone.py` checks the immutable failed
+  source status and exact terminal failure, the ten passed assertions, lineage
+  IDs, expected screenshots and hashes, operation chronology, zero unexpected
+  diagnostics, the continuous-film hash/duration, and the absence of
+  `operations.promote_evaluation_case`. It reports `status=partial` and names
+  `explicit exact-owner Operations promotion into Evaluation` as the sole
+  missing Phase 4 behavior.
+- **Exact-owner promotion remains open after a bounded internal recovery
+  attempt:** the disposable owner's password was reset only through Corpus's
+  product `AuthService` using a locally generated temporary value; that value
+  was never retained and was subsequently replaced by a fresh random value.
+  This is test administration, not authentication evidence. Normal sign-in
+  successfully reached the same owner organization and exact Agent, but its
+  anonymous-conversation adoption retired the retained conversation
+  `Ttzpd0t0NBNtzYcXEDSoKj3a3zl901ZA` and created new owner conversations. The
+  Agent, build, deployments, public interaction, and Operations lineage remain
+  intact; the retained conversation/history does not. Record this as a Corpus
+  conversation-replacement regression, not as proof of data loss outside that
+  conversation boundary.
+- **Promotion evidence was not manufactured:** isolated recorder attempts
+  `20260812T095746Z-0f4635ee`, `20260812T100314Z-5628b9b8`,
+  `20260812T100420Z-a714fc22`, and `20260812T100813Z-64142230` stopped during
+  setup/readiness before dispatching `operations.promote_evaluation_case`.
+  Current persistence contains zero Operations-sourced Evaluation cases for
+  interaction `int_78f435f2522e47c5836a0e58ce7e88ed`. The attempts exposed
+  recorder readiness issues (Agent and Operations async loading) and repeated
+  reset/sign-in instability; they are retained as failed diagnostics and are
+  not accepted video evidence. Phase 4 therefore remains product-implemented
+  and partially evidenced, with exact Operations promotion plus the newly
+  exposed sign-in conversation-preservation regression still open. Earlier
+  feature phases were not replayed and no tenant state was copied to another
+  owner.
+- **Phase 4 is now accepted.** Run `20260812T111732Z-179c335f` dispatched the
+  exact supervised `operations.promote_evaluation_case` operation once for
+  interaction `int_78f435f2522e47c5836a0e58ce7e88ed`; Corpus completed it
+  with outcome `promoted`. That recorder truthfully remained failed because a
+  post-reload check searched for a disabled control inside a collapsed details
+  element. No second promotion was attempted. Read-only continuation run
+  `20260812T111946Z-88961b32` opened that exact retained interaction, proved
+  the promoted control disabled after reload, navigated through the declared
+  Agent-to-Evaluation affordance, and found exactly one Operations-sourced case
+  `d06b3b03a3034370966ac891545b1122` with exact interaction/build/API-operation
+  lineage. Its 21.480-second 1440x1000, normal-speed, maximized-surface film is
+  `artifacts/phase4-operations-promotion/20260812T111946Z-88961b32/phase4-operations-promotion-normal-speed.webm`
+  (SHA-256 `4e1cef7561efa4b279b818761684dd22408c47f380107e4433b91ffd91b2e022`).
+  The continuation retains three screenshots and zero HTTP, console, or page
+  errors. This closes the sole missing Phase 4 behavior without replaying
+  Source, Designer, Builder, Sandbox, Evaluation execution, or Deployment.
+
 ### Phase 2 — close one feature at a time
 
 For each open row, in the operational-Agent-first order above:
