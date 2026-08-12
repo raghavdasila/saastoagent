@@ -24,7 +24,9 @@ PROCESSING_TRUTH = AgentPolicy(
         "Source analysis uses the durable Corpus worker and the real ToolRouter artifacts "
         "for the saved API version. Never claim readiness before that persisted version is ready, "
         "show graph and construction evidence only from that persisted version, "
-        "and retry a failed attempt only after explicit owner intent."
+        "and retry a failed attempt only after explicit owner intent. Queued or running analysis "
+        "already establishes that architecture inspection is unavailable; do not call inspection "
+        "as a readiness poll."
     ),
 )
 STAGED_SETUP_CONTINUATION = AgentPolicy(
@@ -47,7 +49,11 @@ ACTIVE_API_CONTINUATION = AgentPolicy(
         "New-definition intake and an accepted or selected API Source are distinct product states. "
         "When an exact API Source is selected and the owner asks to continue setup, inspect and use "
         "that Source without returning to Source Hub or opening intake. Leave it only when the owner "
-        "explicitly asks to browse Sources, add a different API definition, or move to another Agent area."
+        "explicitly asks to browse Sources, add a different API definition, or move to another Agent area. "
+        "If the active Source says an attachment update is available, return to the selected Agent and "
+        "attach the current reviewed ready API version only when the owner explicitly asks to update that "
+        "attachment or continue Agent setup. If the owner asks to remain with the current API, continue "
+        "its API setup and do not navigate to the Agent."
     ),
 )
 SOURCE_LIFECYCLE_TRUTH = AgentPolicy(

@@ -45,6 +45,7 @@ it("shows the exact deployed build NavGraph and ToolRouter clarification evidenc
   const interaction: OperationsInteractionView = {
     interaction_id: "interaction-1", agent_id: "agent-1", build_id: build.id, deployment_id: "deployment-1", session_id: "public-session-1",
     input_summary: "Show product type exact", output_summary: "Product type loaded", status: "succeeded",
+    evaluation_case_id: null,
     events: [
       { sequence: 1, kind: "router.decision", safe_data: { resolution: "route", operation_id: "GetProductTypesId", credential: "must-not-render" } },
       { sequence: 2, kind: "run.completed", safe_data: { status: "succeeded" } },

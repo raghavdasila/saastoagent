@@ -35,7 +35,7 @@ it("adopts accepted design refresh and requests only that exact revision", async
       revision: 1,
       agent_version: 1,
       input_fingerprint: "a".repeat(64),
-      content: { goal: "Serve store operators", instructions: "Use curated tools.", features: ["API Source"], behaviors: ["Answer taxonomy questions"], policies: ["Use exact inputs"], capabilities: ["Taxonomy: GetProductTypes"], tools: ["GetProductTypes"], runtime_areas: [{ title: "Taxonomy", capability_titles: ["Taxonomy"] }] },
+      content: { goal: "Serve store operators", instructions: "Use curated tools.", features: ["producttaxonomy API feature"], behaviors: ["Use the producttaxonomy capability"], policies: ["Use exact inputs"], capabilities: ["Taxonomy: GetProductTypes"], tools: ["GetProductTypes"], runtime_areas: [{ title: "Taxonomy", capability_titles: ["Taxonomy"] }] },
       topology: {
         topology_hash: "t".repeat(64),
         mode: "capability_areas",
@@ -56,7 +56,7 @@ it("adopts accepted design refresh and requests only that exact revision", async
         source_id: "source-ready-001",
         source_revision_id: "revision-ready01",
         curation_id: "curation-ready1",
-        semantic_groups: [{ label: "Product taxonomy", operation_ids: ["GetProductTypes"] }],
+        semantic_groups: [{ label: "producttaxonomy", operation_ids: ["GetProductTypes"] }],
       }],
       created_at: "2026-08-08T00:00:00Z",
     }],
@@ -101,11 +101,30 @@ it("adopts accepted design refresh and requests only that exact revision", async
 
   expect(await screen.findByText("Needs review")).toBeVisible();
   expect(screen.getByRole("region", { name: "Agent design blueprint" })).toBeVisible();
+  const intent = screen.getByRole("heading", { name: "Agent intent" }).closest("article");
+  expect(intent).not.toBeNull();
+  expect(intent).toHaveTextContent("Serve store operators");
+  expect(intent).toHaveTextContent("Use curated tools.");
+  expect(screen.getByRole("heading", { name: "Responsibilities" })).toBeVisible();
+  const sourceIntelligence = screen.getByRole("heading", { name: "Source intelligence" }).closest("article");
+  expect(sourceIntelligence).toHaveTextContent("Get Product Types context");
+  const designSystem = screen.getByRole("heading", { name: "Proposed design system" }).closest("section");
+  expect(designSystem).toHaveTextContent("Proposed behaviors");
+  expect(designSystem).toHaveTextContent("Get Product Types context API feature");
+  expect(designSystem).toHaveTextContent("Use the Get Product Types context capability");
+  expect(designSystem).toHaveTextContent("Policies");
+  expect(designSystem).toHaveTextContent("Use exact inputs");
+  expect(designSystem).toHaveTextContent("Capabilities and tools");
+  expect(designSystem).toHaveTextContent("Get Product Types");
+  expect(designSystem).toHaveTextContent("Runtime surfaces");
+  expect(designSystem).toHaveTextContent("Clarification");
+  expect(designSystem).toHaveTextContent("Tool routing status");
+  expect(designSystem).toHaveTextContent("Delivery status");
   fireEvent.click(screen.getByText("Review feature, capability, policy, and tool mapping"));
-  expect(screen.getByRole("region", { name: "Proposed RouteDeck topology" })).toHaveTextContent("API Source");
+  expect(screen.getByRole("region", { name: "Proposed RouteDeck topology" })).toHaveTextContent("producttaxonomy API feature");
   expect(screen.getByRole("region", { name: "Proposed RouteDeck topology" })).toHaveTextContent("GetProductTypes");
   fireEvent.click(screen.getByText("Inspect immutable Source lineage"));
-  expect(screen.getByRole("region", { name: "Immutable Source lineage" })).toHaveTextContent("Product taxonomy");
+  expect(screen.getByRole("region", { name: "Immutable Source lineage" })).toHaveTextContent("producttaxonomy");
   expect(screen.getByRole("region", { name: "Immutable Source lineage" })).toHaveTextContent("revision-ready01");
   expect(screen.getByRole("region", { name: "Proposed RouteDeck NavGraph preview" })).toHaveTextContent("Taxonomy");
   expect(document.querySelector("[data-routedeck-inspector='read-only']")).toBeInTheDocument();
@@ -210,3 +229,81 @@ it("turns missing design inputs into an exact attached Source handoff", async ()
     source_id: sourceId,
   }));
 });
+
+
+it("generates one reviewable feature from ordinary owner description", async () => {
+  const agentId = "7db3745e-6f77-4b92-929c-4d2292fb3708";
+  const agentRef = `agent-${agentId.replaceAll("-", "").slice(0, 20)}`;
+  const initial = generatedFeatureView(agentId, false);
+  const generated = generatedFeatureView(agentId, true);
+  const get = vi.fn().mockResolvedValueOnce(initial).mockResolvedValue(generated);
+  const dispatch = vi.fn(async () => ({ disposition: "completed", outcome: "generated", failure: null }));
+  const agentStore = new AgentStore({
+    list: vi.fn(async () => ({ agents: [{ id: agentId, name: "Designer Agent", description: "", instructions: "Use curated tools.", lifecycle: "active", current_version: 1, created_at: "2026-08-11T00:00:00Z", updated_at: "2026-08-11T00:00:00Z" }] })),
+    listSources: vi.fn(async () => ({ attachments: [] })),
+    listBuilds: vi.fn(async () => ({ builds: [] })),
+    inspectDependencies: vi.fn(async () => ({ agent_id: agentId, source_attachments: [], build_ids: [], blocks_delete: false })),
+  } as unknown as AgentClient);
+  const surfaceProps = {
+    surface: { surface_id: "designer.home", component: "designer.home", props: [] },
+    slot: "active", props: { selected_agent_ref: agentRef },
+    spec: { id: "designer.home", component: "designer.home", lifecycle: "stable", public_props_schema: {}, affordances: [] },
+    dispatchAffordance: dispatch,
+  } as unknown as RouteDeckSurfaceComponentProps;
+
+  render(<DesignerSurface {...surfaceProps} agentStore={agentStore} client={{ get } as unknown as DesignerClient} refreshStore={new DesignerRefreshStore()} />);
+
+  expect(await screen.findByRole("heading", { name: "Generate a feature proposal" })).toBeVisible();
+  const description = "Answer product category questions, ask whether tags or types is intended, and never invent results.";
+  fireEvent.change(screen.getByLabelText("Feature or behavior"), { target: { value: description } });
+  fireEvent.click(screen.getByRole("button", { name: "Generate design proposal" }));
+  await waitFor(() => expect(dispatch).toHaveBeenCalledWith("generate_feature", {
+    agent_ref: agentRef,
+    expected_revision_id: initial.current_revision_id,
+    description,
+  }));
+  expect(await screen.findByText("Revision 2")).toBeVisible();
+  expect(screen.getByRole("region", { name: "Agent design blueprint" })).toHaveTextContent("Product category answers");
+  expect(screen.getByRole("region", { name: "Agent design blueprint" })).toHaveTextContent("Never invent a product category result");
+  expect(screen.getByLabelText("Feature or behavior")).toHaveValue("");
+});
+
+
+function generatedFeatureView(agentId: string, generated: boolean): AgentDesignView {
+  const revisionId = generated
+    ? "875eb1f6-a6c4-4bc2-b444-eccbb9a63880"
+    : "5c1ad911-849f-4ef6-aadb-b2a793ac4ae0";
+  const content = {
+    goal: "Serve store operators",
+    instructions: "Use curated tools.",
+    features: generated ? ["Product taxonomy API feature", "Product category answers"] : ["Product taxonomy API feature"],
+    behaviors: generated ? ["Use exact API evidence", "Ask whether tags or types is intended"] : ["Use exact API evidence"],
+    policies: generated ? ["Use exact inputs", "Never invent a product category result"] : ["Use exact inputs"],
+    capabilities: ["Product taxonomy: GetProductTypes"],
+    tools: ["GetProductTypes"],
+    runtime_areas: [{ title: "Product taxonomy", capability_titles: ["Product taxonomy"] }],
+  };
+  return {
+    agent_id: agentId,
+    current_revision_id: revisionId,
+    accepted_revision_id: null,
+    revisions: [{
+      id: revisionId,
+      revision: generated ? 2 : 1,
+      agent_version: 1,
+      input_fingerprint: "a".repeat(64),
+      content,
+      topology: {
+        topology_hash: "t".repeat(64), mode: "capability_areas", entry_node_id: "agent_runtime.home",
+        nodes: [{ id: "agent_runtime.home", title: "Agent home", route_template: "/", capability_ids: [], operation_ids: [], navigation_operation_ids: ["agent_runtime.open_area.taxonomy"], surface_ids: ["agent_runtime.home"], policy_count: content.policies.length }],
+        capabilities: [{ id: "agent_runtime.capability.taxonomy", title: "Product taxonomy", operation_ids: ["GetProductTypes"], node_id: "agent_runtime.area.taxonomy" }],
+        transitions: [], operation_ids: ["GetProductTypes"],
+      },
+      source_inputs: [{ source_id: "source-ready-001", source_revision_id: "revision-ready01", semantic_groups: [{ label: "Product taxonomy", operation_ids: ["GetProductTypes"] }] }],
+      created_at: "2026-08-11T00:00:00Z",
+    }],
+    build_request: null,
+    current_inputs_ready: true,
+    current_inputs_match: true,
+  };
+}

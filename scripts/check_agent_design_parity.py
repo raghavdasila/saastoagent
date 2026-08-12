@@ -553,10 +553,35 @@ def _check_planned_operation_mappings(
                 )
             required_actions: dict[str, tuple[str, OperationMapping]] = {}
             for operation_name, mapping in operation_mapping.items():
-                if not mapping.is_variant or mapping.suggested_action_id is None:
+                if not mapping.is_variant:
+                    operation = compiled.operations.get(mapping.action_id)
+                    if operation is None:
+                        raise ParityInputError(
+                            f"{owner}.operations[{operation_name!r}] direct mapping "
+                            "must reference a compiled operation"
+                        )
+                    designed_source = _required_string(
+                        design_operations[operation_name],
+                        "availableThrough",
+                        f"Studio operation {operation_name!r}",
+                    )
+                    expected_sources = {
+                        "both": {"agent", "surface"},
+                        "chat": {"agent"},
+                        "product-surface": {"surface"},
+                    }.get(designed_source)
+                    if expected_sources is None or {
+                        source.value for source in operation.allowed_sources
+                    } != expected_sources:
+                        raise ParityInputError(
+                            f"{owner}.operations[{operation_name!r}] direct mapping "
+                            "must match the Studio invocation path"
+                        )
+                    continue
+                if mapping.suggested_action_id is None:
                     raise ParityInputError(
-                        f"{owner}.operations[{operation_name!r}] must use a "
-                        "variant mapping with suggestedActionId"
+                        f"{owner}.operations[{operation_name!r}] variant mapping "
+                        "requires suggestedActionId"
                     )
                 _require_variant_studio_suggested_action(
                     design_feature,
@@ -608,9 +633,7 @@ def _check_planned_operation_mappings(
             expected_current_contracts: set[str] = set()
             for operation_name, mapping in operation_mapping.items():
                 if not mapping.is_variant:
-                    raise ParityInputError(
-                        f"{owner}.operations[{operation_name!r}] must use a variant mapping"
-                    )
+                    continue
                 design_operation = design_operations[operation_name]
                 designed_source = _required_string(
                     design_operation,

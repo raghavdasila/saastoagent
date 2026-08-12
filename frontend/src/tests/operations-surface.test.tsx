@@ -51,6 +51,7 @@ it("presents one deployed interaction as a readable outcome and promotes it expl
     operations: vi.fn(async () => ({ interactions: [{
       interaction_id: "interaction-1", agent_id: agentId, build_id: "build-1", deployment_id: "deployment-1", session_id: "session-1",
       input_summary: "List product types", output_summary: "Three product types are available.", status: "completed",
+      evaluation_case_id: null,
       events: [{ sequence: 1, kind: "api.result", safe_data: { operation_id: "GetProductTypes", status: "succeeded", http_status: 200 } }],
     }] })),
     builds: vi.fn(async () => ({ builds: [] })),
@@ -72,6 +73,26 @@ it("presents one deployed interaction as a readable outcome and promotes it expl
     difficulty: "medium",
     mandatory: true,
   }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Evaluation case created from this interaction.");
+  expect(screen.getByRole("button", { name: "Evaluation case created" })).toBeDisabled();
+});
+
+it("restores the persisted promotion result after Operations reloads", async () => {
+  const runtimeClient = {
+    operations: vi.fn(async () => ({ interactions: [{
+      interaction_id: "interaction-promoted", agent_id: agentId, build_id: "build-1", deployment_id: "deployment-1", session_id: "session-1",
+      input_summary: "List product types", output_summary: "Three product types are available.", status: "completed",
+      evaluation_case_id: "case-1",
+      events: [{ sequence: 1, kind: "api.result", safe_data: { operation_id: "GetProductTypes", status: "succeeded", http_status: 200 } }],
+    }] })),
+    builds: vi.fn(async () => ({ builds: [] })),
+  } as unknown as AgentRuntimeClient;
+
+  render(<OperationsSurface {...props(vi.fn())} runtimeClient={runtimeClient} agentStore={store()} />);
+
+  fireEvent.click(await screen.findByText("Create an Evaluation case from this interaction"));
+  expect(screen.getByRole("status")).toHaveTextContent("Evaluation case created from this interaction.");
+  expect(screen.getByRole("button", { name: "Evaluation case created" })).toBeDisabled();
 });
 
 function completed(): RouteDeckDispatchResult {

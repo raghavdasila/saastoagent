@@ -2,6 +2,7 @@ import type { AgentClient } from "./client";
 import type {
   AgentDependencyView,
   AgentBuildLineageView,
+  AgentProductOverviewView,
   AgentSourceAttachmentView,
   AgentView,
 } from "./models";
@@ -14,6 +15,7 @@ export interface AgentStoreSnapshot {
   readonly attachments: readonly AgentSourceAttachmentView[];
   readonly dependencies: AgentDependencyView | null;
   readonly builds: readonly AgentBuildLineageView[];
+  readonly productOverview: AgentProductOverviewView | null;
 }
 
 export interface CreateAgentDraft {
@@ -36,6 +38,7 @@ const INITIAL: AgentStoreSnapshot = Object.freeze({
   attachments: Object.freeze([]),
   dependencies: null,
   builds: Object.freeze([]),
+  productOverview: null,
 });
 
 export class AgentStore {
@@ -85,6 +88,7 @@ export class AgentStore {
         attachments: selectedId === null ? Object.freeze([]) : this.state.attachments,
         dependencies: selectedId === null ? null : this.state.dependencies,
         builds: selectedId === null ? Object.freeze([]) : this.state.builds,
+        productOverview: selectedId === null ? null : this.state.productOverview,
       });
     } catch (error) {
       if (generation !== this.requestGeneration) return;
@@ -105,6 +109,7 @@ export class AgentStore {
       attachments: Object.freeze([]),
       dependencies: null,
       builds: Object.freeze([]),
+      productOverview: null,
     });
   }
 
@@ -150,6 +155,17 @@ export class AgentStore {
     } catch (error) {
       if (this.state.selectedId !== agentId) return;
       this.replace({ ...this.state, builds: Object.freeze([]), error: errorMessage(error) });
+    }
+  }
+
+  async refreshProductOverview(agentId: string): Promise<void> {
+    try {
+      const result = await this.client.productOverview(agentId);
+      if (this.state.selectedId !== agentId) return;
+      this.replace({ ...this.state, productOverview: result, error: null });
+    } catch (error) {
+      if (this.state.selectedId !== agentId) return;
+      this.replace({ ...this.state, productOverview: null, error: errorMessage(error) });
     }
   }
 

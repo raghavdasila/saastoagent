@@ -82,12 +82,18 @@ export function ApiOperationTestPanel({
       .then(async (items) => {
         if (generation.current !== ticket) return;
         const eligible = items.filter(isEffectiveReadySource);
-        setSources(eligible);
-        const selected = eligible.find((item) => item.source_id === sourceId)
-          ?? eligible.at(-1)
-          ?? null;
+        const expectedSourceId = typeof props.source_id === "string" ? props.source_id : "";
+        const expectedRevisionId = typeof props.source_revision_id === "string"
+          ? props.source_revision_id
+          : "";
+        const selected = eligible.find((item) =>
+          item.source_id === expectedSourceId
+          && item.revision.revision_id === expectedRevisionId
+        ) ?? null;
+        setSources(selected === null ? [] : [selected]);
         setSourceId(selected?.source_id ?? "");
-        if (selected !== null) await refreshSelection(selected, ticket);
+        if (selected === null) throw new Error("The selected ready API version is unavailable.");
+        await refreshSelection(selected, ticket);
       })
       .catch((caught) => {
         if (generation.current === ticket) setError(errorMessage(caught));
@@ -102,32 +108,7 @@ export function ApiOperationTestPanel({
       generation.current += 1;
       activity.current = false;
     };
-  }, [open, refreshSelection, sourceClient]);
-
-  async function selectSource(nextSourceId: string) {
-    const selected = sources.find((item) => item.source_id === nextSourceId);
-    setSourceId(nextSourceId);
-    setProfiles([]);
-    setProfileId("");
-    setCuration(null);
-    setPlan(null);
-    executionStore.clear();
-    setError(null);
-    if (selected === undefined) return;
-    const ticket = ++generation.current;
-    activity.current = true;
-    setBusy(true);
-    try {
-      await refreshSelection(selected, ticket);
-    } catch (caught) {
-      if (generation.current === ticket) setError(errorMessage(caught));
-    } finally {
-      if (generation.current === ticket) {
-        activity.current = false;
-        setBusy(false);
-      }
-    }
-  }
+  }, [open, props.source_id, props.source_revision_id, refreshSelection, sourceClient]);
 
   async function createPlan(event: FormEvent) {
     event.preventDefault();
@@ -136,15 +117,19 @@ export function ApiOperationTestPanel({
     setBusy(true);
     setError(null);
     try {
-      const created = await sourceClient.createApiRoutePlan(selectedSource.source_id, {
-        source_revision_id: selectedSource.revision.revision_id,
-        profile_id: profileId,
-        curation_id: curation.current.id,
+      const result = await dispatchAffordance("create_api_route_plan", {
         request_text: requestText,
+        profile_name: selectedProfile?.profile_name ?? "",
         provided_inputs: knownInputName.trim() && knownInputValue.trim()
           ? { [knownInputName.trim()]: knownInputValue.trim() }
           : {},
       });
+      if (result.outcome !== "planned") throw new Error("The API request could not be planned.");
+      const created = await sourceClient.currentApiRoutePlan(
+        selectedSource.source_id,
+        selectedSource.revision.revision_id,
+      );
+      if (created === null) throw new Error("The planned API request is unavailable.");
       setPlan(created);
       await executionStore.select(selectedSource.source_id, created);
       setAnswer("");
@@ -167,23 +152,19 @@ export function ApiOperationTestPanel({
   async function clarify(event: FormEvent) {
     event.preventDefault();
     if (activity.current || selectedSource === null || plan === null || !answer.trim()) return;
-    const inputName = plan.state === "needs_operation_choice"
-      ? "operation_id"
-      : plan.missing_inputs.at(0);
-    if (inputName === undefined) return;
     activity.current = true;
     setBusy(true);
     setError(null);
     try {
-      const refreshed = await sourceClient.clarifyApiRoutePlan(
+      const result = await dispatchAffordance("continue_api_route_plan", {
+        answer: answer.trim(),
+      });
+      if (result.outcome !== "continued") throw new Error("The waiting API request could not be continued.");
+      const refreshed = await sourceClient.currentApiRoutePlan(
         selectedSource.source_id,
-        plan.plan_id,
-        {
-          source_revision_id: selectedSource.revision.revision_id,
-          expected_record_id: plan.record_id,
-          answers: { [inputName]: answer.trim() },
-        },
+        selectedSource.revision.revision_id,
       );
+      if (refreshed === null) throw new Error("The continued API request is unavailable.");
       setPlan(refreshed);
       await executionStore.select(selectedSource.source_id, refreshed);
       setAnswer("");
@@ -234,8 +215,7 @@ export function ApiOperationTestPanel({
               <select
                 id="api-route-source"
                 value={sourceId}
-                disabled={busy || plan !== null}
-                onChange={(event) => void selectSource(event.currentTarget.value)}
+                disabled
               >
                 {sources.map((source) => (
                   <option key={source.source_id} value={source.source_id}>
@@ -421,7 +401,9 @@ function PlanResult({
       <ol aria-label="Ordered routed operations">
         {plan.steps.map((step, index) => (
           <li key={`${step.query}:${index}`}>
-            <strong>{step.selected_operation_id ?? "No operation selected"}</strong>
+            <strong>{step.selected_operation_id === null
+              ? "No operation selected"
+              : operationLabel(plan, step.selected_operation_id)}</strong>
             <span>{step.method ?? "—"} {step.path_template ?? "—"} · {step.http_safety ?? "waiting"}</span>
             <small>{step.query}</small>
           </li>
@@ -459,10 +441,11 @@ function PlanResult({
                 onChange={(event) => setAnswer(event.currentTarget.value)}
               >
                 <option value="">Select an included operation</option>
-                {Array.from(new Set(
-                  plan.steps.flatMap((step) => step.ranked_operations.map((item) => item.operation_id)),
-                )).map((operationId) => (
-                  <option key={operationId} value={operationId}>{operationId}</option>
+                {Array.from(new Map(
+                  plan.steps.flatMap((step) => step.ranked_operations)
+                    .map((item) => [item.operation_id, item.operation_label] as const),
+                )).map(([operationId, operationLabel]) => (
+                  <option key={operationId} value={operationLabel}>{operationLabel}</option>
                 ))}
               </select>
             ) : (
@@ -481,11 +464,18 @@ function PlanResult({
       )}
       {plan.operation_choice === null ? null : (
         <p className="api-route-choice">
-          Chosen operation {plan.operation_choice.operation_id} from this plan's clarification.
+          Chosen operation {operationLabel(plan, plan.operation_choice.operation_id)} from this plan's clarification.
         </p>
       )}
     </div>
   );
+}
+
+function operationLabel(plan: ApiRoutePlanView, operationId: string): string {
+  return plan.steps
+    .flatMap((step) => step.ranked_operations)
+    .find((operation) => operation.operation_id === operationId)?.operation_label
+    ?? "the selected included operation";
 }
 
 function isEffectiveReadySource(source: SourceView): boolean {

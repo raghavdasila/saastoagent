@@ -61,8 +61,9 @@ describe("immutable Agent build NavGraph", () => {
     expect(screen.getByText("1 nodes · 1 transitions")).toBeVisible();
     expect(screen.getByText("PostCarts")).toBeVisible();
     expect(screen.getByText("POST /store/carts")).toBeVisible();
-    expect(screen.getByText("write_external · review required")).toBeVisible();
+    expect(screen.getByText("API change · owner review required")).toBeVisible();
     expect(screen.getByText("Store tools")).toBeVisible();
+    expect(screen.getByLabelText("Compiled Agent map summary")).toHaveTextContent("Runtime areas1Transitions1Capabilities1Supervised tools1Policies1Surfaces2");
     expect(screen.getByText("Designer topology").parentElement).toHaveTextContent("tttttttttttttttt");
   });
 

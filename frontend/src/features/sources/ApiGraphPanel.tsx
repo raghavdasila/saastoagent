@@ -10,7 +10,7 @@ import {
   type SourceClient,
   SourceClientError,
 } from "./sourceClient";
-import { SemanticGraphVisualizer } from "./SemanticGraphVisualizer";
+import { SemanticGraphVisualizer } from "@/integrations/toolrouter/semantic-graph/SemanticGraphVisualizer";
 
 
 export function ApiGraphPanel({

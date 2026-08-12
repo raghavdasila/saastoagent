@@ -22,7 +22,8 @@
           "operations": {
             "Start product help": "lounge.open_product_help",
             "Open owner registration": "lounge.arrival.open_registration",
-            "Open owner sign-in": "lounge.arrival.open_sign_in"
+            "Open owner sign-in": "lounge.arrival.open_sign_in",
+            "Continue to Workspace": "lounge.continue_to_workspace"
           }
         },
         {
@@ -727,6 +728,7 @@
       "studioBehaviors": [
         "agent-designer-resolve-source-inputs",
         "agent-designer-propose",
+        "agent-designer-generate-feature",
         "agent-designer-customize",
         "agent-designer-inspect-navgraph",
         "agent-designer-review",
@@ -753,6 +755,17 @@
           },
           "operations": {
             "Propose agent design": "designer.propose"
+          }
+        },
+        {
+          "designBehavior": "Generate an owner-described Agent feature",
+          "node": "designer.home",
+          "capabilities": { "Agent design authoring": "designer.authoring" },
+          "surfaces": {
+            "Agent Designer": "designer.home"
+          },
+          "operations": {
+            "Generate feature proposal": "designer.generate_feature"
           }
         },
         {
@@ -823,6 +836,10 @@
           "implementationStatus": "pending_external_evidence",
           "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
         },
+        "agent-designer-generate-feature-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
         "agent-designer-customize-contract": {
           "implementationStatus": "pending_external_evidence",
           "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
@@ -877,11 +894,12 @@
         "operations": {
           "agents.open_attached_source": { "safetyClass": "navigation", "allowedSources": ["agent", "surface"], "review": "none", "outcome": "opened" },
           "designer.propose": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "review": "none", "outcome": "proposed" },
+          "designer.generate_feature": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "review": "none", "outcome": "generated" },
           "designer.customize": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "review": "none", "outcome": "customized" },
           "designer.approve": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "review": "required", "outcome": "accepted" },
           "designer.request_build": { "safetyClass": "draft", "allowedSources": ["agent", "surface"], "review": "none", "outcome": "requested" }
         },
-        "persistence": "Corpus appends immutable owner-scoped design revisions, retains exact Agent version plus Source revision/curation identities, advances proposal and accepted pointers only under exact-current CAS, and appends one immutable build request for one accepted design revision.",
+        "persistence": "Corpus appends immutable owner-scoped design revisions, retains exact Agent version plus Source revision/curation identities, validates configured-model feature generation against exact curated operations and exhaustive single capability ownership, advances proposal and accepted pointers only under exact-current CAS, and appends one immutable build request for one accepted design revision.",
         "boundary": "Designer performs no API call, credential resolution, build execution, Sandbox run, evaluation, deployment, or public-session work. RouteDeck owns operation legality, exact selected-Agent entity binding, required review, navigation, projection, and accept-time recheck.",
         "topologyBoundary": "Corpus compiles one shared Designer topology from the immutable design revision. Designer renders that exact topology and stable hash; Builder consumes the same topology to create the immutable per-build RouteDeck Application. The executable Agent topology has one general entry area plus capability-owned runtime areas and legal navigation transitions, with exact curated operations, policies, and clarification/status/delivery surfaces. Nodes express real interaction areas, never lifecycle decoration."
       },
@@ -1314,7 +1332,7 @@
             "Agent Builds": "builder.home"
           },
           "operations": {
-            "Generate build evaluation set": "evaluation.generate_set"
+            "Assemble accepted Agent build": "builder.assemble"
           }
         },
         {
@@ -1796,6 +1814,8 @@
         {
           "designBehavior": "Route and test an API operation",
           "operations": {
+            "Plan routed API request": "sources.create_api_route_plan",
+            "Answer routed API clarification": "sources.continue_api_route_plan",
             "Test routed API operation": {
               "selector": "resolved_http_safety_v1",
               "actionOperation": "sources.prepare_routed_api_test",
@@ -1813,7 +1833,7 @@
             }
           },
           "currentContracts": {
-            "sources.prepare_routed_api_test": {
+          "sources.prepare_routed_api_test": {
               "implementationStatus": "implemented_browser_behavior_validated",
               "safetyClass": "state_selection",
               "review": "none",
@@ -2184,6 +2204,10 @@
           ],
           "outcome": "opened"
         },
+        "interactionOperations": {
+          "create": "sources.create_api_route_plan",
+          "continue": "sources.continue_api_route_plan"
+        },
         "surface": "sources.api_operation_test",
         "persistenceBoundary": "Corpus persists immutable exact-owner, conversation, RouteDeck-session, Source revision, artifact, effective document, saved profile identity, credential reference/version identity, current curation, inventory and curated ToolRouter subset records. Clarification appends a new record in the same plan lineage under exact current-record CAS. Credentials are never resolved and every record fixes api_call_count at zero.",
         "routingBoundary": "The current curation becomes ToolRouter's retrieval corpus before unchanged routing: shared semantic context remains, excluded endpoint-bound nodes/cards and disconnected edges are removed in memory, embedding rows stay aligned, adjacency is rebuilt and the persisted artifact remains unchanged. Corpus does not post-filter rankings or replace ToolRouter's top endpoint.",
@@ -2268,6 +2292,8 @@
           "sources.approve_contract_revision",
           "sources.save_api_operation_curation",
           "sources.prepare_routed_api_test",
+          "sources.create_api_route_plan",
+          "sources.continue_api_route_plan",
           "sources.test_routed_api_read",
           "sources.test_routed_api_write"
         ],
@@ -2287,6 +2313,10 @@
           "sources.api.propose_contract_revision": "sources.propose_contract_revision",
           "sources.api.save_api_operation_curation": "sources.save_api_operation_curation",
           "sources.api.prepare_routed_api_test": "sources.prepare_routed_api_test",
+          "sources.api.create_api_route_plan": "sources.create_api_route_plan",
+          "sources.api.continue_api_route_plan": "sources.continue_api_route_plan",
+          "sources.api_operation_test.create_api_route_plan": "sources.create_api_route_plan",
+          "sources.api_operation_test.continue_api_route_plan": "sources.continue_api_route_plan",
           "sources.api_operation_test.run_routed_api_read": "sources.test_routed_api_read",
           "sources.api_operation_test.review_routed_api_write": "sources.test_routed_api_write",
           "sources.contract_revision_proposal.approve_contract_revision": "sources.approve_contract_revision"

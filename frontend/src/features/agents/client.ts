@@ -2,6 +2,7 @@ import type {
   AgentDependencyView,
   AgentBuildLineageListView,
   AgentListView,
+  AgentProductOverviewView,
   AgentSourceAttachmentListView,
   AgentView,
 } from "./models";
@@ -49,6 +50,12 @@ export class AgentClient {
   async listBuilds(agentId: string): Promise<AgentBuildLineageListView> {
     return this.request<AgentBuildLineageListView>(
       `/api/agents/${encodeURIComponent(agentId)}/builds`,
+    );
+  }
+
+  async productOverview(agentId: string): Promise<AgentProductOverviewView> {
+    return this.request<AgentProductOverviewView>(
+      `/api/agents/${encodeURIComponent(agentId)}/product-overview`,
     );
   }
 

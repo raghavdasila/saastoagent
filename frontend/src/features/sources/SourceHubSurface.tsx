@@ -53,6 +53,9 @@ export function SourceHubSurface({
     : "graph";
   const selectedFromHandoff = typeof surfaceProps.selected_source_id === "string" ? surfaceProps.selected_source_id : null;
   const selectedRevisionFromHandoff = typeof surfaceProps.selected_source_revision_id === "string" ? surfaceProps.selected_source_revision_id : null;
+  const attachedRevisionFromHandoff = typeof surfaceProps.attached_source_revision_id === "string"
+    ? surfaceProps.attached_source_revision_id
+    : null;
   const [selectedId, setSelectedId] = useState<string | null>(selectedFromHandoff);
   const [showIntake, setShowIntake] = useState(view === "api" && surfaceProps.mode === "create");
   const [name, setName] = useState("");
@@ -706,6 +709,7 @@ export function SourceHubSurface({
                         sourceRevisionId={selected.revision.revision_id}
                         sourceClient={sourceClient}
                         dispatchAffordance={dispatchAffordance}
+                        refreshVersion={sessionVersion}
                       />
                     ) : null}
                     {readyWorkspace === "connection" ? privateForm === null ? (
@@ -733,6 +737,29 @@ export function SourceHubSurface({
                         <div><strong>Ready to attach</strong><p>Attach this exact analyzed API version to the selected Agent.</p></div>
                         <Button type="button" disabled={busy !== null} onClick={() => void attachAndReturn()}>
                           {busy === "attach" ? "Attaching…" : "Attach and return to Agent"}
+                        </Button>
+                      </div>
+                    ) : null}
+                    {readyWorkspace === "agent" && handoffMode === "inspect" && handoffAgentRef !== null && selected !== null ? (
+                      <div className="source-agent-handoff">
+                        {attachedRevisionFromHandoff !== null && attachedRevisionFromHandoff !== selected.revision.revision_id ? (
+                          <div>
+                            <strong>A newer API version is ready for this Agent</strong>
+                            <p>Attached API version <code>{attachedRevisionFromHandoff}</code></p>
+                            <p>Current API version <code>{selected.revision.revision_id}</code></p>
+                          </div>
+                        ) : (
+                          <div>
+                            <strong>This Agent uses the current API version</strong>
+                            <p>Return to the selected Agent without changing either record.</p>
+                          </div>
+                        )}
+                        <Button type="button" disabled={busy !== null} onClick={() => void returnToAgent()}>
+                          {busy === "return"
+                            ? "Returning…"
+                            : attachedRevisionFromHandoff !== null && attachedRevisionFromHandoff !== selected.revision.revision_id
+                              ? "Return to Agent and update"
+                              : "Back to Agent"}
                         </Button>
                       </div>
                     ) : null}

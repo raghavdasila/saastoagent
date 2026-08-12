@@ -26,6 +26,9 @@ export interface ApplicationShellProps {
   mainHeader?: ReactNode;
   chatClient?: AgentChatClient;
   initialConversation?: readonly AgentHistoryTurn[];
+  onConversationSynchronized?: (
+    conversation: readonly AgentHistoryTurn[],
+  ) => void;
   onUploadApiSource?: (file: File) => Promise<ChatSourceUpload>;
 }
 
@@ -37,6 +40,7 @@ export function ApplicationShell({
   mainHeader,
   chatClient,
   initialConversation = [],
+  onConversationSynchronized,
   onUploadApiSource,
 }: ApplicationShellProps) {
   const conversationKey =
@@ -70,6 +74,7 @@ export function ApplicationShell({
                 key={conversationKey}
                 registry={registry}
                 initialConversation={initialConversation}
+                onConversationSynchronized={onConversationSynchronized}
                 {...(chatClient === undefined ? {} : { client: chatClient })}
                 {...(onUploadApiSource === undefined ? {} : { onUploadApiSource })}
               />

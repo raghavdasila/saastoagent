@@ -222,10 +222,28 @@ async def test_contract_revision_review_is_durable_rejects_without_mutation_and_
             expected_session_version=accept_snapshot.session_version,
             session_id=session_id,
         )
-        assert accepted.disposition is OperationDisposition.COMPLETED
+        assert accepted.disposition is OperationDisposition.COMPLETED, (
+            accepted.failure.code if accepted.failure else None,
+            accepted.failure.public_message if accepted.failure else None,
+        )
         assert accepted.outcome == "approved"
         approved = repository.get(owner_key=str(OWNER), source_id=source.source_id)
         assert approved.revision.revision_id != before_revision_id
+        accepted_snapshot = await runtime.services.store.load(session_id)
+        accepted_projection = runtime.services.projector.project(
+            accepted_snapshot.state
+        )
+        active_source = accepted_projection.surfaces.active
+        assert active_source is not None
+        assert active_source.surface_id == "sources.api"
+        active_source_props = {
+            item.name: item.value.to_python() for item in active_source.props
+        }
+        assert active_source_props["selected_source_id"] == source.source_id
+        assert (
+            active_source_props["selected_source_revision_id"]
+            == approved.revision.revision_id
+        )
         assert repository.get_revision(
             owner_key=str(OWNER),
             source_id=source.source_id,

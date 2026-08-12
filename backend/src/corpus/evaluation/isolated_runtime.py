@@ -61,7 +61,7 @@ class IsolatedCorpusRuntime:
                 "ROUTEDECK_INSTANCE_ID": f"corpus-product-eval-{self.name}",
                 "ROUTEDECK_BROWSER_ORIGINS": self.endpoints.frontend_url,
                 "CORPUS_DATABASE_URL": self.endpoints.database_url,
-                "CORPUS_MIGRATION_REVISION": "0018_deployment_lifecycle",
+                "CORPUS_MIGRATION_REVISION": "0019_builder_assembly_lifecycle",
                 "CORPUS_PUBLIC_FRONTEND_URL": self.endpoints.frontend_url,
                 "CORPUS_SOURCE_DATA_ROOT": str(self.runtime_root / "sources"),
             }

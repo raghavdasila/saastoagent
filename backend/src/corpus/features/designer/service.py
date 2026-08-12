@@ -4,7 +4,7 @@ import hashlib
 import json
 import uuid
 
-from .ports import DesignerConflict, DesignerInputGateway, DesignerRepository, DesignerUnavailable
+from .ports import DesignerConflict, DesignerGenerationGateway, DesignerInputGateway, DesignerRepository, DesignerUnavailable
 from .schemas import (
     AgentDesignView,
     BuildRequestView,
@@ -16,9 +16,15 @@ from .topology import compile_design_topology
 
 
 class DesignerService:
-    def __init__(self, repository: DesignerRepository, inputs: DesignerInputGateway) -> None:
+    def __init__(
+        self,
+        repository: DesignerRepository,
+        inputs: DesignerInputGateway,
+        generation: DesignerGenerationGateway | None = None,
+    ) -> None:
         self.repository = repository
         self.inputs = inputs
+        self.generation = generation
 
     async def get(self, organization_id: uuid.UUID, agent_id: uuid.UUID) -> AgentDesignView:
         design, revisions, build = await self.repository.get(organization_id, agent_id)
@@ -100,6 +106,40 @@ class DesignerService:
             raise DesignerConflict(
                 "API tools are locked to the exact saved Source operation selections."
             )
+        compile_design_topology(content)
+        await self.repository.customize(
+            organization_id,
+            agent_id,
+            expected_revision_id=expected_revision_id,
+            content=content.model_dump(mode="json"),
+        )
+        return await self.get(organization_id, agent_id)
+
+    async def generate_feature(
+        self,
+        organization_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        *,
+        expected_revision_id: uuid.UUID,
+        description: str,
+    ) -> AgentDesignView:
+        if self.generation is None:
+            raise DesignerUnavailable("Agent design generation is not configured.")
+        current = await self.get(organization_id, agent_id)
+        if not current.current_inputs_ready or not current.current_inputs_match:
+            raise DesignerConflict(
+                "The Agent or Source inputs changed. Create a new proposal before generating a feature."
+            )
+        if current.current_revision_id != expected_revision_id or not current.revisions:
+            raise DesignerConflict("The current Agent design revision changed. Refresh before generating a feature.")
+        snapshot = await self.inputs.snapshot(organization_id, agent_id)
+        current_content = current.revisions[-1].content
+        generated = await self.generation.generate(
+            snapshot,
+            current_content.model_dump(mode="json"),
+            description,
+        )
+        content = _merge_generated_feature(current_content, generated)
         compile_design_topology(content)
         await self.repository.customize(
             organization_id,
@@ -214,3 +254,74 @@ def _runtime_area_title(capability_title: str) -> str:
     if not words:
         return "Curated operations"
     return " ".join(words).capitalize()
+
+
+def _merge_generated_feature(current: DesignContent, generated) -> DesignContent:
+    selected = set(generated.operation_ids)
+    if not selected:
+        raise DesignerConflict("The generated feature selected no curated API operation.")
+    if not selected.issubset(current.tools):
+        raise DesignerConflict("The generated feature selected an operation outside the current design.")
+
+    retained_capabilities: list[tuple[str, tuple[str, ...]]] = []
+    for value in current.capabilities:
+        title, separator, raw_operations = value.partition(":")
+        operations = tuple(item.strip() for item in raw_operations.split(",") if item.strip())
+        if not separator or not title.strip() or not operations:
+            raise DesignerConflict("The current design capability mapping is unavailable for generation.")
+        remaining = tuple(operation for operation in operations if operation not in selected)
+        if remaining:
+            retained_capabilities.append((title.strip(), remaining))
+
+    generated_title = generated.capability_title.strip()
+    if not generated_title or generated_title.casefold() in {
+        title.casefold() for title, _ in retained_capabilities
+    }:
+        raise DesignerConflict("The design model returned a duplicate capability title.")
+    selected_in_design_order = tuple(operation for operation in current.tools if operation in selected)
+    capabilities = tuple(
+        f"{title}: {', '.join(operations)}"
+        for title, operations in retained_capabilities
+    ) + (f"{generated_title}: {', '.join(selected_in_design_order)}",)
+
+    retained_titles = {title.casefold() for title, _ in retained_capabilities}
+    runtime_areas = tuple(
+        DesignRuntimeArea(
+            title=area.title,
+            capability_titles=tuple(
+                title for title in area.capability_titles if title.casefold() in retained_titles
+            ),
+        )
+        for area in current.runtime_areas
+        if any(title.casefold() in retained_titles for title in area.capability_titles)
+    )
+    runtime_title = generated.runtime_area_title.strip()
+    if not runtime_title or runtime_title.casefold() in {
+        area.title.casefold() for area in runtime_areas
+    }:
+        raise DesignerConflict("The design model returned a duplicate runtime-area title.")
+    runtime_areas = (*runtime_areas, DesignRuntimeArea(
+        title=runtime_title,
+        capability_titles=(generated_title,),
+    ))
+    return DesignContent(
+        goal=current.goal,
+        instructions=current.instructions,
+        features=_append_unique(current.features, (generated.feature,)),
+        behaviors=_append_unique(current.behaviors, generated.behaviors),
+        policies=_append_unique(current.policies, generated.policies),
+        capabilities=capabilities,
+        tools=current.tools,
+        runtime_areas=runtime_areas,
+    )
+
+
+def _append_unique(current: tuple[str, ...], additions: tuple[str, ...]) -> tuple[str, ...]:
+    values = list(current)
+    seen = {value.casefold() for value in current}
+    for raw in additions:
+        value = raw.strip()
+        if value and value.casefold() not in seen:
+            seen.add(value.casefold())
+            values.append(value)
+    return tuple(values)

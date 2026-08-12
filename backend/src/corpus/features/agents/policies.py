@@ -113,7 +113,11 @@ SOURCE_CREATION_NAVIGATION = policy(
 )
 ATTACH_CREATED_ELIGIBILITY = policy(
     "agents.operation.attach_created_eligibility",
-    "Attach only a successfully created eligible source; cancellation or source-creation failure returns without changing the agent.",
+    (
+        "Attach only a successfully created eligible source returned from creation that began from this "
+        "agent. Never use this return action for an API version update to a source already attached to "
+        "the agent; cancellation or creation failure leaves the agent unchanged."
+    ),
 )
 OPEN_SOURCE_CONTEXT = policy(
     "agents.operation.open_source_context",

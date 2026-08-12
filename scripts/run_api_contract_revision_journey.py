@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import uuid4
 
-from playwright.async_api import Page, async_playwright
+from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError, async_playwright
 
 
 MEDUSA_SPEC = Path(
@@ -343,11 +343,33 @@ async def _register(page: Page, url: str, owner: dict[str, str]) -> None:
     await page.get_by_role("heading", name="Explore Corpus").wait_for(timeout=30_000)
     await page.get_by_role("button", name="Create account", exact=True).click()
     await page.get_by_role("heading", name="Create account", exact=True).wait_for(timeout=15_000)
-    await page.get_by_label("Display name").fill(owner["display_name"])
-    await page.get_by_label("Email").fill(owner["email"])
-    await page.get_by_label("Password").fill(owner["password"])
+    await _bind_registration_fields(page, owner)
     await page.locator("form").get_by_role("button", name="Create account", exact=True).click()
     await page.get_by_label("Sign out", exact=True).wait_for(timeout=30_000)
+
+
+async def _bind_registration_fields(page: Page, owner: dict[str, str]) -> None:
+    expected = (
+        (page.get_by_label("Display name", exact=True), owner["display_name"]),
+        (page.get_by_label("Email", exact=True), owner["email"]),
+        (page.get_by_label("Password", exact=True), owner["password"]),
+    )
+    deadline = asyncio.get_running_loop().time() + 15
+    while asyncio.get_running_loop().time() < deadline:
+        try:
+            for field, _ in expected:
+                await field.wait_for(state="visible", timeout=1_000)
+            if not all([await field.is_enabled() for field, _ in expected]):
+                await page.wait_for_timeout(100)
+                continue
+            for field, value in expected:
+                await field.fill(value, timeout=1_000)
+            await page.wait_for_timeout(100)
+            if all([await field.input_value(timeout=1_000) == value for field, value in expected]):
+                return
+        except PlaywrightTimeoutError:
+            pass
+    raise RuntimeError("The registration form did not retain its exact owner inputs.")
 
 
 async def _upload(page: Page, hub) -> None:

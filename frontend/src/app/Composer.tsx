@@ -156,16 +156,16 @@ export function Composer({
       {onUploadApiSource === undefined ? null : (
         <label data-chat-source-upload="">
           <Paperclip aria-hidden="true" />
-          <strong>Attach Source file</strong>
+          <strong>Attach API definition</strong>
           <input
             ref={fileRef}
             type="file"
-            aria-label="Attach Source file"
+            aria-label="Attach API definition"
             accept=".json,.yaml,.yml,.md,.markdown,application/json,application/yaml,text/yaml,text/markdown"
             disabled={disabled || uploading || onRetry !== undefined}
             onChange={(event) => setDefinition(event.currentTarget.files?.[0] ?? null)}
           />
-          <span>{definition?.name ?? "No Source file attached"}</span>
+          <span>{definition?.name ?? "No API definition attached"}</span>
         </label>
       )}
       <div>

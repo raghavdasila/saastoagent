@@ -20,6 +20,7 @@ export function OperationsSurface({ dispatchAffordance, props, runtimeClient, ag
   const [interactions, setInteractions] = useState<readonly OperationsInteractionView[]>([]);
   const [builds, setBuilds] = useState<readonly AgentBuildView[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [promotedInteractionIds, setPromotedInteractionIds] = useState<ReadonlySet<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [setName, setSetName] = useState("Operations regressions");
@@ -66,7 +67,11 @@ export function OperationsSurface({ dispatchAffordance, props, runtimeClient, ag
         category, difficulty, mandatory: true,
       });
       const failure = completedOutcome(result, "promoted");
-      if (failure !== null) setError(failure);
+      if (failure !== null) {
+        setError(failure);
+      } else {
+        setPromotedInteractionIds((current) => new Set(current).add(interaction.interaction_id));
+      }
     } catch (caught) { setError(message(caught)); } finally { setBusy(null); }
   }
 
@@ -84,7 +89,9 @@ export function OperationsSurface({ dispatchAffordance, props, runtimeClient, ag
     {error === null ? null : <p role="alert">{error}</p>}
     {loading ? <p className="operations-home__loading" role="status">Loading exact deployed interactions and immutable build lineageâ€¦</p> : null}
     {!loading ? <section className="operations-home__summary" aria-label="Operations summary"><div><span>Interactions</span><strong>{interactions.length}</strong></div><div><span>Successful</span><strong>{interactions.filter(isEvaluationCandidate).length}</strong></div><div><span>Evaluation candidates</span><strong>{interactions.filter(isEvaluationCandidate).length}</strong></div></section> : null}
-    {selectedAgentId === null ? !loading ? <p>Select an Agent to inspect Operations.</p> : null : !loading && interactions.length === 0 ? <p>No deployed Agent interactions yet.</p> : <ol className="operations-home__interactions">{interactions.map((interaction) => <li key={interaction.interaction_id}>
+    {selectedAgentId === null ? !loading ? <p>Select an Agent to inspect Operations.</p> : null : !loading && interactions.length === 0 ? <p>No deployed Agent interactions yet.</p> : <ol className="operations-home__interactions">{interactions.map((interaction) => {
+      const promoted = typeof interaction.evaluation_case_id === "string" || promotedInteractionIds.has(interaction.interaction_id);
+      return <li key={interaction.interaction_id}>
       <header><div><span className="operations-home__status" data-status={interaction.status}>{interaction.status}</span><h2>{interaction.input_summary}</h2></div><span>Deployed interaction</span></header>
       <section className="operations-home__outcome" aria-label="Agent response"><p>Agent response</p><strong>{interaction.output_summary}</strong></section>
       <DeployedRuntimeEvidence interaction={interaction} build={builds.find((item) => item.id === interaction.build_id) ?? null} />
@@ -94,8 +101,8 @@ export function OperationsSurface({ dispatchAffordance, props, runtimeClient, ag
         <Field><FieldLabel htmlFor={`operations-set-${interaction.interaction_id}`}>Evaluation set</FieldLabel><Input id={`operations-set-${interaction.interaction_id}`} value={setName} onChange={(event) => setSetName(event.target.value)} /></Field>
         <Field><FieldLabel htmlFor={`operations-category-${interaction.interaction_id}`}>Category</FieldLabel><Input id={`operations-category-${interaction.interaction_id}`} value={category} onChange={(event) => setCategory(event.target.value)} /></Field>
         <Field><FieldLabel htmlFor={`operations-difficulty-${interaction.interaction_id}`}>Difficulty</FieldLabel><select id={`operations-difficulty-${interaction.interaction_id}`} value={difficulty} onChange={(event) => setDifficulty(event.target.value)}><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></Field>
-      </div><Button type="button" disabled={busy !== null || !setName.trim() || !category.trim()} onClick={() => void promote(interaction)}>Create Evaluation case</Button></details> : <p className="operations-home__not-promotable">This interaction has no completed API operation to promote.</p>}
-    </li>)}</ol>}
+      </div>{promoted ? <p role="status">Evaluation case created from this interaction.</p> : null}<Button type="button" disabled={busy !== null || !setName.trim() || !category.trim() || promoted} onClick={() => void promote(interaction)}>{promoted ? "Evaluation case created" : "Create Evaluation case"}</Button></details> : <p className="operations-home__not-promotable">This interaction has no completed API operation to promote.</p>}
+    </li>;})}</ol>}
   </section>;
 }
 

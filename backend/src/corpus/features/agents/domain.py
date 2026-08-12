@@ -64,11 +64,30 @@ class AgentDependencySnapshot:
         return bool(self.source_attachments or self.build_lineages)
 
 
+@dataclass(frozen=True)
+class AgentProductOverview:
+    agent_id: uuid.UUID
+    agent_version: int
+    source_count: int
+    design_status: str
+    design_revision: int | None
+    build_status: str | None
+    build_runtime_lifecycle: str | None
+    evaluation_status: str | None
+    evaluation_case_count: int
+    evaluation_eligible: bool | None
+    delivery_status: str
+    hosted_path: str | None
+    operations_count: int
+    next_step: str
+
+
 __all__ = [
     "AgentDependencySnapshot",
     "AgentBuildLineageRecord",
     "AgentBuildSourceReferenceRecord",
     "AgentLifecycle",
+    "AgentProductOverview",
     "AgentRecord",
     "AgentSourceAttachmentRecord",
 ]

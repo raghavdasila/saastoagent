@@ -156,6 +156,28 @@ it("ignores an out-of-order response from the previously selected Source revisio
 });
 
 
+it("adopts an operation selection saved by chat when the RouteDeck session advances", async () => {
+  let saved = false;
+  const fetchMock = vi.fn(async () => jsonResponse(curation(saved)));
+  const props = {
+    sourceId: "sourceopaque0001",
+    sourceRevisionId: "revisionopaque01",
+    sourceClient: new SourceClient({ fetch: fetchMock }),
+    dispatchAffordance: vi.fn(async () => dispatchResult("saved")),
+  };
+  const { rerender } = render(
+    <ApiOperationCurationPanel {...props} refreshVersion={10} />,
+  );
+  expect(await screen.findByText("2 operations still need an explicit decision.")).toBeVisible();
+
+  saved = true;
+  rerender(<ApiOperationCurationPanel {...props} refreshVersion={11} />);
+
+  expect(await screen.findByText("Every discovered operation is explicitly classified.")).toBeVisible();
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+});
+
+
 it("serializes manual refresh and save so their authoritative refetches cannot overlap", async () => {
   const refreshResponse = deferred<Response>();
   const saveResult = deferred<RouteDeckDispatchResult>();

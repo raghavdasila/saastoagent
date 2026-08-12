@@ -160,7 +160,7 @@ class DeploymentService:
         channels = tuple(
             value
             for value in await self.channels.list(organization_id, agent_id)
-            if value.status == "ready" and value.runtime_lifecycle == "running"
+            if value.status == "ready"
         )
         builds = tuple(
             value

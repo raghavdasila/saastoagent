@@ -26,6 +26,7 @@ from .schemas import (
     RetryEvaluationRunArguments,
     RetryEvaluationGenerationArguments,
     RunEvaluationCaseArguments,
+    run_evaluation_case_arguments,
 )
 from .service import EvaluationService
 
@@ -78,11 +79,13 @@ class RunCaseHandler:
 
     async def __call__(self, arguments, context: ExecutionContext) -> OperationOutcome:
         try:
-            payload = RunEvaluationCaseArguments.model_validate(dict(arguments))
+            payload = run_evaluation_case_arguments(dict(arguments), context.source)
             owner = await self.owner_scope.organization_id_for_route(context.session_id)
             agent_id = uuid.UUID(context.private_entity_id("agent_ref"))
             if payload.case_id is None:
-                await self.service.queue_current_case(owner, agent_id)
+                await self.service.queue_current_case(
+                    owner, agent_id, case_origin=payload.case_origin
+                )
             else:
                 await self.service.queue_case(owner, agent_id, payload.case_id)
         except (ValidationError, ValueError, KeyError) as error:

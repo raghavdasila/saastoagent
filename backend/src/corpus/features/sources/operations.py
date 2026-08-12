@@ -53,7 +53,12 @@ from .connectors.api.routed_executions import (
     ApiRoutedExecutionError,
     ApiRoutedExecutionService,
 )
-from .connectors.api.route_plans import ApiRoutePlanConflict
+from .connectors.api.route_plans import (
+    ApiRoutePlanConflict,
+    ApiRoutePlanError,
+    ApiRoutePlanService,
+    ApiRoutePlanView,
+)
 from .connectors.api.staged_attachments import (
     ApiStagedAttachmentError,
     ApiStagedAttachmentService,
@@ -81,6 +86,8 @@ from .declarations import (
     APPROVE_CONTRACT_REVISION,
     PROPOSE_CONTRACT_REVISION,
     PREPARE_ROUTED_API_TEST,
+    CREATE_API_ROUTE_PLAN,
+    CONTINUE_API_ROUTE_PLAN,
     PROCESS_API,
     OPEN_API_CREATION,
     OPEN_API_SOURCE,
@@ -98,8 +105,10 @@ from .providers import selected_api_source_identity
 from .repository import SourceNotFound, SourceNotReady, SourceRepositoryError
 from .schemas import (
     ApproveContractRevisionArguments,
+    ContinueCurrentApiRoutePlanArguments,
     GraphStageArguments,
     ProposeContractRevisionArguments,
+    PrepareCurrentApiRoutePlanArguments,
     ProcessApiSourceArguments,
     OpenApiSourceArguments,
     OpenApiDescriptionArguments,
@@ -379,19 +388,235 @@ class DeleteApiSourceHandler:
 
 class OpenApiRoutePlanHandler:
     async def __call__(self, arguments, context) -> OperationOutcome:
-        del context
         if arguments:
             raise ValueError(f"{PREPARE_ROUTED_API_TEST.id} accepts no arguments")
+        selected = selected_api_source_identity(context.provider_values)
+        if selected is None:
+            return _failure(
+                context,
+                PREPARE_ROUTED_API_TEST.id,
+                "api_route_plan_source_required",
+                "Open the ready API Source you want Corpus to plan against.",
+                FailureKind.STATE_CONFLICT,
+            )
+        source_id, source_revision_id = selected
         return _success(
             "opened",
             effects=SessionEffects(
                 surface_updates=(
                     PublicSurfaceEffect(
                         surface_id="sources.api_operation_test",
-                        values=(PublicValue(name="open", value=FrozenJson(True)),),
+                        values=(
+                            PublicValue(name="open", value=FrozenJson(True)),
+                            PublicValue(name="source_id", value=FrozenJson(source_id)),
+                            PublicValue(
+                                name="source_revision_id",
+                                value=FrozenJson(source_revision_id),
+                            ),
+                        ),
                     ),
                 ),
             ),
+        )
+
+
+@dataclass(frozen=True)
+class CreateApiRoutePlanHandler:
+    service: ApiRoutePlanService
+    owner_scope: SourceOwnerScopeGateway
+
+    async def __call__(
+        self, arguments: Mapping[str, Any], context: ExecutionContext
+    ) -> OperationOutcome:
+        try:
+            payload = PrepareCurrentApiRoutePlanArguments.model_validate(arguments)
+            selected = selected_api_source_identity(context.provider_values)
+            if selected is None:
+                raise SourceNotReady(
+                    "Open the ready API Source you want Corpus to plan against."
+                )
+            source_id, source_revision_id = selected
+            owner_id, conversation_id = await asyncio.gather(
+                self.owner_scope.organization_id_for_route(context.session_id),
+                self.owner_scope.conversation_id_for_route(context.session_id),
+            )
+            profiles = await asyncio.to_thread(
+                self.service.profiles.list_exact,
+                owner_key=str(owner_id),
+                source_id=source_id,
+                revision_id=source_revision_id,
+            )
+            if payload.profile_name is None:
+                if len(profiles) != 1:
+                    raise ApiRoutePlanConflict(
+                        "Choose one saved connection profile before preparing this request."
+                    )
+                profile = profiles[0]
+            else:
+                matching = tuple(
+                    item
+                    for item in profiles
+                    if item.profile_name.casefold() == payload.profile_name.casefold()
+                )
+                if len(matching) != 1:
+                    raise ApiRoutePlanConflict(
+                        "The named connection profile is unavailable for this API version."
+                    )
+                profile = matching[0]
+            curation = await asyncio.to_thread(
+                self.service.curations.inspect,
+                owner_id=owner_id,
+                source_id=source_id,
+                source_revision_id=source_revision_id,
+            )
+            if curation.current is None:
+                raise ApiRoutePlanConflict(
+                    "Choose the API operations this Agent may use before preparing a request."
+                )
+            plan = await asyncio.to_thread(
+                self.service.create,
+                owner_id=owner_id,
+                conversation_id=conversation_id,
+                route_session_id=context.session_id,
+                source_id=source_id,
+                source_revision_id=source_revision_id,
+                profile_id=profile.id,
+                curation_id=curation.current.id,
+                request_text=payload.request_text,
+                provided_inputs=payload.provided_inputs,
+            )
+        except ValidationError:
+            return _failure(
+                context,
+                CREATE_API_ROUTE_PLAN.id,
+                "api_route_plan_request_invalid",
+                "Describe one API request and provide only explicitly known non-secret inputs.",
+                FailureKind.CONTRACT,
+            )
+        except (ApiRoutePlanConflict, SourceNotFound, SourceNotReady) as error:
+            return _failure(
+                context,
+                CREATE_API_ROUTE_PLAN.id,
+                "api_route_plan_context_unavailable",
+                str(error),
+                FailureKind.STATE_CONFLICT,
+            )
+        except SourceOwnerScopeUnavailable as error:
+            return _failure(
+                context,
+                CREATE_API_ROUTE_PLAN.id,
+                "authentication_required",
+                str(error),
+                FailureKind.STATE_CONFLICT,
+            )
+        except (ApiRoutePlanError, SourceRepositoryError):
+            return _failure(
+                context,
+                CREATE_API_ROUTE_PLAN.id,
+                "api_route_plan_unavailable",
+                "The routed API plan could not be prepared.",
+                FailureKind.PERSISTENCE,
+            )
+        return _success(
+            "planned",
+            observation=_route_plan_observation(plan),
+            effects=_open_route_plan_effect(plan),
+        )
+
+
+@dataclass(frozen=True)
+class ContinueApiRoutePlanHandler:
+    service: ApiRoutePlanService
+    owner_scope: SourceOwnerScopeGateway
+
+    async def __call__(
+        self, arguments: Mapping[str, Any], context: ExecutionContext
+    ) -> OperationOutcome:
+        try:
+            payload = ContinueCurrentApiRoutePlanArguments.model_validate(arguments)
+            selected = selected_api_source_identity(context.provider_values)
+            if selected is None:
+                raise SourceNotReady("Return to the API Source with the waiting request.")
+            source_id, source_revision_id = selected
+            owner_id, conversation_id = await asyncio.gather(
+                self.owner_scope.organization_id_for_route(context.session_id),
+                self.owner_scope.conversation_id_for_route(context.session_id),
+            )
+            current = await asyncio.to_thread(
+                self.service.current,
+                owner_id=owner_id,
+                conversation_id=conversation_id,
+                route_session_id=context.session_id,
+                source_id=source_id,
+                source_revision_id=source_revision_id,
+            )
+            if current is None:
+                raise ApiRoutePlanConflict("No API request is waiting in this conversation.")
+            if current.state == "needs_operation_choice":
+                candidates = {
+                    item.operation_label.casefold(): item.operation_id
+                    for step in current.steps
+                    for item in step.ranked_operations
+                }
+                operation_id = candidates.get(payload.answer.strip().casefold())
+                if operation_id is None:
+                    raise ApiRoutePlanConflict(
+                        "Choose one of the operation names in the current question."
+                    )
+                answers: Mapping[str, Any] = {"operation_id": operation_id}
+            elif current.state == "needs_input" and current.missing_inputs:
+                answers = {current.missing_inputs[0]: payload.answer.strip()}
+            else:
+                raise ApiRoutePlanConflict(
+                    "The current API request is not waiting for an answer."
+                )
+            plan = await asyncio.to_thread(
+                self.service.clarify,
+                owner_id=owner_id,
+                conversation_id=conversation_id,
+                route_session_id=context.session_id,
+                source_id=source_id,
+                source_revision_id=source_revision_id,
+                plan_id=current.plan_id,
+                expected_record_id=current.record_id,
+                answers=answers,
+            )
+        except ValidationError:
+            return _failure(
+                context,
+                CONTINUE_API_ROUTE_PLAN.id,
+                "api_route_plan_answer_invalid",
+                "Answer the current API question with one non-secret value or listed choice.",
+                FailureKind.CONTRACT,
+            )
+        except (ApiRoutePlanConflict, SourceNotFound, SourceNotReady) as error:
+            return _failure(
+                context,
+                CONTINUE_API_ROUTE_PLAN.id,
+                "api_route_plan_answer_stale",
+                str(error),
+                FailureKind.STATE_CONFLICT,
+            )
+        except SourceOwnerScopeUnavailable as error:
+            return _failure(
+                context,
+                CONTINUE_API_ROUTE_PLAN.id,
+                "authentication_required",
+                str(error),
+                FailureKind.STATE_CONFLICT,
+            )
+        except (ApiRoutePlanError, SourceRepositoryError):
+            return _failure(
+                context,
+                CONTINUE_API_ROUTE_PLAN.id,
+                "api_route_plan_unavailable",
+                "The waiting API request could not be continued.",
+                FailureKind.PERSISTENCE,
+            )
+        return _success(
+            "continued",
+            observation=_route_plan_observation(plan),
+            effects=_open_route_plan_effect(plan),
         )
 
 
@@ -1350,7 +1575,7 @@ class ApproveContractRevisionHandler:
             owner_id = await self.owner_scope.organization_id_for_route(
                 context.session_id
             )
-            await asyncio.to_thread(
+            approved = await asyncio.to_thread(
                 self.service.approve,
                 owner_id=owner_id,
                 source_id=source_id,
@@ -1404,6 +1629,30 @@ class ApproveContractRevisionHandler:
                 ),
                 surface_updates=(
                     PublicSurfaceEffect(
+                        surface_id="sources.api",
+                        values=tuple((
+                            PublicValue(
+                                name="form_handle",
+                                value=FrozenJson(API_CONNECTION_FORM_ID),
+                            ),
+                            PublicValue(name="mode", value=FrozenJson("inspect")),
+                            PublicValue(
+                                name="selected_source_id",
+                                value=FrozenJson(approved.source_id),
+                            ),
+                            PublicValue(
+                                name="selected_source_revision_id",
+                                value=FrozenJson(approved.revision.revision_id),
+                            ),
+                        ) + tuple(
+                            PublicValue(name=name, value=FrozenJson(value))
+                            for name, value in _selected_source_handoff_context(
+                                context.provider_values,
+                                selected_revision_id=approved.revision.revision_id,
+                            ).items()
+                        )),
+                    ),
+                    PublicSurfaceEffect(
                         surface_id="sources.contract_revision_proposal"
                     ),
                     PublicSurfaceEffect(
@@ -1412,6 +1661,33 @@ class ApproveContractRevisionHandler:
                 ),
             ),
         )
+
+
+def _selected_source_handoff_context(
+    provider_values: FrozenJsonObject,
+    *,
+    selected_revision_id: str,
+) -> dict[str, Any]:
+    selected = provider_values.to_dict().get("sources.selected_api_source", {})
+    if not isinstance(selected, dict):
+        return {}
+    handoff: dict[str, Any] = {
+        name: value
+        for name in (
+            "return_agent_ref",
+            "agent_handoff_mode",
+            "attached_source_revision_id",
+            "return_context",
+            "initial_workspace",
+        )
+        if isinstance((value := selected.get(name)), str)
+    }
+    attached_revision_id = handoff.get("attached_source_revision_id")
+    if isinstance(attached_revision_id, str):
+        handoff["attachment_update_available"] = (
+            attached_revision_id != selected_revision_id
+        )
+    return handoff
 
 
 def _success(
@@ -1427,6 +1703,50 @@ def _success(
         observation=FrozenJsonObject(observation or {}),
         public_observation=FrozenJsonObject(observation or {}),
     )
+
+
+def _open_route_plan_effect(plan: ApiRoutePlanView) -> SessionEffects:
+    return SessionEffects(
+        surface_updates=(
+            PublicSurfaceEffect(
+                surface_id="sources.api_operation_test",
+                values=(
+                    PublicValue(name="open", value=FrozenJson(True)),
+                    PublicValue(name="source_id", value=FrozenJson(plan.source_id)),
+                    PublicValue(
+                        name="source_revision_id",
+                        value=FrozenJson(plan.source_revision_id),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+
+def _route_plan_observation(plan: ApiRoutePlanView) -> dict[str, Any]:
+    choices = tuple(
+        dict.fromkeys(
+            item.operation_label
+            for step in plan.steps
+            for item in step.ranked_operations
+        )
+    )
+    selected = next(
+        (
+            step
+            for step in plan.steps
+            if step.selected_operation_id is not None
+        ),
+        None,
+    )
+    return {
+        "state": plan.state,
+        "question": plan.clarification_prompt,
+        "choices": list(choices) if plan.state == "needs_operation_choice" else [],
+        "missing_inputs": list(plan.missing_inputs),
+        "method": selected.method if selected is not None else None,
+        "path": selected.path_template if selected is not None else None,
+    }
 
 
 def _failure(context, operation_id, code, message, kind) -> OperationOutcome:
@@ -1456,6 +1776,8 @@ __all__ = [
     "SaveApiDescriptionHandler",
     "DeleteApiSourceHandler",
     "OpenApiRoutePlanHandler",
+    "CreateApiRoutePlanHandler",
+    "ContinueApiRoutePlanHandler",
     "ProcessApiHandler",
     "RoutedApiExecutionHandler",
     "ProposeContractRevisionHandler",

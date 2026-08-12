@@ -31,6 +31,13 @@ If Huey rejects enqueue, Corpus records `queue_unavailable` and raises
 queue. Attempts increment only when work starts. Historical state transitions
 remain in `durable_job_events`.
 
+Builder consumes this seam through `builder.assemble`: the web process first
+persists a queued immutable attempt, enqueues only its opaque job/build/request
+identities, and returns. The source worker marks the exact attempt running,
+rechecks the accepted design and Source bindings, materializes the immutable
+build, and records ready/failed truth. Queue rejection is a visible failed
+attempt; there is no inline fallback or automatic retry.
+
 ## Credential flow
 
 ```text
@@ -49,7 +56,9 @@ contains the secret payload, and errors contain no credential values.
 
 ## Persistence and configuration
 
-- Alembic revision: `0003_shared_infrastructure`.
+- Infrastructure introduction: Alembic revision `0003_shared_infrastructure`.
+- Current Builder consumer schema: `0019_builder_assembly_lifecycle` adds the
+  exact durable job binding and queued/running/ready/failed attempt lifecycle.
 - Corpus tables: `durable_jobs`, `durable_job_events`,
   `credential_references`.
 - Huey local queue: `CORPUS_JOB_QUEUE_PATH`; it is scheduling transport, not

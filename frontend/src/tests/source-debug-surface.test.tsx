@@ -289,6 +289,52 @@ it("adopts the new current API version unless the view is an explicit historical
   historicalRendered.dispose();
 });
 
+it("shows when the selected Agent still pins an earlier API version", async () => {
+  const ready = sourceView("ready");
+  const dispatchAffordance = vi.fn(async () => dispatchResult("sources.return_to_agent", "opened"));
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url === "/api/sources") return jsonResponse([ready]);
+    if (url === `/api/sources/${ready.source_id}?revision_id=${ready.revision.revision_id}`) {
+      return jsonResponse(ready);
+    }
+    if (url === `/api/sources/${ready.source_id}/dependencies`) {
+      return jsonResponse({
+        source_id: ready.source_id,
+        processing_state: "ready",
+        attached_agent_ids: [],
+        design_revision_ids: [],
+        build_ids: [],
+        blocks_delete: false,
+      });
+    }
+    throw new Error(`Unexpected request ${url}`);
+  });
+  const rendered = await renderSourceHub(
+    dispatchAffordance,
+    new SourceClient({ fetch: fetchMock }),
+    {
+      form_handle: "sources-api-connection",
+      return_agent_ref: "agent-canonical-001",
+      agent_handoff_mode: "inspect",
+      selected_source_id: ready.source_id,
+      selected_source_revision_id: ready.revision.revision_id,
+      attached_source_revision_id: "historicalrev01",
+    },
+  );
+
+  fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
+  expect(screen.getByText("A newer API version is ready for this Agent")).toBeVisible();
+  expect(screen.getByText("historicalrev01")).toBeVisible();
+  expect(screen.getAllByText(ready.revision.revision_id).length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole("button", { name: "Return to Agent and update" }));
+  await waitFor(() => expect(dispatchAffordance).toHaveBeenCalledWith(
+    "return_to_agent",
+    { agent_ref: "agent-canonical-001" },
+  ));
+  rendered.dispose();
+});
+
 it("offers exact existing-or-new Agent continuation only after analysis is ready", async () => {
   const accepted = sourceView("accepted");
   const acceptedFetch = vi.fn(async (input: RequestInfo | URL) => {

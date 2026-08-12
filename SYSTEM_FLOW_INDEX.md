@@ -9,10 +9,14 @@ Navgraph is maintained separately in the design notebook.
 owner creates and approves one API Source revision
   -> saves one protected profile and exact operation curation
   -> creates an Agent pinned to the exact Source revision
-  -> Designer appends, reviews, accepts, and requests one build
-  -> Builder materializes one immutable model/source/profile/curation binding
+  -> Designer uses the configured real model to append one owner-described,
+     Source-grounded immutable feature revision
+  -> owner customizes, reviews, accepts, and requests one build
+  -> Builder persists one durable queued assembly attempt
+  -> source worker rechecks and materializes one immutable model/source/profile/curation binding
+     then automatically schedules durable ToolRouter coverage for that exact build
   -> Sandbox runs the exact build through the neutral execution adapter
-  -> Evaluation promotes the immutable interaction and derives eligibility
+  -> Evaluation runs the generated exact-build case and derives eligibility
   -> Channels creates hosted Web; Deployment requires explicit review
   -> backend/worker restart restores exact build and delivery bindings
   -> public hosted session invokes that deployment
@@ -33,6 +37,12 @@ capabilities, curated operations, policies, and runtime surfaces. Builder uses
 that same topology to compile the immutable per-build RouteDeck Application;
 the built NavGraph displays the same identity. The current runtime graph is one
 real Agent node, not a decorative lifecycle diagram.
+
+Durable Builder assembly is independently retained in bounded run
+`20260811T163659Z-73c50607a2` (15/15). Its 13.84-second normal-speed maximized
+film shows the feature transition through queued/running/ready, the exact
+immutable compiled NavGraph, and automatic evaluation-coverage scheduling.
+The run stopped before Sandbox and Evaluation by design.
 
 Run `20260808T100957Z-f63809ea83` passed this flow 13/13 locally with
 desktop/mobile screenshots, video, and zero unexpected browser diagnostics.

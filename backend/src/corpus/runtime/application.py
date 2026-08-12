@@ -22,6 +22,7 @@ from corpus.app.host import LiveRouteDeckApplication
 from corpus.bindings import bind_corpus_app
 from corpus.composition import compile_corpus_app
 from corpus.features.agents.service import AgentService
+from corpus.features.agents.overview import AgentProductOverviewService
 from corpus.features.designer.service import DesignerService
 from corpus.features.builder.service import BuilderService
 from corpus.features.sandbox.service import SandboxService
@@ -126,9 +127,11 @@ async def open_live_corpus_application(
     source_connection_check_service,
     source_operation_curation_service,
     source_routed_execution_service,
+    agent_overview_service: AgentProductOverviewService | None = None,
     source_staged_attachment_service=None,
     source_staged_description_service=None,
     source_lifecycle_service=None,
+    source_route_plan_service=None,
 ) -> LiveRouteDeckApplication:
     configured = settings or CorpusRuntimeSettings.from_env()
     compiled = compile_corpus_app()
@@ -147,6 +150,7 @@ async def open_live_corpus_application(
             private_form_codec=resources.codec,
             credential_transition=credential_transition,
             agent_service=agent_service,
+            agent_overview_service=agent_overview_service,
             designer_service=designer_service,
             builder_service=builder_service,
             sandbox_service=sandbox_service,
@@ -161,6 +165,7 @@ async def open_live_corpus_application(
             source_contract_revision_service=source_contract_revision_service,
             source_connection_check_service=source_connection_check_service,
             source_operation_curation_service=source_operation_curation_service,
+            source_route_plan_service=source_route_plan_service,
             source_routed_execution_service=source_routed_execution_service,
             source_staged_attachment_service=source_staged_attachment_service,
             source_staged_description_service=source_staged_description_service,

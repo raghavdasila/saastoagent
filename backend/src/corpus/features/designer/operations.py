@@ -10,9 +10,9 @@ from routedeck_core.ports.executor import ExecutionContext
 
 from corpus.features.agents.ports import AgentOwnerScopeGateway, AgentOwnerScopeUnavailable
 
-from .declarations import APPROVE_DESIGN, CUSTOMIZE_DESIGN, PROPOSE_DESIGN, REQUEST_BUILD
+from .declarations import APPROVE_DESIGN, CUSTOMIZE_DESIGN, GENERATE_FEATURE, PROPOSE_DESIGN, REQUEST_BUILD
 from .ports import DesignerConflict, DesignerUnavailable
-from .schemas import CustomizeDesignArguments, DesignerAgentArguments, RequestBuildArguments, ReviewDesignArguments
+from .schemas import CustomizeDesignArguments, DesignerAgentArguments, GenerateFeatureArguments, RequestBuildArguments, ReviewDesignArguments
 from .service import DesignerService
 
 
@@ -30,6 +30,18 @@ class DesignerHandler:
                 DesignerAgentArguments.model_validate(dict(arguments))
                 await self.service.propose(organization_id, agent_id)
                 outcome = "proposed"
+            elif self.operation_id == GENERATE_FEATURE.id:
+                payload = GenerateFeatureArguments.model_validate(dict(arguments))
+                current = payload.expected_revision_id
+                if current is None:
+                    current = (await self.service.get(organization_id, agent_id)).current_revision_id
+                await self.service.generate_feature(
+                    organization_id,
+                    agent_id,
+                    expected_revision_id=current,
+                    description=payload.description,
+                )
+                outcome = "generated"
             elif self.operation_id == CUSTOMIZE_DESIGN.id:
                 payload = CustomizeDesignArguments.model_validate(dict(arguments))
                 current = payload.expected_revision_id

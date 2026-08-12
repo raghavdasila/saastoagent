@@ -14,6 +14,7 @@ from .declarations import (
     HELP_OPEN_REGISTRATION,
     HELP_OPEN_SIGN_IN,
     HELP_RETURN_TO_LOUNGE,
+    LOUNGE_CONTINUE_TO_WORKSPACE,
     OPEN_PRODUCT_HELP,
     REGISTER_FORM_ID,
     REGISTRATION_CONTINUE_TO_WORKSPACE,
@@ -37,6 +38,7 @@ from .ports import (
     LoungeRateLimiter,
 )
 from .operations import (
+    AuthenticatedLoungeNavigationHandler,
     AuthenticateOwnerHandler,
     ChangeOwnerPasswordHandler,
     ConfirmOwnerEmailHandler,
@@ -64,6 +66,7 @@ def create_lounge_bindings(
         HELP_RETURN_TO_LOUNGE,
         HELP_OPEN_REGISTRATION,
         HELP_OPEN_SIGN_IN,
+        LOUNGE_CONTINUE_TO_WORKSPACE,
         REGISTRATION_CONTINUE_TO_WORKSPACE,
         SIGN_IN_CONTINUE_TO_WORKSPACE,
         SIGN_IN_OPEN_PASSWORD_RECOVERY,
@@ -75,6 +78,10 @@ def create_lounge_bindings(
     }
     handlers.update(
         {
+            LOUNGE_CONTINUE_TO_WORKSPACE.ref: AuthenticatedLoungeNavigationHandler(
+                account,
+                LOUNGE_CONTINUE_TO_WORKSPACE.id,
+            ),
             REGISTRATION_RETURN_TO_LOUNGE.ref: LoungeNavigationHandler(
                 REGISTRATION_RETURN_TO_LOUNGE.id,
                 private_forms,

@@ -24,5 +24,13 @@ class AuthSourceOwnerScopeGateway:
                 "The owner Workspace is unavailable."
             ) from error
 
+    async def conversation_id_for_route(self, route_session_id: str) -> str:
+        try:
+            return await self.auth.conversation_id_for_route(route_session_id)
+        except SessionUnavailable as error:
+            raise SourceOwnerScopeUnavailable(
+                "The owner conversation is unavailable."
+            ) from error
+
 
 __all__ = ["AuthSourceOwnerScopeGateway", "SourceOwnerScopeUnavailable"]

@@ -44,16 +44,16 @@ class SqlAlchemyBuilderRepository:
                     ).order_by(AgentRunnableBuild.attempt_number.desc()))
                     if existing is not None and existing.status == "ready":
                         return _record(existing)
-                    if existing is not None and existing.status == "assembling":
+                    if existing is not None and existing.status in {"queued", "running"}:
                         raise BuilderConflict("This build request already has an active build attempt.")
                     attempt_number = 1 if existing is None else existing.attempt_number + 1
                     value = AgentRunnableBuild(
                         id=uuid.uuid4(), organization_id=organization_id, agent_id=agent_id,
                         build_request_id=build_request_id, design_revision_id=request.design_revision_id,
                         agent_version=revision.agent_version, attempt_number=attempt_number,
-                        status="assembling", runtime_lifecycle="stopped", runtime_build_hash=None,
+                        status="queued", runtime_lifecycle="stopped", runtime_build_hash=None,
                         model=None, model_digest=None, source_bindings=[], allowed_operation_ids=[],
-                        navgraph_hash=None, compiled_navgraph={}, frontend_contract={},
+                        navgraph_hash=None, compiled_navgraph={}, frontend_contract={}, job_id=None,
                         failure_code=None, failure_message=None, created_at=now, updated_at=now,
                     )
                     request.status = "assembling"
@@ -67,8 +67,8 @@ class SqlAlchemyBuilderRepository:
         async with self.database.session() as session:
             async with session.begin():
                 value = await _locked(session, organization_id, build_id)
-                if value.status != "assembling":
-                    raise BuilderConflict("The build attempt is no longer assembling.")
+                if value.status != "running":
+                    raise BuilderConflict("The build attempt is no longer running.")
                 value.status = "ready"
                 value.runtime_lifecycle = "stopped"
                 value.runtime_build_hash = artifact.runtime_build_hash
@@ -84,6 +84,32 @@ class SqlAlchemyBuilderRepository:
                 if request is None:
                     raise BuilderUnavailable("The selected build request is unavailable.")
                 request.status = "ready"
+                await session.flush()
+                return _record(value)
+
+    async def link_job(self, organization_id, build_id, job_id):
+        async with self.database.session() as session:
+            async with session.begin():
+                value = await _locked(session, organization_id, build_id)
+                if value.status != "queued" or value.job_id is not None:
+                    raise BuilderConflict("The build attempt is no longer awaiting its durable job.")
+                value.job_id = job_id
+                value.updated_at = datetime.now(UTC)
+                await session.flush()
+                return _record(value)
+
+    async def mark_running(self, organization_id, build_id, job_id):
+        async with self.database.session() as session:
+            async with session.begin():
+                value = await _locked(session, organization_id, build_id)
+                if value.status != "queued" or value.job_id != job_id:
+                    raise BuilderConflict("The queued build attempt changed its durable job identity.")
+                value.status = "running"
+                value.updated_at = datetime.now(UTC)
+                request = await session.get(AgentBuildRequest, value.build_request_id)
+                if request is None:
+                    raise BuilderUnavailable("The selected build request is unavailable.")
+                request.status = "running"
                 await session.flush()
                 return _record(value)
 
@@ -164,7 +190,7 @@ def _record(value):
         tuple(dict(item) for item in value.source_bindings), tuple(value.allowed_operation_ids),
         value.navgraph_hash, dict(value.compiled_navgraph), dict(value.frontend_contract),
         value.failure_code, value.failure_message, value.created_at, value.updated_at,
-        value.attempt_number,
+        value.attempt_number, value.job_id,
     )
 
 

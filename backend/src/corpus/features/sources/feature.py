@@ -49,6 +49,8 @@ from .declarations import (
     SOURCE_DELETE_CURRENT_GUARD,
     PROPOSE_CONTRACT_REVISION,
     PREPARE_ROUTED_API_TEST,
+    CREATE_API_ROUTE_PLAN,
+    CONTINUE_API_ROUTE_PLAN,
     PROCESS_API,
     RETRY_PROCESSING,
     RETURN_TO_HOME,
@@ -148,6 +150,8 @@ API_SOURCE_SURFACE = Surface(
                 "agent_handoff_mode": {"type": "string", "enum": ["create", "inspect"]},
                 "selected_source_id": {"type": "string", "minLength": 16, "maxLength": 16},
                 "selected_source_revision_id": {"type": "string", "minLength": 16, "maxLength": 16},
+                "attached_source_revision_id": {"type": "string", "minLength": 16, "maxLength": 16},
+                "attachment_update_available": {"type": "boolean"},
                 "return_context": {"type": "string", "enum": ["agent", "builder"]},
                 "initial_workspace": {"type": "string", "enum": ["graph", "operations", "connection", "agent", "description"]},
             },
@@ -202,6 +206,16 @@ API_SOURCE_SURFACE = Surface(
             id="prepare_routed_api_test",
             event="open",
             operation=PREPARE_ROUTED_API_TEST.ref,
+        ),
+        SurfaceAffordance(
+            id="create_api_route_plan",
+            event="submit",
+            operation=CREATE_API_ROUTE_PLAN.ref,
+        ),
+        SurfaceAffordance(
+            id="continue_api_route_plan",
+            event="submit",
+            operation=CONTINUE_API_ROUTE_PLAN.ref,
         ),
         SurfaceAffordance(
             id="process_api",
@@ -263,11 +277,33 @@ API_OPERATION_TEST_SURFACE = Surface(
     public_props_schema=FrozenJsonObject(
         {
             "type": "object",
-            "properties": {"open": {"type": "boolean", "const": True}},
+            "properties": {
+                "open": {"type": "boolean", "const": True},
+                "source_id": {
+                    "type": "string",
+                    "minLength": 16,
+                    "maxLength": 16,
+                },
+                "source_revision_id": {
+                    "type": "string",
+                    "minLength": 16,
+                    "maxLength": 16,
+                },
+            },
             "additionalProperties": False,
         }
     ),
     affordances=(
+        SurfaceAffordance(
+            id="create_api_route_plan",
+            event="submit",
+            operation=CREATE_API_ROUTE_PLAN.ref,
+        ),
+        SurfaceAffordance(
+            id="continue_api_route_plan",
+            event="submit",
+            operation=CONTINUE_API_ROUTE_PLAN.ref,
+        ),
         SurfaceAffordance(
             id="run_routed_api_read",
             event="submit",
@@ -379,6 +415,8 @@ SOURCES_CAPABILITY = Capability(
         TEST_API_CONNECTION.ref,
         SAVE_API_OPERATION_CURATION.ref,
         PREPARE_ROUTED_API_TEST.ref,
+        CREATE_API_ROUTE_PLAN.ref,
+        CONTINUE_API_ROUTE_PLAN.ref,
         TEST_ROUTED_API_READ.ref,
         TEST_ROUTED_API_WRITE.ref,
         PROPOSE_CONTRACT_REVISION.ref,
@@ -435,7 +473,7 @@ SOURCES_HOME_NODE = Node(
         template="/sources",
         deep_link_policy=DeepLinkPolicy.SESSION_BOUND,
     ),
-    context_providers=(OWNER_CONTEXT_PROVIDER,),
+    context_providers=(OWNER_CONTEXT_PROVIDER, SELECTED_API_SOURCE_PROVIDER),
     operations=(OPEN_API_CREATION, OPEN_API_SOURCE, OPEN_API_DESCRIPTION, RETURN_TO_HOME, ATTACH_CREATED_SOURCE, RETURN_FROM_SOURCE),
     outgoing=(
         Transition(
@@ -489,7 +527,7 @@ SOURCES_API_INTAKE_NODE = Node(
     kind=NodeKind.WORKFLOW,
     parent=SOURCES_HOME_REF,
     route=Route(template="/sources/api/new", deep_link_policy=DeepLinkPolicy.SESSION_BOUND),
-    context_providers=(OWNER_CONTEXT_PROVIDER,),
+    context_providers=(OWNER_CONTEXT_PROVIDER, SELECTED_API_SOURCE_PROVIDER),
     operations=(
         ACCEPT_STAGED_API,
         RETURN_TO_SOURCE_HUB,
@@ -529,6 +567,8 @@ SOURCES_API_NODE = Node(
         TEST_API_CONNECTION,
         SAVE_API_OPERATION_CURATION,
         PREPARE_ROUTED_API_TEST,
+        CREATE_API_ROUTE_PLAN,
+        CONTINUE_API_ROUTE_PLAN,
         TEST_ROUTED_API_READ,
         TEST_ROUTED_API_WRITE,
         PROPOSE_CONTRACT_REVISION,
@@ -559,6 +599,8 @@ SOURCES_API_NODE = Node(
         Transition(operation=TEST_API_CONNECTION.ref, outcome="checked", target=SOURCES_API_REF),
         Transition(operation=SAVE_API_OPERATION_CURATION.ref, outcome="saved", target=SOURCES_API_REF),
         Transition(operation=PREPARE_ROUTED_API_TEST.ref, outcome="opened", target=SOURCES_API_REF),
+        Transition(operation=CREATE_API_ROUTE_PLAN.ref, outcome="planned", target=SOURCES_API_REF),
+        Transition(operation=CONTINUE_API_ROUTE_PLAN.ref, outcome="continued", target=SOURCES_API_REF),
         Transition(operation=TEST_ROUTED_API_READ.ref, outcome="observed", target=SOURCES_API_REF),
         Transition(operation=TEST_ROUTED_API_WRITE.ref, outcome="observed", target=SOURCES_API_REF),
     ),
@@ -587,7 +629,7 @@ SOURCES_API_NODE = Node(
         SuggestedAction(
             id="api-test-operation",
             operation_id=PREPARE_ROUTED_API_TEST.id,
-            label="Test routed operation",
+            label="Try an API request",
         ),
     ),
     policy_refs=(

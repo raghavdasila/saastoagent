@@ -1,7 +1,16 @@
 import type { FrontendContract } from "@routedeck/core";
 import { NavGraphInspector } from "@routedeck/react";
-import { ArrowRight } from "lucide-react";
-import { memo, useMemo } from "react";
+import {
+  ArrowRight,
+  Blocks,
+  Bot,
+  Database,
+  PanelsTopLeft,
+  ShieldCheck,
+  Sparkles,
+  Wrench,
+} from "lucide-react";
+import { memo, useMemo, type ReactNode } from "react";
 
 import { presentNavGraphContract, presentNavGraphNodeTitle } from "@/lib/navgraphPresentation";
 import type { DesignContent, DesignTopology } from "./models";
@@ -9,6 +18,8 @@ import type { DesignContent, DesignTopology } from "./models";
 
 export const DesignerBlueprint = memo(function DesignerBlueprint({ content, topology, sourceInputs }: { readonly content: DesignContent; readonly topology: DesignTopology | null; readonly sourceInputs: readonly Readonly<Record<string, unknown>>[] }) {
   const lineages = sourceInputs.map(sourceLineage).filter((item): item is SourceLineage => item !== null);
+  const capabilities = topology?.capabilities ?? capabilitiesFromContent(content);
+  const surfaces = topology === null ? [] : runtimeSurfaces(topology);
   return <section className="designer-blueprint" aria-label="Agent design blueprint">
     <header><div><p>RouteDeck Agent design</p><h2>{content.goal || "Untitled Agent goal"}</h2></div><span>Proposed · compiled only after approval</span></header>
     <dl className="designer-blueprint__summary" aria-label="Design summary">
@@ -17,6 +28,47 @@ export const DesignerBlueprint = memo(function DesignerBlueprint({ content, topo
       <div><dt>API tools</dt><dd>{topology?.operation_ids.length ?? content.tools.length}</dd></div>
       <div><dt>Policies</dt><dd>{content.policies.length + (content.instructions.trim() ? 1 : 0)}</dd></div>
     </dl>
+    <section className="designer-studio__foundation" aria-label="Agent intent and Source intelligence">
+      <article className="designer-studio__intent">
+        <header><Bot aria-hidden="true" /><div><p>Agent definition</p><h3>Agent intent</h3></div></header>
+        <div className="designer-studio__intent-details">
+          <section><span>Goal</span><strong>{content.goal || "No Agent goal has been proposed."}</strong></section>
+          <section><h4>Responsibilities</h4><p>{content.instructions}</p></section>
+        </div>
+      </article>
+      <article className="designer-studio__sources">
+        <header><Database aria-hidden="true" /><div><p>Exact design inputs</p><h3>Source intelligence</h3></div></header>
+        {lineages.length === 0 ? <p>No Source intelligence is available for this proposal.</p> : <div>{lineages.map((lineage) => <section key={`${lineage.sourceId}:${lineage.revisionId}`}>
+          <div className="designer-studio__source-title"><strong>{lineage.displayName ?? "API Source"}</strong><span>{lineage.groups.length} semantic groups</span></div>
+          <div className="designer-studio__semantic-groups">{lineage.groups.map((group) => <article key={`${lineage.sourceId}:${group.label}`}>
+            <strong>{semanticGroupTitle(group)}</strong>
+            <span>{group.operationIds.map(humanizeIdentifier).join(", ")}</span>
+          </article>)}</div>
+          <small>API version {lineage.revisionId} · operation selection {lineage.curationId}</small>
+        </section>)}</div>}
+      </article>
+    </section>
+    <section className="designer-studio__system" aria-labelledby="designer-system-title">
+      <header><div><p>Prepopulated from Agent and Source state</p><h3 id="designer-system-title">Proposed design system</h3></div><span>Review before approval</span></header>
+      <div className="designer-studio__system-grid">
+        <StudioList icon={<Sparkles aria-hidden="true" />} title="Proposed features" items={content.features} presentItem={(item) => presentDesignText(item, lineages)} />
+        <StudioList icon={<Blocks aria-hidden="true" />} title="Proposed behaviors" items={content.behaviors} presentItem={(item) => presentDesignText(item, lineages)} />
+        <StudioList icon={<ShieldCheck aria-hidden="true" />} title="Policies" items={content.policies} />
+        <section className="designer-studio__panel designer-studio__capability-panel">
+          <header><Wrench aria-hidden="true" /><div><p>Source-owned operation boundary</p><h3>Capabilities and tools</h3></div></header>
+          {capabilities.length === 0 ? <p>Save the proposal to validate capability ownership.</p> : <div>{capabilities.map((capability) => <article key={capability.id}>
+            <div><strong>{humanizeIdentifier(capability.title)}</strong><span>{capability.operation_ids.length} tools</span></div>
+            <ul>{capability.operation_ids.map((operation) => <li key={operation}><span>{humanizeIdentifier(operation)}</span><code>{operation}</code></li>)}</ul>
+          </article>)}</div>}
+        </section>
+        <section className="designer-studio__panel designer-studio__surface-panel">
+          <header><PanelsTopLeft aria-hidden="true" /><div><p>Projected interaction UI</p><h3>Runtime surfaces</h3></div></header>
+          {surfaces.length === 0 ? <p>Save the proposal to validate its runtime surfaces.</p> : <ul>{surfaces.map((surface) => <li key={surface.id}>
+            <div><strong>{surface.title}</strong><span>{surface.role}</span></div><code>{surface.id}</code>
+          </li>)}</ul>}
+        </section>
+      </div>
+    </section>
     {topology === null ? <p role="status">Save the customization to validate and refresh the exact RouteDeck NavGraph preview.</p> : <TopologyPreview topology={topology} />}
     <details className="designer-blueprint__mapping">
       <summary>Review feature, capability, policy, and tool mapping</summary>
@@ -127,6 +179,75 @@ function BlueprintColumn({ title, items, tone }: { readonly title: string; reado
 
 function FlowArrow({ label }: { readonly label: string }) {
   return <div className="designer-blueprint__arrow" aria-hidden="true"><span>{label}</span><ArrowRight size={22} /></div>;
+}
+
+function StudioList({ icon, title, items, presentItem = (item) => item }: { readonly icon: ReactNode; readonly title: string; readonly items: readonly string[]; readonly presentItem?: (item: string) => string }) {
+  return <section className="designer-studio__panel">
+    <header>{icon}<div><p>Owner-visible configuration</p><h3>{title}</h3></div></header>
+    {items.length === 0 ? <p>None proposed.</p> : <ul>{items.map((item) => <li key={item}>{presentItem(item)}</li>)}</ul>}
+  </section>;
+}
+
+function capabilitiesFromContent(content: DesignContent): DesignTopology["capabilities"] {
+  return content.capabilities.map((value, index) => {
+    const [title, rawOperations = ""] = value.split(":", 2);
+    const operationIds = rawOperations.split(",").map((item) => item.trim()).filter(Boolean);
+    return {
+      id: `draft-capability-${index}`,
+      title: title?.trim() || value,
+      operation_ids: operationIds.length > 0 ? operationIds : content.tools,
+      node_id: "draft",
+    };
+  });
+}
+
+function runtimeSurfaces(topology: DesignTopology): readonly RuntimeSurface[] {
+  const seen = new Set<string>();
+  return topology.nodes.flatMap((node) => node.surface_ids.flatMap((id) => {
+    if (seen.has(id)) return [];
+    seen.add(id);
+    if (id.endsWith(".clarification")) return [{ id, title: "Clarification", role: "Conversational waiting" }];
+    if (id.endsWith(".toolrouter_status")) return [{ id, title: "Tool routing status", role: "Routing evidence" }];
+    if (id.endsWith(".delivery_status")) return [{ id, title: "Delivery status", role: "Visible runtime failure" }];
+    return [{
+      id,
+      title: node.id === topology.entry_node_id ? "Agent workspace" : `${humanizeIdentifier(node.title)} workspace`,
+      role: node.id === topology.entry_node_id ? "Primary interaction" : "Capability interaction",
+    }];
+  }));
+}
+
+function humanizeIdentifier(value: string): string {
+  const separated = value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[._-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return separated ? separated[0]!.toUpperCase() + separated.slice(1) : value;
+}
+
+function presentDesignText(value: string, lineages: readonly SourceLineage[]): string {
+  let presented = value.replace(/[A-Za-z0-9]+(?:_[A-Za-z0-9]+)+/g, (identifier) =>
+    identifier.replaceAll("_", " "),
+  );
+  for (const group of lineages.flatMap((lineage) => lineage.groups)) {
+    if (group.label && presented.includes(group.label)) {
+      presented = presented.replaceAll(group.label, semanticGroupTitle(group));
+    }
+  }
+  return presented;
+}
+
+function semanticGroupTitle(group: SourceLineage["groups"][number]): string {
+  const explicitWords = /[\s._-]/.test(group.label) || /[a-z][A-Z]/.test(group.label);
+  if (explicitWords || group.operationIds.length === 0) return humanizeIdentifier(group.label);
+  return `${group.operationIds.map(humanizeIdentifier).join(" and ")} context`;
+}
+
+interface RuntimeSurface {
+  readonly id: string;
+  readonly title: string;
+  readonly role: string;
 }
 
 interface SourceLineage {

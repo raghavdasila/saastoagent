@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from corpus.auth.service import AuthService, SessionUnavailable
 from corpus.features.agents.service import AgentService
 from corpus.features.sources.service import SourceService
 from corpus.features.workspace.models import (
     WorkspaceOverview,
+    WorkspaceActivity,
     WorkspaceSectionState,
 )
 from corpus.features.workspace.ports import (
@@ -51,7 +53,8 @@ class CorpusWorkspaceOverviewGateway(WorkspaceOverviewGateway):
         return await self._overview(principal.organization_id)
 
     async def _overview(self, organization_id: uuid.UUID) -> WorkspaceOverview:
-        agent_count = len((await self.agents.list(organization_id)).agents)
+        agents = (await self.agents.list(organization_id)).agents
+        agent_count = len(agents)
         sources = self.sources.list_sources(owner_key=str(organization_id))
         source_count = len(sources)
         ready_count = sum(source.revision.state.value == "ready" for source in sources)
@@ -72,6 +75,30 @@ class CorpusWorkspaceOverviewGateway(WorkspaceOverviewGateway):
                 + ", ".join(details)
                 + "."
             )
+        activity = sorted(
+            (
+                *(
+                    WorkspaceActivity(
+                        kind="agent",
+                        title=agent.name,
+                        status=f"Configuration version {agent.current_version}",
+                        occurred_at=_as_utc(agent.updated_at),
+                    )
+                    for agent in agents
+                ),
+                *(
+                    WorkspaceActivity(
+                        kind="source",
+                        title=source.display_name,
+                        status=source.revision.state.value,
+                        occurred_at=_as_utc(source.updated_at),
+                    )
+                    for source in sources
+                ),
+            ),
+            key=lambda item: item.occurred_at,
+            reverse=True,
+        )[:6]
         return WorkspaceOverview(
             agent_count=agent_count,
             source_count=source_count,
@@ -89,12 +116,21 @@ class CorpusWorkspaceOverviewGateway(WorkspaceOverviewGateway):
                 message=source_message,
             ),
             recent_activity=WorkspaceSectionState(
-                status="unavailable",
+                status="available" if activity else "empty",
                 message=(
-                    "Recent activity is not recorded by this core Workspace slice."
+                    f"{len(activity)} recent Workspace change{'s' if len(activity) != 1 else ''}."
+                    if activity
+                    else "No recent Agent or Source changes in this Workspace."
                 ),
             ),
+            activity=tuple(activity),
         )
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 __all__ = ["CorpusWorkspaceOverviewGateway"]

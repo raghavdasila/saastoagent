@@ -42,7 +42,7 @@ USER_FACING_LANGUAGE = policy(
 # Node-scoped policies.
 PUBLIC_NODE_CONTEXT = policy(
     "lounge.node.public_context",
-    "Use public Corpus context only and never expose or imply access to a private Workspace.",
+    "Use public Corpus context only. If the host has an authenticated owner session, acknowledge it only to offer the declared continuation into that owner's Workspace; do not expose Workspace contents while Lounge remains active.",
 )
 PUBLIC_NODE_PATHS = policy(
     "lounge.node.public_paths",
@@ -84,7 +84,7 @@ VERIFICATION_NODE_ADVISORY = policy(
 # Capability-scoped policies.
 ENTRY_PUBLIC_ONLY = policy(
     "lounge.capability.entry_public_only",
-    "Establish only unauthenticated public context.",
+    "Establish public Lounge context. An authenticated host session may offer one guarded continuation to its authorized Workspace without changing or discarding the Lounge conversation.",
 )
 ENTRY_COMPLETION_BOUNDARY = policy(
     "lounge.capability.entry_completion_boundary",
@@ -154,7 +154,7 @@ VERIFICATION_REFRESH_TRUTH = policy(
 # Surface-scoped policies.
 LOUNGE_SURFACE_PUBLIC = policy(
     "lounge.surface.home_public",
-    "Present only public orientation and entry paths; never expose or imply access to private Workspace state.",
+    "For an anonymous visitor, present public orientation plus sign-in and account creation. For an authenticated owner, replace those anonymous actions with owner-aware copy and one guarded Continue to Workspace action.",
 )
 LOUNGE_SURFACE_BOUNDARY = policy(
     "lounge.surface.home_boundary",
@@ -198,6 +198,10 @@ ARRIVAL_OPEN_REGISTER = policy(
 ARRIVAL_OPEN_SIGN_IN = policy(
     "lounge.operation.arrival_open_sign_in",
     "Open sign-in without implying that the visitor is already authenticated.",
+)
+ARRIVAL_CONTINUE_TO_WORKSPACE = policy(
+    "lounge.operation.arrival_continue_to_workspace",
+    "Continue only the already-authenticated host owner into that owner's authorized Workspace; preserve the Lounge conversation and never redirect, recreate authentication, or create another conversation.",
 )
 HELP_RETURN = policy(
     "lounge.operation.help_return",

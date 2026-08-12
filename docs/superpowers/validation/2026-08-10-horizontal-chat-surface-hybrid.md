@@ -88,3 +88,24 @@ runtime controls, ToolRouter-generated Evaluation CRUD, channel rollback and
 availability changes, Operations promotion, and other bindings still marked
 `pending_external_evidence` remain explicit depth work.
 
+## Agent Designer isolated checkpoint
+
+The retained surface run `20260811T090952Z-f0338236c1` independently passes the
+Agent Designer milestone: exact Agent/Source/curation lineage, immutable
+proposal/customization/review/accept/build request, the visible design system,
+real RouteDeck NavGraph selection, maximized split layout, and 390x844 render.
+
+It can be checked without launching a browser or replaying Source setup:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_horizontal_product_journey.py `
+  --verify-milestone designer `
+  --artifact artifacts\horizontal-product-surface\20260811T090952Z-f0338236c1\result.json
+```
+
+The readable Designer-only maximized excerpt is
+`artifacts/agent-designer-milestone/20260811T090952Z-f0338236c1-maximized/agent-designer-maximized.webm`
+(18.2 s, normal speed, SHA-256
+`5a3c35d09f9d9ee2eb8f39e90cd583d8cbe5251cd666551802d8c3b774dd4546`).
+It is truthfully derived from the accepted 180.44 s raw video; it is not a new
+campaign and does not claim the still-pending chat-only or hybrid milestone.

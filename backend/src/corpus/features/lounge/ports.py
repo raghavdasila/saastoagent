@@ -67,6 +67,11 @@ class LoungeVerificationDeliveryContext:
 
 
 class LoungeAccountGateway(Protocol):
+    async def require_owner_for_route(
+        self,
+        route_session_id: str,
+    ) -> None: ...
+
     async def register(
         self,
         *,

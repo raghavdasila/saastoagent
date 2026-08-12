@@ -41,6 +41,7 @@ from .declarations import (
     OPEN_CREATE,
     OPEN_EXISTING_AGENT_FOR_SOURCE,
     PENDING_SOURCE_CONTEXT_PROVIDER,
+    SELECTED_AGENT_OVERVIEW_PROVIDER,
     OPEN_SOURCE_CREATION,
     RETURN_TO_WORKSPACE,
     SAVE_AGENT_CHANGES,
@@ -60,6 +61,7 @@ AGENTS_HOME_SURFACE = Surface(
                 "pending_source_id": {"type": "string", "minLength": 16, "maxLength": 16},
                 "pending_source_revision_id": {"type": "string", "minLength": 16, "maxLength": 16},
                 "pending_source_display_name": {"type": "string", "minLength": 1, "maxLength": 240},
+                "pending_source_ready": {"type": "boolean", "const": True},
                 "selected_agent_area": {
                     "type": "string",
                     "enum": ["hub", "designer", "builds", "sandbox", "evaluation", "channels"],
@@ -105,6 +107,7 @@ AGENTS_CREATE_SURFACE = Surface(
                 "pending_source_id": {"type": "string", "minLength": 16, "maxLength": 16},
                 "pending_source_revision_id": {"type": "string", "minLength": 16, "maxLength": 16},
                 "pending_source_display_name": {"type": "string", "minLength": 1, "maxLength": 240},
+                "pending_source_ready": {"type": "boolean", "const": True},
             },
             "additionalProperties": False,
         }
@@ -195,7 +198,11 @@ def create_agents_feature(
         kind=NodeKind.SECTION,
         parent=workspace_home_ref,
         route=Route(template="/agents", deep_link_policy=DeepLinkPolicy.SESSION_BOUND),
-        context_providers=(OWNER_CONTEXT_PROVIDER, PENDING_SOURCE_CONTEXT_PROVIDER),
+        context_providers=(
+            OWNER_CONTEXT_PROVIDER,
+            PENDING_SOURCE_CONTEXT_PROVIDER,
+            SELECTED_AGENT_OVERVIEW_PROVIDER,
+        ),
         operations=(
             OPEN_CREATE,
             OPEN_EXISTING_AGENT_FOR_SOURCE,

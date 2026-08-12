@@ -11,7 +11,7 @@ from corpus.features.agents.ports import AgentOwnerScopeGateway, AgentOwnerScope
 from .declarations import ASSEMBLE_BUILD, DELETE_BUILD, PAUSE_BUILD, RUN_BUILD, STOP_BUILD
 from .ports import BuilderConflict, BuilderUnavailable
 from .schemas import AssembleBuildArguments
-from .schemas import BuildRuntimeLifecycleArguments
+from .schemas import build_runtime_lifecycle_arguments
 from .service import BuilderService
 
 
@@ -41,7 +41,7 @@ class AssembleBuildHandler:
             return _failure(context, "builder_conflict", str(error), FailureKind.STATE_CONFLICT)
         except AgentOwnerScopeUnavailable as error:
             return _failure(context, "authentication_required", str(error), FailureKind.STATE_CONFLICT)
-        return OperationOutcome(outcome="assembled", delivery_phase=DeliveryPhase.RESPONSE_RECEIVED)
+        return OperationOutcome(outcome="queued", delivery_phase=DeliveryPhase.RESPONSE_RECEIVED)
 
 
 @dataclass(frozen=True)
@@ -53,27 +53,33 @@ class BuildRuntimeLifecycleHandler:
 
     async def __call__(self, arguments, context: ExecutionContext) -> OperationOutcome:
         try:
-            payload = BuildRuntimeLifecycleArguments.model_validate(dict(arguments))
+            payload = build_runtime_lifecycle_arguments(dict(arguments), context.source)
             organization_id = await self.owner_scope.organization_id_for_route(context.session_id)
             agent_id = uuid.UUID(context.private_entity_id("agent_ref"))
+            build_id = payload.build_id
+            if build_id is None:
+                build_id = await self.service.current_build_id(
+                    organization_id,
+                    agent_id,
+                )
             if self.action == "run":
                 await self.service.run(
-                    organization_id, agent_id, build_id=payload.build_id
+                    organization_id, agent_id, build_id=build_id
                 )
                 outcome = "running"
             elif self.action == "pause":
                 await self.service.pause(
-                    organization_id, agent_id, build_id=payload.build_id
+                    organization_id, agent_id, build_id=build_id
                 )
                 outcome = "paused"
             elif self.action == "stop":
                 await self.service.stop(
-                    organization_id, agent_id, build_id=payload.build_id
+                    organization_id, agent_id, build_id=build_id
                 )
                 outcome = "stopped"
             elif self.action == "delete":
                 await self.service.remove_runtime(
-                    organization_id, agent_id, build_id=payload.build_id
+                    organization_id, agent_id, build_id=build_id
                 )
                 outcome = "removed"
             else:

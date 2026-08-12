@@ -21,6 +21,7 @@ class OperationsInteractionView(BaseModel):
     input_summary: str
     output_summary: str
     status: str
+    evaluation_case_id: uuid.UUID | None
     events: tuple[OperationsEventView, ...]
 
 

@@ -33,6 +33,16 @@ class DesignerInputSnapshot:
 
 
 @dataclass(frozen=True)
+class DesignerGeneratedFeature:
+    feature: str
+    behaviors: tuple[str, ...]
+    policies: tuple[str, ...]
+    capability_title: str
+    runtime_area_title: str
+    operation_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class DesignRevisionRecord:
     id: uuid.UUID
     design_id: uuid.UUID

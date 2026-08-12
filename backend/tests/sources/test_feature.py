@@ -1,9 +1,97 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
+import pytest
 from routedeck_core.contracts.navigation import DeepLinkPolicy
+from routedeck_core.contracts.projection import FrozenJson, FrozenJsonObject, PublicValue
 
 from corpus.composition import compile_corpus_app
+from corpus.features.sources.declarations import (
+    APPROVE_CONTRACT_REVISION,
+    SELECTED_API_SOURCE_PROVIDER,
+)
+from corpus.features.sources.operations import _selected_source_handoff_context
 from corpus.features.sources.policies import CONTRACT_REVISION_TRUTH
+from corpus.features.sources.providers import SelectedApiSourceProvider
+
+
+@pytest.mark.asyncio
+async def test_selected_source_context_exposes_an_exact_agent_pin_update() -> None:
+    provider = SelectedApiSourceProvider()
+    result = await provider(
+        SimpleNamespace(
+            session=SimpleNamespace(
+                public_state=SimpleNamespace(
+                    surface_state=(
+                        SimpleNamespace(
+                            surface_id="sources.api",
+                            values=(
+                                PublicValue(name="selected_source_id", value=FrozenJson("sourceopaque0001")),
+                                PublicValue(name="selected_source_revision_id", value=FrozenJson("currentrevision1")),
+                            ),
+                        ),
+                    ),
+                    entity_handles=(
+                        SimpleNamespace(
+                            entity_kind="agent",
+                            handle="agent-canonical-001",
+                            values=(
+                                PublicValue(name="attached_source_id", value=FrozenJson("sourceopaque0001")),
+                                PublicValue(name="attached_source_revision_id", value=FrozenJson("attachedrev00001")),
+                            ),
+                        ),
+                    ),
+                )
+            )
+        )
+    )
+
+    assert result.values.to_dict() == {
+        "source_id": "sourceopaque0001",
+        "source_revision_id": "currentrevision1",
+        "return_agent_ref": "agent-canonical-001",
+        "agent_handoff_mode": "inspect",
+        "attached_source_revision_id": "attachedrev00001",
+        "return_context": "agent",
+        "attachment_update_available": True,
+    }
+
+
+def test_contract_approval_handoff_preserves_the_attached_agent_revision() -> None:
+    assert SELECTED_API_SOURCE_PROVIDER.ref.id in {
+        provider.id for provider in APPROVE_CONTRACT_REVISION.provider_refs
+    }
+    context = _selected_source_handoff_context(
+        FrozenJsonObject(
+            {
+                "sources.selected_api_source": {
+                    "return_agent_ref": "agent-canonical-001",
+                    "agent_handoff_mode": "inspect",
+                    "attached_source_revision_id": "attachedrev00001",
+                    "return_context": "agent",
+                    "initial_workspace": "operations",
+                    "selected_source_revision_id": "currentrevision1",
+                }
+            }
+        ),
+        selected_revision_id="approvedrevision1",
+    )
+
+    assert context == {
+        "return_agent_ref": "agent-canonical-001",
+        "agent_handoff_mode": "inspect",
+        "attached_source_revision_id": "attachedrev00001",
+        "attachment_update_available": True,
+        "return_context": "agent",
+        "initial_workspace": "operations",
+    }
+
+    compiled = compile_corpus_app()
+    source_surface_schema = compiled.surfaces["sources.api"].public_props_schema_value()
+    assert source_surface_schema["properties"]["attachment_update_available"] == {
+        "type": "boolean"
+    }
 
 
 def test_sources_exposes_inventory_intake_and_retry_through_routedeck() -> None:
@@ -62,8 +150,10 @@ def test_sources_exposes_inventory_intake_and_retry_through_routedeck() -> None:
         "sources.approve_contract_revision",
         "sources.test_api_connection",
             "sources.save_api_operation_curation",
-            "sources.prepare_routed_api_test",
-            "sources.test_routed_api_read",
+                "sources.prepare_routed_api_test",
+                "sources.create_api_route_plan",
+                "sources.continue_api_route_plan",
+                "sources.test_routed_api_read",
             "sources.test_routed_api_write",
             "sources.open_api_description",
             "sources.save_api_description",
@@ -88,6 +178,7 @@ def test_sources_exposes_inventory_intake_and_retry_through_routedeck() -> None:
     )
     assert any(
         action.id == "api-test-operation"
+        and action.label == "Try an API request"
         and action.operation_id == "sources.prepare_routed_api_test"
         and not action.arguments
         for action in compiled.nodes["sources.api"].suggested_actions

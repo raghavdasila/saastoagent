@@ -13,6 +13,7 @@ import { AgentClient } from "../features/agents/client";
 import { AgentStore } from "../features/agents/store";
 import { WorkspaceClient } from "../features/workspace/client";
 import { WorkspaceStore } from "../features/workspace/store";
+import { HomeSurface } from "../features/workspace/HomeSurface";
 import { createCorpusSurfaceRegistry } from "../routedeck/surfaces";
 import {
   frameworkContractFixture,
@@ -108,33 +109,126 @@ function workspaceOverview() {
     agents: { status: "empty", message: "No agents have been created in this Workspace." },
     sources: { status: "unavailable", message: "Sources overview is unavailable." },
     recent_activity: { status: "unavailable", message: "Recent activity is unavailable." },
+    activity: [],
   };
 }
 
 
-it("dispatches Lounge actions through declared RouteDeck affordances", () => {
-  const dispatchAffordance = vi.fn(async () => dispatchResult());
+it("renders authoritative recent Agent and Source activity on Workspace home", async () => {
+  const overview = {
+    ...workspaceOverview(),
+    agent_count: 1,
+    source_count: 1,
+    recent_activity: { status: "available", message: "2 recent Workspace changes." },
+    activity: [
+      { kind: "source" as const, title: "Store API", status: "ready", occurred_at: "2026-08-11T10:00:01Z" },
+      { kind: "agent" as const, title: "Shopping Agent", status: "Configuration version 2", occurred_at: "2026-08-11T10:00:00Z" },
+    ],
+  };
+  const store = new WorkspaceStore(new WorkspaceClient({
+    fetch: vi.fn(async () => new Response(JSON.stringify(overview), { status: 200 })),
+  }));
   render(
-    <LoungeSurface
-      {...surfaceProps(
-        "lounge.home",
-        [
-          { id: "open_sign_in", operationId: "lounge.open_sign_in" },
-          {
-            id: "open_registration",
-            operationId: "lounge.open_registration",
-          },
-        ],
-        dispatchAffordance,
-      )}
-    />,
+    <OwnerSessionProvider initialSession={ownerSession()} loadSession={false}>
+      <HomeSurface {...surfaceProps("workspace.home", [])} workspaceStore={store} />
+    </OwnerSessionProvider>,
   );
 
+  const activity = await screen.findByRole("region", { name: "Recent Workspace activity" });
+  expect(activity).toHaveTextContent("Store API");
+  expect(activity).toHaveTextContent("ready");
+  expect(activity).toHaveTextContent("Shopping Agent");
+  expect(activity).toHaveTextContent("Configuration version 2");
+});
+
+
+it("keeps anonymous Lounge account actions and dispatches declared RouteDeck affordances", () => {
+  const dispatchAffordance = vi.fn(async () => dispatchResult());
+  render(
+    <OwnerSessionProvider loadSession={false}>
+      <LoungeSurface
+        {...surfaceProps(
+          "lounge.home",
+          [
+            { id: "open_sign_in", operationId: "lounge.arrival.open_sign_in" },
+            {
+              id: "open_registration",
+              operationId: "lounge.arrival.open_registration",
+            },
+            {
+              id: "continue_to_workspace",
+              operationId: "lounge.continue_to_workspace",
+            },
+          ],
+          dispatchAffordance,
+        )}
+      />
+    </OwnerSessionProvider>,
+  );
+
+  expect(screen.queryByRole("button", { name: "Continue to Workspace" })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
   fireEvent.click(screen.getByRole("button", { name: "Create account" }));
 
   expect(dispatchAffordance).toHaveBeenNthCalledWith(1, "open_sign_in", {});
   expect(dispatchAffordance).toHaveBeenNthCalledWith(2, "open_registration", {});
+});
+
+
+it("shows one owner-aware Lounge continuation and no anonymous account actions", async () => {
+  const dispatchAffordance = vi.fn(async () => dispatchResult());
+  render(
+    <OwnerSessionProvider initialSession={ownerSession()} loadSession={false}>
+      <LoungeSurface
+        {...surfaceProps(
+          "lounge.home",
+          [
+            { id: "open_sign_in", operationId: "lounge.arrival.open_sign_in" },
+            { id: "open_registration", operationId: "lounge.arrival.open_registration" },
+            { id: "continue_to_workspace", operationId: "lounge.continue_to_workspace" },
+          ],
+          dispatchAffordance,
+        )}
+      />
+    </OwnerSessionProvider>,
+  );
+
+  expect(screen.getByRole("heading", { name: "Return to your Workspace" })).toBeVisible();
+  expect(screen.getByText(/Owner's Workspace/)).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Sign in" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Create account" })).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Continue to Workspace" }));
+  await waitFor(() =>
+    expect(dispatchAffordance).toHaveBeenCalledWith("continue_to_workspace", {}),
+  );
+});
+
+
+it("keeps a failed authenticated Lounge continuation visible without a route workaround", async () => {
+  const dispatchAffordance = vi.fn(async () => failedDispatchResult(
+    "lounge.continue_to_workspace",
+    "authentication_required",
+    "Sign in before continuing to Workspace.",
+  ));
+  render(
+    <OwnerSessionProvider initialSession={ownerSession()} loadSession={false}>
+      <LoungeSurface
+        {...surfaceProps(
+          "lounge.home",
+          [{ id: "continue_to_workspace", operationId: "lounge.continue_to_workspace" }],
+          dispatchAffordance,
+        )}
+      />
+    </OwnerSessionProvider>,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Continue to Workspace" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Sign in before continuing to Workspace.",
+  );
+  expect(dispatchAffordance).toHaveBeenCalledWith("continue_to_workspace", {});
 });
 
 

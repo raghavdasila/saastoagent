@@ -4,6 +4,8 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
+from routedeck_core.contracts.interactions import OperationSource
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -74,6 +76,21 @@ class RunEvaluationCaseArguments(BaseModel):
     model_config = ConfigDict(extra="forbid")
     agent_ref: str = Field(min_length=1, max_length=64)
     case_id: uuid.UUID | None = None
+    case_origin: Literal["generated", "sandbox", "operations"] | None = None
+
+
+def run_evaluation_case_arguments(
+    arguments: dict[str, object],
+    source: OperationSource,
+) -> RunEvaluationCaseArguments:
+    payload = RunEvaluationCaseArguments.model_validate(arguments)
+    if source is OperationSource.SURFACE:
+        if payload.case_id is None or payload.case_origin is not None:
+            raise ValueError("Surface evaluation requires one exact case selection.")
+        return payload
+    if payload.case_id is not None:
+        payload = payload.model_copy(update={"case_id": None})
+    return payload
 
 
 class RetryEvaluationRunArguments(BaseModel):

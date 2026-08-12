@@ -86,6 +86,7 @@ export function AgentsHomeSurface({
       store.refreshAttachments(selected.id),
       store.refreshDependencies(selected.id),
       store.refreshBuilds(selected.id),
+      store.refreshProductOverview(selected.id),
     ]).catch((error) => setActionError(errorMessage(error)));
   }, [selected?.id, sessionVersion, store]);
 
@@ -333,6 +334,11 @@ export function AgentsHomeSurface({
       ),
   );
   const pendingSourceUnavailable = sourcesLoaded && pendingSourceId !== null && pendingSource === null;
+  const productOverview = selected !== null && snapshot.productOverview !== null &&
+      snapshot.productOverview.agent_id === selected.id &&
+      snapshot.productOverview.agent_version === selected.current_version
+    ? snapshot.productOverview
+    : null;
   const pendingAlreadyAttached = pendingSource !== null && snapshot.attachments.some((attachment) =>
     attachment.source_id === pendingSource.source_id &&
     attachment.source_revision_id === pendingSource.revision.revision_id
@@ -498,6 +504,19 @@ export function AgentsHomeSurface({
                   <Button type="button" variant="outline" disabled={busy !== null || !exactSelectionBound} onClick={() => void openArea("hub")}>Operations</Button>
                 </header>
                 <p>Move between this Agent's Operations, Designer, Builds, Sandbox, Evaluation, and Channels areas without starting or changing work.</p>
+                {productOverview === null ? <p role="status">Loading this Agent's current product lifecycle…</p> : (
+                  <section className="agent-product-overview" aria-label="Selected Agent product overview">
+                    <dl>
+                      <div><dt>Sources</dt><dd>{productOverview.source_count} attached</dd></div>
+                      <div><dt>Design</dt><dd>{productOverview.design_status}{productOverview.design_revision === null ? "" : ` · revision ${productOverview.design_revision}`}</dd></div>
+                      <div><dt>Latest build</dt><dd>{productOverview.build_status ?? "None"}{productOverview.build_runtime_lifecycle === null ? "" : ` · ${productOverview.build_runtime_lifecycle}`}</dd></div>
+                      <div><dt>Evaluation</dt><dd>{productOverview.evaluation_status ?? "None"} · {productOverview.evaluation_case_count} cases{productOverview.evaluation_eligible === null ? "" : productOverview.evaluation_eligible ? " · eligible" : " · not eligible"}</dd></div>
+                      <div><dt>Hosted delivery</dt><dd>{productOverview.delivery_status}{productOverview.hosted_path === null ? "" : ` · ${productOverview.hosted_path}`}</dd></div>
+                      <div><dt>Public interactions</dt><dd>{productOverview.operations_count}</dd></div>
+                    </dl>
+                    <p><strong>Recommended next step</strong><span>{productOverview.next_step}</span></p>
+                  </section>
+                )}
                 <nav aria-label="Selected agent operations">
                   <Button type="button" variant="outline" disabled={busy !== null || !exactSelectionBound} onClick={() => void openArea("designer")}><Palette data-icon="inline-start" />Designer</Button>
                   <Button type="button" variant="outline" disabled={busy !== null || !exactSelectionBound} onClick={() => void openArea("builds")}><Hammer data-icon="inline-start" />Builds</Button>
@@ -506,10 +525,10 @@ export function AgentsHomeSurface({
                   <Button type="button" variant="outline" disabled={busy !== null || !exactSelectionBound} onClick={() => void openArea("channels")}><RadioTower data-icon="inline-start" />Channels</Button>
                 </nav>
                 {selectedArea === "hub" ? <p role="status">Choose an area. Navigation alone creates no design, build, run, or evaluation.</p> : null}
-                {selectedArea === "designer" ? <div role="region" aria-label="Agent Designer"><h4>Agent Designer</h4><p>No accepted design exists for this Agent yet.</p></div> : null}
-                {selectedArea === "sandbox" ? <div role="region" aria-label="Agent Sandbox"><h4>Sandbox</h4><p>An eligible runnable build is required before a Sandbox run can start.</p></div> : null}
-                {selectedArea === "evaluation" ? <div role="region" aria-label="Agent Evaluation"><h4>Evaluation</h4><p>An eligible runnable build is required before evaluation work can start.</p></div> : null}
-                {selectedArea === "channels" ? <div role="region" aria-label="Agent Channels"><h4>Channels</h4><p>Create a hosted Web channel and deploy only an exact eligible build.</p></div> : null}
+                {selectedArea === "designer" ? <div role="region" aria-label="Agent Designer"><h4>Agent Designer</h4><p>{productOverview === null ? "Loading current design state…" : `Current design: ${productOverview.design_status}${productOverview.design_revision === null ? "." : ` revision ${productOverview.design_revision}.`}`}</p></div> : null}
+                {selectedArea === "sandbox" ? <div role="region" aria-label="Agent Sandbox"><h4>Sandbox</h4><p>{productOverview?.build_status === "ready" ? `Latest build is ${productOverview.build_runtime_lifecycle ?? "ready"}.` : "A ready immutable build is required before a Sandbox run can start."}</p></div> : null}
+                {selectedArea === "evaluation" ? <div role="region" aria-label="Agent Evaluation"><h4>Evaluation</h4><p>{productOverview === null ? "Loading current evaluation state…" : `${productOverview.evaluation_status ?? "No evaluation set"} · ${productOverview.evaluation_case_count} cases.`}</p></div> : null}
+                {selectedArea === "channels" ? <div role="region" aria-label="Agent Channels"><h4>Channels</h4><p>{productOverview === null ? "Loading current hosted delivery state…" : `${productOverview.delivery_status}${productOverview.hosted_path === null ? "." : ` at ${productOverview.hosted_path}.`}`}</p></div> : null}
                 {selectedArea === "builds" ? (
                   <div role="region" aria-label="Agent Builds">
                     <h4>Builds</h4>

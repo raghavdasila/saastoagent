@@ -92,6 +92,6 @@ async def test_shared_infrastructure_migration_creates_exact_tables(
         assert "running" in deployment_constraints["checks"][
             "ck_agent_deployment_status"
         ]
-        await database.verify_revision("0018_deployment_lifecycle")
+        await database.verify_revision("0019_builder_assembly_lifecycle")
     finally:
         await database.close()

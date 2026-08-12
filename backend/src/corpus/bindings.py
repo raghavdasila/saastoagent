@@ -16,6 +16,7 @@ from .app.source_adapters import AuthSourceOwnerScopeGateway
 from .auth.routedeck import OWNER_CONTEXT_PROVIDER, OwnerContextProvider
 from .features.agents.bindings import create_agents_bindings
 from .features.agents.service import AgentService
+from .features.agents.overview import AgentProductOverviewService
 from .features.designer.bindings import create_designer_bindings
 from .features.designer.service import DesignerService
 from .features.builder.bindings import create_builder_bindings
@@ -64,10 +65,12 @@ def bind_corpus_app(
     source_contract_revision_service,
     source_connection_check_service,
     source_operation_curation_service,
+    agent_overview_service: AgentProductOverviewService | None = None,
     source_routed_execution_service=None,
     source_staged_attachment_service=None,
     source_staged_description_service=None,
     source_lifecycle_service=None,
+    source_route_plan_service=None,
 ) -> BoundApplication:
     lounge = create_lounge_bindings(
         account=AuthLoungeAccountGateway(auth_service),
@@ -86,6 +89,7 @@ def bind_corpus_app(
     agents = create_agents_bindings(
         agent_service,
         AuthAgentOwnerScopeGateway(auth_service),
+        agent_overview_service,
     )
     designer = create_designer_bindings(
         designer_service,
@@ -111,6 +115,7 @@ def bind_corpus_app(
         source_staged_attachment_service,
         source_staged_description_service,
         source_lifecycle_service,
+        source_route_plan_service,
     )
     return bind_app(
         app,

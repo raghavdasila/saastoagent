@@ -45,6 +45,7 @@ class ApiRoutePlanRankedOperation(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     operation_id: str
+    operation_label: str
     endpoint_id: str
     score: float
 
@@ -620,7 +621,7 @@ def _endpoint_map(
     source: SourceView,
     revision_dir: Path,
     inventory: tuple[ApiOperationInventoryItem, ...],
-) -> tuple[dict[str, tuple[str, ApiOperationInventoryItem]], str]:
+) -> tuple[dict[str, tuple[str, ApiOperationInventoryItem, str]], str]:
     artifact_revision_id = source.revision.artifact_revision_id or source.revision.revision_id
     path = revision_dir.parent.parent / "r" / artifact_revision_id / "a" / "graph" / "semantic_graph.json"
     try:
@@ -630,17 +631,23 @@ def _endpoint_map(
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, KeyError, TypeError) as error:
         raise ApiRoutePlanError("The ToolRouter operation index is unavailable.") from error
     by_graph_id = {item.graph_node_id: item for item in inventory}
-    values: dict[str, tuple[str, ApiOperationInventoryItem]] = {}
+    values: dict[str, tuple[str, ApiOperationInventoryItem, str]] = {}
     for row in rows:
         if not isinstance(row, dict) or row.get("id") not in by_graph_id:
             continue
         endpoint_id = row.get("endpoint_id")
+        label = row.get("label")
         item = by_graph_id[str(row["id"])]
-        if not isinstance(endpoint_id, str) or not endpoint_id:
+        if (
+            not isinstance(endpoint_id, str)
+            or not endpoint_id
+            or not isinstance(label, str)
+            or not label.strip()
+        ):
             raise ApiRoutePlanError("The ToolRouter operation index is invalid.")
         if item.operation_id in values:
             raise ApiRoutePlanError("The ToolRouter operation index is invalid.")
-        values[item.operation_id] = (endpoint_id, item)
+        values[item.operation_id] = (endpoint_id, item, label.strip())
     if set(values) != {item.operation_id for item in inventory}:
         raise ApiRoutePlanError("The ToolRouter operation index is incomplete.")
     return values, hashlib.sha256(raw).hexdigest()
@@ -648,10 +655,13 @@ def _endpoint_map(
 
 def _steps(
     result: SourceRetrievalResult,
-    endpoint_map: dict[str, tuple[str, ApiOperationInventoryItem]],
+    endpoint_map: dict[str, tuple[str, ApiOperationInventoryItem, str]],
     allowed_endpoint_ids: tuple[str, ...],
 ) -> tuple[ApiRoutePlanStep, ...]:
-    by_endpoint = {value[0]: (operation_id, value[1]) for operation_id, value in endpoint_map.items()}
+    by_endpoint = {
+        value[0]: (operation_id, value[1], value[2])
+        for operation_id, value in endpoint_map.items()
+    }
     allowed = set(allowed_endpoint_ids)
     values: list[ApiRoutePlanStep] = []
     for step in result.steps:
@@ -659,10 +669,11 @@ def _steps(
         for item in step.ranked_items:
             if item.item_id not in allowed or item.item_id not in by_endpoint:
                 raise ApiRoutePlanError("ToolRouter returned an operation outside the accepted curation.")
-            operation_id, _inventory = by_endpoint[item.item_id]
+            operation_id, _inventory, operation_label = by_endpoint[item.item_id]
             ranked.append(
                 ApiRoutePlanRankedOperation(
                     operation_id=operation_id,
+                    operation_label=operation_label,
                     endpoint_id=item.item_id,
                     score=item.score,
                 )
@@ -711,8 +722,8 @@ def _clarification_prompt(
     result: SourceRetrievalResult,
 ) -> str | None:
     if state == "needs_input":
-        names = ", ".join(result.missing_inputs)
-        return f"What should Corpus use for {names}?" if names else "What required value should Corpus use?"
+        name = result.missing_inputs[0] if result.missing_inputs else None
+        return f"What should Corpus use for {name}?" if name else "What required value should Corpus use?"
     if state == "needs_operation_choice":
         return "Which of these included operations did you mean?"
     return None

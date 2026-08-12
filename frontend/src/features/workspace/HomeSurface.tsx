@@ -75,6 +75,18 @@ export function HomeSurface({
             <span aria-hidden="true">↻</span>
             <div><strong>Recent activity</strong><span>{workspace.overview.recent_activity.message}</span></div>
           </article>
+          {workspace.overview.activity.length === 0 ? null : (
+            <section className="workspace-activity" aria-label="Recent Workspace activity">
+              <h2>Recent activity</h2>
+              <ul>{workspace.overview.activity.map((item) => (
+                <li key={`${item.kind}:${item.title}:${item.occurred_at}`}>
+                  <span data-kind={item.kind}>{item.kind === "agent" ? "Agent" : "Source"}</span>
+                  <strong>{item.title}</strong>
+                  <small>{item.status} · {new Date(item.occurred_at).toLocaleString()}</small>
+                </li>
+              ))}</ul>
+            </section>
+          )}
         </div>
       )}
       <div className="workspace-auth-actions">

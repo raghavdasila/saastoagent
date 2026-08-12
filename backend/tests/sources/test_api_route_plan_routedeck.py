@@ -23,7 +23,7 @@ from backend.tests.sources.test_api_connection_check_routedeck import (
     SequentialIds,
     WorkspaceProbe,
 )
-from backend.tests.sources.test_api_route_plans import OWNER
+from backend.tests.sources.test_api_route_plans import OWNER, _service
 
 
 @pytest.mark.asyncio
@@ -31,6 +31,9 @@ async def test_sql_routedeck_opens_nonexecuting_planner_from_agent_and_surface(
     tmp_path: Path,
 ) -> None:
     compiled = compile_corpus_app()
+    route_plans, _engine, source_id, revision_id, _profile_id, _curation_id = _service(
+        tmp_path.parent / "rp-route-plans"
+    )
     owner = OwnerProbe(OWNER)
     database_url = f"sqlite+pysqlite:///{(tmp_path / 'routedeck.sqlite3').as_posix()}"
     encryption_key = Fernet.generate_key().decode("ascii")
@@ -60,8 +63,8 @@ async def test_sql_routedeck_opens_nonexecuting_planner_from_agent_and_surface(
                 workspace_service=WorkspaceProbe(),
                 source_service=SimpleNamespace(
                     get_source=lambda **_kwargs: SimpleNamespace(
-                        source_id="selected-source1",
-                        revision=SimpleNamespace(revision_id="selected-revsn01"),
+                        source_id=source_id,
+                        revision=SimpleNamespace(revision_id=revision_id),
                     )
                 ),
                 source_graph_presenter=object(),
@@ -69,6 +72,7 @@ async def test_sql_routedeck_opens_nonexecuting_planner_from_agent_and_surface(
                 source_contract_revision_service=object(),
                 source_connection_check_service=object(),
                 source_operation_curation_service=object(),
+                source_route_plan_service=route_plans,
             ),
             session_factory=create_guest_session,
             session_initializer=initialize_guest_session,
@@ -115,8 +119,8 @@ async def test_sql_routedeck_opens_nonexecuting_planner_from_agent_and_surface(
                 source=OperationSource.SURFACE,
                 arguments=FrozenJsonObject(
                     {
-                        "source_id": "selected-source1",
-                        "source_revision_id": "selected-revsn01",
+                        "source_id": source_id,
+                        "source_revision_id": revision_id,
                     }
                 ),
             )
@@ -148,7 +152,9 @@ async def test_sql_routedeck_opens_nonexecuting_planner_from_agent_and_surface(
             if surface.surface_id == "sources.api_operation_test"
         )
         assert {item.name: item.value.to_python() for item in detail.props} == {
-            "open": True
+            "open": True,
+            "source_id": source_id,
+            "source_revision_id": revision_id,
         }
         planned = await reopened.services.runner.run(
             OperationRequest(
@@ -162,5 +168,47 @@ async def test_sql_routedeck_opens_nonexecuting_planner_from_agent_and_surface(
         )
         assert planned.disposition is OperationDisposition.COMPLETED
         assert planned.outcome == "opened"
+        selected = await reopened.services.store.load(session_id)
+        created = await reopened.services.runner.run(
+            OperationRequest(
+                session_id=session_id,
+                request_id="create-plan-from-agent",
+                expected_session_version=selected.session_version,
+                operation_id="sources.create_api_route_plan",
+                source=OperationSource.AGENT,
+                arguments=FrozenJsonObject(
+                    {
+                        "request_text": "List widgets for this customer",
+                        "profile_name": "Local",
+                        "provided_inputs": {},
+                    }
+                ),
+            )
+        )
+        assert created.disposition is OperationDisposition.COMPLETED, created.failure
+        assert created.outcome == "planned"
+        assert created.observation.to_dict() == {
+            "state": "needs_input",
+            "question": "What should Corpus use for customer_id?",
+            "choices": [],
+            "missing_inputs": ["customer_id"],
+            "method": "GET",
+            "path": "/widgets",
+        }
+        waiting = await reopened.services.store.load(session_id)
+        continued = await reopened.services.runner.run(
+            OperationRequest(
+                session_id=session_id,
+                request_id="continue-plan-from-surface",
+                expected_session_version=waiting.session_version,
+                operation_id="sources.continue_api_route_plan",
+                source=OperationSource.SURFACE,
+                arguments=FrozenJsonObject({"answer": "customer-1"}),
+            )
+        )
+        assert continued.disposition is OperationDisposition.COMPLETED
+        assert continued.outcome == "continued"
+        assert continued.observation.to_dict()["state"] == "ready"
+        assert len(_engine.calls) == 2
     finally:
         await reopened.close()

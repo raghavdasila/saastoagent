@@ -1,5 +1,10 @@
+import uuid
+
 from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.supervision.guards import ProviderInvocationContext, ProviderResult
+
+from .overview import AgentProductOverviewService
+from .ports import AgentOwnerScopeGateway
 
 
 class SelectedAgentProvider:
@@ -10,11 +15,14 @@ class SelectedAgentProvider:
 
 class PendingSourceProvider:
     async def __call__(self, context: ProviderInvocationContext) -> ProviderResult:
+        active_surface_id = context.session.current.node_id
+        if active_surface_id not in {"agents.home", "agents.create"}:
+            return ProviderResult(values=FrozenJsonObject({}))
         selected = next(
             (
                 surface
                 for surface in context.session.public_state.surface_state
-                if surface.surface_id in {"agents.home", "agents.create"}
+                if surface.surface_id == active_surface_id
                 and any(value.name == "pending_source_id" for value in surface.values)
             ),
             None,
@@ -36,4 +44,35 @@ class PendingSourceProvider:
         return ProviderResult(values=FrozenJsonObject(result))
 
 
-__all__ = ["PendingSourceProvider", "SelectedAgentProvider"]
+class SelectedAgentOverviewProvider:
+    def __init__(
+        self,
+        service: AgentProductOverviewService | None,
+        owner_scope: AgentOwnerScopeGateway,
+    ) -> None:
+        self.service = service
+        self.owner_scope = owner_scope
+
+    async def __call__(self, context: ProviderInvocationContext) -> ProviderResult:
+        bindings = tuple(
+            binding
+            for binding in context.session.private_state.entity_bindings
+            if binding.entity_kind == "agent"
+        )
+        if not bindings:
+            return ProviderResult(values=FrozenJsonObject({}))
+        if len(bindings) != 1:
+            raise RuntimeError("One exact selected Agent is required for its overview.")
+        if self.service is None:
+            raise RuntimeError("The selected-Agent overview service is not configured.")
+        organization_id = await self.owner_scope.organization_id_for_route(
+            context.session.session_id
+        )
+        value = await self.service.get(
+            organization_id,
+            uuid.UUID(bindings[0].private_id.get_secret_value()),
+        )
+        return ProviderResult(values=FrozenJsonObject(value.model_dump(mode="json")))
+
+
+__all__ = ["PendingSourceProvider", "SelectedAgentOverviewProvider", "SelectedAgentProvider"]

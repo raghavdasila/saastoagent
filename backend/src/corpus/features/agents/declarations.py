@@ -8,6 +8,7 @@ from routedeck_core.contracts.operations import (
     Guard,
     Operation,
     OperationSource,
+    ProviderRef,
     ReviewPolicy,
     SafetyClass,
 )
@@ -36,6 +37,37 @@ AGENT_ENTITY_PROVIDER = EntityProvider(
     entity_kind="agent",
     description="The exact selected Agent binding already retained in the RouteDeck session.",
     output_schema=FrozenJsonObject(EMPTY_OBJECT_SCHEMA),
+)
+SELECTED_AGENT_OVERVIEW_PROVIDER = ContextProvider(
+    id="agents.selected_overview",
+    description=(
+        "Authoritative current product lifecycle summary for the exact selected Agent."
+    ),
+    output_schema=FrozenJsonObject(
+        {
+            "type": "object",
+            "properties": {
+                "agent_id": {"type": "string", "format": "uuid"},
+                "agent_version": {"type": "integer", "minimum": 1},
+                "source_count": {"type": "integer", "minimum": 0},
+                "design_status": {"type": "string", "enum": ["missing", "draft", "accepted"]},
+                "design_revision": {"type": ["integer", "null"], "minimum": 1},
+                "build_status": {"type": ["string", "null"]},
+                "build_runtime_lifecycle": {"type": ["string", "null"]},
+                "evaluation_status": {"type": ["string", "null"]},
+                "evaluation_case_count": {"type": "integer", "minimum": 0},
+                "evaluation_eligible": {"type": ["boolean", "null"]},
+                "delivery_status": {
+                    "type": "string",
+                    "enum": ["none", "channel_only", "deploying", "live", "disabled", "failed"],
+                },
+                "hosted_path": {"type": ["string", "null"]},
+                "operations_count": {"type": "integer", "minimum": 0},
+                "next_step": {"type": "string"},
+            },
+            "additionalProperties": False,
+        }
+    ),
 )
 PENDING_SOURCE_CONTEXT_PROVIDER = ContextProvider(
     id="agents.pending_source",
@@ -235,7 +267,11 @@ OPEN_SOURCE_CREATION = operation(
 ATTACH_CREATED_SOURCE = operation(
     "agents.attach_created_source",
     "Attach created Source",
-    "Pin the newly created ready API version and return to the selected Agent.",
+    (
+        "Pin the newly created ready API version and return to the selected Agent only when "
+        "Source creation began from that Agent and the Source is not already attached. Never "
+        "use this operation after updating or reviewing an API version already attached to the Agent."
+    ),
     "attached",
     input_schema=AttachSourceArguments.model_json_schema(),
     safety_class=SafetyClass.DRAFT,
@@ -245,7 +281,11 @@ ATTACH_CREATED_SOURCE = operation(
 OPEN_ATTACHED_SOURCE = operation(
     "agents.open_attached_source",
     "Open attached Source",
-    "Open one exact persisted Source attachment in Source Hub.",
+    (
+        "Open one exact persisted Source attachment in Source Hub. This opens the API version "
+        "currently pinned to the Agent; after a newer API version is accepted, do not use this "
+        "operation to remain with or continue setting up that newer version."
+    ),
     "opened",
     input_schema=OpenAttachedSourceArguments.model_json_schema(),
     entity_inputs=(EntityInput(argument_name="agent_ref", entity_kind="agent"),),
@@ -280,7 +320,13 @@ DELETE_AGENT = operation(
 RETURN_FROM_SOURCE = operation(
     "agents.return_from_source",
     "Return to selected Agent",
-    "Return from Source Hub to the selected Agent without changing either record.",
+    (
+        "Return from Source Hub to the selected Agent without changing either record. "
+        "Use this only when the owner explicitly asks to leave the current API setup and return "
+        "to the selected Agent, or explicitly asks for an Agent action that cannot be completed in "
+        "API Source. If the owner asks to remain with the current API, continue its setup, or choose "
+        "what it may access, do not use this operation. Returning never attaches or updates a Source."
+    ),
     "opened",
     input_schema={
         "type": "object",
@@ -289,6 +335,7 @@ RETURN_FROM_SOURCE = operation(
         "additionalProperties": False,
     },
     entity_inputs=(EntityInput(argument_name="agent_ref", entity_kind="agent"),),
+    additional_provider_refs=(ProviderRef(id="sources.selected_api_source"),),
 )
 
 OPEN_AGENT_OPERATIONS = operation(
@@ -323,9 +370,10 @@ OPEN_AGENT_SANDBOX = operation(
     "agents.open_sandbox",
     "Open Agent Sandbox",
     (
-        "Open Sandbox context for the exact selected Agent. Use this when the owner asks "
-        "to try or test the built Agent in a private trial; opening the context alone does "
-        "not start a run."
+        "Open or view Sandbox context for the exact selected Agent without starting a "
+        "Sandbox run. This navigation does not start, enable, or resume a stopped build "
+        "runtime; that separate build lifecycle action must complete first. Use this only "
+        "after that prerequisite when the owner asks to continue into a private trial."
     ),
     "opened",
     input_schema=AgentLifecycleArguments.model_json_schema(),

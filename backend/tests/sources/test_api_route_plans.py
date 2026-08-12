@@ -185,6 +185,7 @@ def test_plan_waits_then_clarifies_same_immutable_lineage_without_execution(
     assert ready.state == "ready"
     assert ready.api_call_count == 0
     assert ready.steps[0].selected_operation_id == "listWidgets"
+    assert ready.steps[0].ranked_operations[0].operation_label == "GET /widgets"
     assert ready.steps[0].method == "GET"
     assert ready.steps[0].http_safety == "read"
     assert ready.input_provenance[0].source == "user_clarification"

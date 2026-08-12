@@ -189,7 +189,7 @@ export function EvaluationSurface({ dispatchAffordance, props, agentStore, runti
             <label><input type="checkbox" checked={editing.mandatory} onChange={(event) => setEditing({ ...editing, mandatory: event.target.checked })} /> Required</label>
             <Button type="button" disabled={busy} onClick={() => void saveEdit()}>Save revision</Button><Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
           </> : <>
-            <div role="cell"><strong>{item.title}</strong><span>{item.category} · {item.difficulty} · revision {item.current_revision}</span><span>{item.source_kind === "toolrouter" ? "ToolRouter generated" : "Recorded interaction"}</span></div>
+            <div role="cell"><strong>{item.title}</strong><span>{item.category} · {item.difficulty} · revision {item.current_revision}</span><span>{item.source_kind === "toolrouter" ? "ToolRouter generated" : "Recorded interaction"}</span><span>{item.mandatory ? "Required coverage" : "Draft coverage"}</span></div>
             <div role="cell">
               <span>{runStatus(item)}</span>
               {item.latest_run_attempt?.failure_message ? <span role="alert">{item.latest_run_attempt.failure_message}</span> : null}

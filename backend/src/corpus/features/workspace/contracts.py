@@ -19,6 +19,21 @@ WORKSPACE_OVERVIEW_PROVIDER = ContextProvider(
                 "agents": {"$ref": "#/$defs/section"},
                 "sources": {"$ref": "#/$defs/section"},
                 "recent_activity": {"$ref": "#/$defs/section"},
+                "activity": {
+                    "type": "array",
+                    "maxItems": 6,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "kind": {"type": "string", "enum": ["agent", "source"]},
+                            "title": {"type": "string"},
+                            "status": {"type": "string"},
+                            "occurred_at": {"type": "string", "format": "date-time"},
+                        },
+                        "required": ["kind", "title", "status", "occurred_at"],
+                        "additionalProperties": False,
+                    },
+                },
             },
             "required": [
                 "agent_count",
@@ -26,6 +41,7 @@ WORKSPACE_OVERVIEW_PROVIDER = ContextProvider(
                 "agents",
                 "sources",
                 "recent_activity",
+                "activity",
             ],
             "additionalProperties": False,
             "$defs": {

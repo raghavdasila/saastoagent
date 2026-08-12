@@ -41,7 +41,7 @@ it("runs one stopped build and exposes Sandbox only after authoritative running 
     {...surfaceProps(agentRef, dispatch)}
     agentStore={agentStore(agentId)}
     designerClient={{ get: vi.fn(async () => emptyDesign(agentId)) } as never}
-    runtimeClient={{ builds } as never}
+    runtimeClient={{ builds, evaluations: emptyEvaluations(agentId) } as never}
   />);
 
   expect(await screen.findByText(/Stopped\. Start this runtime/)).toBeVisible();
@@ -76,7 +76,7 @@ it("pauses admission durably and resumes only through the exact build action", a
     {...surfaceProps(agentRef, dispatch)}
     agentStore={agentStore(agentId)}
     designerClient={{ get: vi.fn(async () => emptyDesign(agentId)) } as never}
-    runtimeClient={{ builds } as never}
+    runtimeClient={{ builds, evaluations: emptyEvaluations(agentId) } as never}
   />);
 
   fireEvent.click(await screen.findByRole("button", { name: "Pause runtime" }));
@@ -108,7 +108,7 @@ it("keeps Sandbox navigation available when immutable history contains multiple 
     {...surfaceProps(agentRef, vi.fn())}
     agentStore={agentStore(agentId)}
     designerClient={{ get: vi.fn(async () => emptyDesign(agentId)) } as never}
-    runtimeClient={{ builds: vi.fn(async () => ({ agent_id: agentId, builds: [current, prior] })) } as never}
+    runtimeClient={{ builds: vi.fn(async () => ({ agent_id: agentId, builds: [current, prior] })), evaluations: emptyEvaluations(agentId) } as never}
   />);
 
   expect(await screen.findByRole("button", { name: "Continue to Sandbox" })).toBeEnabled();
@@ -128,7 +128,7 @@ it("requires review before removing a stopped draft runtime", async () => {
     {...surfaceProps(agentRef, dispatch)}
     agentStore={agentStore(agentId)}
     designerClient={{ get: vi.fn(async () => emptyDesign(agentId)) } as never}
-    runtimeClient={{ builds: vi.fn(async () => ({ agent_id: agentId, builds: [value] })) } as never}
+    runtimeClient={{ builds: vi.fn(async () => ({ agent_id: agentId, builds: [value] })), evaluations: emptyEvaluations(agentId) } as never}
   />);
 
   fireEvent.click(await screen.findByRole("button", { name: "Delete build runtime" }));
@@ -206,7 +206,7 @@ it("guides a failed build to its exact Source setup and permits an explicit reta
     {...surfaceProps(agentRef, dispatch)}
     agentStore={agentStore(agentId)}
     designerClient={{ get: vi.fn(async () => design) } as never}
-    runtimeClient={{ builds } as never}
+    runtimeClient={{ builds, evaluations: emptyEvaluations(agentId) } as never}
   />);
 
   expect(await screen.findByRole("button", { name: "Retry failed build" })).toBeEnabled();
@@ -230,6 +230,81 @@ it("guides a failed build to its exact Source setup and permits an explicit reta
   }));
   expect(await screen.findByText("Build attempt 2")).toBeVisible();
   expect(screen.getByText("Build attempt 1")).toBeVisible();
+});
+
+
+it("shows automatic exact-build evaluation generation without a manual Builder action", async () => {
+  const agentId = "7db3745e-6f77-4b92-929c-4d2292fb3708";
+  const value = build(agentId, "running");
+  render(<BuilderSurface
+    {...surfaceProps(`agent-${agentId.replaceAll("-", "").slice(0, 20)}`, vi.fn())}
+    agentStore={agentStore(agentId)}
+    designerClient={{ get: vi.fn(async () => emptyDesign(agentId)) } as never}
+    runtimeClient={{
+      builds: vi.fn(async () => ({ agent_id: agentId, builds: [value] })),
+      evaluations: vi.fn(async () => ({
+        agent_id: agentId,
+        evaluation_sets: [{
+          id: "4bf642f8-18d2-45a9-8a77-b6d293a4fd70",
+          agent_id: agentId,
+          build_id: value.id,
+          name: "Generated coverage",
+          generation_job_id: "4bf642f8-18d2-45a9-8a77-b6d293a4fd71",
+          generation_status: "ready",
+          generation_failure_code: null,
+          generation_failure_message: null,
+          generation_summary: { accepted_count: 2 },
+          cases: [{}, {}],
+          eligible: false,
+          eligibility_reasons: ["generated_evaluation_cases_pending"],
+          created_at: "2026-08-11T00:00:00Z",
+        }],
+      })),
+    } as never}
+  />);
+
+  expect(await screen.findByText("Ready with 2 generated cases.")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Generate evaluation set" })).not.toBeInTheDocument();
+});
+
+
+it("refreshes exact-build evaluation generation after asynchronous assembly completes", async () => {
+  const agentId = "7db3745e-6f77-4b92-929c-4d2292fb3708";
+  const value = build(agentId, "stopped");
+  const evaluation = (status: "queued" | "ready") => ({
+    id: "4bf642f8-18d2-45a9-8a77-b6d293a4fd70",
+    agent_id: agentId,
+    build_id: value.id,
+    name: "Generated coverage",
+    generation_job_id: "4bf642f8-18d2-45a9-8a77-b6d293a4fd71",
+    generation_status: status,
+    generation_failure_code: null,
+    generation_failure_message: null,
+    generation_summary: status === "ready" ? { accepted_count: 1 } : null,
+    cases: status === "ready" ? [{}] : [],
+    eligible: false,
+    eligibility_reasons: ["generated_evaluation_cases_pending"],
+    created_at: "2026-08-11T00:00:00Z",
+  });
+  const evaluations = vi.fn()
+    .mockResolvedValueOnce({ agent_id: agentId, evaluation_sets: [] })
+    .mockResolvedValueOnce({ agent_id: agentId, evaluation_sets: [evaluation("queued")] })
+    .mockResolvedValue({ agent_id: agentId, evaluation_sets: [evaluation("ready")] });
+
+  render(<BuilderSurface
+    {...surfaceProps(`agent-${agentId.replaceAll("-", "").slice(0, 20)}`, vi.fn())}
+    agentStore={agentStore(agentId)}
+    designerClient={{ get: vi.fn(async () => emptyDesign(agentId)) } as never}
+    runtimeClient={{
+      builds: vi.fn(async () => ({ agent_id: agentId, builds: [value] })),
+      evaluations,
+    } as never}
+  />);
+
+  expect(await screen.findByText(/Not scheduled\. This build is incomplete/)).toBeVisible();
+  expect(await screen.findByText("Queued automatically for this exact build.", {}, { timeout: 3_000 })).toBeVisible();
+  expect(await screen.findByText("Ready with 1 generated case.", {}, { timeout: 3_000 })).toBeVisible();
+  expect(evaluations.mock.calls.length).toBeGreaterThanOrEqual(3);
 });
 
 
@@ -279,6 +354,11 @@ function emptyDesign(agentId: string) {
     revisions: [],
     build_request: null,
   };
+}
+
+
+function emptyEvaluations(agentId: string) {
+  return vi.fn(async () => ({ agent_id: agentId, evaluation_sets: [] }));
 }
 
 

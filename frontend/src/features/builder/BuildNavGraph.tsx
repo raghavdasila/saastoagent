@@ -1,6 +1,6 @@
 import { decodeFrontendContract, type FrontendContract } from "@routedeck/core";
 import { NavGraphInspector } from "@routedeck/react";
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState } from "react";
 
 import { presentNavGraphContract, presentNavGraphNodeTitle, presentSemanticLabel } from "@/lib/navgraphPresentation";
 import type { AgentBuildView } from "./models";
@@ -34,46 +34,67 @@ interface GraphTransition {
 export const BuildNavGraph = memo(function BuildNavGraph({ build }: { readonly build: AgentBuildView }) {
   const graph = useMemo(() => parseGraph(build.compiled_navgraph), [build.compiled_navgraph]);
   const frontendContract = useMemo(() => parseFrontendContract(build.frontend_contract), [build.frontend_contract]);
+  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   if (build.navgraph_hash === null || graph === null) return <p role="alert">The exact immutable RouteDeck NavGraph is unavailable for this build.</p>;
   if (frontendContract === null) return <p role="alert">The exact RouteDeck frontend contract is unavailable for this build.</p>;
   const presentedContract = presentNavGraphContract(frontendContract);
+  const entryNodeId = frontendContract.entry_node_id;
+  const selectedNode = graph.nodes.find((node) => node.id === (focusedNodeId ?? entryNodeId))
+    ?? graph.nodes.find((node) => node.id === entryNodeId)
+    ?? graph.nodes[0];
+  const totals = graph.nodes.reduce(
+    (result, node) => ({
+      capabilities: result.capabilities + node.capabilities.length,
+      operations: result.operations + node.operations.length,
+      policies: result.policies + node.policy_refs.length,
+      surfaces: result.surfaces + surfaceCount(node.surfaces),
+    }),
+    { capabilities: 0, operations: 0, policies: 0, surfaces: 0 },
+  );
 
-  const currentNode = frontendContract.nodes[frontendContract.entry_node_id];
+  const currentNode = frontendContract.nodes[entryNodeId];
   const legalOperationIds = currentNode?.operation_ids ?? [];
   const reachableNodeIds = Array.from(new Set(frontendContract.transitions
-    .filter((transition) => transition.source === frontendContract.entry_node_id && legalOperationIds.includes(transition.operation_id))
+    .filter((transition) => transition.source === entryNodeId && legalOperationIds.includes(transition.operation_id))
     .map((transition) => transition.target)));
   const activeSurfaceIds = currentNode === undefined ? [] : surfaceIds(currentNode.surfaces);
 
   return <section className="build-navgraph" aria-label={`RouteDeck NavGraph for build ${build.id}`}>
     <header>
-      <div><p>Immutable RouteDeck application</p><h3>NavGraph</h3></div>
+      <div><p>Immutable Agent application</p><h3>Runtime map</h3><span>Explore the exact navigation, capabilities, and supervised tools compiled for this build.</span></div>
       <code title={build.navgraph_hash}>{build.navgraph_hash.slice(0, 16)}…</code>
     </header>
     {topologyHash(graph.nodes[0]?.public_metadata) === null ? null : <p>Designer topology <code>{topologyHash(graph.nodes[0]!.public_metadata)!.slice(0, 16)}…</code></p>}
+    <dl className="build-navgraph__summary" aria-label="Compiled Agent map summary">
+      <div><dt>Runtime areas</dt><dd>{graph.nodes.length}</dd></div>
+      <div><dt>Transitions</dt><dd>{graph.transitions.length}</dd></div>
+      <div><dt>Capabilities</dt><dd>{totals.capabilities}</dd></div>
+      <div><dt>Supervised tools</dt><dd>{totals.operations}</dd></div>
+      <div><dt>Policies</dt><dd>{totals.policies}</dd></div>
+      <div><dt>Surfaces</dt><dd>{totals.surfaces}</dd></div>
+    </dl>
     <div className="build-navgraph__inspector">
       <NavGraphInspector
         contract={presentedContract}
-        currentNodeId={frontendContract.entry_node_id}
+        currentNodeId={entryNodeId}
         reachableNodeIds={reachableNodeIds}
         activeSurfaceIds={activeSurfaceIds}
         legalOperationIds={legalOperationIds}
-        canvasHeight="clamp(26rem, 56vh, 42rem)"
-        showMiniMap={false}
+        canvasHeight="clamp(30rem, 62vh, 50rem)"
+        showMiniMap={graph.nodes.length > 4}
+        onFocusChange={setFocusedNodeId}
       />
     </div>
-    <div className="build-navgraph__contracts">
-      {graph.nodes.map((node) => <article key={node.id}>
-        <h4>{presentNavGraphNodeTitle(node.id, node.title, frontendContract.entry_node_id)}</h4>
-        <dl><div><dt>Policies</dt><dd>{node.policy_refs.length}</dd></div><div><dt>Suggested actions</dt><dd>{node.suggested_actions.length}</dd></div><div><dt>Surface slots</dt><dd>{surfaceCount(node.surfaces)}</dd></div></dl>
-        <ul>{node.capabilities.map((capability) => <li key={capability.id}><strong>{presentSemanticLabel(capability.title)}</strong><span>{capability.operations?.length ?? 0} tools</span></li>)}</ul>
-        <ul>{node.operations.map((operation) => <li key={operation.id}>
+    {selectedNode === undefined ? null : <article className="build-navgraph__node" aria-live="polite">
+      <header><div><p>{selectedNode.id === entryNodeId ? "Entry runtime area" : "Selected runtime area"}</p><h4>{presentNavGraphNodeTitle(selectedNode.id, selectedNode.title, entryNodeId)}</h4></div><code>{selectedNode.id}</code></header>
+      <dl><div><dt>Policies</dt><dd>{selectedNode.policy_refs.length}</dd></div><div><dt>Suggested actions</dt><dd>{selectedNode.suggested_actions.length}</dd></div><div><dt>Surface slots</dt><dd>{surfaceCount(selectedNode.surfaces)}</dd></div></dl>
+      <section aria-labelledby={`capabilities-${build.id}`}><h5 id={`capabilities-${build.id}`}>Capabilities</h5><ul>{selectedNode.capabilities.length === 0 ? <li><span>No capability is declared for this runtime area.</span></li> : selectedNode.capabilities.map((capability) => <li key={capability.id}><strong>{presentSemanticLabel(capability.title)}</strong><span>{capability.operations?.length ?? 0} supervised tools</span></li>)}</ul></section>
+      <section aria-labelledby={`tools-${build.id}`}><h5 id={`tools-${build.id}`}>Supervised tools</h5><ul>{selectedNode.operations.length === 0 ? <li><span>No tool is available in this runtime area.</span></li> : selectedNode.operations.map((operation) => <li key={operation.id}>
           <strong>{String(operation.public_metadata.source_operation_id ?? operation.title)}</strong>
           <span>{String(operation.public_metadata.method ?? "")} {String(operation.public_metadata.path_template ?? "")}</span>
-          <small>{operation.safety_class}{operation.review_policy === "required" ? " · review required" : ""}</small>
-        </li>)}</ul>
-      </article>)}
-    </div>
+          <small>{presentSafety(operation.safety_class, operation.review_policy)}</small>
+        </li>)}</ul></section>
+    </article>}
   </section>;
 });
 
@@ -109,3 +130,11 @@ function record(value: unknown): value is Readonly<Record<string, unknown>> { re
 function surfaceCount(value: Readonly<Record<string, unknown>>): number { return Object.values(value).reduce<number>((total, item) => total + (Array.isArray(item) ? item.length : item === null ? 0 : 1), 0); }
 function surfaceIds(value: object): string[] { return Object.values(value as Readonly<Record<string, unknown>>).flatMap((item) => typeof item === "string" ? [item] : Array.isArray(item) ? item.filter((entry): entry is string => typeof entry === "string") : []); }
 function topologyHash(value: Readonly<Record<string, unknown>> | undefined): string | null { const topology = value?.designer_topology; return record(topology) && typeof topology.topology_hash === "string" ? topology.topology_hash : null; }
+function presentSafety(safetyClass: string, reviewPolicy: string): string {
+  const safety = safetyClass === "read_external"
+    ? "Read-only API call"
+    : safetyClass === "write_external"
+      ? "API change"
+      : presentSemanticLabel(safetyClass);
+  return reviewPolicy === "required" ? `${safety} · owner review required` : safety;
+}

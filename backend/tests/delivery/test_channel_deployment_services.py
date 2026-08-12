@@ -116,6 +116,9 @@ class Channels:
 
 class Builds:
     def __init__(self, value): self.value = value
+    async def list(self, owner, agent):
+        assert (owner, agent) == (self.value.organization_id, self.value.agent_id)
+        return SimpleNamespace(builds=(self.value,))
     async def require_running(self, owner, agent, build_id):
         assert (owner, agent, build_id) == (self.value.organization_id, self.value.agent_id, self.value.id)
         return self.value
@@ -211,13 +214,17 @@ async def test_channel_deploy_public_session_and_restart_binding_are_exact(tmp_p
     )
 
     channel = await channels.create(owner, agent, name="Store Agent", slug="store-agent")
+    queued_from_chat_context = await deployments.queue_current(owner, agent)
+    assert queued_from_chat_context.channel_id == channel.id
+    assert queued_from_chat_context.build_id == build.id
+    assert len(jobs.values) == 1
     queued = await deployments.queue_deploy(
         owner, agent, channel_id=channel.id, build_id=build.id
     )
     assert queued.status == "queued"
-    assert len(jobs.values) == 1
-    assert jobs.values[0]["job_type"] == "deployment.publish"
-    assert jobs.values[0]["max_attempts"] == 1
+    assert len(jobs.values) == 2
+    assert jobs.values[1]["job_type"] == "deployment.publish"
+    assert jobs.values[1]["max_attempts"] == 1
     await deployment_repository.mark_running(owner, queued.id, queued.job_id)
     deployment = await deployments.execute_deployment(
         owner,

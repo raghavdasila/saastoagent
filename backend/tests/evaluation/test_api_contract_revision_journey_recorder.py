@@ -3,8 +3,11 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import pytest
+
 from scripts.run_api_contract_revision_journey import (
     ALLOWED_OPERATION_IDS,
+    _bind_registration_fields,
     _inside_viewport,
     _is_expected_abort,
 )
@@ -15,6 +18,53 @@ SCRIPT = (
     / "scripts"
     / "run_api_contract_revision_journey.py"
 )
+
+
+@pytest.mark.asyncio
+async def test_registration_binding_retries_one_projection_remount() -> None:
+    values = {"Display name": "", "Email": "", "Password": ""}
+    fills = 0
+
+    class Field:
+        def __init__(self, label: str) -> None:
+            self.label = label
+
+        async def wait_for(self, **_kwargs) -> None:
+            return None
+
+        async def is_enabled(self) -> bool:
+            return True
+
+        async def fill(self, value: str, **_kwargs) -> None:
+            nonlocal fills
+            values[self.label] = value
+            fills += 1
+            if fills == 3:
+                values.update({key: "" for key in values})
+
+        async def input_value(self, **_kwargs) -> str:
+            return values[self.label]
+
+    class Page:
+        def get_by_label(self, label: str, **_kwargs) -> Field:
+            return Field(label)
+
+        async def wait_for_timeout(self, _milliseconds: int) -> None:
+            return None
+
+    owner = {
+        "display_name": "Evidence Owner",
+        "email": "owner@example.test",
+        "password": "not-a-real-password",
+    }
+    await _bind_registration_fields(Page(), owner)
+
+    assert values == {
+        "Display name": owner["display_name"],
+        "Email": owner["email"],
+        "Password": owner["password"],
+    }
+    assert fills == 6
 
 
 def test_recorder_keeps_mobile_proof_before_restart_and_retains_restart() -> None:

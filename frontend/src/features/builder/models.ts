@@ -14,6 +14,7 @@ export interface AgentBuildView {
   readonly navgraph_hash: string | null;
   readonly compiled_navgraph: Readonly<Record<string, unknown>>;
   readonly frontend_contract: Readonly<Record<string, unknown>>;
+  readonly job_id?: string | null;
   readonly failure_code: string | null;
   readonly failure_message: string | null;
   readonly created_at: string;
@@ -113,6 +114,7 @@ export interface OperationsInteractionView {
   readonly input_summary: string;
   readonly output_summary: string;
   readonly status: string;
+  readonly evaluation_case_id: string | null;
   readonly events: readonly { readonly sequence: number; readonly kind: string; readonly safe_data: Readonly<Record<string, unknown>> }[];
 }
 

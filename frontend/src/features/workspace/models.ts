@@ -11,4 +11,12 @@ export interface WorkspaceOverviewView {
   readonly agents: WorkspaceSectionView;
   readonly sources: WorkspaceSectionView;
   readonly recent_activity: WorkspaceSectionView;
+  readonly activity: readonly WorkspaceActivityView[];
+}
+
+export interface WorkspaceActivityView {
+  readonly kind: "agent" | "source";
+  readonly title: string;
+  readonly status: string;
+  readonly occurred_at: string;
 }

@@ -16,7 +16,7 @@ async def test_alembic_upgrade_reaches_expected_revision_and_startup_check_passe
     await upgrade_database(database_url)
     database = CorpusDatabase(database_url)
     try:
-        await database.verify_revision("0018_deployment_lifecycle")
+        await database.verify_revision("0019_builder_assembly_lifecycle")
         with pytest.raises(MigrationRevisionError):
             await database.verify_revision("future_revision")
     finally:

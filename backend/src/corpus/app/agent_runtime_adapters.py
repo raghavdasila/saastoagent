@@ -276,11 +276,23 @@ class CorpusToolRouterPort:
                 managed_parameters=managed,
             )
             results.append((result, operation_by_endpoint))
-        candidates = tuple(sorted((
-            RoutingCandidate(operation_by_endpoint[item.item_id], item.score)
-            for result, operation_by_endpoint in results
-            for step in result.steps for item in step.ranked_items
-        ), key=lambda item: item.score, reverse=True)[:5])
+        candidate_scores: dict[str, float] = {}
+        for result, operation_by_endpoint in results:
+            for step in result.steps:
+                for item in step.ranked_items:
+                    operation_id = operation_by_endpoint[item.item_id]
+                    candidate_scores[operation_id] = max(
+                        candidate_scores.get(operation_id, float("-inf")),
+                        float(item.score),
+                    )
+        candidates = tuple(sorted(
+            (
+                RoutingCandidate(operation_id, score)
+                for operation_id, score in candidate_scores.items()
+            ),
+            key=lambda item: item.score,
+            reverse=True,
+        )[:5])
         if not candidates:
             return RoutingDecision("NO_TOOL", "no_candidate_in_accepted_build")
         matching = [

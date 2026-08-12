@@ -104,7 +104,7 @@ async def test_generation_uses_only_the_exact_build_curation_and_persists_draft_
         "task_id": "generated-case-1", "title": "List every widget",
         "message": "List every widget", "category": "paraphrase",
         "difficulty": "easy", "expected_operation_ids": ("listWidgets",),
-        "mandatory": True,
+        "mandatory": False,
     }]
     assert result["build_id"] == str(build_id)
     assert jobs.succeeded == result

@@ -10,6 +10,8 @@ class SourceOwnerScopeGateway(Protocol):
         self, route_session_id: str
     ) -> uuid.UUID: ...
 
+    async def conversation_id_for_route(self, route_session_id: str) -> str: ...
+
 
 @dataclass(frozen=True)
 class SourceDependencyReferences:

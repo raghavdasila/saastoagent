@@ -10,12 +10,12 @@ from .schemas import AssembleBuildArguments, BuildRuntimeLifecycleArguments
 ASSEMBLE_BUILD = Operation(
     id="builder.assemble",
     title="Assemble accepted Agent build",
-    description="Materialize one immutable runnable build from the exact pending accepted-design request, completing the owner's explicit request to create the runnable Agent.",
+    description="Start one durable asynchronous build attempt from the exact pending accepted-design request, completing the owner's explicit request to make that accepted design runnable. The owner may leave and return while Corpus preserves queued, running, ready, or failed state; retry is explicit.",
     input_schema=FrozenJsonObject(AssembleBuildArguments.model_json_schema()),
     safety_class=SafetyClass.DRAFT,
     allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
-    outcomes=("assembled",),
-    outcome_schemas=FrozenJsonObject({"assembled": EMPTY_OBJECT_SCHEMA}),
+    outcomes=("queued",),
+    outcome_schemas=FrozenJsonObject({"queued": EMPTY_OBJECT_SCHEMA}),
     provider_refs=(OWNER_CONTEXT_PROVIDER.ref,),
     entity_inputs=(EntityInput(argument_name="agent_ref", entity_kind="agent"),),
     review_policy=ReviewPolicy.NONE,
@@ -25,8 +25,10 @@ RUN_BUILD = Operation(
     id="builder.run",
     title="Run Agent build",
     description=(
-        "Validate and enable the exact immutable draft Agent build for new "
-        "Sandbox and Evaluation work without changing its compiled lineage."
+        "Start or resume the exact current ready immutable draft Agent build for new "
+        "Sandbox and Evaluation work without changing its compiled lineage. Agent calls "
+        "use Corpus's authoritative current build after asynchronous assembly, not an "
+        "earlier queued conversation observation."
     ),
     input_schema=FrozenJsonObject(BuildRuntimeLifecycleArguments.model_json_schema()),
     safety_class=SafetyClass.DRAFT,
@@ -43,7 +45,7 @@ PAUSE_BUILD = Operation(
     title="Pause Agent build",
     description=(
         "Pause admission of new Sandbox, Evaluation, and deployment work for "
-        "the exact running draft Agent build while preserving immutable "
+        "the exact current running draft Agent build while preserving immutable "
         "lineage, recorded runs, and already-deployed runtimes."
     ),
     input_schema=FrozenJsonObject(BuildRuntimeLifecycleArguments.model_json_schema()),
@@ -60,7 +62,7 @@ STOP_BUILD = Operation(
     id="builder.stop",
     title="Stop Agent build",
     description=(
-        "Stop new draft Sandbox and Evaluation work for the exact build while "
+        "Stop new draft Sandbox and Evaluation work for the exact current build while "
         "preserving immutable history and every already-deployed runtime."
     ),
     input_schema=FrozenJsonObject(BuildRuntimeLifecycleArguments.model_json_schema()),
@@ -77,7 +79,7 @@ DELETE_BUILD = Operation(
     id="builder.delete",
     title="Delete Agent build",
     description=(
-        "Remove the reviewed stopped draft runtime for the exact build while "
+        "Remove the reviewed stopped draft runtime for the exact current build while "
         "retaining immutable build, Sandbox, Evaluation, deployment, and "
         "Operations lineage."
     ),

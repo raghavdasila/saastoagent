@@ -49,7 +49,7 @@ async def test_agent_source_attachment_head_has_exact_identity_only_schema(
         assert version_foreign_keys == {
             (("agent_id",), "agents", ("id",), "CASCADE")
         }
-        await database.verify_revision("0018_deployment_lifecycle")
+        await database.verify_revision("0019_builder_assembly_lifecycle")
     finally:
         await database.close()
 

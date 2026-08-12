@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
@@ -49,7 +50,37 @@ from scripts.run_api_route_planning_journey import (  # noqa: E402
 )
 
 
-EXPECTED_CHECKS = 25
+EXPECTED_CHECKS = 36
+DESIGNER_CHECKPOINT_EXPECTED_CHECKS = 12
+BUILDER_CHECKPOINT_EXPECTED_CHECKS = 15
+EVALUATION_CHECKPOINT_EXPECTED_CHECKS = 23
+DESIGNER_MILESTONE_ASSERTIONS = (
+    "profile and exact two-operation curation are current",
+    "Agent is created and pins the exact approved Source revision",
+    "Designer generates one grounded immutable feature from ordinary owner language",
+    "Designer appends, reviews, accepts and requests one immutable build",
+    "Designer shows the RouteDeck blueprint before build",
+    "Designer visibly joins intent, Source intelligence, behaviors, policies, tools, surfaces, and the real NavGraph",
+    "Agent Designer renders its proposed design system at 390x844",
+)
+BUILDER_MILESTONE_ASSERTIONS = (
+    "Builder queues one durable assembly attempt without inline completion",
+    "Builder materializes the exact accepted design and Source bindings",
+    "Builder shows the immutable compiled RouteDeck NavGraph",
+    "Builder automatically schedules initial ToolRouter evaluation coverage for the exact build",
+)
+EVALUATION_MILESTONE_ASSERTIONS = (
+    "Builder materializes the exact accepted design and Source bindings",
+    "Builder shows the immutable compiled RouteDeck NavGraph",
+    "Builder automatically schedules initial ToolRouter evaluation coverage for the exact build",
+    "Sandbox exposes a real ToolRouter clarification before any API call",
+    "Sandbox completes one validated API call through the assembled build",
+    "Sandbox returns meaningful non-empty real Medusa taxonomy",
+    "Sandbox shows isolated RouteDeck and ToolRouter clarification plumbing",
+    "Evaluation retains generated draft truth and derives eligibility from the required exact-build case",
+    "Evaluation shows the immutable build RouteDeck NavGraph it evaluated",
+    "Evaluation shows one ToolRouter-generated case for the exact build",
+)
 CHAT_EVIDENCE_BACKEND_URL = "http://127.0.0.1:8099"
 ROUTEDECK_MANIFEST = (
     REPOSITORY_ROOT / "contracts" / "corpus-agent-design-routedeck-manifest.json"
@@ -63,7 +94,13 @@ FRONTEND_ROUTEDECK_CONTRACT = (
 )
 INCLUDED_OPERATIONS = frozenset({"GetProductTags", "GetProductTypes"})
 REVIEW_STAGE_OPERATIONS = frozenset(
-    {"sources.approve_contract_revision", "designer.approve", "deployment.deploy"}
+    {
+        "sources.approve_contract_revision",
+        "designer.approve",
+        "deployment.deploy",
+        "deployment.rollback",
+        "channels.set_enabled",
+    }
 )
 FEATURE_SURFACE_SELECTORS = {
     "Agent Designer": "section.designer-home",
@@ -82,27 +119,41 @@ CHAT_PROMPTS = {
     "prepare_api_update": "Prepare the safest API correction for me to review, but do not apply it yet.",
     "request_api_update_decision": "What would that API correction change?",
     "stage_api_update": "I am ready to review that API correction. Keep it pending until I decide.",
-    "accept_api_update": "That API correction looks right. Apply it.",
+    "accept_api_update": (
+        "That API correction looks right. Apply it, and stay with this API because I still need to choose what it may access."
+    ),
     "curate_api": "Use only the collection endpoints that list all product tags and all product types. Exclude every other API operation.",
     "attach_source": "Attach this prepared store API to the shopping assistant.",
     "enter_design": "Turn my requirements into proposed assistant behavior that I can review.",
     "propose_design": "Turn what we've agreed into a draft design for me to review.",
+    "generate_design_feature": "Add product taxonomy behavior that answers category questions, asks whether tags or types when unclear, and never invents results.",
     "request_design_decision": "Put that proposed behavior up for my approval without accepting it.",
     "accept_design": "Those changes match what I want. Save them.",
     "request_build": "Save this approved design as the version I want built next.",
     "enter_build": "I want to try the approved assistant privately now.",
     "assemble_build": "Create the runnable build from that approved design and its store access.",
+    "start_build_runtime": "Start this private runtime so I can try the approved assistant.",
     "enter_private_trial": "Before customers see it, I want to try a real taxonomy question.",
     "start_private_trial": "Run a private trial with this request: get product taxonomy.",
     "clarify_types": "Use product types.",
     "enter_evaluation": "Keep that successful trial in the Baseline set as a required easy routing case called Store taxonomy success for future versions.",
     "create_evaluation": "Keep that trial in the Baseline set as a required easy routing case called Store taxonomy success for future versions.",
-    "run_evaluation": "Check this version against that saved case.",
+    "run_generated_evaluation": "Evaluate the automatically generated required case for this version.",
+    "run_evaluation": "Now check the required case from my private trial.",
     "enter_delivery": "Set up /{slug} as a hosted address called Store Taxonomy, but do not publish it yet.",
     "create_channel": "Use /{slug} for a hosted address called Store Taxonomy.",
     "request_deployment": "Put the eligible version on that address. Show me the consequences for approval before anything goes live.",
     "accept_deployment": "Those publishing consequences are acceptable. Go ahead.",
+    "request_second_deployment": "Publish the same eligible version again as a separate reviewed release.",
+    "accept_second_deployment": "Publish that separate reviewed release.",
+    "request_rollback": "Show me the consequences of returning this address to its earlier working release.",
+    "accept_rollback": "Return it to that earlier reviewed release.",
+    "request_pause": "Pause public access to this address, but show me the consequences before changing it.",
+    "accept_pause": "Apply that reviewed pause.",
+    "request_resume": "Restore public access to this address, again only after I approve the consequences.",
+    "accept_resume": "Apply that reviewed restoration.",
     "enter_operations": "Show me how that public request to this assistant actually ran.",
+    "promote_interaction": "Save that successful customer request as a required medium deployed-interaction case titled Live taxonomy request in the Regression from live use set.",
 }
 
 CHAT_FORBIDDEN_PHRASES = (
@@ -129,6 +180,14 @@ CHAT_FORBIDDEN_PHRASES = (
 )
 
 CHAT_AUTONOMOUS_SAFETY_CLASSES = frozenset({"navigation", "state_selection"})
+
+
+@dataclass(frozen=True)
+class ChatOperationAlternatives:
+    """Exact legal operation sequences for one ordinary-language chat turn."""
+
+    sequences: tuple[tuple[str, ...], ...]
+    allow_blocked_correction: bool = False
 
 
 def _manifest_operation_safety_classes() -> dict[str, str]:
@@ -213,7 +272,34 @@ def arguments() -> argparse.Namespace:
         help="Exercise a surface-only, ordinary-chat, or mixed chat/surface lifecycle.",
     )
     parser.add_argument("--headed", action="store_true")
-    return parser.parse_args()
+    parser.add_argument(
+        "--stop-after",
+        choices=("designer", "builder", "evaluation"),
+        default=None,
+        help="Stop after the named owner-task checkpoint and publish that bounded evidence.",
+    )
+    parser.add_argument(
+        "--verify-milestone",
+        choices=("designer", "builder", "evaluation"),
+        default=None,
+        help="Verify one retained feature milestone without launching a browser or replaying earlier product stages.",
+    )
+    parser.add_argument(
+        "--artifact",
+        type=Path,
+        default=None,
+        help="Retained result.json used by --verify-milestone.",
+    )
+    parsed = parser.parse_args()
+    if (parsed.verify_milestone is None) != (parsed.artifact is None):
+        parser.error("--verify-milestone and --artifact must be supplied together")
+    if parsed.stop_after == "evaluation" and parsed.mode != "surface":
+        parser.error("The bounded Evaluation feature film currently proves the surface-only product path.")
+    return parsed
+
+
+class CampaignCheckpointReached(Exception):
+    """Close a bounded evidence campaign without treating the checkpoint as a failure."""
 
 
 def _validate_chat_prompts() -> None:
@@ -242,6 +328,10 @@ def _validate_chat_prompts() -> None:
 async def main() -> None:
     global CHAT_EVIDENCE_BACKEND_URL
     args = arguments()
+    if args.verify_milestone is not None:
+        report = _verify_retained_milestone(args.verify_milestone, args.artifact)
+        print(json.dumps(report, indent=2))
+        return
     CHAT_EVIDENCE_BACKEND_URL = args.backend_url.rstrip("/")
     _validate_chat_prompts()
     if (
@@ -296,6 +386,13 @@ async def main() -> None:
     recording_started_at = datetime.now(UTC)
     recording_ended_at: datetime | None = None
     recording_metadata: list[dict[str, object]] = []
+    video_clock_started: float | None = None
+    designer_video_started_seconds: float | None = None
+    designer_video_ended_seconds: float | None = None
+    builder_video_started_seconds: float | None = None
+    builder_video_ended_seconds: float | None = None
+    evaluation_video_started_seconds: float | None = None
+    evaluation_video_ended_seconds: float | None = None
     owner = {
         "display_name": "Horizontal Lifecycle Owner",
         "email": f"horizontal-{uuid4().hex}@example.com",
@@ -311,6 +408,7 @@ async def main() -> None:
             record_video_size={"width": 1440, "height": 1000},
         )
         page = await context.new_page()
+        video_clock_started = time.monotonic()
         _attach_diagnostics(
             page, "horizontal", diagnostics, safe_trace, observations
         )
@@ -392,7 +490,7 @@ async def main() -> None:
                     interaction_events,
                 )
                 if not _asks_for_agent_details(choice_response):
-                    raise RuntimeError("Corpus did not ask for the new Agent's goal or responsibilities.")
+                    raise RuntimeError("Corpus did not ask for the new Agent's required details.")
                 await _chat_dispatch(
                     page,
                     CHAT_PROMPTS["create_agent"],
@@ -410,7 +508,8 @@ async def main() -> None:
                     safe_trace,
                     interaction_events,
                 )
-            else:
+            elif args.mode == "hybrid":
+                await hub.get_by_role("button", name="Agent", exact=True).click()
                 await hub.get_by_role(
                     "button", name="Create a new Agent", exact=True
                 ).click()
@@ -419,10 +518,11 @@ async def main() -> None:
                 hub = page.locator("section.sources-debug.api-source-workspace")
                 await hub.wait_for(state="visible", timeout=90_000)
 
-            agent_button = page.get_by_role(
-                "button", name="Store Taxonomy Assistant Version 1", exact=True
-            )
-            ids["agentId"] = await _latest_agent_id(observations)
+            if args.mode in {"chat", "hybrid"}:
+                agent_button = page.get_by_role(
+                    "button", name="Store Taxonomy Assistant Version 1", exact=True
+                )
+                ids["agentId"] = await _latest_agent_id(observations)
 
             if args.mode in {"chat", "hybrid"}:
                 await _chat_dispatch(
@@ -496,6 +596,7 @@ async def main() -> None:
                 {"revisionId": ids["approvedRevisionId"]},
             )
 
+            await hub.get_by_role("button", name="Connection", exact=True).click()
             connection = hub.locator("section.api-connection-panel")
             await connection.get_by_role(
                 "heading", name="API connections", exact=True
@@ -514,6 +615,7 @@ async def main() -> None:
                     if item.get("profile_name") == "Horizontal local Medusa"
                 )["id"]
             )
+            await hub.get_by_role("button", name="Operations", exact=True).click()
             curation = _curation_panel(page)
             await curation.get_by_role(
                 "heading", name="API operation curation", exact=True
@@ -550,14 +652,16 @@ async def main() -> None:
                 == INCLUDED_OPERATIONS,
                 {"profileId": ids["profileId"], "curationId": ids["curationId"]},
             )
+            await hub.get_by_role("button", name="Graph", exact=True).click()
+            semantic_graph = page.get_by_role(
+                "img", name="Semantic graph visualization", exact=True
+            )
+            await semantic_graph.wait_for(state="visible", timeout=30_000)
             _check(
                 checks,
                 "Source shows the persisted semantic node-edge graph",
-                await page.get_by_role("img", name="Semantic graph visualization", exact=True).is_visible(),
+                await semantic_graph.is_visible(),
                 {"graphSurface": "semantic-node-edge-visualization"},
-            )
-            semantic_graph = page.get_by_role(
-                "img", name="Semantic graph visualization", exact=True
             )
             await semantic_graph.scroll_into_view_if_needed()
             await _capture(page, directory, screenshots, "01-source-semantic-graph")
@@ -577,25 +681,34 @@ async def main() -> None:
                 await _chat_dispatch(
                     page,
                     CHAT_PROMPTS["attach_source"],
-                    ("workspace.open_agents", "agents.attach_source"),
+                    ChatOperationAlternatives(
+                        sequences=(
+                            ("agents.return_from_source", "agents.attach_source"),
+                            (
+                                "agents.choose_existing_for_source",
+                                "agents.attach_source",
+                            ),
+                        ),
+                    ),
                     safe_trace,
                     interaction_events,
                 )
             else:
+                await hub.get_by_role("button", name="Agent", exact=True).click()
                 await hub.get_by_role(
-                    "button", name="Use an existing Agent", exact=True
+                    "button", name="Create a new Agent", exact=True
                 ).click()
-                await page.get_by_role(
-                    "heading", name="Agents", exact=True
-                ).last.wait_for(timeout=90_000)
-                await agent_button.click()
-                await page.get_by_label("Ready Workspace Source", exact=True).select_option(
-                    ids["sourceId"]
+                await _create_agent_from_surface(page)
+                agent_button = page.get_by_role(
+                    "button", name="Store Taxonomy Assistant Version 1", exact=True
                 )
+                ids["agentId"] = await _latest_agent_id(observations)
                 await page.get_by_role("button", name="Attach Source", exact=True).click()
-            await page.get_by_text(
+            attached_revision = page.locator(".agent-sources").get_by_text(
                 f"API version {ids['approvedRevisionId']}", exact=True
-            ).wait_for(timeout=30_000)
+            )
+            await attached_revision.scroll_into_view_if_needed(timeout=30_000)
+            await attached_revision.wait_for(state="visible", timeout=30_000)
             _check(
                 checks,
                 "Agent is created and pins the exact approved Source revision",
@@ -616,6 +729,13 @@ async def main() -> None:
                 ).wait_for(timeout=90_000)
             else:
                 await _open_bound_agent_area(page, "Designer", "Agent Designer")
+            # Designer evidence is reviewed in the real wide-screen work mode:
+            # chat remains at left and the complete design surface owns the right.
+            # Maximize before any Designer operation so the feature-only video is
+            # readable from its first interaction, not merely for final screenshots.
+            await _maximize_current_surface(page)
+            if video_clock_started is not None:
+                designer_video_started_seconds = time.monotonic() - video_clock_started
             if args.mode == "chat":
                 pass
             elif args.mode == "hybrid":
@@ -628,17 +748,47 @@ async def main() -> None:
                 )
             else:
                 await page.get_by_role("button", name="Propose design", exact=True).click()
-            await page.get_by_label("Goal", exact=True).wait_for(timeout=30_000)
+            await page.get_by_role(
+                "region", name="Agent design blueprint", exact=True
+            ).wait_for(timeout=30_000)
+            if args.mode == "chat":
+                await _chat_dispatch(
+                    page,
+                    CHAT_PROMPTS["generate_design_feature"],
+                    "designer.generate_feature",
+                    safe_trace,
+                    interaction_events,
+                )
+            else:
+                await page.get_by_label("Feature or behavior", exact=True).fill(
+                    CHAT_PROMPTS["generate_design_feature"]
+                )
+                await page.get_by_role(
+                    "button", name="Generate design proposal", exact=True
+                ).click()
+            await page.locator(".designer-home__status").get_by_text(
+                "Revision 2", exact=True
+            ).wait_for(timeout=90_000)
+            _check(
+                checks,
+                "Designer generates one grounded immutable feature from ordinary owner language",
+                True,
+                {"operationId": "designer.generate_feature", "revision": 2},
+            )
             if args.mode != "chat":
+                await page.get_by_text(
+                    "Customize the Agent goal, behaviors, and policies", exact=True
+                ).click()
+                await page.get_by_label("Goal", exact=True).wait_for(timeout=30_000)
                 await page.get_by_label("Goal", exact=True).fill(
                     "Answer exact product lookup questions through the accepted Source."
                 )
                 await page.get_by_role(
                     "button", name="Save customization", exact=True
                 ).click()
-                await page.get_by_text("2 immutable revisions", exact=True).wait_for(
-                    timeout=30_000
-                )
+                await page.locator(".designer-home__status").get_by_text(
+                    "Revision 3", exact=True
+                ).wait_for(timeout=30_000)
                 await page.get_by_role(
                     "button", name="Review for approval", exact=True
                 ).click()
@@ -680,7 +830,9 @@ async def main() -> None:
                 )
             else:
                 await request_build.click()
-            await page.get_by_text("Build pending", exact=True).wait_for(timeout=30_000)
+            await page.get_by_role(
+                "button", name="Build requested", exact=True
+            ).wait_for(timeout=30_000)
             _check(
                 checks,
                 "Designer appends, reviews, accepts and requests one immutable build",
@@ -696,27 +848,84 @@ async def main() -> None:
             designer_blueprint = page.get_by_role(
                 "region", name="Agent design blueprint", exact=True
             )
-            await designer_blueprint.scroll_into_view_if_needed()
-            await _capture(page, directory, screenshots, "02-designer-routedeck-blueprint")
-            designer_topology = designer_blueprint.get_by_role(
-                "region", name="Proposed RouteDeck topology", exact=True
+            await _maximize_current_surface(page)
+            designer_foundation = designer_blueprint.get_by_role(
+                "region", name="Agent intent and Source intelligence", exact=True
             )
-            await designer_topology.scroll_into_view_if_needed()
-            await _capture(page, directory, screenshots, "02a-designer-topology")
+            await designer_foundation.scroll_into_view_if_needed()
+            await _capture(page, directory, screenshots, "02-designer-intent-source")
+            designer_system = designer_blueprint.get_by_role(
+                "region", name="Proposed design system", exact=True
+            )
+            await designer_system.scroll_into_view_if_needed()
+            await _capture(page, directory, screenshots, "02a-designer-design-system")
             designer_navgraph = designer_blueprint.get_by_role(
-                "region", name="Compiled RouteDeck NavGraph preview", exact=True
+                "region", name="Proposed RouteDeck NavGraph preview", exact=True
             )
             await designer_navgraph.scroll_into_view_if_needed()
             await _capture(page, directory, screenshots, "02b-designer-navgraph")
+            generated_area = designer_navgraph.locator(
+                'button[data-routedeck-navgraph-node][data-node-tone="reachable"]'
+            ).first
+            await generated_area.wait_for(state="visible", timeout=30_000)
+            generated_area_title = (await generated_area.get_attribute("aria-label")) or ""
+            if not generated_area_title.strip():
+                raise RuntimeError("The generated Designer runtime area has no public title.")
+            await generated_area.click()
+            await _capture(page, directory, screenshots, "02c-designer-navgraph-selection")
+            visible_design = all([
+                await designer_blueprint.get_by_role(
+                    "heading", name=heading, exact=True
+                ).is_visible()
+                for heading in (
+                    "Agent intent",
+                    "Source intelligence",
+                    "Proposed design system",
+                    "Capabilities and tools",
+                    "Runtime surfaces",
+                    "Proposed RouteDeck NavGraph",
+                )
+            ])
+            _check(
+                checks,
+                "Designer visibly joins intent, Source intelligence, behaviors, policies, tools, surfaces, and the real NavGraph",
+                visible_design,
+                {"surfaceLayout": "split", "navgraphSelection": generated_area_title},
+            )
+            if video_clock_started is not None:
+                designer_video_ended_seconds = time.monotonic() - video_clock_started
+            await page.set_viewport_size({"width": 390, "height": 844})
+            await designer_system.scroll_into_view_if_needed()
+            await _capture(page, directory, screenshots, "02d-designer-mobile")
+            _check(
+                checks,
+                "Agent Designer renders its proposed design system at 390x844",
+                await designer_system.is_visible(),
+                {"viewport": "390x844"},
+            )
+            if args.stop_after == "designer":
+                raise CampaignCheckpointReached
+
+            await page.set_viewport_size({"width": 1440, "height": 1000})
+            await _maximize_current_surface(page)
+            if args.stop_after == "builder" and video_clock_started is not None:
+                builder_video_started_seconds = time.monotonic() - video_clock_started
+            elif args.stop_after == "evaluation" and video_clock_started is not None:
+                evaluation_video_started_seconds = time.monotonic() - video_clock_started
 
             if args.mode == "chat":
                 await _chat_dispatch(
                     page,
                     CHAT_PROMPTS["assemble_build"],
-                    (
-                        "designer.return_to_agent",
-                        "agents.open_builds",
-                        "builder.assemble",
+                    ChatOperationAlternatives(
+                        sequences=(
+                            ("agents.open_builds", "builder.assemble"),
+                            (
+                                "designer.return_to_agent",
+                                "agents.open_builds",
+                                "builder.assemble",
+                            ),
+                        ),
                     ),
                     safe_trace,
                     interaction_events,
@@ -746,6 +955,28 @@ async def main() -> None:
                     await page.get_by_role(
                         "button", name="Assemble accepted build", exact=True
                     ).click()
+            queued_build = page.locator(".builder-home li[data-status='queued']")
+            running_build = page.locator(".builder-home li[data-status='running']")
+            saw_durable_assembly = any(
+                item.get("operationId") == "builder.assemble"
+                and item.get("disposition") == "completed"
+                and item.get("outcome") == "queued"
+                for item in interaction_events
+            )
+            assembly_deadline = time.monotonic() + 30
+            while not saw_durable_assembly and time.monotonic() < assembly_deadline:
+                if await queued_build.count() == 1 or await running_build.count() == 1:
+                    saw_durable_assembly = True
+                    break
+                if await page.locator(".builder-home li[data-status='ready']").count() == 1:
+                    break
+                await page.wait_for_timeout(100)
+            _check(
+                checks,
+                "Builder queues one durable assembly attempt without inline completion",
+                saw_durable_assembly,
+                {},
+            )
             ready_build = page.locator(".builder-home li[data-status='ready']")
             await ready_build.wait_for(timeout=180_000)
             ids["buildId"] = await _latest_build_id(observations)
@@ -758,20 +989,82 @@ async def main() -> None:
             _check(
                 checks,
                 "Builder shows the immutable compiled RouteDeck NavGraph",
-                await ready_build.get_by_role("heading", name="NavGraph", exact=True).is_visible(),
+                await ready_build.get_by_role(
+                    "region",
+                    name=f"RouteDeck NavGraph for build {ids['buildId']}",
+                    exact=True,
+                ).is_visible(),
                 {"buildId": ids["buildId"]},
             )
             await ready_build.scroll_into_view_if_needed()
             await _capture(page, directory, screenshots, "03-build-navgraph")
+            initial_coverage = ready_build.get_by_role(
+                "region",
+                name=f"Initial evaluation coverage for build {ids['buildId']}",
+                exact=True,
+            )
+            await initial_coverage.wait_for(timeout=30_000)
+            await initial_coverage.get_by_text(
+                re.compile(
+                    r"^(Queued automatically|Generating automatically|Ready with [1-9][0-9]* generated case)"
+                )
+            ).wait_for(timeout=90_000)
+            _check(
+                checks,
+                "Builder automatically schedules initial ToolRouter evaluation coverage for the exact build",
+                re.match(
+                    r"^(Queued automatically|Generating automatically|Ready with [1-9][0-9]* generated case)",
+                    await initial_coverage.locator("span").first.inner_text(),
+                )
+                is not None,
+                {"buildId": ids["buildId"]},
+            )
+            if args.stop_after == "builder":
+                if video_clock_started is not None:
+                    builder_video_ended_seconds = time.monotonic() - video_clock_started
+                raise CampaignCheckpointReached
+            if args.mode in {"chat", "hybrid"}:
+                await _chat_dispatch(
+                    page,
+                    CHAT_PROMPTS["start_build_runtime"],
+                    "builder.run",
+                    safe_trace,
+                    interaction_events,
+                )
+            else:
+                start_runtime = ready_build.get_by_role(
+                    "button", name="Start runtime", exact=True
+                )
+                await start_runtime.wait_for(state="visible", timeout=30_000)
+                await start_runtime.click()
+            if args.mode in {"chat", "hybrid"}:
+                await _wait_for_build_runtime_lifecycle(
+                    observations,
+                    ids["buildId"],
+                    "running",
+                )
+            else:
+                await ready_build.get_by_text("Running", exact=True).first.wait_for(
+                    timeout=30_000
+                )
 
             if args.mode == "chat":
                 await _chat_dispatch(
                     page,
                     CHAT_PROMPTS["start_private_trial"],
-                    (
-                        "agents.return_to_hub",
-                        "agents.open_sandbox",
-                        "sandbox.start",
+                    ChatOperationAlternatives(
+                        sequences=(
+                            ("sandbox.start",),
+                            (
+                                "agents.open_sandbox",
+                                "sandbox.start",
+                            ),
+                            (
+                                "agents.return_to_hub",
+                                "agents.open_sandbox",
+                                "sandbox.start",
+                            ),
+                        ),
                     ),
                     safe_trace,
                     interaction_events,
@@ -843,6 +1136,12 @@ async def main() -> None:
             )
             _check(
                 checks,
+                "Sandbox returns meaningful non-empty real Medusa taxonomy",
+                await sandbox_result.get_by_text(re.compile(r"\bApparel\b")).is_visible(),
+                {"taxonomy": "Apparel", "source": "local Medusa"},
+            )
+            _check(
+                checks,
                 "Sandbox shows isolated RouteDeck and ToolRouter clarification plumbing",
                 await sandbox_result.get_by_role("heading", name="RouteDeck runtime", exact=True).is_visible()
                 and await sandbox_result.get_by_role("region", name="ToolRouter clarification subagent", exact=True).is_visible(),
@@ -855,10 +1154,15 @@ async def main() -> None:
                 await _chat_dispatch(
                     page,
                     CHAT_PROMPTS["enter_evaluation"],
-                    (
-                        "agents.return_to_hub",
-                        "agents.open_evaluation",
-                        "evaluation.create_case",
+                    ChatOperationAlternatives(
+                        sequences=(
+                            ("agents.open_evaluation", "evaluation.create_case"),
+                            (
+                                "agents.return_to_hub",
+                                "agents.open_evaluation",
+                                "evaluation.create_case",
+                            ),
+                        ),
                     ),
                     safe_trace,
                     interaction_events,
@@ -876,6 +1180,19 @@ async def main() -> None:
                     interactions=interaction_events,
                     continuation="Continue to Evaluation",
                 )
+            if args.stop_after == "evaluation":
+                generated_set = page.locator(
+                    ".evaluation-set-card", has_text="Generated coverage"
+                )
+                await generated_set.get_by_text("ToolRouter generated", exact=True).wait_for(
+                    timeout=180_000
+                )
+                _check(
+                    checks,
+                    "Evaluation shows one ToolRouter-generated case for the exact build",
+                    await generated_set.get_by_text("ToolRouter generated", exact=True).count() == 1,
+                    {"buildId": ids["buildId"], "set": "Generated coverage"},
+                )
             if args.mode == "hybrid":
                 await _chat_dispatch(
                     page,
@@ -885,9 +1202,31 @@ async def main() -> None:
                     interaction_events,
                 )
             elif args.mode == "surface":
-                await page.get_by_role(
-                    "button", name="Create evaluation case", exact=True
+                await page.get_by_text(
+                    "Add a case from a successful Sandbox interaction", exact=True
                 ).click()
+                await page.get_by_role(
+                    "button", name="Add evaluation case", exact=True
+                ).click()
+            generated_case = page.locator(
+                ".evaluation-set-card", has_text="Generated coverage"
+            )
+            await generated_case.get_by_text("Draft coverage", exact=True).wait_for(
+                timeout=180_000
+            )
+            if args.mode in {"chat", "hybrid"}:
+                await _chat_dispatch(
+                    page,
+                    CHAT_PROMPTS["run_generated_evaluation"],
+                    "evaluation.run_case",
+                    safe_trace,
+                    interaction_events,
+                )
+            else:
+                await generated_case.get_by_role(
+                    "button", name="Run generated case", exact=True
+                ).click()
+            generated_status = await _wait_for_evaluation_terminal(generated_case)
             if args.mode in {"chat", "hybrid"}:
                 await _chat_dispatch(
                     page,
@@ -897,15 +1236,30 @@ async def main() -> None:
                     interaction_events,
                 )
             else:
-                await page.get_by_role("button", name="Run exact case", exact=True).click()
-            await page.get_by_text("Eligible for deployment", exact=True).wait_for(
-                timeout=180_000
-            )
+                run_case_name = "Run exact case"
+                run_case_scope = page.locator(
+                    ".evaluation-set-card", has_text="Baseline"
+                )
+                await run_case_scope.get_by_role(
+                    "button", name=run_case_name, exact=True
+                ).click()
+            eligible_results = page.get_by_text("Eligible for deployment", exact=True)
+            for _ in range(900):
+                if await eligible_results.count() == 2:
+                    break
+                await asyncio.sleep(0.2)
+            else:
+                raise TimeoutError(
+                    "The exact required Evaluation cases did not become eligible."
+                )
             _check(
                 checks,
-                "Evaluation derives deployment eligibility from the exact Sandbox run",
-                True,
-                {},
+                "Evaluation retains generated draft truth and derives eligibility from the required exact-build case",
+                await eligible_results.count() == 2,
+                {
+                    "eligibleSetCount": await eligible_results.count(),
+                    "generatedDraftStatus": generated_status,
+                },
             )
             await _capture(page, directory, screenshots, "06-evaluation")
             evaluation_navgraph = page.get_by_role(
@@ -921,6 +1275,10 @@ async def main() -> None:
                 {"buildId": ids["buildId"]},
             )
             await _capture(page, directory, screenshots, "06b-evaluation-navgraph")
+            if args.stop_after == "evaluation":
+                if video_clock_started is not None:
+                    evaluation_video_ended_seconds = time.monotonic() - video_clock_started
+                raise CampaignCheckpointReached
 
             slug = f"store-taxonomy-{run_id[-6:].casefold()}"
             delivery_prompt = CHAT_PROMPTS["enter_delivery"].format(slug=slug)
@@ -928,10 +1286,15 @@ async def main() -> None:
                 await _chat_dispatch(
                     page,
                     delivery_prompt,
-                    (
-                        "agents.return_to_hub",
-                        "agents.open_channels",
-                        "channels.create",
+                    ChatOperationAlternatives(
+                        sequences=(
+                            ("agents.open_channels", "channels.create"),
+                            (
+                                "agents.return_to_hub",
+                                "agents.open_channels",
+                                "channels.create",
+                            ),
+                        ),
                     ),
                     safe_trace,
                     interaction_events,
@@ -967,7 +1330,9 @@ async def main() -> None:
                     channel_name, "Horizontal hosted Agent", "hosted channel name"
                 )
                 await _type_exact(channel_address, slug, "hosted channel address")
-                create_channel = page.get_by_role("button", name="Create channel", exact=True)
+                create_channel = page.get_by_role(
+                    "button", name="Create hosted channel", exact=True
+                )
                 await create_channel.wait_for(state="visible", timeout=30_000)
                 for _ in range(300):
                     if await create_channel.is_enabled():
@@ -977,7 +1342,7 @@ async def main() -> None:
                     raise TimeoutError("The exact hosted channel was not ready to create.")
                 await create_channel.click()
             channel_address = page.locator(
-                "section.channels-home li[data-status='ready'] > span"
+                "section.channels-home li[data-status='ready'] > div > span"
             ).filter(has_text=re.compile(rf"^/{re.escape(slug)}$"))
             await _wait_for_unique_locator(
                 channel_address,
@@ -1011,9 +1376,15 @@ async def main() -> None:
                 await page.get_by_role(
                     "button", name="Deploy reviewed build", exact=True
                 ).click()
-            await page.get_by_text("Hosted Agent enabled", exact=True).wait_for(
+            await page.get_by_text("Public and available", exact=True).wait_for(
                 timeout=180_000
             )
+            await page.get_by_text("Active deployment", exact=True).wait_for(
+                timeout=30_000
+            )
+            await page.get_by_role(
+                "link", name="Open hosted Agent", exact=True
+            ).wait_for(timeout=30_000)
             _check(
                 checks,
                 "eligible build is review-gated and deployed to hosted Web",
@@ -1035,13 +1406,170 @@ async def main() -> None:
             )
             await _capture(page, directory, screenshots, "08b-deployed-navgraph")
 
+            if args.mode in {"chat", "hybrid"}:
+                await _chat_dispatch(
+                    page,
+                    CHAT_PROMPTS["request_second_deployment"],
+                    "deployment.deploy",
+                    safe_trace,
+                    interaction_events,
+                )
+            else:
+                await page.get_by_role("button", name="Review deployment", exact=True).click()
+            await page.get_by_role(
+                "heading", name="Approve hosted Agent deployment", exact=True
+            ).wait_for(timeout=30_000)
+            await _capture(page, directory, screenshots, "08c-second-deployment-review")
+            if args.mode in {"chat", "hybrid"}:
+                await _chat_dispatch(
+                    page,
+                    CHAT_PROMPTS["accept_second_deployment"],
+                    "deployment.deploy",
+                    safe_trace,
+                    interaction_events,
+                    expected_disposition="completed",
+                )
+            else:
+                await page.get_by_role(
+                    "button", name="Deploy reviewed build", exact=True
+                ).click()
+            ready_deployments = page.locator(
+                "section[aria-labelledby='deployment-history-title'] li[data-status='ready']"
+            )
+            for _ in range(900):
+                if await ready_deployments.count() == 2:
+                    break
+                await asyncio.sleep(0.2)
+            else:
+                raise TimeoutError("The second immutable deployment did not become ready.")
+            _check(
+                checks,
+                "a second reviewed deployment creates a distinct immutable ready release",
+                await ready_deployments.count() == 2,
+                {"readyDeploymentCount": await ready_deployments.count()},
+            )
+
+            if args.mode in {"chat", "hybrid"}:
+                await _chat_dispatch(
+                    page,
+                    CHAT_PROMPTS["request_rollback"],
+                    "deployment.rollback",
+                    safe_trace,
+                    interaction_events,
+                )
+            else:
+                await page.get_by_role(
+                    "button", name="Review rollback to this version", exact=True
+                ).click()
+            await page.get_by_role(
+                "heading", name="Approve hosted Agent rollback", exact=True
+            ).wait_for(timeout=30_000)
+            await _capture(page, directory, screenshots, "08d-rollback-review")
+            if args.mode in {"chat", "hybrid"}:
+                await _chat_dispatch(
+                    page,
+                    CHAT_PROMPTS["accept_rollback"],
+                    "deployment.rollback",
+                    safe_trace,
+                    interaction_events,
+                    expected_disposition="completed",
+                )
+            else:
+                await page.get_by_role(
+                    "button", name="Roll back to reviewed deployment", exact=True
+                ).click()
+            rollback_action = page.get_by_role(
+                "button", name="Review rollback to this version", exact=True
+            )
+            await rollback_action.wait_for(state="visible", timeout=30_000)
+            _check(
+                checks,
+                "reviewed rollback activates the exact earlier ready deployment",
+                await rollback_action.count() == 1,
+                {"readyDeploymentCount": await ready_deployments.count()},
+            )
+
+            if args.mode in {"chat", "hybrid"}:
+                await _chat_dispatch(
+                    page,
+                    CHAT_PROMPTS["request_pause"],
+                    "channels.set_enabled",
+                    safe_trace,
+                    interaction_events,
+                )
+            else:
+                await page.get_by_role("button", name="Review pause", exact=True).click()
+            await page.get_by_role(
+                "heading", name="Approve hosted Web availability change", exact=True
+            ).wait_for(timeout=30_000)
+            if args.mode in {"chat", "hybrid"}:
+                await _chat_dispatch(
+                    page,
+                    CHAT_PROMPTS["accept_pause"],
+                    "channels.set_enabled",
+                    safe_trace,
+                    interaction_events,
+                    expected_disposition="completed",
+                )
+            else:
+                await page.get_by_role(
+                    "button", name="Apply availability change", exact=True
+                ).click()
+            await page.get_by_text("Public access paused", exact=True).wait_for(timeout=30_000)
+            _check(
+                checks,
+                "reviewed pause removes public access without changing deployment lineage",
+                await page.get_by_role("link", name="Open hosted Agent", exact=True).count() == 0,
+                {"slug": slug},
+            )
+            await _capture(page, directory, screenshots, "08e-public-access-paused")
+
+            if args.mode in {"chat", "hybrid"}:
+                await _chat_dispatch(
+                    page,
+                    CHAT_PROMPTS["request_resume"],
+                    "channels.set_enabled",
+                    safe_trace,
+                    interaction_events,
+                )
+            else:
+                await page.get_by_role("button", name="Review resume", exact=True).click()
+            await page.get_by_role(
+                "heading", name="Approve hosted Web availability change", exact=True
+            ).wait_for(timeout=30_000)
+            if args.mode in {"chat", "hybrid"}:
+                await _chat_dispatch(
+                    page,
+                    CHAT_PROMPTS["accept_resume"],
+                    "channels.set_enabled",
+                    safe_trace,
+                    interaction_events,
+                    expected_disposition="completed",
+                )
+            else:
+                await page.get_by_role(
+                    "button", name="Apply availability change", exact=True
+                ).click()
+            await page.get_by_text("Public and available", exact=True).wait_for(timeout=30_000)
+            _check(
+                checks,
+                "reviewed resume restores the same hosted Agent address",
+                await page.get_by_role("link", name="Open hosted Agent", exact=True).count() == 1,
+                {"slug": slug},
+            )
+            await _capture(page, directory, screenshots, "08f-public-access-restored")
+
             _restart_runtime(args.backend_url)
             _wait_ready(args.backend_url)
             await page.reload()
-            await page.get_by_role(
+            await _feature_surface(page, "Channels and Deployment").get_by_role(
                 "heading", name="Channels and Deployment", exact=True
             ).wait_for(timeout=90_000)
-            await page.get_by_text("Hosted Agent enabled", exact=True).wait_for()
+            await page.get_by_text("Public and available", exact=True).wait_for()
+            await page.get_by_text("Active deployment", exact=True).wait_for()
+            await page.get_by_role(
+                "link", name="Open hosted Agent", exact=True
+            ).wait_for()
             _check(checks, "deployment survives backend and worker restart", True, {})
 
             hosted_link = page.get_by_role("link", name="Open hosted Agent", exact=True)
@@ -1049,8 +1577,9 @@ async def main() -> None:
             if not hosted_href:
                 raise RuntimeError("The deployed Agent address is unavailable.")
             await page.goto(urljoin(args.url, hosted_href))
-            await page.get_by_text(
-                "Ask the deployed Agent a question.", exact=True
+            await page.locator("[data-public-agent-application]").get_by_text(
+                "Ask a question and continue the same request when the Agent needs one more detail.",
+                exact=True,
             ).wait_for(timeout=90_000)
             waiting_response = await _public_send(page, "get product taxonomy")
             clarification = page.get_by_role(
@@ -1079,7 +1608,9 @@ async def main() -> None:
                 and "What value should I use for id" not in final_response,
                 {"responseLength": len(final_response)},
             )
-            public_copy = await page.locator("main.public-agent").inner_text()
+            public_copy = await page.locator(
+                "[data-public-agent-application]"
+            ).inner_text()
             _check(
                 checks,
                 "deployed Agent keeps owner-only runtime diagnostics out of the public session",
@@ -1091,7 +1622,7 @@ async def main() -> None:
             )
             await _capture(page, directory, screenshots, "10-public-resolved")
             await page.go_back(wait_until="domcontentloaded")
-            await page.get_by_role(
+            await _feature_surface(page, "Channels and Deployment").get_by_role(
                 "heading", name="Channels and Deployment", exact=True
             ).wait_for(timeout=90_000)
             await _wait_for_product_idle(page)
@@ -1118,8 +1649,8 @@ async def main() -> None:
             _check(
                 checks,
                 "Operations shows deployed interactions and promotion controls",
-                await interaction.get_by_role(
-                    "button", name="Create evaluation case", exact=True
+                await interaction.get_by_text(
+                    "Create an Evaluation case from this interaction", exact=True
                 ).is_visible(),
                 {},
             )
@@ -1128,24 +1659,57 @@ async def main() -> None:
                 "region", name=re.compile(r"^Deployed RouteDeck evidence for interaction ")
             ).first
             await deployed_runtime.scroll_into_view_if_needed()
+            deployed_navgraph = deployed_runtime.get_by_role(
+                "region",
+                name=f"RouteDeck NavGraph for build {ids['buildId']}",
+                exact=True,
+            )
+            await deployed_navgraph.scroll_into_view_if_needed()
+            navgraph_visible = await deployed_navgraph.is_visible()
+            await _capture(page, directory, screenshots, "11b-deployed-runtime-plumbing")
             deployed_toolrouter = deployed_runtime.get_by_role(
                 "region", name="Deployed ToolRouter clarification subagent", exact=True
             )
+            await deployed_toolrouter.scroll_into_view_if_needed()
+            toolrouter_visible = await deployed_toolrouter.is_visible()
             _check(
                 checks,
                 "Operations shows owner-only deployed RouteDeck and ToolRouter evidence",
-                await deployed_runtime.get_by_role(
-                    "heading", name="NavGraph", exact=True
-                ).is_visible()
-                and await deployed_toolrouter.is_visible(),
+                navgraph_visible and toolrouter_visible,
                 {"buildId": ids["buildId"]},
             )
-            await _capture(page, directory, screenshots, "11b-deployed-runtime-plumbing")
-            await deployed_toolrouter.scroll_into_view_if_needed()
             await _capture(page, directory, screenshots, "11c-deployed-toolrouter")
 
+            if args.mode in {"chat", "hybrid"}:
+                await _chat_dispatch(
+                    page,
+                    CHAT_PROMPTS["promote_interaction"],
+                    "operations.promote_evaluation_case",
+                    safe_trace,
+                    interaction_events,
+                )
+            else:
+                await interaction.get_by_text(
+                    "Create an Evaluation case from this interaction", exact=True
+                ).click()
+                await interaction.get_by_role(
+                    "button", name="Create Evaluation case", exact=True
+                ).click()
+            await interaction.get_by_role("status").filter(
+                has_text="Evaluation case created from this interaction."
+            ).wait_for(timeout=30_000)
+            _check(
+                checks,
+                "Operations durably promotes the exact successful deployed interaction into Evaluation",
+                await interaction.get_by_role(
+                    "button", name="Evaluation case created", exact=True
+                ).is_disabled(),
+                {"buildId": ids["buildId"]},
+            )
+            await _capture(page, directory, screenshots, "11d-operations-promotion")
+
             await page.set_viewport_size({"width": 390, "height": 844})
-            await page.get_by_role("heading", name="Operations", exact=True).scroll_into_view_if_needed()
+            await page.locator("#operations-title").scroll_into_view_if_needed()
             await _capture(page, directory, screenshots, "12-mobile-operations")
             _check(checks, "joined lifecycle renders at 390x844", True, {})
             if args.mode == "hybrid":
@@ -1166,6 +1730,8 @@ async def main() -> None:
                         "chatOperationIds": chat_operation_ids,
                     },
                 )
+        except CampaignCheckpointReached:
+            pass
         except Exception as caught:
             error = f"{type(caught).__name__}: {caught}"
             try:
@@ -1185,9 +1751,54 @@ async def main() -> None:
             recording_ended_at = datetime.now(UTC)
 
     recording_metadata = _video_metadata(video_files)
+    milestone_recording: dict[str, object] | None = None
+    if (
+        args.stop_after == "designer"
+        and video is not None
+        and designer_video_started_seconds is not None
+        and designer_video_ended_seconds is not None
+    ):
+        milestone_recording = _extract_designer_milestone_video(
+            source=REPOSITORY_ROOT / video,
+            destination=directory / "agent-designer-maximized.webm",
+            start_seconds=designer_video_started_seconds,
+            end_seconds=designer_video_ended_seconds,
+        )
+    elif (
+        args.stop_after == "builder"
+        and video is not None
+        and builder_video_started_seconds is not None
+        and builder_video_ended_seconds is not None
+    ):
+        milestone_recording = _extract_builder_milestone_video(
+            source=REPOSITORY_ROOT / video,
+            destination=directory / "builder-assembly-maximized.webm",
+            start_seconds=builder_video_started_seconds,
+            end_seconds=builder_video_ended_seconds,
+        )
+    elif (
+        args.stop_after == "evaluation"
+        and video is not None
+        and evaluation_video_started_seconds is not None
+        and evaluation_video_ended_seconds is not None
+    ):
+        milestone_recording = _extract_evaluation_milestone_video(
+            source=REPOSITORY_ROOT / video,
+            destination=directory / "builder-sandbox-evaluation-maximized.webm",
+            start_seconds=evaluation_video_started_seconds,
+            end_seconds=evaluation_video_ended_seconds,
+        )
     _classify_expected_graph_capture_warnings(diagnostics)
 
-    expected_checks = EXPECTED_CHECKS + (1 if args.mode == "hybrid" else 0)
+    expected_checks = (
+        DESIGNER_CHECKPOINT_EXPECTED_CHECKS
+        if args.stop_after == "designer"
+        else BUILDER_CHECKPOINT_EXPECTED_CHECKS
+        if args.stop_after == "builder"
+        else EVALUATION_CHECKPOINT_EXPECTED_CHECKS
+        if args.stop_after == "evaluation"
+        else EXPECTED_CHECKS + (1 if args.mode == "hybrid" else 0)
+    )
     passed = (
         error is None
         and len(checks) == expected_checks
@@ -1198,6 +1809,7 @@ async def main() -> None:
         and not diagnostics["requestFailures"]
         and len(recording_metadata) == 1
         and float(recording_metadata[0]["durationSeconds"]) > 0
+        and (args.stop_after is None or milestone_recording is not None)
     )
     result = {
         "runId": run_id,
@@ -1205,6 +1817,7 @@ async def main() -> None:
         "assertions": checks,
         "ids": ids,
         "interactionMode": args.mode,
+        "milestone": args.stop_after,
         "interactionEvents": interaction_events,
         "chatInspectionTools": observations["chatInspectionTools"],
         "screenshots": screenshots,
@@ -1222,6 +1835,7 @@ async def main() -> None:
             ),
             "files": recording_metadata,
         },
+        "milestoneRecording": milestone_recording,
         "diagnostics": diagnostics,
         "safeTrace": safe_trace,
         "error": error,
@@ -1243,6 +1857,289 @@ async def main() -> None:
     if error:
         print(f"error={error}")
     raise SystemExit(0 if passed else 1)
+
+
+def _verify_retained_milestone(milestone: str, artifact: Path) -> dict[str, object]:
+    if milestone == "evaluation":
+        return _verify_retained_evaluation_milestone(artifact)
+    if milestone == "builder":
+        return _verify_retained_builder_milestone(artifact)
+    if milestone != "designer":
+        raise RuntimeError(f"Unsupported retained milestone: {milestone}")
+    artifact_path = artifact if artifact.is_absolute() else REPOSITORY_ROOT / artifact
+    document = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assertions = document.get("assertions")
+    if not isinstance(assertions, list):
+        raise RuntimeError("The retained campaign has no typed assertions.")
+    by_name = {
+        item.get("name"): item
+        for item in assertions
+        if isinstance(item, dict) and isinstance(item.get("name"), str)
+    }
+    missing = [
+        name
+        for name in DESIGNER_MILESTONE_ASSERTIONS
+        if not isinstance(by_name.get(name), dict)
+        or by_name[name].get("passed") is not True
+    ]
+    if missing:
+        raise RuntimeError(
+            "The retained Designer milestone is incomplete: " + ", ".join(missing)
+        )
+    if document.get("error") is not None:
+        raise RuntimeError("The retained Designer checkpoint has a terminal error.")
+    recorded_milestone = document.get("milestone")
+    if recorded_milestone not in (None, "designer"):
+        raise RuntimeError("The retained artifact belongs to a different milestone.")
+    if recorded_milestone is None and len(assertions) != DESIGNER_CHECKPOINT_EXPECTED_CHECKS:
+        raise RuntimeError(
+            "A legacy artifact is accepted only when it ended at the exact Designer checkpoint."
+        )
+
+    ids = document.get("ids")
+    if not isinstance(ids, dict):
+        raise RuntimeError("The retained Designer milestone has no identity bindings.")
+    required_ids = (
+        "conversationId",
+        "sourceId",
+        "approvedRevisionId",
+        "curationId",
+        "agentId",
+    )
+    if any(not isinstance(ids.get(name), str) or not ids[name] for name in required_ids):
+        raise RuntimeError("The retained Designer milestone has incomplete identity lineage.")
+
+    screenshots = document.get("screenshots")
+    if not isinstance(screenshots, list):
+        raise RuntimeError("The retained Designer milestone has no screenshot manifest.")
+    required_screenshot_tokens = (
+        "02-designer-intent-source",
+        "02a-designer-design-system",
+        "02b-designer-navgraph",
+        "02c-designer-navgraph-selection",
+        "02d-designer-mobile",
+    )
+    for token in required_screenshot_tokens:
+        candidates = [value for value in screenshots if isinstance(value, str) and token in value]
+        if len(candidates) != 1:
+            raise RuntimeError(f"The retained Designer screenshot {token!r} is unavailable.")
+        screenshot_path = REPOSITORY_ROOT / candidates[0]
+        if not screenshot_path.is_file() or screenshot_path.stat().st_size <= 0:
+            raise RuntimeError(f"The retained Designer screenshot {token!r} is empty.")
+
+    recording = document.get("recording")
+    if not isinstance(recording, dict):
+        raise RuntimeError("The retained Designer milestone has no recording metadata.")
+    files = recording.get("files")
+    if (
+        recording.get("postProcessed") is not False
+        or recording.get("playbackRate") != 1.0
+        or not isinstance(files, list)
+        or len(files) != 1
+        or not isinstance(files[0], dict)
+    ):
+        raise RuntimeError("The retained Designer recording is not one raw normal-speed video.")
+    video_entry = files[0]
+    video_path_value = video_entry.get("path")
+    if not isinstance(video_path_value, str):
+        raise RuntimeError("The retained Designer video path is unavailable.")
+    video_path = REPOSITORY_ROOT / video_path_value
+    if not video_path.is_file() or video_path.stat().st_size != video_entry.get("bytes"):
+        raise RuntimeError("The retained Designer video bytes do not match the manifest.")
+    if hashlib.sha256(video_path.read_bytes()).hexdigest() != video_entry.get("sha256"):
+        raise RuntimeError("The retained Designer video hash does not match the manifest.")
+    if not isinstance(video_entry.get("durationSeconds"), (int, float)) or float(video_entry["durationSeconds"]) <= 0:
+        raise RuntimeError("The retained Designer video duration is invalid.")
+
+    diagnostics = document.get("diagnostics")
+    if not isinstance(diagnostics, dict) or any(
+        diagnostics.get(name)
+        for name in ("httpErrors", "consoleErrors", "pageErrors", "requestFailures")
+    ):
+        raise RuntimeError("The retained Designer milestone contains unexpected diagnostics.")
+    return {
+        "milestone": milestone,
+        "status": "passed",
+        "runId": document.get("runId"),
+        "interactionMode": document.get("interactionMode"),
+        "assertions": list(DESIGNER_MILESTONE_ASSERTIONS),
+        "ids": {name: ids[name] for name in required_ids},
+        "screenshots": required_screenshot_tokens,
+        "video": {
+            "path": video_path_value,
+            "durationSeconds": video_entry["durationSeconds"],
+            "sha256": video_entry["sha256"],
+            "playbackRate": recording["playbackRate"],
+        },
+    }
+
+
+def _verify_retained_builder_milestone(artifact: Path) -> dict[str, object]:
+    artifact_path = artifact if artifact.is_absolute() else REPOSITORY_ROOT / artifact
+    document = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assertions = document.get("assertions")
+    by_name = {
+        item.get("name"): item
+        for item in assertions
+        if isinstance(assertions, list)
+        and isinstance(item, dict)
+        and isinstance(item.get("name"), str)
+    }
+    missing = [
+        name
+        for name in BUILDER_MILESTONE_ASSERTIONS
+        if not isinstance(by_name.get(name), dict) or by_name[name].get("passed") is not True
+    ]
+    if missing:
+        raise RuntimeError("The retained Builder milestone is incomplete: " + ", ".join(missing))
+    if (
+        document.get("error") is not None
+        or document.get("milestone") != "builder"
+        or not isinstance(assertions, list)
+        or len(assertions) != BUILDER_CHECKPOINT_EXPECTED_CHECKS
+        or not all(isinstance(item, dict) and item.get("passed") is True for item in assertions)
+    ):
+        raise RuntimeError("The retained Builder checkpoint did not pass exactly.")
+    ids = document.get("ids")
+    required_ids = (
+        "conversationId", "sourceId", "approvedRevisionId", "curationId", "agentId", "buildId"
+    )
+    if not isinstance(ids, dict) or any(
+        not isinstance(ids.get(name), str) or not ids[name] for name in required_ids
+    ):
+        raise RuntimeError("The retained Builder milestone has incomplete exact lineage.")
+    milestone_recording = document.get("milestoneRecording")
+    video_value = milestone_recording.get("path") if isinstance(milestone_recording, dict) else None
+    video_path = REPOSITORY_ROOT / video_value if isinstance(video_value, str) else None
+    if (
+        not isinstance(milestone_recording, dict)
+        or milestone_recording.get("playbackRate") != 1.0
+        or milestone_recording.get("maximizedSurface") is not True
+        or video_path is None
+        or not video_path.is_file()
+        or video_path.stat().st_size != milestone_recording.get("bytes")
+        or hashlib.sha256(video_path.read_bytes()).hexdigest() != milestone_recording.get("sha256")
+    ):
+        raise RuntimeError("The retained Builder feature film does not match its manifest.")
+    diagnostics = document.get("diagnostics")
+    if not isinstance(diagnostics, dict) or any(
+        diagnostics.get(name)
+        for name in ("httpErrors", "consoleErrors", "pageErrors", "requestFailures")
+    ):
+        raise RuntimeError("The retained Builder milestone contains unexpected diagnostics.")
+    return {
+        "milestone": "builder",
+        "status": "passed",
+        "runId": document.get("runId"),
+        "assertions": list(BUILDER_MILESTONE_ASSERTIONS),
+        "ids": {name: ids[name] for name in required_ids},
+        "video": {
+            "path": video_value,
+            "durationSeconds": milestone_recording.get("durationSeconds"),
+            "sha256": milestone_recording.get("sha256"),
+            "playbackRate": 1.0,
+            "maximizedSurface": True,
+        },
+    }
+
+
+def _verify_retained_evaluation_milestone(artifact: Path) -> dict[str, object]:
+    artifact_path = artifact if artifact.is_absolute() else REPOSITORY_ROOT / artifact
+    document = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assertions = document.get("assertions")
+    if not isinstance(assertions, list):
+        raise RuntimeError("The retained Evaluation milestone has no typed assertions.")
+    by_name = {
+        item.get("name"): item
+        for item in assertions
+        if isinstance(item, dict) and isinstance(item.get("name"), str)
+    }
+    missing = [
+        name
+        for name in EVALUATION_MILESTONE_ASSERTIONS
+        if not isinstance(by_name.get(name), dict)
+        or by_name[name].get("passed") is not True
+    ]
+    if missing:
+        raise RuntimeError(
+            "The retained Builder/Sandbox/Evaluation milestone is incomplete: "
+            + ", ".join(missing)
+        )
+    if document.get("error") is not None:
+        raise RuntimeError("The retained Evaluation checkpoint did not pass.")
+    if len(assertions) != EVALUATION_CHECKPOINT_EXPECTED_CHECKS or not all(
+        isinstance(item, dict) and item.get("passed") is True
+        for item in assertions
+    ):
+        raise RuntimeError("The retained Evaluation checkpoint assertion ledger is incomplete.")
+    if document.get("milestone") != "evaluation":
+        raise RuntimeError("The retained artifact is not the Evaluation milestone.")
+    ids = document.get("ids")
+    required_ids = (
+        "conversationId",
+        "sourceId",
+        "approvedRevisionId",
+        "curationId",
+        "agentId",
+        "buildId",
+        "sandboxRunId",
+    )
+    if not isinstance(ids, dict) or any(
+        not isinstance(ids.get(name), str) or not ids[name] for name in required_ids
+    ):
+        raise RuntimeError("The retained Evaluation milestone has incomplete exact lineage.")
+    screenshots = document.get("screenshots")
+    for token in (
+        "03-build-navgraph",
+        "04-sandbox-waiting",
+        "05-sandbox-resolved",
+        "06-evaluation",
+        "06b-evaluation-navgraph",
+    ):
+        candidates = [
+            value
+            for value in screenshots if isinstance(screenshots, list) and isinstance(value, str) and token in value
+        ] if isinstance(screenshots, list) else []
+        if len(candidates) != 1:
+            raise RuntimeError(f"The retained Evaluation screenshot {token!r} is unavailable.")
+        path = REPOSITORY_ROOT / candidates[0]
+        if not path.is_file() or path.stat().st_size <= 0:
+            raise RuntimeError(f"The retained Evaluation screenshot {token!r} is empty.")
+    milestone_recording = document.get("milestoneRecording")
+    if not isinstance(milestone_recording, dict):
+        raise RuntimeError("The retained Evaluation feature film is unavailable.")
+    video_value = milestone_recording.get("path")
+    video_path = REPOSITORY_ROOT / video_value if isinstance(video_value, str) else None
+    if (
+        milestone_recording.get("playbackRate") != 1.0
+        or milestone_recording.get("maximizedSurface") is not True
+        or video_path is None
+        or not video_path.is_file()
+        or video_path.stat().st_size != milestone_recording.get("bytes")
+        or hashlib.sha256(video_path.read_bytes()).hexdigest()
+        != milestone_recording.get("sha256")
+    ):
+        raise RuntimeError("The retained Evaluation feature film does not match its manifest.")
+    diagnostics = document.get("diagnostics")
+    if not isinstance(diagnostics, dict) or any(
+        diagnostics.get(name)
+        for name in ("httpErrors", "consoleErrors", "pageErrors", "requestFailures")
+    ):
+        raise RuntimeError("The retained Evaluation milestone contains unexpected diagnostics.")
+    return {
+        "milestone": "evaluation",
+        "status": "passed",
+        "runId": document.get("runId"),
+        "assertions": list(EVALUATION_MILESTONE_ASSERTIONS),
+        "ids": {name: ids[name] for name in required_ids},
+        "video": {
+            "path": video_value,
+            "durationSeconds": milestone_recording.get("durationSeconds"),
+            "sha256": milestone_recording.get("sha256"),
+            "playbackRate": 1.0,
+            "maximizedSurface": True,
+        },
+    }
 
 
 def _classify_expected_graph_capture_warnings(
@@ -1310,6 +2207,114 @@ def _video_metadata(paths: list[str]) -> list[dict[str, object]]:
     return values
 
 
+def _extract_designer_milestone_video(
+    *,
+    source: Path,
+    destination: Path,
+    start_seconds: float,
+    end_seconds: float,
+) -> dict[str, object]:
+    duration = end_seconds - start_seconds
+    if start_seconds < 0 or duration <= 0:
+        raise RuntimeError("The Designer milestone video boundary is invalid.")
+    completed = subprocess.run(
+        [
+            "ffmpeg", "-y", "-ss", f"{start_seconds:.3f}", "-i", str(source),
+            "-t", f"{duration:.3f}", "-an", "-c:v", "libvpx-vp9",
+            "-crf", "28", "-b:v", "0", "-row-mt", "1", str(destination),
+        ],
+        cwd=REPOSITORY_ROOT,
+        text=True,
+        capture_output=True,
+        timeout=180,
+        check=False,
+    )
+    if completed.returncode != 0 or not destination.is_file():
+        raise RuntimeError("The maximized Agent Designer milestone video could not be produced.")
+    metadata = _video_metadata([str(destination.relative_to(REPOSITORY_ROOT))])
+    if len(metadata) != 1:
+        raise RuntimeError("The Agent Designer milestone video metadata is unavailable.")
+    return {
+        "kind": "normal-speed Agent Designer milestone extracted from the retained raw campaign",
+        "postProcessed": True,
+        "playbackRate": 1.0,
+        "maximizedSurface": True,
+        **metadata[0],
+    }
+
+
+def _extract_builder_milestone_video(
+    *,
+    source: Path,
+    destination: Path,
+    start_seconds: float,
+    end_seconds: float,
+) -> dict[str, object]:
+    duration = end_seconds - start_seconds
+    if start_seconds < 0 or duration <= 0:
+        raise RuntimeError("The Builder milestone video boundary is invalid.")
+    completed = subprocess.run(
+        [
+            "ffmpeg", "-y", "-ss", f"{start_seconds:.3f}", "-i", str(source),
+            "-t", f"{duration:.3f}", "-an", "-c:v", "libvpx-vp9",
+            "-crf", "28", "-b:v", "0", "-row-mt", "1", str(destination),
+        ],
+        cwd=REPOSITORY_ROOT,
+        text=True,
+        capture_output=True,
+        timeout=180,
+        check=False,
+    )
+    if completed.returncode != 0 or not destination.is_file():
+        raise RuntimeError("The maximized Builder assembly video could not be produced.")
+    metadata = _video_metadata([str(destination.relative_to(REPOSITORY_ROOT))])
+    if len(metadata) != 1:
+        raise RuntimeError("The Builder assembly video metadata is unavailable.")
+    return {
+        "kind": "normal-speed maximized durable Builder assembly milestone",
+        "postProcessed": True,
+        "playbackRate": 1.0,
+        "maximizedSurface": True,
+        **metadata[0],
+    }
+
+
+def _extract_evaluation_milestone_video(
+    *,
+    source: Path,
+    destination: Path,
+    start_seconds: float,
+    end_seconds: float,
+) -> dict[str, object]:
+    duration = end_seconds - start_seconds
+    if start_seconds < 0 or duration <= 0:
+        raise RuntimeError("The Builder/Sandbox/Evaluation milestone video boundary is invalid.")
+    completed = subprocess.run(
+        [
+            "ffmpeg", "-y", "-ss", f"{start_seconds:.3f}", "-i", str(source),
+            "-t", f"{duration:.3f}", "-an", "-c:v", "libvpx-vp9",
+            "-crf", "28", "-b:v", "0", "-row-mt", "1", str(destination),
+        ],
+        cwd=REPOSITORY_ROOT,
+        text=True,
+        capture_output=True,
+        timeout=240,
+        check=False,
+    )
+    if completed.returncode != 0 or not destination.is_file():
+        raise RuntimeError("The maximized Builder/Sandbox/Evaluation video could not be produced.")
+    metadata = _video_metadata([str(destination.relative_to(REPOSITORY_ROOT))])
+    if len(metadata) != 1:
+        raise RuntimeError("The Builder/Sandbox/Evaluation video metadata is unavailable.")
+    return {
+        "kind": "normal-speed maximized Builder, Sandbox, and Evaluation feature film",
+        "postProcessed": True,
+        "playbackRate": 1.0,
+        "maximizedSurface": True,
+        **metadata[0],
+    }
+
+
 async def _open_agent_area(page: Page, label: str, heading: str) -> None:
     back = page.get_by_role("button", name="Back to Agent", exact=True)
     await back.wait_for(state="visible", timeout=90_000)
@@ -1342,10 +2347,18 @@ async def _open_agent_area_for_mode(
             await _wait_for_product_idle(page)
             action = page.get_by_role("button", name=continuation, exact=True)
             await action.wait_for(state="visible", timeout=90_000)
-            if not await action.is_enabled():
-                raise RuntimeError(f"The guided continuation {continuation!r} is disabled.")
+            for _ in range(300):
+                if await action.is_enabled():
+                    break
+                await asyncio.sleep(0.1)
+            else:
+                raise TimeoutError(
+                    f"The guided continuation {continuation!r} did not become enabled."
+                )
             await action.click()
-            await _feature_surface(page, heading).get_by_role(
+            await _feature_surface(page, heading).locator(
+                ":scope > header"
+            ).get_by_role(
                 "heading", name=heading, exact=True
             ).wait_for(timeout=90_000)
             await _wait_for_product_idle(page)
@@ -1353,11 +2366,16 @@ async def _open_agent_area_for_mode(
     await _chat_dispatch(
         page,
         prompt,
-        (return_operation_id, open_operation_id),
+        ChatOperationAlternatives(
+            sequences=(
+                (open_operation_id,),
+                (return_operation_id, open_operation_id),
+            ),
+        ),
         trace,
         interactions,
     )
-    await _feature_surface(page, heading).get_by_role(
+    await _feature_surface(page, heading).locator(":scope > header").get_by_role(
         "heading", name=heading, exact=True
     ).wait_for(
         timeout=90_000
@@ -1540,9 +2558,7 @@ async def _return_to_only_api_source(page: Page) -> None:
     )
     await action.click()
     api = page.locator("section.sources-debug.api-source-workspace")
-    await api.locator("#source-detail-title").filter(
-        has_text=re.compile(r"^Reviewed local Medusa Store$")
-    ).wait_for(timeout=90_000)
+    await api.locator("#source-detail-title").wait_for(timeout=90_000)
 
 
 def _asks_for_agent_choice(message: str) -> bool:
@@ -1560,6 +2576,8 @@ def _asks_for_agent_details(message: str) -> bool:
         "goal" in normalized
         or "responsib" in normalized
         or "purpose" in normalized
+        or ("description" in normalized and "instruction" in normalized)
+        or ("role" in normalized and ("handle" in normalized or "responsib" in normalized))
         or re.search(r"\bdo\b", normalized) is not None
     )
 
@@ -1590,7 +2608,7 @@ async def _chat_upload_source(
 async def _chat_dispatch(
     page: Page,
     message: str,
-    expected_operation_id: str | tuple[str, ...] | None,
+    expected_operation_id: str | tuple[str, ...] | ChatOperationAlternatives | None,
     trace: list[dict[str, object]],
     interactions: list[dict[str, object]],
     *,
@@ -1599,10 +2617,9 @@ async def _chat_dispatch(
 ) -> str:
     conversation_id = await _selected_conversation_id(page)
     durable_message = _durable_chat_message(message, attachment_name)
-    authenticated_inspection = await _refresh_chat_evidence_inspector(page, trace)
-    before_inspection = await authenticated_inspection.json()
-    if not isinstance(before_inspection, dict):
-        raise RuntimeError("The pre-turn RouteDeck inspection was invalid.")
+    authenticated_inspection, before_inspection = (
+        await _refresh_chat_evidence_inspector(page, trace)
+    )
     before_sequence = max(
         (int(item.get("sequence", 0)) for item in trace),
         default=0,
@@ -1679,15 +2696,30 @@ async def _chat_dispatch(
         if len(operation_ids) != len(set(operation_ids)):
             raise RuntimeError("Chat repeated an operation in one user turn.")
     else:
-        expected_operation_ids = (
-            expected_operation_id
-            if isinstance(expected_operation_id, tuple)
-            else (expected_operation_id,)
-        )
+        if isinstance(expected_operation_id, ChatOperationAlternatives):
+            expected_operation_sequences = expected_operation_id.sequences
+            expected_operation_ids = tuple(
+                dict.fromkeys(
+                    operation_id
+                    for sequence in expected_operation_sequences
+                    for operation_id in sequence
+                )
+            )
+            allow_blocked_correction = expected_operation_id.allow_blocked_correction
+        else:
+            expected_operation_ids = (
+                expected_operation_id
+                if isinstance(expected_operation_id, tuple)
+                else (expected_operation_id,)
+            )
+            expected_operation_sequences = (expected_operation_ids,)
+            allow_blocked_correction = True
         operations = await _chat_operations_after(
             trace,
             before_sequence,
             expected_operation_ids,
+            expected_operation_sequences=expected_operation_sequences,
+            allow_blocked_correction=allow_blocked_correction,
         )
     current_conversation = await _selected_conversation_id(page)
     if current_conversation != conversation_id:
@@ -1784,18 +2816,35 @@ async def _save_profile_exact(
     private_write = await pending_private_write.value
     if private_write.status != 200:
         raise RuntimeError("The protected API connection form was not accepted.")
-    await panel.get_by_text(name, exact=True).wait_for(timeout=30_000)
 
 
 async def _chat_operations_after(
     trace: list[dict[str, object]],
     after_sequence: int,
     expected_operation_ids: tuple[str, ...],
+    *,
+    expected_operation_sequences: tuple[tuple[str, ...], ...] | None = None,
+    allow_blocked_correction: bool = True,
 ) -> list[dict[str, object]]:
     if not expected_operation_ids or len(set(expected_operation_ids)) != len(
         expected_operation_ids
     ):
         raise RuntimeError("Chat evidence requires distinct expected operations.")
+    valid_sequences = expected_operation_sequences or (expected_operation_ids,)
+    if (
+        not valid_sequences
+        or len(set(valid_sequences)) != len(valid_sequences)
+        or any(
+            not sequence or len(set(sequence)) != len(sequence)
+            for sequence in valid_sequences
+        )
+        or any(
+            operation_id not in expected_operation_ids
+            for sequence in valid_sequences
+            for operation_id in sequence
+        )
+    ):
+        raise RuntimeError("Chat evidence requires distinct exact operation sequences.")
     deadline = asyncio.get_running_loop().time() + 30
     while asyncio.get_running_loop().time() < deadline:
         operations = [
@@ -1819,23 +2868,32 @@ async def _chat_operations_after(
         effective_operations = _one_blocked_correction_per_operation(
             operations,
             expected_operation_ids=expected_operation_ids,
+            allow_blocked_correction=allow_blocked_correction,
         )
         effective_ids = [str(item["operationId"]) for item in effective_operations]
-        required_ids = tuple(
+        observed_expected_ids = tuple(
             operation_id
             for operation_id in effective_ids
             if operation_id in expected_operation_ids
         )
-        if set(expected_operation_ids).issubset(effective_ids):
-            if required_ids != expected_operation_ids:
-                raise RuntimeError(
-                    "Chat dispatched the requested operations in an invalid order."
-                )
+        matching_sequences = tuple(
+            sequence
+            for sequence in valid_sequences
+            if observed_expected_ids == sequence
+        )
+        if len(matching_sequences) == 1:
             return effective_operations
+        if observed_expected_ids and not any(
+            sequence[: len(observed_expected_ids)] == observed_expected_ids
+            for sequence in valid_sequences
+        ):
+            raise RuntimeError(
+                "Chat dispatched the requested operations in an invalid order."
+            )
         await asyncio.sleep(0.1)
-    missing = sorted(set(expected_operation_ids) - set(effective_ids))
+    missing = [" -> ".join(sequence) for sequence in valid_sequences]
     raise TimeoutError(
-        "Chat did not persist the exact operations: " + ", ".join(missing)
+        "Chat did not persist one exact operation sequence: " + " | ".join(missing)
     )
 
 
@@ -1843,7 +2901,12 @@ def _one_blocked_correction_per_operation(
     operations: list[dict[str, object]],
     *,
     expected_operation_ids: tuple[str, ...],
+    allow_blocked_correction: bool = True,
 ) -> list[dict[str, object]]:
+    if not allow_blocked_correction and any(
+        item.get("disposition") == "blocked" for item in operations
+    ):
+        raise RuntimeError("Chat dispatched a blocked operation in a strict evidence turn.")
     grouped: dict[str, list[dict[str, object]]] = {}
     for item in operations:
         grouped.setdefault(str(item["operationId"]), []).append(item)
@@ -1852,7 +2915,8 @@ def _one_blocked_correction_per_operation(
             continue
         dispositions = tuple(str(item.get("disposition")) for item in attempts)
         if not (
-            operation_id in expected_operation_ids
+            allow_blocked_correction
+            and operation_id in expected_operation_ids
             and len(attempts) == 2
             and dispositions[0] == "blocked"
             and dispositions[1] != "blocked"
@@ -1924,11 +2988,31 @@ async def _wait_for_sandbox_clarification(
     )
 
 
+async def _wait_for_evaluation_terminal(case: Locator) -> str:
+    passed = case.get_by_text(re.compile(r"^passed$", re.IGNORECASE))
+    failed = case.get_by_role("button", name="Retry failed run", exact=True)
+    deadline = asyncio.get_running_loop().time() + 180
+    while asyncio.get_running_loop().time() < deadline:
+        if await passed.count() and await passed.first.is_visible():
+            return "passed"
+        if await failed.count() and await failed.first.is_visible():
+            return "failed"
+        await asyncio.sleep(0.2)
+    raise TimeoutError(
+        "The generated Evaluation draft produced neither a retained pass nor a retained failure."
+    )
+
+
 async def _public_send(page: Page, text: str) -> str:
     content = page.locator(".public-agent article p").last
     previous = await content.inner_text() if await content.is_visible() else ""
-    await page.get_by_label("Message", exact=True).fill(text)
-    await page.get_by_role("button", name="Send", exact=True).click()
+    public_agent = page.locator("[data-public-agent-application]")
+    await public_agent.get_by_role(
+        "textbox", name="Message the assistant", exact=True
+    ).fill(text)
+    await public_agent.get_by_role(
+        "button", name="Send message", exact=True
+    ).click()
     deadline = asyncio.get_running_loop().time() + 180
     while asyncio.get_running_loop().time() < deadline:
         if await content.is_visible():
@@ -2466,7 +3550,7 @@ async def _refresh_chat_evidence_inspector(
     if not isinstance(snapshot, dict):
         raise RuntimeError("The authenticated RouteDeck inspection was invalid.")
     _record_chat_inspection(snapshot, None, trace)
-    return inspection_response
+    return inspection_response, snapshot
 
 
 async def _load_authenticated_chat_inspection(
@@ -2729,6 +3813,26 @@ async def _latest_build_id(observations: dict) -> str:
     return ""
 
 
+async def _wait_for_build_runtime_lifecycle(
+    observations: dict,
+    build_id: str,
+    expected: str,
+) -> None:
+    for _ in range(300):
+        for body in reversed(observations["builds"]):
+            values = body.get("builds", []) if isinstance(body, dict) else []
+            for item in values:
+                if (
+                    item.get("id") == build_id
+                    and item.get("runtime_lifecycle") == expected
+                ):
+                    return
+        await asyncio.sleep(0.1)
+    raise TimeoutError(
+        f"Build {build_id} did not reach runtime lifecycle {expected}."
+    )
+
+
 async def _latest_sandbox_id(observations: dict) -> str:
     for _ in range(100):
         for body in reversed(observations["sandbox"]):
@@ -2794,6 +3898,22 @@ async def _prove_split_surface(
     await page.get_by_role("button", name="Return to dock", exact=True).click()
     docked = await shell.get_attribute("data-surface-layout") == "dock"
     return split and docked
+
+
+async def _maximize_current_surface(page: Page) -> None:
+    shell = page.locator("[data-agent-shell]")
+    if await shell.get_attribute("data-surface-layout") != "split":
+        maximize = page.get_by_role("button", name="Maximize surface", exact=True)
+        await maximize.wait_for(state="visible", timeout=30_000)
+        await maximize.click()
+    await shell.locator("[data-agent-conversation]").wait_for(
+        state="visible", timeout=30_000
+    )
+    await shell.locator("[data-agent-surface-dock]").wait_for(
+        state="visible", timeout=30_000
+    )
+    if await shell.get_attribute("data-surface-layout") != "split":
+        raise RuntimeError("The Agent Designer did not maximize beside chat.")
 
 
 async def _capture(page: Page, directory: Path, output: list[str], name: str) -> None:

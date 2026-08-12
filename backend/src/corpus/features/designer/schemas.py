@@ -37,6 +37,11 @@ class CustomizeDesignArguments(DesignerAgentArguments):
     content: DesignContent
 
 
+class GenerateFeatureArguments(DesignerAgentArguments):
+    expected_revision_id: uuid.UUID | None = None
+    description: str = Field(min_length=8, max_length=4_000)
+
+
 class ReviewDesignArguments(DesignerAgentArguments):
     expected_revision_id: uuid.UUID | None = None
 

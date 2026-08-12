@@ -38,9 +38,12 @@ from corpus.features.lounge.declarations import (
     CONFIRM_OWNER_EMAIL,
     CREATE_OWNER_ACCOUNT,
     HELP_RETURN_TO_LOUNGE,
+    LOUNGE_CONTINUE_TO_WORKSPACE,
     REQUEST_PASSWORD_RESET,
     REQUEST_VERIFICATION_DELIVERY,
 )
+from corpus.features.lounge.operations import AuthenticatedLoungeNavigationHandler
+from corpus.features.lounge.ports import LoungeSessionUnavailable
 from corpus.features.agents.declarations import (
     CANCEL_CREATE,
     CREATE_AGENT,
@@ -175,6 +178,17 @@ class CredentialTransitionProbe:
         raise AssertionError("Unexpected credential revocation")
 
 
+class LoungeOwnerGuardProbe:
+    def __init__(self, *, authenticated: bool) -> None:
+        self.authenticated = authenticated
+        self.route_session_ids: list[str] = []
+
+    async def require_owner_for_route(self, route_session_id: str) -> None:
+        self.route_session_ids.append(route_session_id)
+        if not self.authenticated:
+            raise LoungeSessionUnavailable("Owner context unavailable")
+
+
 def test_composition_selects_workspace_and_sources_and_enters_the_lounge() -> None:
     compiled = compile_corpus_app()
 
@@ -296,6 +310,7 @@ def test_lounge_and_workspace_own_their_operations_transitions_and_surfaces() ->
         "lounge.open_product_help",
         "lounge.arrival.open_sign_in",
         "lounge.arrival.open_registration",
+        "lounge.continue_to_workspace",
     }
     assert contract.nodes["lounge.home"].surfaces.active == "lounge.home"
     assert contract.nodes["lounge.sign_in"].surfaces.active == "lounge.sign_in"
@@ -353,13 +368,16 @@ def test_lounge_and_workspace_own_their_operations_transitions_and_surfaces() ->
             "sources.approve_contract_revision",
             "sources.test_api_connection",
                 "sources.save_api_operation_curation",
-                    "sources.prepare_routed_api_test",
-                    "sources.test_routed_api_read",
+                        "sources.prepare_routed_api_test",
+                        "sources.create_api_route_plan",
+                        "sources.continue_api_route_plan",
+                        "sources.test_routed_api_read",
                     "sources.test_routed_api_write",
     }
     expected = {
         ("lounge.home", "lounge.open_product_help", "lounge.product_help"),
         ("lounge.home", "lounge.arrival.open_sign_in", "lounge.sign_in"),
+        ("lounge.home", "lounge.continue_to_workspace", "workspace.home"),
         (
             "lounge.home",
             "lounge.arrival.open_registration",
@@ -410,6 +428,36 @@ def test_lounge_and_workspace_own_their_operations_transitions_and_surfaces() ->
     )
 
 
+@pytest.mark.asyncio
+async def test_lounge_workspace_continuation_is_guarded_by_the_same_route_session() -> None:
+    context = SimpleNamespace(
+        source=OperationSource.SURFACE,
+        session_id="historical-lounge-session",
+        attempt_id="attempt-lounge-owner",
+        request_id="request-lounge-owner",
+    )
+    anonymous = LoungeOwnerGuardProbe(authenticated=False)
+    anonymous_outcome = await AuthenticatedLoungeNavigationHandler(
+        anonymous,  # type: ignore[arg-type]
+        LOUNGE_CONTINUE_TO_WORKSPACE.id,
+    )({}, context)  # type: ignore[arg-type]
+
+    assert anonymous.route_session_ids == ["historical-lounge-session"]
+    assert anonymous_outcome.failure is not None
+    assert anonymous_outcome.failure.code == "authentication_required"
+    assert anonymous_outcome.failure.safe_details.http_status == 401
+
+    owner = LoungeOwnerGuardProbe(authenticated=True)
+    owner_outcome = await AuthenticatedLoungeNavigationHandler(
+        owner,  # type: ignore[arg-type]
+        LOUNGE_CONTINUE_TO_WORKSPACE.id,
+    )({}, context)  # type: ignore[arg-type]
+
+    assert owner.route_session_ids == ["historical-lounge-session"]
+    assert owner_outcome.outcome == "opened"
+    assert owner_outcome.failure is None
+
+
 def test_operations_allow_only_the_designed_invocation_sources() -> None:
     compiled = compile_corpus_app()
     agent_and_surface = frozenset(
@@ -422,6 +470,7 @@ def test_operations_allow_only_the_designed_invocation_sources() -> None:
         "lounge.open_product_help": agent_and_surface,
         "lounge.arrival.open_registration": agent_and_surface,
         "lounge.arrival.open_sign_in": agent_and_surface,
+        "lounge.continue_to_workspace": surface_only,
         "lounge.product_help.return_to_lounge": agent_only,
         "lounge.product_help.open_registration": agent_and_surface,
         "lounge.product_help.open_sign_in": agent_and_surface,
@@ -478,6 +527,7 @@ def test_operations_allow_only_the_designed_invocation_sources() -> None:
             "deployment.rollback": agent_and_surface,
         "designer.approve": agent_and_surface,
         "designer.customize": agent_and_surface,
+        "designer.generate_feature": agent_and_surface,
         "designer.propose": agent_and_surface,
         "designer.request_build": agent_and_surface,
         "designer.return_to_agent": agent_and_surface,
@@ -508,8 +558,10 @@ def test_operations_allow_only_the_designed_invocation_sources() -> None:
                 "sources.approve_contract_revision": agent_and_surface,
                 "sources.test_api_connection": agent_and_surface,
                     "sources.save_api_operation_curation": agent_and_surface,
-                        "sources.prepare_routed_api_test": agent_and_surface,
-                        "sources.test_routed_api_read": agent_and_surface,
+                            "sources.prepare_routed_api_test": agent_and_surface,
+                            "sources.create_api_route_plan": agent_and_surface,
+                            "sources.continue_api_route_plan": agent_and_surface,
+                            "sources.test_routed_api_read": agent_and_surface,
                         "sources.test_routed_api_write": agent_and_surface,
     }
 
@@ -760,6 +812,17 @@ def test_attached_api_setup_uses_existing_supervised_operations_without_manual_r
     assert "repeating the same current version is idempotent" in attach_description
     assert "newer reviewed ready api version" in attach_description
     assert "without changing historical build lineage" in attach_description
+    return_description = compiled.operations["agents.return_from_source"].description.lower()
+    assert "explicitly asks to leave the current api setup" in return_description
+    assert "asks to remain with the current api" in return_description
+    assert "do not use this operation" in return_description
+    active_api_continuation = compiled.agent_policies[
+        "sources.active_api_continuation"
+    ].instruction.lower()
+    assert "explicitly asks to update that attachment or continue agent setup" in (
+        active_api_continuation
+    )
+    assert "asks to remain with the current api" in active_api_continuation
     assert "current request has already authorized creating and analyzing" in (
         compiled.operations["sources.open_api_creation"].description
     )

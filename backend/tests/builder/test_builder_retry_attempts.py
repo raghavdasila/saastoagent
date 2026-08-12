@@ -93,11 +93,11 @@ async def test_explicit_retry_appends_attempt_and_preserves_failed_history(
         assert failed.attempt_number == 1
         assert failed.status == "failed"
         assert second.attempt_number == 2
-        assert second.status == "assembling"
+        assert second.status == "queued"
         assert second.id != failed.id
         history = await repository.get_for_agent(owner_id, agent.id)
         assert [(item.attempt_number, item.status) for item in history] == [
-            (2, "assembling"),
+            (2, "queued"),
             (1, "failed"),
         ]
     finally:

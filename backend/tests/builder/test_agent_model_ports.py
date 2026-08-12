@@ -60,11 +60,28 @@ def test_sandbox_start_schema_requires_the_unresolved_user_intent() -> None:
     )
 
 
-def test_sandbox_operations_describe_the_owners_natural_private_trial_intent() -> None:
-    assert "try or test" in OPEN_AGENT_SANDBOX.description
+def test_sandbox_navigation_does_not_claim_the_runtime_lifecycle_action() -> None:
+    assert "does not start" in OPEN_AGENT_SANDBOX.description
+    assert "lifecycle action must complete first" in OPEN_AGENT_SANDBOX.description
     assert "private trial" in OPEN_AGENT_SANDBOX.description
     assert "try or test" in START_SANDBOX.description
     assert "private trial" in START_SANDBOX.description
+
+
+def test_designer_review_operation_separates_staging_from_acceptance() -> None:
+    from corpus.features.designer.declarations import (
+        APPROVE_DESIGN,
+        GENERATE_FEATURE,
+        PROPOSE_DESIGN,
+    )
+
+    assert "Stage durable review" in APPROVE_DESIGN.description
+    assert "without accepting it" in APPROVE_DESIGN.description
+    assert "separate explicit owner confirmation" in APPROVE_DESIGN.description
+    assert "initial proposal" in PROPOSE_DESIGN.description
+    assert "when no proposal exists" in PROPOSE_DESIGN.description
+    assert "existing current immutable proposal" in GENERATE_FEATURE.description
+    assert "Never use this operation to create the initial proposal" in GENERATE_FEATURE.description
 
 
 def test_later_feature_operations_describe_ordinary_owner_intents() -> None:
@@ -72,11 +89,11 @@ def test_later_feature_operations_describe_ordinary_owner_intents() -> None:
     assert "deployed interaction evidence" in RETURN_TO_AGENT_HUB.description
     assert "keep a private trial" in OPEN_AGENT_EVALUATION.description
     assert "required evaluation case" in CREATE_CASE.description
-    assert "check" in RUN_CASE.description.casefold()
-    assert "saved evaluation case" in RUN_CASE.description
+    assert "durable evaluation" in RUN_CASE.description.casefold()
+    assert "exact saved case" in RUN_CASE.description
     assert "set up a hosted address" in OPEN_AGENT_CHANNELS.description
     assert "set up" in CREATE_CHANNEL.description.casefold()
-    assert "put or publish" in DEPLOY_AGENT.description.casefold()
+    assert "reviewed deployment attempt" in DEPLOY_AGENT.description.casefold()
     assert "how a completed public request ran" in OPEN_AGENT_OPERATIONS.description.casefold()
     assert "only when the owner explicitly asks" in PROMOTE_INTERACTION.description.casefold()
     assert "future evaluation case" in PROMOTE_INTERACTION.description.casefold()

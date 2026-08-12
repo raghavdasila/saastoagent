@@ -608,6 +608,21 @@ class AuthService:
             )
             return organization.id
 
+    async def conversation_id_for_route(self, route_session_id: str) -> str:
+        """Resolve the server-owned public conversation for one RouteDeck session."""
+
+        async with self.database.session() as session:
+            conversation = await session.scalar(
+                select(CorpusConversation).where(
+                    CorpusConversation.route_session_id == route_session_id,
+                    CorpusConversation.owner_user_id.is_not(None),
+                    CorpusConversation.archived_at.is_(None),
+                )
+            )
+            if conversation is None or conversation.owner_user_id is None:
+                raise SessionUnavailable("The owner conversation is unavailable.")
+            return conversation.public_id
+
     async def verify(self, token: str) -> None:
         from fastapi_users.exceptions import InvalidVerifyToken, UserAlreadyVerified
 

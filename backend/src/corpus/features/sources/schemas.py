@@ -92,6 +92,27 @@ class ExecuteRoutedApiArguments(BaseModel):
     plan_id: str = Field(min_length=16, max_length=16)
 
 
+class PrepareCurrentApiRoutePlanArguments(BaseModel):
+    """Owner language for a non-executing plan; identities stay server-owned."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    request_text: str = Field(min_length=1, max_length=4_000)
+    profile_name: str | None = Field(default=None, min_length=1, max_length=80)
+    provided_inputs: dict[str, str | int | float | bool] = Field(
+        default_factory=dict,
+        max_length=50,
+    )
+
+
+class ContinueCurrentApiRoutePlanArguments(BaseModel):
+    """One ordinary owner answer for the current conversation-bound plan."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    answer: str = Field(min_length=1, max_length=2_000)
+
+
 class SaveApiOperationCurationArguments(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -149,6 +170,8 @@ __all__ = [
     "ApproveContractRevisionArguments",
     "GraphStageArguments",
     "ExecuteRoutedApiArguments",
+    "PrepareCurrentApiRoutePlanArguments",
+    "ContinueCurrentApiRoutePlanArguments",
     "ProposeContractRevisionArguments",
     "ProcessApiSourceArguments",
     "OpenApiSourceArguments",

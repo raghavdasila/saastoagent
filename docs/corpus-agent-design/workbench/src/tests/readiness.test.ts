@@ -111,7 +111,7 @@ describe("behavior readiness", () => {
     const lounge = createSeedState().features.find((feature) => feature.id === "lounge")!
     const blockers = lounge.stories.flatMap((story) => getStoryReadiness(story).blockers)
 
-    expect(lounge.stories.flatMap((story) => story.operations)).toHaveLength(21)
+    expect(lounge.stories.flatMap((story) => story.operations)).toHaveLength(22)
     expect(blockers).toEqual([])
   })
 
@@ -119,7 +119,7 @@ describe("behavior readiness", () => {
     const lounge = (persistedDesignState as WorkbenchState).features.find((feature) => feature.id === "lounge")!
     const blockers = lounge.stories.flatMap((story) => getStoryReadiness(story).blockers)
 
-    expect(lounge.stories.flatMap((story) => story.operations)).toHaveLength(21)
+    expect(lounge.stories.flatMap((story) => story.operations)).toHaveLength(22)
     expect(lounge.stories.every((story) => story.status === "draft")).toBe(true)
     expect(blockers).toEqual([])
   })

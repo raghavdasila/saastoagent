@@ -58,6 +58,14 @@ ARRIVAL_OPEN_SIGN_IN = operation(
     policies.ARRIVAL_OPEN_SIGN_IN,
     allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
 )
+LOUNGE_CONTINUE_TO_WORKSPACE = operation(
+    "lounge.continue_to_workspace",
+    "Continue to Workspace",
+    "Continue the authenticated owner from this historical Lounge location into the authorized Workspace without changing the conversation.",
+    "opened",
+    policies.ARRIVAL_CONTINUE_TO_WORKSPACE,
+    allowed_sources=frozenset({OperationSource.SURFACE}),
+)
 
 HELP_RETURN_TO_LOUNGE = operation(
     "lounge.product_help.return_to_lounge",
@@ -254,6 +262,7 @@ __all__ = [
     "HELP_OPEN_SIGN_IN",
     "HELP_RETURN_TO_LOUNGE",
     "LOUNGE_REF",
+    "LOUNGE_CONTINUE_TO_WORKSPACE",
     "OPEN_PRODUCT_HELP",
     "PRODUCT_HELP_REF",
     "REGISTER_FORM_ID",

@@ -57,6 +57,23 @@ export interface AgentBuildLineageListView {
   readonly builds: readonly AgentBuildLineageView[];
 }
 
+export interface AgentProductOverviewView {
+  readonly agent_id: string;
+  readonly agent_version: number;
+  readonly source_count: number;
+  readonly design_status: "missing" | "draft" | "accepted";
+  readonly design_revision: number | null;
+  readonly build_status: string | null;
+  readonly build_runtime_lifecycle: string | null;
+  readonly evaluation_status: string | null;
+  readonly evaluation_case_count: number;
+  readonly evaluation_eligible: boolean | null;
+  readonly delivery_status: "none" | "channel_only" | "deploying" | "live" | "disabled" | "failed";
+  readonly hosted_path: string | null;
+  readonly operations_count: number;
+  readonly next_step: string;
+}
+
 export interface CreateAgentInput {
   readonly name: string;
   readonly description: string;

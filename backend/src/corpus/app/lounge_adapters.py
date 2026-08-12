@@ -41,6 +41,12 @@ from corpus.features.lounge.ports import (
 class AuthLoungeAccountGateway:
     service: AuthService
 
+    async def require_owner_for_route(self, route_session_id: str) -> None:
+        try:
+            await self.service.owner_context_for_route(route_session_id)
+        except SessionUnavailable as error:
+            raise LoungeSessionUnavailable(str(error)) from error
+
     async def register(self, **values) -> LoungeIssuedOwnerSession:
         try:
             issued = await self.service.register(**values)

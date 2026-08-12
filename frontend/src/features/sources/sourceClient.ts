@@ -1,26 +1,18 @@
 import type { AuthorizedTransport } from "@/app/transports";
 import type { ContractRevisionProposal, SourceView, StagedApiAttachment } from "./contracts";
+import type {
+  ToolRouterGraphEdge,
+  ToolRouterGraphNode,
+  ToolRouterGraphTraceFrame,
+} from "@/integrations/toolrouter/semantic-graph/model";
 
 export type { SourceRevision, SourceState, SourceView } from "./contracts";
 import type { SourceDescriptionView, SourceDependencyView, StagedApiDescription } from "./contracts";
 export type { ContractRevisionProposal } from "./contracts";
 
-export interface ApiGraphNode {
-  readonly id: string;
-  readonly node_type: string;
-  readonly label: string;
-  readonly endpoint_id: string | null;
-  readonly facets: Readonly<Record<string, string>>;
-}
+export type ApiGraphNode = ToolRouterGraphNode;
 
-export interface ApiGraphEdge {
-  readonly id: string;
-  readonly source: string;
-  readonly target: string;
-  readonly type: string;
-  readonly status: string;
-  readonly confidence: number;
-}
+export type ApiGraphEdge = ToolRouterGraphEdge;
 
 export interface ApiSemanticGroup {
   readonly id: string;
@@ -35,16 +27,7 @@ export interface ApiGraphPlaybackStage {
   readonly warning_codes: readonly string[];
 }
 
-export interface ApiGraphTraceFrame {
-  readonly index: number;
-  readonly event_type: string;
-  readonly active_endpoint_id: string | null;
-  readonly added_node_ids: readonly string[];
-  readonly updated_node_ids: readonly string[];
-  readonly added_edge_ids: readonly string[];
-  readonly cumulative_nodes: number;
-  readonly cumulative_edges: number;
-}
+export type ApiGraphTraceFrame = ToolRouterGraphTraceFrame;
 
 export interface ApiGraphView {
   readonly source_id: string;
@@ -159,6 +142,7 @@ export interface ApiRoutePlanView {
     readonly query: string;
     readonly ranked_operations: readonly {
       readonly operation_id: string;
+      readonly operation_label: string;
       readonly endpoint_id: string;
       readonly score: number;
     }[];

@@ -40,6 +40,10 @@ class OwnerProbe:
         assert route_session_id.startswith("source-check-")
         return self.organization_id
 
+    async def conversation_id_for_route(self, route_session_id: str) -> str:
+        await self.organization_id_for_route(route_session_id)
+        return "conversation-owner-a"
+
     async def owner_context_for_route(self, route_session_id: str) -> OwnerRouteContext:
         await self.organization_id_for_route(route_session_id)
         return OwnerRouteContext(

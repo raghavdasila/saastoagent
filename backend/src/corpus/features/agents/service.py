@@ -126,6 +126,23 @@ class AgentService:
             attachments=tuple(attachments)
         )
 
+    async def one_agent_attached_to_source(
+        self,
+        organization_id: uuid.UUID,
+        source_id: str,
+    ) -> AgentView | None:
+        matches = []
+        for agent in await self.repository.list(organization_id):
+            attachments = await self.repository.list_source_attachments(
+                organization_id,
+                agent.id,
+            )
+            if any(item.source_id == source_id for item in attachments):
+                matches.append(agent)
+        if len(matches) != 1:
+            return None
+        return AgentView.from_record(matches[0])
+
     async def one_attachable_ready_source(
         self,
         organization_id: uuid.UUID,

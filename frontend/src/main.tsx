@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { RouteDeckBootstrapBoundary } from "@routedeck/react";
+import type { AgentHistoryTurn } from "@routedeck/core";
 
 import { ApplicationShell } from "./app/ApplicationShell";
 import { bootstrapCorpusConnection } from "./app/bootstrapConnection";
@@ -133,6 +134,15 @@ function CorpusApplication({
 }) {
   const [mounted, setMounted] = useState(initial);
   const previous = useRef<MountedConversation | null>(null);
+  const conversationHistory = useRef(
+    new Map<string, readonly AgentHistoryTurn[]>([
+      [initial.summary.id, initial.initialConversation],
+    ]),
+  );
+  const [, refreshConversationHistory] = useReducer(
+    (revision: number) => revision + 1,
+    0,
+  );
 
   useEffect(() => {
     if (previous.current !== null && previous.current !== mounted) {
@@ -144,15 +154,28 @@ function CorpusApplication({
 
   const startNext = useCallback(async (anonymous: boolean) => {
     const next = await lifecycle.createNext(mounted.summary, anonymous);
+    conversationHistory.current.set(next.summary.id, next.initialConversation);
     setMounted(next);
   }, [lifecycle, mounted]);
 
   const remountAfterCredentialRevocation = useCallback(async () => {
     const next = await lifecycle.createFresh(LOUNGE_SIGN_IN_PATH);
+    conversationHistory.current.set(next.summary.id, next.initialConversation);
     lifecycle.dispose(mounted);
     previous.current = next;
     setMounted(next);
   }, [lifecycle, mounted]);
+
+  const synchronizeConversation = useCallback((
+    conversation: readonly AgentHistoryTurn[],
+  ) => {
+    conversationHistory.current.set(mounted.summary.id, conversation);
+    refreshConversationHistory();
+  }, [mounted.summary.id]);
+
+  const authoritativeConversation =
+    conversationHistory.current.get(mounted.summary.id)
+    ?? mounted.initialConversation;
 
   useLayoutEffect(
     () => session.setCredentialRevocationHandler(
@@ -177,7 +200,8 @@ function CorpusApplication({
           routeDeck={mounted.routeDeck}
           registry={registry}
           chatClient={mounted.chatClient}
-          initialConversation={mounted.initialConversation}
+          initialConversation={authoritativeConversation}
+          onConversationSynchronized={synchronizeConversation}
           onUploadApiSource={uploadChatSource}
           header={(
             <CorpusHeader

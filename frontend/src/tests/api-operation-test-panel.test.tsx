@@ -23,6 +23,11 @@ const SOURCE_ID = "sourceopaque0001";
 const REVISION_ID = "revisionopaque01";
 const PROFILE_ID = "profileopaque001";
 const CURATION_ID = "curationopaque01";
+const ACTIVE_PLANNER_PROPS = {
+  open: true,
+  source_id: SOURCE_ID,
+  source_revision_id: REVISION_ID,
+};
 
 function conversationSourceClient(
   fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
@@ -33,19 +38,28 @@ function conversationSourceClient(
 }
 
 it("prepares and clarifies the same non-executing route-plan lineage", async () => {
-  const requests: { url: string; init?: RequestInit }[] = [];
+  let currentPlan: ReturnType<typeof plan> | null = null;
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
-    requests.push({ url, init });
     if (url === "/api/sources") return jsonResponse([source()]);
     if (url.endsWith(`/${SOURCE_ID}/connections`)) return jsonResponse([profile()]);
     if (url.includes("/operation-curation?")) return jsonResponse(curation());
-    if (url.includes("/route-plans/current?")) return jsonResponse(null);
-    if (url.endsWith(`/${SOURCE_ID}/route-plans`)) return jsonResponse(plan("needs_input"), 201);
-    if (url.includes("/clarifications")) return jsonResponse(plan("ready", "recordopaque0002", "recordopaque0001"));
+    if (url.includes("/route-plans/current?")) return jsonResponse(currentPlan);
     throw new Error(`Unexpected request: ${url}`);
   });
-  renderPanel(conversationSourceClient(fetchMock));
+  const dispatchAffordance: RouteDeckSurfaceComponentProps["dispatchAffordance"] = vi.fn(async (
+    affordanceId: string,
+    args = {},
+  ) => {
+    if (affordanceId === "create_api_route_plan") {
+      currentPlan = plan("needs_input");
+      return completedPlanningDispatch("sources.create_api_route_plan", "planned");
+    }
+    expect(args).toEqual({ answer: "cus_123" });
+    currentPlan = plan("ready", "recordopaque0002", "recordopaque0001");
+    return completedPlanningDispatch("sources.continue_api_route_plan", "continued");
+  });
+  renderPanel(conversationSourceClient(fetchMock), ACTIVE_PLANNER_PROPS, dispatchAffordance);
 
   expect(await screen.findByRole("heading", { name: "API operation test" })).toBeVisible();
   expect(screen.getByText("Planning only; no API request has been sent.")).toBeVisible();
@@ -64,48 +78,33 @@ it("prepares and clarifies the same non-executing route-plan lineage", async () 
   fireEvent.click(screen.getByRole("button", { name: "Continue this plan" }));
 
   expect(await screen.findByText("Route ready for one explicit operation")).toBeVisible();
-  expect(screen.getByText("GetOrders")).toBeVisible();
-  const createBody = JSON.parse(String(requests.find(({ url }) => url.endsWith("/route-plans"))?.init?.body));
-  expect(createBody).toEqual({
-    source_revision_id: REVISION_ID,
-    profile_id: PROFILE_ID,
-    curation_id: CURATION_ID,
+  expect(screen.getByText("List Orders")).toBeVisible();
+  expect(dispatchAffordance).toHaveBeenNthCalledWith(1, "create_api_route_plan", {
     request_text: "List orders for the selected customer",
+    profile_name: "Local Medusa",
     provided_inputs: {},
   });
-  const clarifyBody = JSON.parse(String(requests.find(({ url }) => url.includes("/clarifications"))?.init?.body));
-  expect(clarifyBody).toEqual({
-    source_revision_id: REVISION_ID,
-    expected_record_id: "recordopaque0001",
-    answers: { customer_id: "cus_123" },
-  });
+  expect(dispatchAffordance).toHaveBeenNthCalledWith(2, "continue_api_route_plan", { answer: "cus_123" });
 });
 
 it("sends one explicit non-secret current-request input and renders its provenance", async () => {
-  const requests: { url: string; init?: RequestInit }[] = [];
+  let currentPlan: ReturnType<typeof plan> | null = null;
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
-    requests.push({ url, init });
     if (url === "/api/sources") return jsonResponse([source()]);
     if (url.endsWith(`/${SOURCE_ID}/connections`)) return jsonResponse([profile()]);
     if (url.includes("/operation-curation?")) return jsonResponse(curation());
-    if (url.includes("/route-plans/current?")) return jsonResponse(null);
-    if (url.endsWith(`/${SOURCE_ID}/route-plans`)) {
-      const ready = plan("ready");
-      return jsonResponse({
-        ...ready,
-        input_provenance: [{ name: "customer_id", value: "cus_123", source: "current_request" }],
-        managed_parameters: [{
-          name: "x-publishable-api-key",
-          location: "header",
-          authentication_method: "api_key",
-          source: "managed_by_profile",
-        }],
-      }, 201);
-    }
+    if (url.includes("/route-plans/current?")) return jsonResponse(currentPlan);
     throw new Error(`Unexpected request: ${url}`);
   });
-  renderPanel(conversationSourceClient(fetchMock));
+  const dispatchAffordance = vi.fn(async () => {
+    currentPlan = {
+      ...plan("ready"),
+      input_provenance: [{ name: "customer_id", value: "cus_123", source: "current_request" as const }],
+    };
+    return completedPlanningDispatch("sources.create_api_route_plan", "planned");
+  });
+  renderPanel(conversationSourceClient(fetchMock), ACTIVE_PLANNER_PROPS, dispatchAffordance);
 
   await screen.findByText(/Current curation curationopaque01/);
   fireEvent.change(screen.getByLabelText("What should Corpus route?"), {
@@ -122,29 +121,35 @@ it("sends one explicit non-secret current-request input and renders its provenan
   expect(await screen.findByText(/Route ready/)).toBeVisible();
   expect(screen.getByText("Current request")).toBeVisible();
   expect(screen.getByText("Managed by selected connection profile")).toBeVisible();
-  const createBody = JSON.parse(String(requests.find(({ url }) => url.endsWith("/route-plans"))?.init?.body));
-  expect(createBody.provided_inputs).toEqual({ customer_id: "cus_123" });
+  expect(dispatchAffordance).toHaveBeenCalledWith("create_api_route_plan", {
+    request_text: "List orders",
+    profile_name: "Local Medusa",
+    provided_inputs: { customer_id: "cus_123" },
+  });
 });
 
 it("shows ambiguity without a selected operation and sends an exact typed choice", async () => {
-  const requests: { url: string; init?: RequestInit }[] = [];
+  let currentPlan: ReturnType<typeof plan> | null = null;
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
-    requests.push({ url, init });
     if (url === "/api/sources") return jsonResponse([source()]);
     if (url.endsWith(`/${SOURCE_ID}/connections`)) return jsonResponse([profile()]);
     if (url.includes("/operation-curation?")) return jsonResponse(curation());
-    if (url.includes("/route-plans/current?")) return jsonResponse(null);
-    if (url.endsWith(`/${SOURCE_ID}/route-plans`)) return jsonResponse(plan("needs_operation_choice"), 201);
-    if (url.includes("/clarifications")) {
-      return jsonResponse({
-        ...plan("ready", "recordopaque0002", "recordopaque0001"),
-        operation_choice: { operation_id: "GetOrders", source: "user_clarification" },
-      });
-    }
+    if (url.includes("/route-plans/current?")) return jsonResponse(currentPlan);
     throw new Error(`Unexpected request: ${url}`);
   });
-  renderPanel(conversationSourceClient(fetchMock));
+  const dispatchAffordance = vi.fn(async (affordanceId: string) => {
+    if (affordanceId === "create_api_route_plan") {
+      currentPlan = plan("needs_operation_choice");
+      return completedPlanningDispatch("sources.create_api_route_plan", "planned");
+    }
+    currentPlan = {
+        ...plan("ready", "recordopaque0002", "recordopaque0001"),
+        operation_choice: { operation_id: "GetOrders", source: "user_clarification" },
+    };
+    return completedPlanningDispatch("sources.continue_api_route_plan", "continued");
+  });
+  renderPanel(conversationSourceClient(fetchMock), ACTIVE_PLANNER_PROPS, dispatchAffordance);
 
   await screen.findByText(/Current curation curationopaque01/);
   fireEvent.change(screen.getByLabelText("What should Corpus route?"), {
@@ -155,17 +160,17 @@ it("shows ambiguity without a selected operation and sends an exact typed choice
   expect(await screen.findByText("Waiting for an operation choice")).toBeVisible();
   expect(screen.getByText("No operation selected")).toBeVisible();
   fireEvent.change(screen.getByLabelText("Which of these included operations did you mean?"), {
-    target: { value: "GetOrders" },
+    target: { value: "List Orders" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Continue this plan" }));
 
-  expect(await screen.findByText(/Chosen operation GetOrders/)).toBeVisible();
-  const clarifyBody = JSON.parse(String(requests.find(({ url }) => url.includes("/clarifications"))?.init?.body));
-  expect(clarifyBody.answers).toEqual({ operation_id: "GetOrders" });
+  expect(await screen.findByText(/Chosen operation List Orders/)).toBeVisible();
+  expect(dispatchAffordance).toHaveBeenLastCalledWith("continue_api_route_plan", { answer: "List Orders" });
 });
 
 it("refetches and adopts the authoritative plan after a create conflict", async () => {
   let currentReads = 0;
+  let authoritativePlan: ReturnType<typeof plan> | null = null;
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
     if (url === "/api/sources") return jsonResponse([source()]);
@@ -173,14 +178,15 @@ it("refetches and adopts the authoritative plan after a create conflict", async 
     if (url.includes("/operation-curation?")) return jsonResponse(curation());
     if (url.includes("/route-plans/current?")) {
       currentReads += 1;
-      return jsonResponse(currentReads === 1 ? null : plan("ready"));
-    }
-    if (url.endsWith(`/${SOURCE_ID}/route-plans`)) {
-      return jsonResponse({ code: "api_route_plan_conflict", message: "The route plan changed." }, 409);
+      return jsonResponse(authoritativePlan);
     }
     throw new Error(`Unexpected request: ${url}`);
   });
-  renderPanel(conversationSourceClient(fetchMock));
+  const dispatchAffordance = vi.fn(async () => {
+    authoritativePlan = plan("ready");
+    return completedPlanningDispatch("sources.create_api_route_plan", "conflict");
+  });
+  renderPanel(conversationSourceClient(fetchMock), ACTIVE_PLANNER_PROPS, dispatchAffordance);
 
   await screen.findByText(/Current curation curationopaque01/);
   fireEvent.change(screen.getByLabelText("What should Corpus route?"), {
@@ -231,7 +237,7 @@ it("dispatches the exact ready read once and renders only its redacted retained 
     executed = true;
     return completedExecutionDispatch("sources.test_routed_api_read");
   });
-  renderPanel(conversationSourceClient(fetchMock), { open: true }, dispatchAffordance);
+  renderPanel(conversationSourceClient(fetchMock), ACTIVE_PLANNER_PROPS, dispatchAffordance);
 
   fireEvent.click(await screen.findByRole("button", { name: "Run routed read" }));
   expect(await screen.findByText("Routed API request succeeded")).toBeVisible();
@@ -345,7 +351,7 @@ it("keeps the stale accept failure in the planner after the review projection te
   await store.select(SOURCE_ID, writePlan());
   const panel = (
     <ApiOperationTestPanel
-      {...surfaceProps({ open: true }, vi.fn())}
+      {...surfaceProps(ACTIVE_PLANNER_PROPS, vi.fn())}
       sourceClient={client}
       executionStore={store}
     />
@@ -431,7 +437,7 @@ function source() {
 
 function renderPanel(
   client: SourceClient,
-  props: RouteDeckSurfaceComponentProps["props"] = { open: true },
+  props: RouteDeckSurfaceComponentProps["props"] = ACTIVE_PLANNER_PROPS,
   dispatchAffordance: RouteDeckSurfaceComponentProps["dispatchAffordance"] = vi.fn(),
 ) {
   return render(
@@ -509,7 +515,7 @@ function plan(
     state,
     steps: [{
       query: "List orders for the selected customer",
-      ranked_operations: [{ operation_id: "GetOrders", endpoint_id: "medusa:GetOrders", score: 0.95 }],
+      ranked_operations: [{ operation_id: "GetOrders", operation_label: "List Orders", endpoint_id: "medusa:GetOrders", score: 0.95 }],
       selected_operation_id: state === "needs_operation_choice" ? null : "GetOrders",
       method: state === "needs_operation_choice" ? null : "GET",
       path_template: state === "needs_operation_choice" ? null : "/store/orders",
@@ -602,6 +608,13 @@ function completedExecutionDispatch(operationId: string): RouteDeckDispatchResul
     review: null,
     outcome: "observed",
     failure: null,
+  };
+}
+
+function completedPlanningDispatch(operationId: string, outcome: string): RouteDeckDispatchResult {
+  return {
+    ...completedExecutionDispatch(operationId),
+    outcome,
   };
 }
 
@@ -700,6 +713,8 @@ function surfaceProps(
       lifecycle: "stable",
       public_props_schema: {},
       affordances: [
+        { id: "create_api_route_plan", event: "submit", operation: { id: "sources.create_api_route_plan" } },
+        { id: "continue_api_route_plan", event: "submit", operation: { id: "sources.continue_api_route_plan" } },
         { id: "run_routed_api_read", event: "submit", operation: { id: "sources.test_routed_api_read" } },
         { id: "review_routed_api_write", event: "submit", operation: { id: "sources.test_routed_api_write" } },
       ],

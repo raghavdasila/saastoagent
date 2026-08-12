@@ -9,6 +9,7 @@ from .domain import (
     AgentBuildLineageRecord,
     AgentDependencySnapshot,
     AgentRecord,
+    AgentProductOverview,
     AgentSourceAttachmentRecord,
 )
 
@@ -85,6 +86,14 @@ class AgentOwnerScopeGateway(Protocol):
         self,
         route_session_id: str,
     ) -> uuid.UUID: ...
+
+
+class AgentProductOverviewGateway(Protocol):
+    async def overview(
+        self,
+        organization_id: uuid.UUID,
+        agent_id: uuid.UUID,
+    ) -> AgentProductOverview: ...
 
     async def organization_id_for_access_token(
         self,
@@ -194,6 +203,7 @@ __all__ = [
     "AgentNotFound",
     "AgentOwnerScopeGateway",
     "AgentOwnerScopeUnavailable",
+    "AgentProductOverviewGateway",
     "AgentRepository",
     "AgentSourceAttachmentConflict",
     "AgentSourceAttachmentUnavailable",

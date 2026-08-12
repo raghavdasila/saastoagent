@@ -14,6 +14,8 @@ from .declarations import (
     DELETE_API_SOURCE,
     SOURCE_DELETE_CURRENT_GUARD,
     PREPARE_ROUTED_API_TEST,
+    CREATE_API_ROUTE_PLAN,
+    CONTINUE_API_ROUTE_PLAN,
     PROCESS_API,
     PROPOSE_CONTRACT_REVISION,
     RETRY_PROCESSING,
@@ -47,6 +49,8 @@ from .operations import (
     SaveApiDescriptionHandler,
     DeleteApiSourceHandler,
     OpenApiRoutePlanHandler,
+    CreateApiRoutePlanHandler,
+    ContinueApiRoutePlanHandler,
     ProcessApiHandler,
     RoutedApiExecutionHandler,
 )
@@ -75,6 +79,7 @@ def create_sources_bindings(
     staged_attachment_service=None,
     staged_description_service=None,
     lifecycle_service=None,
+    route_plan_service=None,
 ) -> FeatureBindings:
     return FeatureBindings(
         handlers={
@@ -95,6 +100,12 @@ def create_sources_bindings(
                 RETURN_TO_SOURCE_HUB.id
             ),
             PREPARE_ROUTED_API_TEST.ref: OpenApiRoutePlanHandler(),
+            CREATE_API_ROUTE_PLAN.ref: CreateApiRoutePlanHandler(
+                route_plan_service, owner_scope
+            ),
+            CONTINUE_API_ROUTE_PLAN.ref: ContinueApiRoutePlanHandler(
+                route_plan_service, owner_scope
+            ),
             PROCESS_API.ref: ProcessApiHandler(
                 service, staged_attachment_service, owner_scope
             ),

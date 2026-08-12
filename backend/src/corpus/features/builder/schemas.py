@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
+from routedeck_core.contracts.operations import OperationSource
 
 
 class AssembleBuildArguments(BaseModel):
@@ -15,7 +16,26 @@ class AssembleBuildArguments(BaseModel):
 class BuildRuntimeLifecycleArguments(BaseModel):
     model_config = ConfigDict(extra="forbid")
     agent_ref: str = Field(min_length=1, max_length=64)
-    build_id: uuid.UUID
+    build_id: uuid.UUID | None = Field(
+        default=None,
+        description=(
+            "Surface-selected immutable build identity. Agent calls omit this value and "
+            "use the exact current build resolved by Corpus for the selected Agent."
+        ),
+    )
+
+
+def build_runtime_lifecycle_arguments(
+    arguments: dict[str, object],
+    source: OperationSource,
+) -> BuildRuntimeLifecycleArguments:
+    values = dict(arguments)
+    if source is OperationSource.AGENT:
+        values = {key: values[key] for key in ("agent_ref",) if key in values}
+    payload = BuildRuntimeLifecycleArguments.model_validate(values)
+    if source is OperationSource.SURFACE and payload.build_id is None:
+        raise ValueError("A surface build lifecycle action requires the selected build.")
+    return payload
 
 
 class BuilderSourceBindingView(BaseModel):
@@ -52,6 +72,7 @@ class AgentBuildView(BaseModel):
     created_at: datetime
     updated_at: datetime
     attempt_number: int = Field(default=1, ge=1)
+    job_id: uuid.UUID | None = None
 
 
 class AgentBuildCollectionView(BaseModel):

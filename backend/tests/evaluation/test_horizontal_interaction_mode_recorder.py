@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -237,7 +238,51 @@ def test_restart_starts_backend_and_worker_together_before_generation_barrier(
 
 
 def test_horizontal_recorder_expected_count_matches_the_real_mode_branches() -> None:
-    assert EXPECTED_CHECKS == 25
+    assert EXPECTED_CHECKS == 36
+
+
+def test_horizontal_recorder_retains_the_complete_late_delivery_lifecycle() -> None:
+    source = Path("scripts/run_horizontal_product_journey.py").read_text(encoding="utf-8")
+    assert 'name="Create hosted channel", exact=True' in source
+    assert 'name="Create channel", exact=True' not in source
+    assert '"section.channels-home li[data-status=\'ready\'] > div > span"' in source
+    assert '"section.channels-home li[data-status=\'ready\'] > span"' not in source
+    assert '"Hosted Agent enabled"' not in source
+    assert source.count('"Public and available", exact=True') >= 3
+    assert source.count('"Active deployment", exact=True') >= 2
+    assert source.count('_feature_surface(page, "Channels and Deployment").get_by_role(') >= 2
+    assert "Ask the deployed Agent a question." not in source
+    assert "Ask a question and continue the same request when the Agent needs one more detail." in source
+    assert source.count('"[data-public-agent-application]"') == 3
+    assert 'page.locator("main.public-agent")' not in source
+    assert '"textbox", name="Message the assistant", exact=True' in source
+    assert '"button", name="Send message", exact=True' in source
+    ordered_markers = (
+        'CHAT_PROMPTS["request_second_deployment"]',
+        'CHAT_PROMPTS["request_rollback"]',
+        'CHAT_PROMPTS["request_pause"]',
+        'CHAT_PROMPTS["request_resume"]',
+        'CHAT_PROMPTS["enter_operations"]',
+        'CHAT_PROMPTS["promote_interaction"]',
+    )
+    offsets = tuple(source.index(marker) for marker in ordered_markers)
+    assert offsets == tuple(sorted(offsets))
+    assert 'name="Approve hosted Agent rollback"' in source
+    assert 'name="Approve hosted Web availability change"' in source
+    assert (
+        '"Operations durably promotes the exact successful deployed interaction into Evaluation"'
+        in source
+    )
+    assert 'CHAT_PROMPTS["start_build_runtime"]' in source
+    assert '"builder.run"' in source
+    assert '"Add a case from a successful Sandbox interaction", exact=True' in source
+    assert 'name="Add evaluation case", exact=True' in source
+    assert '".evaluation-set-card", has_text="Baseline"' in source
+    assert 'CHAT_PROMPTS["run_generated_evaluation"]' in source
+    assert 'name="Run generated case", exact=True' in source
+    assert 'get_by_text("Draft coverage", exact=True)' in source
+    assert "generated_status = await _wait_for_evaluation_terminal(generated_case)" in source
+    assert '"eligibleSetCount": await eligible_results.count()' in source
 
 
 def test_contract_review_id_comes_from_the_exact_visible_review_surface() -> None:
@@ -547,6 +592,86 @@ def test_chat_multi_operation_boundary_requires_model_chosen_order() -> None:
                 trace,
                 7,
                 ("workspace.open_agents", "agents.open_create"),
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    "navigation_operation",
+    ["agents.return_from_source", "agents.choose_existing_for_source"],
+)
+def test_chat_source_attachment_accepts_either_exact_legal_return_route(
+    navigation_operation: str,
+) -> None:
+    trace = [
+        {
+            "sequence": 8,
+            "event": "chat_operation",
+            "operationId": navigation_operation,
+            "disposition": "completed",
+        },
+        {
+            "sequence": 9,
+            "event": "chat_operation",
+            "operationId": "agents.attach_source",
+            "disposition": "completed",
+        },
+    ]
+
+    observed = asyncio.run(
+        _chat_operations_after(
+            trace,
+            7,
+            (
+                "agents.return_from_source",
+                "agents.attach_source",
+                "agents.choose_existing_for_source",
+            ),
+            expected_operation_sequences=(
+                ("agents.return_from_source", "agents.attach_source"),
+                ("agents.choose_existing_for_source", "agents.attach_source"),
+            ),
+            allow_blocked_correction=False,
+        )
+    )
+
+    assert [item["operationId"] for item in observed] == [
+        navigation_operation,
+        "agents.attach_source",
+    ]
+
+
+def test_chat_source_attachment_rejects_a_blocked_attach_attempt() -> None:
+    trace = [
+        {
+            "sequence": 8,
+            "event": "chat_operation",
+            "operationId": "agents.choose_existing_for_source",
+            "disposition": "completed",
+        },
+        {
+            "sequence": 9,
+            "event": "chat_operation",
+            "operationId": "agents.attach_source",
+            "disposition": "blocked",
+        },
+    ]
+
+    with pytest.raises(RuntimeError, match="blocked operation"):
+        asyncio.run(
+            _chat_operations_after(
+                trace,
+                7,
+                (
+                    "agents.return_from_source",
+                    "agents.attach_source",
+                    "agents.choose_existing_for_source",
+                ),
+                expected_operation_sequences=(
+                    ("agents.return_from_source", "agents.attach_source"),
+                    ("agents.choose_existing_for_source", "agents.attach_source"),
+                ),
+                allow_blocked_correction=False,
             )
         )
 
@@ -1677,6 +1802,9 @@ def test_chat_evidence_uses_short_ordinary_intent_without_spoonfeeding() -> None
     assert CHAT_PROMPTS["prepare_api_update"] == (
         "Prepare the safest API correction for me to review, but do not apply it yet."
     )
+    assert CHAT_PROMPTS["accept_api_update"] == (
+        "That API correction looks right. Apply it, and stay with this API because I still need to choose what it may access."
+    )
     assert CHAT_PROMPTS["request_build"] == (
         "Save this approved design as the version I want built next."
     )
@@ -1713,6 +1841,10 @@ def test_file_first_chat_requires_real_agent_choice_and_detail_questions() -> No
     assert _asks_for_agent_choice(response)
     assert _asks_for_agent_details("What should this Agent do, and what are its responsibilities?")
     assert _asks_for_agent_details("What should this agent be responsible for?")
+    assert _asks_for_agent_details("What should the new agent's name, description, and instructions be?")
+    assert _asks_for_agent_details(
+        "What should the new agent's role be? Please provide a short role and what you want it to handle."
+    )
     assert not _asks_for_agent_choice("I opened the setup screen.")
 
 
@@ -1757,7 +1889,8 @@ def test_horizontal_profile_save_uses_a_stable_surface_form_and_real_private_wri
     assert "form.checkValidity()" in helper
     assert 'response.request.method == "PUT"' in helper
     assert '"/api/routedeck/private-forms/sources-api-connection"' in helper
-    assert "await panel.get_by_text(name, exact=True).wait_for" in helper
+    assert "await panel.get_by_text(name, exact=True).wait_for" not in helper
+    assert "profiles = await _profiles(observations, ids[\"sourceId\"], minimum_count=1)" in source
     assert callable(_save_profile_exact)
     assert CHAT_PROMPTS["enter_operations"] == (
         "Show me how that public request to this assistant actually ran."
@@ -1812,12 +1945,32 @@ def test_chat_only_path_begins_file_first_then_collects_agent_intent() -> None:
         source.index('CHAT_PROMPTS["resume_api"]'):
         source.index('CHAT_PROMPTS["prepare_api_update"]')
     ]
-    assert 'CHAT_PROMPTS["attach_source"],\n                    ("workspace.open_agents", "agents.attach_source"),' in source
+    attach_flow = source[
+        source.index('CHAT_PROMPTS["attach_source"]'):
+        source.index('safe_trace,', source.index('CHAT_PROMPTS["attach_source"]'))
+    ]
+    assert 'ChatOperationAlternatives(' in attach_flow
+    assert '("agents.return_from_source", "agents.attach_source")' in attach_flow
+    assert '"agents.choose_existing_for_source"' in attach_flow
+    assert '"agents.attach_source"' in attach_flow
     assert '("agents.open_designer", "designer.propose")' in source
-    assert '"designer.return_to_agent",\n                        "agents.open_builds",\n                        "builder.assemble",' in source
-    assert '"agents.return_to_hub",\n                        "agents.open_sandbox",\n                        "sandbox.start",' in source
-    assert '"agents.open_evaluation",\n                        "evaluation.create_case",' in source
-    assert '"agents.open_channels",\n                        "channels.create",' in source
+    assert 'ChatOperationAlternatives(\n                        sequences=(' in source
+    assert '("agents.open_builds", "builder.assemble"),' in source
+    assert (
+        '"designer.return_to_agent",\n'
+        '                                "agents.open_builds",\n'
+        '                                "builder.assemble",'
+    ) in source
+    assert (
+        '"agents.open_sandbox",\n                                "sandbox.start",'
+        in source
+    )
+    assert (
+        '"agents.return_to_hub",\n                                "agents.open_sandbox",\n                                "sandbox.start",'
+        in source
+    )
+    assert '("agents.open_evaluation", "evaluation.create_case")' in source
+    assert '("agents.open_channels", "channels.create")' in source
     assert 'CHAT_PROMPTS["run_evaluation"],\n                    "evaluation.run_case",' in source
     assert 'CHAT_PROMPTS["request_deployment"],\n                    "deployment.deploy",' in source
     helper = source[
@@ -1850,6 +2003,74 @@ def test_api_update_chat_separates_information_from_review_staging() -> None:
     assert 'CHAT_PROMPTS["stage_api_update"],\n                    "sources.approve_contract_revision",' in flow
 
 
+def test_chat_inspection_body_is_captured_before_navigation_can_discard_it() -> None:
+    source = (
+        __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
+        .read_text(encoding="utf-8")
+    )
+    helper = source[
+        source.index("async def _refresh_chat_evidence_inspector"):
+        source.index("async def _load_authenticated_chat_inspection")
+    ]
+    dispatch = source[
+        source.index("async def _chat_dispatch"):
+        source.index("def _durable_chat_message")
+    ]
+
+    assert "snapshot = await inspection_response.json()" in helper
+    assert "return inspection_response, snapshot" in helper
+    assert "authenticated_inspection, before_inspection" in dispatch
+    assert "before_inspection = await authenticated_inspection.json()" not in dispatch
+
+
+def test_chat_builder_runtime_proof_survives_immediate_navigation_to_sandbox() -> None:
+    source = (
+        __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
+        .read_text(encoding="utf-8")
+    )
+    runtime = source[
+        source.index('CHAT_PROMPTS["start_build_runtime"]'):
+        source.index('if args.mode == "chat":', source.index('CHAT_PROMPTS["start_build_runtime"]'))
+    ]
+
+    assert 'if args.mode in {"chat", "hybrid"}:' in runtime
+    assert "await _wait_for_build_runtime_lifecycle(" in runtime
+    assert 'ids["buildId"],\n                    "running",' in runtime
+    assert "await ready_build.get_by_text(\"Running\"" in runtime
+
+
+def test_chat_sandbox_start_accepts_current_node_without_redundant_navigation() -> None:
+    source = (
+        __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
+        .read_text(encoding="utf-8")
+    )
+    start = source.index('CHAT_PROMPTS["start_private_trial"]')
+    flow = source[start:source.index("waiting_run =", start)]
+
+    assert '("sandbox.start",),' in flow
+    assert '(\n                                "agents.open_sandbox",\n                                "sandbox.start",' in flow
+    assert '"agents.return_to_hub",\n                                "agents.open_sandbox",\n                                "sandbox.start",' in flow
+
+
+def test_chat_downstream_navigation_accepts_direct_legal_cross_feature_paths() -> None:
+    source = (
+        __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
+        .read_text(encoding="utf-8")
+    )
+
+    assert '("agents.open_evaluation", "evaluation.create_case")' in source
+    assert '("agents.open_channels", "channels.create")' in source
+    helper = source[
+        source.index("async def _open_agent_area_for_mode"):
+        source.index("async def _open_bound_agent_area")
+    ]
+    assert "(open_operation_id,)," in helper
+    assert "(return_operation_id, open_operation_id)," in helper
+    assert CHAT_PROMPTS["run_generated_evaluation"] == (
+        "Evaluate the automatically generated required case for this version."
+    )
+
+
 def test_evaluation_surface_cannot_supply_derived_sandbox_operation_evidence() -> None:
     source = (
         __import__("pathlib").Path("frontend/src/features/evaluation/EvaluationSurface.tsx")
@@ -1866,11 +2087,20 @@ def test_delivery_evidence_targets_the_persisted_channel_row_not_chat_copy() -> 
         .read_text(encoding="utf-8")
     )
 
-    assert 'section.channels-home li[data-status=\'ready\'] > span' in source
+    assert 'section.channels-home li[data-status=\'ready\'] > div > span' in source
     assert 'page.get_by_text(f"/{slug}", exact=True)' not in source
     assert 'slug = f"store-taxonomy-{run_id[-6:].casefold()}"' in source
     assert 'CHAT_PROMPTS["enter_delivery"].format(slug=slug)' in source
     assert 'CHAT_PROMPTS["create_channel"].format(slug=slug)' in source
+
+
+def test_guided_continuation_waits_for_the_product_to_finish_enabling_it() -> None:
+    source = Path("scripts/run_horizontal_product_journey.py").read_text(encoding="utf-8")
+    segment = source[source.index("async def _open_agent_area_for_mode("):source.index("async def _open_bound_agent_area(")]
+    assert "for _ in range(300):" in segment
+    assert "if await action.is_enabled():" in segment
+    assert "did not become enabled" in segment
+    assert "is disabled" not in segment
 
 
 def test_chat_only_credential_step_stays_in_the_private_surface_form() -> None:
@@ -1898,10 +2128,14 @@ def test_file_first_source_handoff_uses_the_created_agent_without_origin_guessin
     flow = source[start:end]
 
     assert 'CHAT_PROMPTS["attach_source"]' in flow
-    assert '("workspace.open_agents", "agents.attach_source")' in flow
-    assert 'name="Use an existing Agent", exact=True' in flow
-    assert 'get_by_label("Ready Workspace Source", exact=True)' in flow
+    assert 'ChatOperationAlternatives(' in flow
+    assert '("agents.return_from_source", "agents.attach_source")' in flow
+    assert '"agents.choose_existing_for_source"' in flow
+    assert 'name="Create a new Agent", exact=True' in flow
+    assert 'name="Attach Source", exact=True' in flow
+    assert 'get_by_label("Ready Workspace Source", exact=True)' not in flow
     assert 'agents.attach_created_source' not in flow
+    assert 'workspace.open_agents' not in flow
 
 
 def test_surface_file_acceptance_is_visibly_separate_from_analysis() -> None:
@@ -1990,7 +2224,8 @@ def test_visible_architecture_inspector_cannot_collide_with_product_surface_read
         source.index("async def _open_agent_area("):
         source.index("async def _wait_for_product_idle(")
     ]
-    assert helpers.count("_feature_surface(page, heading).get_by_role(") == 3
+    assert helpers.count("_feature_surface(page, heading)") == 3
+    assert helpers.count('":scope > header"') == 2
     assert 'page.locator("section.agents-home").get_by_role(' in helpers
 
 
@@ -2032,9 +2267,112 @@ def test_horizontal_video_keeps_public_runtime_in_the_uncut_primary_page() -> No
     assert '"active deployment shows its exact immutable RouteDeck NavGraph"' in source
     assert '"Operations shows owner-only deployed RouteDeck and ToolRouter evidence"' in source
     assert 'name="Deployed ToolRouter clarification subagent", exact=True' in source
-    assert '"02a-designer-topology"' in source
+    assert 'name=f"RouteDeck NavGraph for build {ids[\'buildId\']}"' in source
+    operations_start = source.index('deployed_runtime = page.get_by_role(')
+    operations_end = source.index('if args.mode in {"chat", "hybrid"}:', operations_start)
+    operations_flow = source[operations_start:operations_end]
+    assert operations_flow.index("await deployed_navgraph.scroll_into_view_if_needed()") < operations_flow.index(
+        '"11b-deployed-runtime-plumbing"'
+    )
+    assert operations_flow.index("await deployed_toolrouter.scroll_into_view_if_needed()") < operations_flow.index(
+        '"11c-deployed-toolrouter"'
+    )
+    assert "navgraph_visible and toolrouter_visible" in operations_flow
+    assert 'page.locator("#operations-title").scroll_into_view_if_needed()' in source
+    assert 'page.locator(".agent-sources").get_by_text(' in source
+    assert "await attached_revision.scroll_into_view_if_needed(timeout=30_000)" in source
+    assert 'rows = inventory.get_by_role("listitem")' in source
+    assert "exactly one matching API Source row" not in source
+    assert '"02-designer-intent-source"' in source
+    assert '"02a-designer-design-system"' in source
     assert '"02b-designer-navgraph"' in source
+    assert '"02c-designer-navgraph-selection"' in source
+    assert '"02d-designer-mobile"' in source
     assert '"11c-deployed-toolrouter"' in source
+
+
+def test_designer_owner_task_can_publish_bounded_three_mode_evidence() -> None:
+    source = (
+        __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
+        .read_text(encoding="utf-8")
+    )
+
+    assert 'choices=("designer", "builder", "evaluation")' in source
+    assert 'if args.stop_after == "designer":' in source
+    assert "raise CampaignCheckpointReached" in source
+    assert "DESIGNER_CHECKPOINT_EXPECTED_CHECKS = 12" in source
+    assert 'name="Maximize surface", exact=True' in source
+    assert 'name="Agent intent and Source intelligence", exact=True' in source
+    assert 'name="Proposed design system", exact=True' in source
+    assert 'name="Proposed RouteDeck NavGraph preview", exact=True' in source
+    assert "data-node-tone=\"reachable\"" in source
+    assert 'get_attribute("aria-label")' in source
+    assert 'set_viewport_size({"width": 390, "height": 844})' in source
+    assert 'get_by_role("button", name="Agent", exact=True).click()' in source
+    assert 'name="Create a new Agent", exact=True' in source
+    assert source.count('get_by_role("button", name="Agent", exact=True).click()') == 2
+    assert 'elif args.mode == "hybrid":' in source
+    assert 'get_by_label("Ready Workspace Source", exact=True).select_option' not in source
+    assert 'name="Agent design blueprint", exact=True' in source
+    assert 'CHAT_PROMPTS["generate_design_feature"]' in source
+    assert '"designer.generate_feature"' in source
+    assert 'get_by_label("Feature or behavior", exact=True).fill' in source
+    assert '"button", name="Generate design proposal", exact=True' in source
+    assert '"Customize the Agent goal, behaviors, and policies", exact=True' in source
+    assert source.index('"Customize the Agent goal, behaviors, and policies", exact=True') < source.index(
+        'get_by_label("Goal", exact=True).fill'
+    )
+    assert 'locator(".designer-home__status").get_by_text(' in source
+    assert '"Revision 2", exact=True' in source
+    assert '"Revision 3", exact=True' in source
+    assert 'get_by_text("2 immutable revisions", exact=True)' not in source
+    assert '"button", name="Build requested", exact=True' in source
+    assert 'get_by_text("Build pending", exact=True)' not in source
+    assert 'get_by_role("button", name="Connection", exact=True).click()' in source
+    assert 'get_by_role("button", name="Operations", exact=True).click()' in source
+    assert 'get_by_role("button", name="Graph", exact=True).click()' in source
+    assert 'semantic_graph.wait_for(state="visible", timeout=30_000)' in source
+    assert 'panel.get_by_text(name, exact=True).wait_for' not in source
+    assert 'rows = inventory.get_by_role("listitem")' in source
+
+
+def test_evaluation_owner_task_publishes_a_bounded_maximized_feature_film() -> None:
+    source = (
+        __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
+        .read_text(encoding="utf-8")
+    )
+
+    assert 'EVALUATION_CHECKPOINT_EXPECTED_CHECKS = 23' in source
+    assert 'if parsed.stop_after == "evaluation" and parsed.mode != "surface":' in source
+    assert 'destination=directory / "builder-sandbox-evaluation-maximized.webm"' in source
+    assert '"playbackRate": 1.0' in source
+    assert '"maximizedSurface": True' in source
+    assert 'name=f"Initial evaluation coverage for build {ids[\'buildId\']}"' in source
+    assert 'name="Start runtime", exact=True' in source
+    assert '"Sandbox returns meaningful non-empty real Medusa taxonomy"' in source
+    assert 'has_text="Generated coverage"' in source
+    assert 'get_by_text("Draft coverage", exact=True)' in source
+    assert 'run_case_name = "Run exact case"' in source
+    assert '"generatedDraftStatus": generated_status' in source
+    assert 'if args.stop_after == "evaluation":\n                if video_clock_started is not None:' in source
+
+
+def test_builder_owner_task_publishes_only_the_durable_assembly_milestone() -> None:
+    source = (
+        __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
+        .read_text(encoding="utf-8")
+    )
+
+    assert "BUILDER_CHECKPOINT_EXPECTED_CHECKS = 15" in source
+    assert 'destination=directory / "builder-assembly-maximized.webm"' in source
+    assert 'page.locator(".builder-home li[data-status=\'queued\']")' in source
+    assert 'page.locator(".builder-home li[data-status=\'running\']")' in source
+    assert 'item.get("operationId") == "builder.assemble"' in source
+    assert 'item.get("outcome") == "queued"' in source
+    assert '"Builder queues one durable assembly attempt without inline completion"' in source
+    assert 'if args.stop_after == "builder":' in source
+    assert '"playbackRate": 1.0' in source
+    assert '"maximizedSurface": True' in source
 
 
 def test_horizontal_video_proves_split_surface_and_returns_same_workflow_to_dock() -> None:

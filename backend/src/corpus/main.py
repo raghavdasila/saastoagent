@@ -8,6 +8,7 @@ from routedeck_fastapi import SameOriginMutationPolicy
 
 from corpus.app.host import LiveRouteDeckApplication, create_routedeck_host
 from corpus.app.agents_adapters import AuthAgentOwnerScopeGateway, CorpusAgentSourceGateway
+from corpus.app.agent_overview_adapters import CorpusAgentProductOverviewGateway
 from corpus.app.workspace_adapters import CorpusWorkspaceOverviewGateway
 from corpus.app.source_composition import (
     create_source_routers,
@@ -43,11 +44,15 @@ from corpus.features.agents.http import (
 )
 from corpus.features.agents.repository import SqlAlchemyAgentRepository
 from corpus.features.agents.service import AgentService
-from corpus.app.designer_adapters import CorpusDesignerInputGateway
+from corpus.features.agents.overview import AgentProductOverviewService
+from corpus.app.designer_adapters import CorpusDesignerGenerationGateway, CorpusDesignerInputGateway
 from corpus.features.designer.http import create_designer_router
 from corpus.features.designer.repository import SqlAlchemyDesignerRepository
 from corpus.features.designer.service import DesignerService
+from corpus.runtime.model import create_chat_model
 from corpus.features.builder.http import create_builder_router
+from corpus.features.builder.execution import BuilderAssemblyProcessor
+from corpus.features.builder.tasks import register_builder_assembly_task
 from corpus.features.sandbox.http import create_sandbox_router
 from corpus.features.evaluation.http import create_evaluation_router
 from corpus.features.evaluation.repository import SqlAlchemyEvaluationRepository
@@ -136,6 +141,10 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
             source_runtime.operation_curation_service,
             source_runtime.graph_presenter,
         ),
+        CorpusDesignerGenerationGateway(
+            create_chat_model(configured),
+            plain_json=configured.model_provider == "ollama",
+        ),
     )
     product_runtime = create_agent_product_runtime(
         settings=configured,
@@ -192,6 +201,21 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
         evaluation_jobs,
         evaluation_run_jobs,
     )
+    builder_service.bind_initial_evaluation_scheduler(evaluation_service)
+    builder_assembly_task = register_builder_assembly_task(
+        source_runtime.infrastructure.huey,
+        BuilderAssemblyProcessor(
+            source_runtime.infrastructure.job_repository,
+            builder_service,
+        ),
+    )
+    builder_service.bind_assembly_jobs(
+        HueyDurableJobPort(
+            source_runtime.infrastructure.job_repository,
+            source_runtime.infrastructure.huey,
+            builder_assembly_task,
+        )
+    )
     delivery_store = CorpusLocalDeliveryStore(
         configured.sources.data_root.parent / "agent-delivery" / "runtime.sqlite3"
     )
@@ -240,6 +264,17 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
         CorpusOperationsLineageGateway(database, neutral_execution),
         evaluation_service,
     )
+    agent_overview_service = AgentProductOverviewService(
+        CorpusAgentProductOverviewGateway(
+            agent_service,
+            designer_service,
+            builder_service,
+            evaluation_service,
+            channel_service,
+            deployment_service,
+            operations_service,
+        )
+    )
     workspace_service = WorkspaceService(
         CorpusWorkspaceOverviewGateway(auth_service, agent_service, source_service)
     )
@@ -257,6 +292,7 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
                 auth_mail=mail_delivery,
                 credential_transition=credential_transition,
                 agent_service=agent_service,
+                agent_overview_service=agent_overview_service,
                 designer_service=designer_service,
                 builder_service=builder_service,
                 sandbox_service=sandbox_service,
@@ -271,6 +307,7 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
                 source_contract_revision_service=source_runtime.contract_revision_service,
                 source_connection_check_service=source_runtime.connection_check_service,
                 source_operation_curation_service=source_runtime.operation_curation_service,
+                source_route_plan_service=source_runtime.route_plan_service,
                 source_routed_execution_service=source_runtime.routed_execution_service,
                 source_staged_attachment_service=source_runtime.staged_attachment_service,
                 source_staged_description_service=source_runtime.staged_description_service,
@@ -333,6 +370,7 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
         create_agents_router(
             service=agent_service,
             owner_scope=agent_owner_scope,
+            overview_service=agent_overview_service,
         )
     )
     app.include_router(create_designer_router(designer_service, agent_owner_scope))

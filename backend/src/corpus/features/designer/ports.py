@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import Protocol
 
-from .domain import AgentDesignRecord, BuildRequestRecord, DesignerInputSnapshot, DesignRevisionRecord
+from .domain import AgentDesignRecord, BuildRequestRecord, DesignerGeneratedFeature, DesignerInputSnapshot, DesignRevisionRecord
 
 
 class DesignerUnavailable(RuntimeError):
@@ -16,6 +16,15 @@ class DesignerConflict(RuntimeError):
 
 class DesignerInputGateway(Protocol):
     async def snapshot(self, organization_id: uuid.UUID, agent_id: uuid.UUID) -> DesignerInputSnapshot: ...
+
+
+class DesignerGenerationGateway(Protocol):
+    async def generate(
+        self,
+        snapshot: DesignerInputSnapshot,
+        current_content: dict[str, object],
+        description: str,
+    ) -> DesignerGeneratedFeature: ...
 
 
 class DesignerRepository(Protocol):

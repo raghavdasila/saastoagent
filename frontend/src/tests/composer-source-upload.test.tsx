@@ -29,7 +29,7 @@ it("stages one exact owner attachment before chat without pre-processing or expo
   );
 
   const file = new File(["openapi: 3.0.0"], "catalog.yaml", { type: "text/yaml" });
-  fireEvent.change(screen.getByLabelText("Attach Source file"), {
+  fireEvent.change(screen.getByLabelText("Attach API definition"), {
     target: { files: [file] },
   });
   fireEvent.change(screen.getByLabelText("Message the assistant"), {
@@ -40,7 +40,7 @@ it("stages one exact owner attachment before chat without pre-processing or expo
   await waitFor(() => expect(onSend).toHaveBeenCalledTimes(1));
   expect(order).toEqual(["upload:catalog.yaml", "send"]);
   expect(onSend.mock.calls[0]?.[0]).not.toContain("attachment-0001");
-  expect(screen.getByText("No Source file attached")).toBeVisible();
+  expect(screen.getByText("No API definition attached")).toBeVisible();
 });
 
 it("keeps API attachment unavailable when no authenticated Source uploader is composed", () => {
@@ -51,7 +51,7 @@ it("keeps API attachment unavailable when no authenticated Source uploader is co
       onCancel={() => undefined}
     />,
   );
-  expect(screen.queryByLabelText("Attach Source file")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Attach API definition")).not.toBeInTheDocument();
 });
 
 it("stages Markdown as supporting Source context without exposing its attachment identity", async () => {
@@ -69,7 +69,7 @@ it("stages Markdown as supporting Source context without exposing its attachment
     />,
   );
 
-  fireEvent.change(screen.getByLabelText("Attach Source file"), {
+  fireEvent.change(screen.getByLabelText("Attach API definition"), {
     target: { files: [new File(["# Catalog"], "catalog-notes.md", { type: "text/markdown" })] },
   });
   fireEvent.change(screen.getByLabelText("Message the assistant"), {

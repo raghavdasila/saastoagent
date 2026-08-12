@@ -18,8 +18,9 @@ from corpus.auth.models import Organization
 from corpus.features.agents.repository import SqlAlchemyAgentRepository
 from corpus.features.agents.schemas import CreateAgentArguments
 from corpus.features.agents.service import AgentService
-from corpus.features.designer.declarations import APPROVE_DESIGN, PROPOSE_DESIGN, REQUEST_BUILD
+from corpus.features.designer.declarations import APPROVE_DESIGN, GENERATE_FEATURE, PROPOSE_DESIGN, REQUEST_BUILD
 from corpus.features.designer.domain import (
+    DesignerGeneratedFeature,
     DesignerInputSnapshot,
     DesignerSemanticGroup,
     DesignerSourceInput,
@@ -44,7 +45,93 @@ class InputProbe:
         return self.value
 
 
+class GenerationProbe:
+    def __init__(self) -> None:
+        self.requests: list[tuple[dict[str, object], str]] = []
+
+    async def generate(self, snapshot, current_content, description):
+        self.requests.append((current_content, description))
+        return DesignerGeneratedFeature(
+            feature="Product category answers",
+            behaviors=(
+                "Answer product-type questions from exact API evidence.",
+                "Ask whether the owner means tags or types when the request is ambiguous.",
+            ),
+            policies=("Never invent a product category result.",),
+            capability_title="Product type answers",
+            runtime_area_title="Product categories",
+            operation_ids=("GetProductTypes",),
+        )
+
+
 OWNER_ID = uuid.uuid4()
+
+
+@pytest.mark.asyncio
+async def test_designer_generates_one_grounded_immutable_feature_revision(tmp_path: Path) -> None:
+    database = CorpusDatabase(f"sqlite+aiosqlite:///{(tmp_path / 'generated-feature.sqlite3').as_posix()}")
+    await database.create_schema_for_tests()
+    async with database.session() as session:
+        async with session.begin():
+            session.add(Organization(id=OWNER_ID, name="Owner", slug=f"owner-{uuid.uuid4().hex}", created_at=datetime.now(UTC)))
+    agents = AgentService(SqlAlchemyAgentRepository(database))
+    agent = await agents.create(OWNER_ID, CreateAgentArguments(
+        name="Designer Agent", description="Serve store operators", instructions="Use curated tools only."
+    ))
+    inputs = InputProbe(DesignerInputSnapshot(
+        agent_id=agent.id,
+        agent_version=1,
+        agent_name=agent.name,
+        description=agent.description,
+        instructions=agent.instructions,
+        sources=(DesignerSourceInput(
+            source_id="source-ready-001",
+            source_revision_id="revision-ready01",
+            display_name="Store API",
+            curation_id="curation-ready1",
+            inventory_fingerprint="a" * 64,
+            included_operation_ids=("GetProductTypes", "GetProductTags"),
+            semantic_groups=(DesignerSemanticGroup(
+                label="Product taxonomy",
+                operation_ids=("GetProductTypes", "GetProductTags"),
+            ),),
+        ),),
+    ))
+    generation = GenerationProbe()
+    service = DesignerService(SqlAlchemyDesignerRepository(database), inputs, generation)
+    try:
+        proposed = await service.propose(OWNER_ID, agent.id)
+        first = proposed.revisions[-1]
+        generated = await service.generate_feature(
+            OWNER_ID,
+            agent.id,
+            expected_revision_id=first.id,
+            description="Add product category answers and ask when tags versus types is unclear.",
+        )
+        second = generated.revisions[-1]
+        assert len(generated.revisions) == 2
+        assert generated.revisions[0].content == first.content
+        assert generation.requests[0][1].startswith("Add product category")
+        assert second.content.features[-1] == "Product category answers"
+        assert second.content.capabilities == (
+            "Product taxonomy: GetProductTags",
+            "Product type answers: GetProductTypes",
+        )
+        assert tuple(area.title for area in second.content.runtime_areas) == (
+            "Product taxonomy",
+            "Product categories",
+        )
+        assert set(second.topology.operation_ids) == {"GetProductTypes", "GetProductTags"}
+        assert len(second.topology.nodes) == 3
+        with pytest.raises(DesignerConflict, match="revision changed"):
+            await service.generate_feature(
+                OWNER_ID,
+                agent.id,
+                expected_revision_id=first.id,
+                description="Repeat the stale generation request.",
+            )
+    finally:
+        await database.close()
 
 
 @pytest.mark.asyncio

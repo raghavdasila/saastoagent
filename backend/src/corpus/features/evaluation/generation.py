@@ -102,7 +102,12 @@ class EvaluationGenerationProcessor:
                         expected_operation_ids=(
                             operation_by_endpoint[endpoint_sequence[0]],
                         ),
-                        mandatory=True,
+                        # Generated coverage begins as an owner-visible draft. A generated
+                        # query can legitimately expose a routing weakness; it must not
+                        # silently become a deployment gate before the owner marks it
+                        # required. Owner-recorded Sandbox cases retain the required
+                        # baseline role.
+                        mandatory=False,
                     )
                 accepted += result.accepted_count
                 expected += result.expected_count

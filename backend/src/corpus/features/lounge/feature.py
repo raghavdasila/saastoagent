@@ -41,6 +41,7 @@ from .declarations import (
     HELP_OPEN_SIGN_IN,
     HELP_RETURN_TO_LOUNGE,
     LOUNGE_REF,
+    LOUNGE_CONTINUE_TO_WORKSPACE,
     OPEN_PRODUCT_HELP,
     PRODUCT_HELP_REF,
     REGISTER_FORM_ID,
@@ -124,6 +125,11 @@ LOUNGE_SURFACE = public_surface(
         id="open_registration",
         event="open",
         operation=ARRIVAL_OPEN_REGISTRATION.ref,
+    ),
+    SurfaceAffordance(
+        id="continue_to_workspace",
+        event="open",
+        operation=LOUNGE_CONTINUE_TO_WORKSPACE.ref,
     ),
     policy_values=(
         policies.LOUNGE_SURFACE_PUBLIC,
@@ -231,6 +237,7 @@ LOUNGE_ENTRY = Capability(
         OPEN_PRODUCT_HELP.ref,
         ARRIVAL_OPEN_REGISTRATION.ref,
         ARRIVAL_OPEN_SIGN_IN.ref,
+        LOUNGE_CONTINUE_TO_WORKSPACE.ref,
     ),
     surfaces=(LOUNGE_SURFACE.ref,),
     policy_refs=(
@@ -372,6 +379,22 @@ PRODUCT_HELP_NODE = Node(
     ),
     policy_refs=(policies.PUBLIC_NODE_CONTEXT.ref, policies.PUBLIC_NODE_PATHS.ref),
 )
+def _lounge_node(workspace_home_ref: NodeRef) -> Node:
+    return LOUNGE_NODE.model_copy(
+        update={
+            "operations": (*LOUNGE_NODE.operations, LOUNGE_CONTINUE_TO_WORKSPACE),
+            "outgoing": (
+                *LOUNGE_NODE.outgoing,
+                Transition(
+                    operation=LOUNGE_CONTINUE_TO_WORKSPACE.ref,
+                    outcome="opened",
+                    target=workspace_home_ref,
+                ),
+            ),
+        }
+    )
+
+
 def _register_node(workspace_home_ref: NodeRef) -> Node:
     return Node(
         id=REGISTER_REF.id,
@@ -525,7 +548,7 @@ def create_lounge_feature(workspace_home_ref: NodeRef) -> Feature:
     return Feature(
         namespace="lounge",
         nodes=(
-            LOUNGE_NODE,
+            _lounge_node(workspace_home_ref),
             PRODUCT_HELP_NODE,
             _register_node(workspace_home_ref),
             _sign_in_node(workspace_home_ref),

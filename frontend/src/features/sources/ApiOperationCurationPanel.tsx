@@ -20,11 +20,13 @@ export function ApiOperationCurationPanel({
   sourceRevisionId,
   sourceClient,
   dispatchAffordance,
+  refreshVersion = 0,
 }: {
   sourceId: string;
   sourceRevisionId: string;
   sourceClient: SourceClient;
   dispatchAffordance: RouteDeckSurfaceComponentProps["dispatchAffordance"];
+  refreshVersion?: number;
 }) {
   const [view, setView] = useState<ApiOperationCurationView | null>(null);
   const [decisions, setDecisions] = useState<ReadonlyMap<string, Decision>>(new Map());
@@ -71,7 +73,7 @@ export function ApiOperationCurationPanel({
       active = false;
       requestGeneration.current += 1;
     };
-  }, [refresh]);
+  }, [refresh, refreshVersion]);
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();

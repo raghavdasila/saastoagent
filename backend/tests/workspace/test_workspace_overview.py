@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import asyncio
+import uuid
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -11,6 +16,7 @@ from corpus.features.workspace.http import (
 from corpus.features.workspace.models import WorkspaceOverview, WorkspaceSectionState
 from corpus.features.workspace.ports import WorkspaceOverviewUnavailable
 from corpus.features.workspace.service import WorkspaceService
+from corpus.app.workspace_adapters import CorpusWorkspaceOverviewGateway
 
 
 class WorkspaceOverviewProbe:
@@ -81,4 +87,41 @@ def test_workspace_overview_http_requires_auth_and_preserves_availability_truth(
                 "status": "unavailable",
                 "message": "Recent activity is not recorded.",
             },
+            "activity": [],
         }
+
+
+def test_workspace_overview_reports_real_recent_agent_and_source_changes() -> None:
+    organization_id = uuid.uuid4()
+    now = datetime(2026, 8, 11, tzinfo=UTC)
+
+    class Auth:
+        async def organization_id_for_route(self, route_session_id):
+            assert route_session_id == "route"
+            return organization_id
+
+    class Agents:
+        async def list(self, owner):
+            assert owner == organization_id
+            return SimpleNamespace(agents=(SimpleNamespace(
+                name="Shopping Agent", current_version=2, updated_at=now,
+            ),))
+
+    class Sources:
+        def list_sources(self, *, owner_key):
+            assert owner_key == str(organization_id)
+            return (SimpleNamespace(
+                display_name="Store API", updated_at=(now + timedelta(seconds=1)).replace(tzinfo=None),
+                revision=SimpleNamespace(state=SimpleNamespace(value="ready")),
+            ),)
+
+    overview = asyncio.run(
+        CorpusWorkspaceOverviewGateway(Auth(), Agents(), Sources()).overview_for_route("route")
+    )
+
+    assert overview.recent_activity.status == "available"
+    assert [item.title for item in overview.activity] == ["Store API", "Shopping Agent"]
+    assert [item.kind for item in overview.activity] == ["source", "agent"]
+    assert overview.activity[0].status == "ready"
+    assert overview.activity[1].status == "Configuration version 2"
+    assert all(item.occurred_at.tzinfo is UTC for item in overview.activity)

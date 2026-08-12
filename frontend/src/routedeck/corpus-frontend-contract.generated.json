@@ -87,8 +87,7 @@
         "builder.pause",
         "builder.stop",
         "builder.delete",
-        "agents.open_sandbox",
-        "evaluation.generate_set"
+        "agents.open_sandbox"
       ],
       "route_template": "/agents/builds",
       "surfaces": {
@@ -152,6 +151,7 @@
       "id": "designer.home",
       "operation_ids": [
         "designer.propose",
+        "designer.generate_feature",
         "designer.customize",
         "designer.approve",
         "designer.request_build",
@@ -245,7 +245,8 @@
       "operation_ids": [
         "lounge.open_product_help",
         "lounge.arrival.open_registration",
-        "lounge.arrival.open_sign_in"
+        "lounge.arrival.open_sign_in",
+        "lounge.continue_to_workspace"
       ],
       "route_template": "/",
       "surfaces": {
@@ -487,6 +488,8 @@
         "sources.test_api_connection",
         "sources.save_api_operation_curation",
         "sources.prepare_routed_api_test",
+        "sources.create_api_route_plan",
+        "sources.continue_api_route_plan",
         "sources.test_routed_api_read",
         "sources.test_routed_api_write",
         "sources.propose_contract_revision",
@@ -657,6 +660,10 @@
             "maxLength": 16,
             "minLength": 16,
             "type": "string"
+          },
+          "pending_source_ready": {
+            "const": true,
+            "type": "boolean"
           },
           "pending_source_revision_id": {
             "maxLength": 16,
@@ -836,6 +843,10 @@
             "minLength": 16,
             "type": "string"
           },
+          "pending_source_ready": {
+            "const": true,
+            "type": "boolean"
+          },
           "pending_source_revision_id": {
             "maxLength": 16,
             "minLength": 16,
@@ -933,13 +944,6 @@
           "id": "delete",
           "operation": {
             "id": "builder.delete"
-          }
-        },
-        {
-          "event": "submit",
-          "id": "generate_evaluation_set",
-          "operation": {
-            "id": "evaluation.generate_set"
           }
         },
         {
@@ -1153,6 +1157,13 @@
           "id": "propose",
           "operation": {
             "id": "designer.propose"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "generate_feature",
+          "operation": {
+            "id": "designer.generate_feature"
           }
         },
         {
@@ -1408,6 +1419,13 @@
           "id": "open_registration",
           "operation": {
             "id": "lounge.arrival.open_registration"
+          }
+        },
+        {
+          "event": "open",
+          "id": "continue_to_workspace",
+          "operation": {
+            "id": "lounge.continue_to_workspace"
           }
         }
       ],
@@ -1712,6 +1730,20 @@
         },
         {
           "event": "submit",
+          "id": "create_api_route_plan",
+          "operation": {
+            "id": "sources.create_api_route_plan"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "continue_api_route_plan",
+          "operation": {
+            "id": "sources.continue_api_route_plan"
+          }
+        },
+        {
+          "event": "submit",
           "id": "process_api",
           "operation": {
             "id": "sources.process_api"
@@ -1793,6 +1825,14 @@
               "inspect"
             ],
             "type": "string"
+          },
+          "attached_source_revision_id": {
+            "maxLength": 16,
+            "minLength": 16,
+            "type": "string"
+          },
+          "attachment_update_available": {
+            "type": "boolean"
           },
           "form_handle": {
             "const": "sources-api-connection",
@@ -1896,6 +1936,20 @@
       "affordances": [
         {
           "event": "submit",
+          "id": "create_api_route_plan",
+          "operation": {
+            "id": "sources.create_api_route_plan"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "continue_api_route_plan",
+          "operation": {
+            "id": "sources.continue_api_route_plan"
+          }
+        },
+        {
+          "event": "submit",
           "id": "run_routed_api_read",
           "operation": {
             "id": "sources.test_routed_api_read"
@@ -1918,6 +1972,16 @@
           "open": {
             "const": true,
             "type": "boolean"
+          },
+          "source_id": {
+            "maxLength": 16,
+            "minLength": 16,
+            "type": "string"
+          },
+          "source_revision_id": {
+            "maxLength": 16,
+            "minLength": 16,
+            "type": "string"
           }
         },
         "type": "object"
@@ -2152,6 +2216,12 @@
       "outcome": "opened",
       "source": "lounge.home",
       "target": "lounge.sign_in"
+    },
+    {
+      "operation_id": "lounge.continue_to_workspace",
+      "outcome": "opened",
+      "source": "lounge.home",
+      "target": "workspace.home"
     },
     {
       "operation_id": "lounge.product_help.return_to_lounge",
@@ -2412,6 +2482,12 @@
       "target": "designer.home"
     },
     {
+      "operation_id": "designer.generate_feature",
+      "outcome": "generated",
+      "source": "designer.home",
+      "target": "designer.home"
+    },
+    {
       "operation_id": "designer.customize",
       "outcome": "customized",
       "source": "designer.home",
@@ -2455,7 +2531,7 @@
     },
     {
       "operation_id": "builder.assemble",
-      "outcome": "assembled",
+      "outcome": "queued",
       "source": "builder.home",
       "target": "builder.home"
     },
@@ -2486,12 +2562,6 @@
     {
       "operation_id": "builder.delete",
       "outcome": "removed",
-      "source": "builder.home",
-      "target": "builder.home"
-    },
-    {
-      "operation_id": "evaluation.generate_set",
-      "outcome": "queued",
       "source": "builder.home",
       "target": "builder.home"
     },
@@ -2816,6 +2886,18 @@
     {
       "operation_id": "sources.prepare_routed_api_test",
       "outcome": "opened",
+      "source": "sources.api",
+      "target": "sources.api"
+    },
+    {
+      "operation_id": "sources.create_api_route_plan",
+      "outcome": "planned",
+      "source": "sources.api",
+      "target": "sources.api"
+    },
+    {
+      "operation_id": "sources.continue_api_route_plan",
+      "outcome": "continued",
       "source": "sources.api",
       "target": "sources.api"
     },

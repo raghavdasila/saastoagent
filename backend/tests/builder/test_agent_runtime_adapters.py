@@ -91,6 +91,44 @@ def test_selected_clarification_operation_must_belong_to_one_exact_build_binding
         )
 
 
+def test_runtime_router_projects_each_operation_candidate_once(tmp_path):
+    graph = tmp_path / "graph"
+    graph.mkdir()
+    (graph / "semantic_graph.json").write_text(
+        '{"nodes":['
+        '{"endpoint_id":"store:GetProductTagsId","facets":{"operation_id":"GetProductTagsId"}},'
+        '{"endpoint_id":"store:GetProductTypesId","facets":{"operation_id":"GetProductTypesId"}}'
+        ']}',
+        encoding="utf-8",
+    )
+
+    class DuplicateRankedEngine(EngineProbe):
+        def retrieve(self, **values):
+            self.values = values
+            tags, types = values["allowed_endpoint_ids"]
+            return SimpleNamespace(
+                decision_type="ASK_DISAMBIGUATE",
+                decision_reason="multiple_candidates",
+                missing_inputs=(),
+                steps=(SimpleNamespace(ranked_items=(
+                    SimpleNamespace(item_id=tags, score=0.7),
+                    SimpleNamespace(item_id=tags, score=0.6),
+                    SimpleNamespace(item_id=types, score=0.5),
+                    SimpleNamespace(item_id=types, score=0.4),
+                )),),
+            )
+
+    result = CorpusToolRouterPort(
+        DuplicateRankedEngine(), Bindings(str(tmp_path))
+    ).route(SimpleNamespace(content_hash="build-hash"), "product taxonomy", {})
+
+    assert tuple(candidate.operation_id for candidate in result.candidates) == (
+        "GetProductTagsId",
+        "GetProductTypesId",
+    )
+    assert tuple(candidate.score for candidate in result.candidates) == (0.7, 0.5)
+
+
 def test_sandbox_clarification_candidates_receive_exact_compiled_navgraph_titles():
     build = SimpleNamespace(compiled_navgraph={
         "nodes": [{

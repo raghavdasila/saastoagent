@@ -590,6 +590,53 @@ class LoungeNavigationHandler:
         )
 
 
+@dataclass(frozen=True)
+class AuthenticatedLoungeNavigationHandler:
+    account: LoungeAccountGateway
+    operation_id: str
+
+    async def __call__(
+        self,
+        arguments: Mapping[str, Any],
+        context: ExecutionContext,
+    ) -> OperationOutcome:
+        if arguments:
+            return _failure(
+                context,
+                self.operation_id,
+                code="invalid_arguments",
+                message="This operation does not accept public arguments.",
+                kind=FailureKind.CONTRACT,
+                phase="argument_validation",
+            )
+        if context.source is not OperationSource.SURFACE:
+            return _failure(
+                context,
+                self.operation_id,
+                code="surface_required",
+                message="Continue through the visible Lounge surface.",
+                kind=FailureKind.CONTRACT,
+                phase="source_validation",
+            )
+        try:
+            await self.account.require_owner_for_route(context.session_id)
+        except LoungeSessionUnavailable:
+            return _failure(
+                context,
+                self.operation_id,
+                code="authentication_required",
+                message="Sign in before continuing to Workspace.",
+                kind=FailureKind.STATE_CONFLICT,
+                phase="owner_context",
+                delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
+                http_status=401,
+            )
+        return OperationOutcome(
+            outcome="opened",
+            delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
+        )
+
+
 async def _limit(
     limiter,
     context,
@@ -662,6 +709,7 @@ def _failure(
 
 
 __all__ = [
+    "AuthenticatedLoungeNavigationHandler",
     "AuthenticateOwnerHandler",
     "ChangeOwnerPasswordHandler",
     "ConfirmOwnerEmailHandler",

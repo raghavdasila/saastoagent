@@ -40,6 +40,9 @@ class AgentRunnableBuild(Base):
     navgraph_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     compiled_navgraph: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
     frontend_contract: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    job_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("durable_jobs.id", ondelete="SET NULL"), nullable=True, unique=True
+    )
     failure_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
     failure_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

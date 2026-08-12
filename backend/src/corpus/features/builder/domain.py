@@ -79,3 +79,4 @@ class BuilderRecord:
     created_at: datetime
     updated_at: datetime
     attempt_number: int = 1
+    job_id: uuid.UUID | None = None

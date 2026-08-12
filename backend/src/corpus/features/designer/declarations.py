@@ -7,7 +7,7 @@ from corpus.auth.contracts import OWNER_CONTEXT_PROVIDER
 from corpus.shared.schemas import EMPTY_OBJECT_SCHEMA
 
 from . import policies
-from .schemas import CustomizeDesignArguments, DesignerAgentArguments, RequestBuildArguments, ReviewDesignArguments
+from .schemas import CustomizeDesignArguments, DesignerAgentArguments, GenerateFeatureArguments, RequestBuildArguments, ReviewDesignArguments
 
 
 DESIGN_CURRENT_PROVIDER = ContextProvider(
@@ -46,14 +46,16 @@ def _operation(operation_id, title, description, outcome, schema, *, review=Revi
     )
 
 
-PROPOSE_DESIGN = _operation("designer.propose", "Propose agent design", "Append a proposal from exact selected Agent and Source curation inputs.", "proposed", DesignerAgentArguments.model_json_schema(), policy_refs=(policies.EXACT_INPUTS.ref, policies.IMMUTABLE_REVISIONS.ref))
+PROPOSE_DESIGN = _operation("designer.propose", "Propose agent design", "Create the initial proposal from the exact selected Agent and Source curation inputs when no proposal exists. Do not substitute feature-delta generation for this first proposal.", "proposed", DesignerAgentArguments.model_json_schema(), policy_refs=(policies.EXACT_INPUTS.ref, policies.IMMUTABLE_REVISIONS.ref))
+GENERATE_FEATURE = _operation("designer.generate_feature", "Generate feature proposal", "Append one ordinary owner-described behavior to an existing current immutable proposal as a reviewable design delta grounded in exact Source semantic groups and curated operations. Never use this operation to create the initial proposal.", "generated", GenerateFeatureArguments.model_json_schema(), policy_refs=(policies.EXACT_INPUTS.ref, policies.IMMUTABLE_REVISIONS.ref, policies.DESIGN_BOUNDARY.ref))
 CUSTOMIZE_DESIGN = _operation("designer.customize", "Save design customization", "Append one next immutable proposal revision.", "customized", CustomizeDesignArguments.model_json_schema(), policy_refs=(policies.EXACT_INPUTS.ref, policies.IMMUTABLE_REVISIONS.ref))
-APPROVE_DESIGN = _operation("designer.approve", "Approve agent design", "Accept the reviewed exact current proposal without starting a build.", "accepted", ReviewDesignArguments.model_json_schema(), review=ReviewPolicy.REQUIRED, metadata={"review_surface_id": "designer.review"}, current_provider=True, policy_refs=(policies.EXACT_REVIEW.ref,))
+APPROVE_DESIGN = _operation("designer.approve", "Approve agent design", "Stage durable review for the exact current proposal without accepting it. Only a separate explicit owner confirmation accepts that reviewed revision; acceptance never starts a build.", "accepted", ReviewDesignArguments.model_json_schema(), review=ReviewPolicy.REQUIRED, metadata={"review_surface_id": "designer.review"}, current_provider=True, policy_refs=(policies.EXACT_REVIEW.ref,))
 REQUEST_BUILD = _operation("designer.request_build", "Request agent build", "Append one pending build request for the exact accepted design revision.", "requested", RequestBuildArguments.model_json_schema(), policy_refs=(policies.EXACT_BUILD_REQUEST.ref, policies.DESIGN_BOUNDARY.ref))
 RETURN_TO_AGENT = _operation("designer.return_to_agent", "Return to selected Agent", "Continue the selected Agent's current task in its operations hub without changing Designer state. Use this legal navigation when another Agent area owns the user's requested work; reaching the hub is not task completion.", "opened", DesignerAgentArguments.model_json_schema())
 
 DESIGNER_OPERATION_IDS = (
     PROPOSE_DESIGN.id,
+    GENERATE_FEATURE.id,
     CUSTOMIZE_DESIGN.id,
     APPROVE_DESIGN.id,
     REQUEST_BUILD.id,

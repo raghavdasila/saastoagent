@@ -1,10 +1,12 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type {
   AgentChatClient,
+  AgentHistoryTurn,
   RouteDeckConversationClient,
   RouteDeckDispatchResult,
 } from "@routedeck/core";
 import { defineRouteDeckSurfaceRegistry } from "@routedeck/react";
+import { useState } from "react";
 import { expect, it, vi } from "vitest";
 
 import { AgentShell, CorpusReviewRequiredNotice } from "../app/AgentShell";
@@ -28,6 +30,26 @@ const testRegistry = defineRouteDeckSurfaceRegistry({
   "test.active": () => <section>Framework active surface</section>,
   "test.detail": () => <section>Framework detail surface</section>,
 });
+
+function RemountableAgentShell({ client }: { client: AgentChatClient }) {
+  const [conversation, setConversation] = useState<readonly AgentHistoryTurn[]>([]);
+  const [mounted, setMounted] = useState(true);
+  return (
+    <>
+      <button type="button" onClick={() => setMounted((current) => !current)}>
+        {mounted ? "Unmount chat" : "Remount chat"}
+      </button>
+      {mounted ? (
+        <AgentShell
+          registry={testRegistry}
+          client={client}
+          initialConversation={conversation}
+          onConversationSynchronized={setConversation}
+        />
+      ) : null}
+    </>
+  );
+}
 
 it("does not resume an entry request that already has a finalized assistant turn", async () => {
   const projection = frameworkProjectionFixture();
@@ -106,6 +128,49 @@ it("recovers the authoritative conversation when an adopted entry run becomes id
   expect(screen.queryByRole("button", { name: "Stop response" })).not.toBeInTheDocument();
   expect(screen.getByText("Workspace is ready.", { exact: true })).toBeVisible();
   expect(loadConversation).toHaveBeenCalledTimes(2);
+  harness.dispose();
+});
+
+it("preserves a recovered Lounge article when RouteDeck Back remounts the shell", async () => {
+  const active = frameworkProjectionFixture();
+  active.interaction = {
+    phase: "active",
+    owner: "chat",
+    request_id: "lounge-arrival",
+  };
+  const loungeHistory = [{
+    turn_id: "assistant-lounge-arrival",
+    request_id: "lounge-arrival",
+    role: "assistant" as const,
+    content: "Welcome to Corpus. I can help you understand the product.",
+  }];
+  const client = {
+    ...idleChatClient,
+    async loadConversation() {
+      return loungeHistory;
+    },
+  } as AgentChatClient;
+  const harness = await renderRouteDeckComponent(
+    <RemountableAgentShell client={client} />,
+    { contract: frameworkContractFixture(), projection: active },
+  );
+
+  const idle = frameworkProjectionFixture();
+  idle.session_version = 2;
+  idle.projection_version = 2;
+  harness.client.setProjection(idle);
+  await act(async () => {
+    await harness.store.resync();
+  });
+  await waitFor(() => {
+    expect(screen.getByText(loungeHistory[0].content)).toBeVisible();
+  });
+
+  fireEvent.click(screen.getByRole("button", { name: "Unmount chat" }));
+  expect(screen.queryByText(loungeHistory[0].content)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Remount chat" }));
+
+  expect(screen.getByText(loungeHistory[0].content)).toBeVisible();
   harness.dispose();
 });
 

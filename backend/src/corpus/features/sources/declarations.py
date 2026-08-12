@@ -19,9 +19,11 @@ from . import policies
 from .contracts import API_CONNECTION_FORM_ID
 from .schemas import (
     ApproveContractRevisionArguments,
+    ContinueCurrentApiRoutePlanArguments,
     GraphStageArguments,
     ProposeContractRevisionArguments,
     ProcessApiSourceArguments,
+    PrepareCurrentApiRoutePlanArguments,
     OpenApiSourceArguments,
     OpenApiDescriptionArguments,
     RetrySourceArguments,
@@ -90,6 +92,25 @@ SELECTED_API_SOURCE_PROVIDER = ContextProvider(
                     "type": "string",
                     "minLength": 16,
                     "maxLength": 16,
+                },
+                "return_agent_ref": {"type": "string", "minLength": 1},
+                "agent_handoff_mode": {
+                    "type": "string",
+                    "enum": ["create", "inspect"],
+                },
+                "attached_source_revision_id": {
+                    "type": "string",
+                    "minLength": 16,
+                    "maxLength": 16,
+                },
+                "attachment_update_available": {"type": "boolean"},
+                "return_context": {
+                    "type": "string",
+                    "enum": ["agent", "builder"],
+                },
+                "initial_workspace": {
+                    "type": "string",
+                    "enum": ["graph", "operations", "connection", "agent", "description"],
                 },
             },
             "dependentRequired": {
@@ -279,7 +300,12 @@ SELECT_GRAPH_STAGE = operation(
 INSPECT_CURRENT_API = operation(
     "sources.inspect_current_api",
     "Inspect current API architecture",
-    "Read the one exact current ready API Source, its semantic groups, operations, saved profile count, and current curation before choosing a follow-up action.",
+    (
+        "Read the one exact current ready API Source, its semantic groups, operations, saved "
+        "profile count, and current curation before choosing a follow-up action. Use this only "
+        "after readiness is already established; never call it after queued or running analysis "
+        "as a readiness check."
+    ),
     "inspected",
     safety_class=SafetyClass.STATE_SELECTION,
     sources=frozenset({OperationSource.AGENT}),
@@ -369,6 +395,54 @@ PREPARE_ROUTED_API_TEST = operation(
     "Open a non-executing route-planning surface for the current Source context.",
     "opened",
     safety_class=SafetyClass.STATE_SELECTION,
+    additional_provider_refs=(SELECTED_API_SOURCE_PROVIDER.ref,),
+    policy_refs=(policies.API_ROUTE_PLANNING_TRUTH.ref,),
+)
+ROUTE_PLAN_PUBLIC_OUTCOME_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "state": {
+            "type": "string",
+            "enum": ["ready", "needs_input", "needs_operation_choice", "not_routable"],
+        },
+        "question": {"type": ["string", "null"]},
+        "choices": {"type": "array", "items": {"type": "string"}},
+        "missing_inputs": {"type": "array", "items": {"type": "string"}},
+        "method": {"type": ["string", "null"]},
+        "path": {"type": ["string", "null"]},
+    },
+    "required": ["state", "question", "choices", "missing_inputs", "method", "path"],
+    "additionalProperties": False,
+}
+CREATE_API_ROUTE_PLAN = operation(
+    "sources.create_api_route_plan",
+    "Plan routed API request",
+    (
+        "Prepare a non-executing ToolRouter plan for the owner's ordinary API request using "
+        "the exact selected ready Source, current saved operation selection, and saved profile. "
+        "Supply only explicitly known non-secret inputs; never invent Source, revision, profile, "
+        "operation, credential, or conversation identities."
+    ),
+    "planned",
+    input_schema=PrepareCurrentApiRoutePlanArguments.model_json_schema(),
+    outcome_schema=ROUTE_PLAN_PUBLIC_OUTCOME_SCHEMA,
+    safety_class=SafetyClass.DRAFT,
+    additional_provider_refs=(SELECTED_API_SOURCE_PROVIDER.ref,),
+    policy_refs=(policies.API_ROUTE_PLANNING_TRUTH.ref,),
+)
+CONTINUE_API_ROUTE_PLAN = operation(
+    "sources.continue_api_route_plan",
+    "Answer routed API clarification",
+    (
+        "Continue the one current conversation-bound waiting API plan with the owner's ordinary "
+        "non-secret answer. Corpus resolves the exact plan, expected record, missing input or "
+        "user-facing operation choice server-side; never request or supply an internal plan ID."
+    ),
+    "continued",
+    input_schema=ContinueCurrentApiRoutePlanArguments.model_json_schema(),
+    outcome_schema=ROUTE_PLAN_PUBLIC_OUTCOME_SCHEMA,
+    safety_class=SafetyClass.DRAFT,
+    additional_provider_refs=(SELECTED_API_SOURCE_PROVIDER.ref,),
     policy_refs=(policies.API_ROUTE_PLANNING_TRUTH.ref,),
 )
 OPAQUE_PLAN_ID_SCHEMA = {
@@ -448,6 +522,7 @@ APPROVE_CONTRACT_REVISION = operation(
         ),
     ),
     review_policy=ReviewPolicy.REQUIRED,
+    additional_provider_refs=(SELECTED_API_SOURCE_PROVIDER.ref,),
     guard_refs=(CONTRACT_REVISION_CURRENT_GUARD.ref,),
     policy_refs=(policies.CONTRACT_REVISION_TRUTH.ref,),
     public_metadata={"review_surface_id": "sources.contract_revision_review"},
@@ -470,6 +545,8 @@ __all__ = [
     "DELETE_API_SOURCE",
     "SOURCE_DELETE_CURRENT_GUARD",
     "PREPARE_ROUTED_API_TEST",
+    "CREATE_API_ROUTE_PLAN",
+    "CONTINUE_API_ROUTE_PLAN",
     "PROCESS_API",
     "TEST_ROUTED_API_READ",
     "TEST_ROUTED_API_WRITE",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -9,13 +10,16 @@ import pytest
 from corpus.features.builder.domain import BuilderInputSnapshot, BuilderRecord, BuilderSourceBinding, RuntimeBuildArtifact
 from corpus.features.builder.ports import BuilderConflict
 from corpus.features.builder.service import BuilderService
+from corpus.features.builder.schemas import build_runtime_lifecycle_arguments
+from routedeck_core.contracts.operations import OperationSource
+from corpus.jobs.domain import DurableJobRecord, DurableJobState
 from corpus.features.sandbox.domain import RuntimeSandboxRun, SandboxRecord
 from corpus.features.sandbox.ports import SandboxRunFailed
 from corpus.features.sandbox.service import SandboxService
 from corpus.features.sandbox.operations import sandbox_tool_observation
 
 
-def build_record(*, status="assembling", runtime_hash=None, bindings=()):
+def build_record(*, status="queued", runtime_hash=None, bindings=()):
     now = datetime.now(UTC)
     return BuilderRecord(
         uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), 3,
@@ -45,6 +49,9 @@ class BuilderRepo:
             self.value.created_at, datetime.now(UTC),
         )
         return self.value
+    async def link_job(self, _owner, _build, job_id):
+        self.value = replace(self.value, job_id=job_id)
+        return self.value
     async def fail(self, *_args, **_kwargs): raise AssertionError("unexpected failure")
     async def get_for_agent(self, *_): return (self.value,)
     async def get(self, *_): return self.value
@@ -68,6 +75,66 @@ class Inputs:
     async def snapshot(self, *_): return self.value
 
 
+@pytest.mark.asyncio
+async def test_builder_agent_lifecycle_resolves_only_exact_current_build_after_async_completion():
+    current = build_record(status="ready", runtime_hash="a" * 64)
+    stale = replace(
+        build_record(status="ready", runtime_hash="b" * 64),
+        organization_id=current.organization_id,
+        agent_id=current.agent_id,
+        build_request_id=uuid.uuid4(),
+    )
+    failed_prior_attempt = replace(
+        current,
+        id=uuid.uuid4(),
+        status="failed",
+        runtime_build_hash=None,
+        attempt_number=current.attempt_number - 1 if current.attempt_number > 1 else 1,
+    )
+    current = replace(current, attempt_number=failed_prior_attempt.attempt_number + 1)
+
+    arguments = build_runtime_lifecycle_arguments(
+        {"agent_ref": "agent-current", "build_id": str(stale.id)},
+        OperationSource.AGENT,
+    )
+    assert arguments.agent_ref == "agent-current"
+    assert arguments.build_id is None
+    surface = build_runtime_lifecycle_arguments(
+        {"agent_ref": "agent-current", "build_id": str(stale.id)},
+        OperationSource.SURFACE,
+    )
+    assert surface.build_id == stale.id
+    with pytest.raises(ValueError, match="selected build"):
+        build_runtime_lifecycle_arguments(
+            {"agent_ref": "agent-current"},
+            OperationSource.SURFACE,
+        )
+
+    class CurrentInputs:
+        async def current_build_request_id(self, organization_id, agent_id):
+            assert (organization_id, agent_id) == (
+                current.organization_id,
+                current.agent_id,
+            )
+            return current.build_request_id
+
+    class CurrentRepository(BuilderRepo):
+        async def get_for_agent(self, *_):
+            return (current, failed_prior_attempt, stale)
+
+    service = BuilderService(
+        CurrentRepository(current),
+        CurrentInputs(),
+        BuildRuntime(),
+        Agents(),
+    )
+
+    assert await service.current_build_id(
+        current.organization_id,
+        current.agent_id,
+    ) == current.id
+
+
 class BuildRuntime:
     async def assemble(self, snapshot):
         return RuntimeBuildArtifact(
@@ -79,9 +146,58 @@ class BuildRuntime:
         assert runtime_build_hash == "a" * 64
 
 
+class InitialEvaluations:
+    def __init__(self): self.scheduled = None
+    async def schedule_initial_set(self, organization_id, agent_id, *, build_id):
+        self.scheduled = (organization_id, agent_id, build_id)
+
+
+class Jobs:
+    def __init__(self): self.enqueued = None
+    async def enqueue(self, **values):
+        self.enqueued = values
+        now = datetime.now(UTC)
+        return DurableJobRecord(
+            uuid.uuid4(), values["owner_id"], values["job_type"],
+            DurableJobState.QUEUED, values["payload"], 0, values["max_attempts"],
+            None, None, None, now, now, None, None,
+        )
+
+
+@pytest.mark.asyncio
+async def test_builder_request_queues_exact_attempt_without_inline_assembly():
+    pending = build_record(status="queued")
+    repository = BuilderRepo(pending)
+    runtime = BuildRuntime()
+    service = BuilderService(repository, Inputs(None), runtime, Agents())
+    jobs = Jobs()
+    service.bind_assembly_jobs(jobs)
+
+    result = await service.assemble(
+        pending.organization_id,
+        pending.agent_id,
+        build_request_id=pending.build_request_id,
+    )
+
+    assert result.status == "queued"
+    assert result.job_id is not None
+    assert jobs.enqueued == {
+        "owner_id": pending.organization_id,
+        "job_type": "builder.assemble",
+        "payload": {
+            "agent_id": str(pending.agent_id),
+            "build_id": str(pending.id),
+            "build_request_id": str(pending.build_request_id),
+            "design_revision_id": str(pending.design_revision_id),
+            "attempt_number": pending.attempt_number,
+        },
+        "max_attempts": 1,
+    }
+
+
 @pytest.mark.asyncio
 async def test_builder_persists_exact_runtime_binding_and_historical_lineage(tmp_path: Path):
-    pending = build_record()
+    pending = build_record(status="running")
     binding = BuilderSourceBinding(
         "source-000000001", "revision-0000001", "curation-0000001", "f" * 64,
         ("GetProductTypes",), tmp_path / "artifacts", tmp_path / "openapi.json", "6" * 64,
@@ -98,8 +214,17 @@ async def test_builder_persists_exact_runtime_binding_and_historical_lineage(tmp
     )
     agents, repository = Agents(), BuilderRepo(pending)
     service = BuilderService(repository, Inputs(snapshot), BuildRuntime(), agents)
+    initial_evaluations = InitialEvaluations()
+    service.bind_initial_evaluation_scheduler(initial_evaluations)
 
-    result = await service.assemble_current(pending.organization_id, pending.agent_id)
+    result = await service.execute_assembly(
+        pending.organization_id,
+        pending.agent_id,
+        build_id=pending.id,
+        expected_build_request_id=pending.build_request_id,
+        expected_design_revision_id=pending.design_revision_id,
+        expected_attempt_number=pending.attempt_number,
+    )
 
     assert result.status == "ready"
     assert result.runtime_lifecycle == "stopped"
@@ -107,6 +232,9 @@ async def test_builder_persists_exact_runtime_binding_and_historical_lineage(tmp
     assert result.source_bindings[0].profile_id == "profile-00000001"
     assert result.source_bindings[0].credential_version == 2
     assert agents.lineage[2]["source_references"] == (("source-000000001", "revision-0000001"),)
+    assert initial_evaluations.scheduled == (
+        pending.organization_id, pending.agent_id, pending.id
+    )
 
 
 class ReadyBuilds:

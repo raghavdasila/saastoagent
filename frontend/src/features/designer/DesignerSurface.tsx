@@ -21,6 +21,7 @@ export function DesignerSurface({ dispatchAffordance, props, agentStore, client,
   const selected = useMemo(() => agents.agents.find((item) => item.id === agents.selectedId) ?? null, [agents.agents, agents.selectedId]);
   const [view, setView] = useState<AgentDesignView | null>(null);
   const [draft, setDraft] = useState<DesignContent | null>(null);
+  const [featureDescription, setFeatureDescription] = useState("");
   const [designLoaded, setDesignLoaded] = useState(false);
   const [attachmentsLoaded, setAttachmentsLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -103,6 +104,29 @@ export function DesignerSurface({ dispatchAffordance, props, agentStore, client,
     }
   }
 
+  async function generateFeature() {
+    if (
+      selectedRef === null
+      || selected === null
+      || view === null
+      || featureDescription.trim().length < 8
+    ) return;
+    setBusy(true); setError(null);
+    try {
+      const result = await dispatchAffordance("generate_feature", {
+        agent_ref: selectedRef,
+        expected_revision_id: view.current_revision_id,
+        description: featureDescription.trim(),
+      });
+      const failure = completedOutcome(result, "generated");
+      if (failure !== null) setError(failure);
+      else {
+        await refresh();
+        setFeatureDescription("");
+      }
+    } catch (caught) { setError(message(caught)); } finally { setBusy(false); }
+  }
+
   async function continueToBuilds() {
     if (selectedRef === null) return;
     setBusy(true); setError(null);
@@ -183,6 +207,14 @@ export function DesignerSurface({ dispatchAffordance, props, agentStore, client,
             topology={topologyCurrent ? savedRevision!.topology : null}
             sourceInputs={view.revisions.at(-1)?.source_inputs ?? []}
           />
+          <section className="designer-home__generator" aria-labelledby="designer-generator-title">
+            <div><p>Describe the next behavior</p><h2 id="designer-generator-title">Generate a feature proposal</h2><span>Corpus will use this Agent's exact Source intelligence and already-selected API operations. The result remains a draft until you approve it.</span></div>
+            <Field>
+              <FieldLabel htmlFor="designer-feature-description">Feature or behavior</FieldLabel>
+              <Textarea id="designer-feature-description" value={featureDescription} onChange={(event) => setFeatureDescription(event.target.value)} placeholder="For example: answer product category questions, ask when the request is ambiguous, and never invent results." />
+            </Field>
+            <Button type="button" disabled={busy || !view.current_inputs_match || featureDescription.trim().length < 8} onClick={() => void generateFeature()}>Generate design proposal</Button>
+          </section>
           <details className="designer-home__editor"><summary>Customize the Agent goal, behaviors, and policies</summary><FieldGroup>
             <Field><FieldLabel htmlFor="designer-goal">Goal</FieldLabel><Input id="designer-goal" value={draft.goal} onChange={(event) => setDraft({ ...draft, goal: event.target.value })} /></Field>
             <Field><FieldLabel htmlFor="designer-instructions">Instructions</FieldLabel><Textarea id="designer-instructions" value={draft.instructions} onChange={(event) => setDraft({ ...draft, instructions: event.target.value })} /></Field>

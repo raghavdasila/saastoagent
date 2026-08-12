@@ -14,7 +14,7 @@ from corpus.features.agents.declarations import (
 )
 
 from .contracts import DESIGNER_HOME_REF
-from .declarations import APPROVE_DESIGN, CUSTOMIZE_DESIGN, DESIGN_CURRENT_PROVIDER, PROPOSE_DESIGN, REQUEST_BUILD, RETURN_TO_AGENT
+from .declarations import APPROVE_DESIGN, CUSTOMIZE_DESIGN, DESIGN_CURRENT_PROVIDER, GENERATE_FEATURE, PROPOSE_DESIGN, REQUEST_BUILD, RETURN_TO_AGENT
 from . import policies
 from .policies import DESIGNER_POLICIES
 
@@ -31,6 +31,7 @@ DESIGNER_HOME_SURFACE = Surface(
     }),
     affordances=(
         SurfaceAffordance(id="propose", event="submit", operation=PROPOSE_DESIGN.ref),
+        SurfaceAffordance(id="generate_feature", event="submit", operation=GENERATE_FEATURE.ref),
         SurfaceAffordance(id="customize", event="submit", operation=CUSTOMIZE_DESIGN.ref),
         SurfaceAffordance(id="approve", event="submit", operation=APPROVE_DESIGN.ref),
         SurfaceAffordance(id="request_build", event="submit", operation=REQUEST_BUILD.ref),
@@ -58,7 +59,7 @@ DESIGNER_REVIEW_SURFACE = Surface(
 DESIGNER_AUTHORING = Capability(
     id="designer.authoring",
     title="Propose, customize, approve, and request an Agent build",
-    operations=(PROPOSE_DESIGN.ref, CUSTOMIZE_DESIGN.ref, APPROVE_DESIGN.ref, REQUEST_BUILD.ref, OPEN_ATTACHED_SOURCE.ref, OPEN_AGENT_BUILDS.ref, RETURN_TO_AGENT.ref),
+    operations=(PROPOSE_DESIGN.ref, GENERATE_FEATURE.ref, CUSTOMIZE_DESIGN.ref, APPROVE_DESIGN.ref, REQUEST_BUILD.ref, OPEN_ATTACHED_SOURCE.ref, OPEN_AGENT_BUILDS.ref, RETURN_TO_AGENT.ref),
     surfaces=(DESIGNER_HOME_SURFACE.ref, DESIGNER_REVIEW_SURFACE.ref),
     policy_refs=tuple(item.ref for item in DESIGNER_POLICIES[1:6]),
 )
@@ -77,9 +78,10 @@ def create_designer_feature(
         route=Route(template="/agents/designer", deep_link_policy=DeepLinkPolicy.SESSION_BOUND),
         context_providers=(OWNER_CONTEXT_PROVIDER, DESIGN_CURRENT_PROVIDER),
         entity_providers=(AGENT_ENTITY_PROVIDER,),
-        operations=(PROPOSE_DESIGN, CUSTOMIZE_DESIGN, APPROVE_DESIGN, REQUEST_BUILD, OPEN_ATTACHED_SOURCE, OPEN_AGENT_BUILDS, RETURN_TO_AGENT),
+        operations=(PROPOSE_DESIGN, GENERATE_FEATURE, CUSTOMIZE_DESIGN, APPROVE_DESIGN, REQUEST_BUILD, OPEN_ATTACHED_SOURCE, OPEN_AGENT_BUILDS, RETURN_TO_AGENT),
         outgoing=(
             Transition(operation=PROPOSE_DESIGN.ref, outcome="proposed", target=DESIGNER_HOME_REF),
+            Transition(operation=GENERATE_FEATURE.ref, outcome="generated", target=DESIGNER_HOME_REF),
             Transition(operation=CUSTOMIZE_DESIGN.ref, outcome="customized", target=DESIGNER_HOME_REF),
             Transition(operation=APPROVE_DESIGN.ref, outcome="accepted", target=DESIGNER_HOME_REF),
             Transition(operation=REQUEST_BUILD.ref, outcome="requested", target=DESIGNER_HOME_REF),

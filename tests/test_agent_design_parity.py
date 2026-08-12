@@ -545,6 +545,18 @@ def _mixed_current_action_manifest():
     return manifest
 
 
+def _planned_direct_manifest():
+    manifest = _planned_manifest()
+    planned = manifest["designOnlyMappings"]["Planned API"][
+        "plannedOperationMappings"
+    ][0]
+    planned["operations"] = {"Test routed API operation": "demo.run"}
+    planned["suggestedActions"] = {}
+    planned["plannedContracts"] = {}
+    planned.pop("currentContracts", None)
+    return manifest
+
+
 def test_agent_design_parity_accepts_matching_shape_and_scopes() -> None:
     assert check_parity(_design_state(), _manifest(), _compiled_app()) == []
 
@@ -665,6 +677,33 @@ def test_agent_design_parity_accepts_truthful_uncompiled_planned_variants() -> N
         )
         == []
     )
+
+
+def test_agent_design_parity_accepts_compiled_direct_operation_in_design_only_mapping() -> None:
+    assert check_parity(
+        _planned_design_state(),
+        _planned_direct_manifest(),
+        _compiled_app(),
+    ) == []
+
+
+def test_agent_design_parity_rejects_unknown_direct_operation_in_design_only_mapping() -> None:
+    manifest = _planned_direct_manifest()
+    planned = manifest["designOnlyMappings"]["Planned API"][
+        "plannedOperationMappings"
+    ][0]
+    planned["operations"]["Test routed API operation"] = "demo.missing"
+
+    with pytest.raises(ParityInputError, match="must reference a compiled operation"):
+        check_parity(_planned_design_state(), manifest, _compiled_app())
+
+
+def test_agent_design_parity_rejects_direct_operation_source_drift() -> None:
+    design = _planned_design_state()
+    design["features"][1]["stories"][0]["operations"][0]["availableThrough"] = "chat"
+
+    with pytest.raises(ParityInputError, match="must match the Studio invocation path"):
+        check_parity(design, _planned_direct_manifest(), _compiled_app())
 
 
 def test_agent_design_parity_checks_suggestion_for_mixed_current_action() -> None:

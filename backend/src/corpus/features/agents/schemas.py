@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from routedeck_core.contracts.operations import OperationSource
 
 from .domain import (
     AgentDependencySnapshot,
     AgentBuildLineageRecord,
     AgentLifecycle,
     AgentRecord,
+    AgentProductOverview,
     AgentSourceAttachmentRecord,
 )
 
@@ -54,14 +57,48 @@ class OpenAgentCreationArguments(BaseModel):
 class AttachSourceArguments(BaseModel):
     model_config = ConfigDict(extra="forbid")
     agent_ref: str = Field(min_length=1, max_length=64)
-    source_id: str | None = Field(default=None, min_length=16, max_length=16)
-    source_revision_id: str | None = Field(default=None, min_length=16, max_length=16)
+    source_id: str | None = Field(
+        default=None,
+        min_length=16,
+        max_length=16,
+        description=(
+            "Surface-selected Source identity. Agent calls omit this value and use the exact "
+            "current pending Source resolved by Corpus."
+        ),
+    )
+    source_revision_id: str | None = Field(
+        default=None,
+        min_length=16,
+        max_length=16,
+        description=(
+            "Surface-selected API version. Agent calls omit this value and use the exact current "
+            "pending API version resolved by Corpus."
+        ),
+    )
 
     @model_validator(mode="after")
     def _revision_requires_source(self) -> "AttachSourceArguments":
         if self.source_revision_id is not None and self.source_id is None:
             raise ValueError("An exact API version requires its Source.")
         return self
+
+
+def attach_source_arguments(
+    arguments: Mapping[str, Any],
+    source: OperationSource,
+) -> AttachSourceArguments:
+    values = dict(arguments)
+    if source is OperationSource.AGENT:
+        # Source identity is server-owned for an agent call. The agent selects
+        # the bound Agent; the exact pending Source/revision comes from the
+        # current RouteDeck provider context (or the service's unique eligible
+        # Source rule), never from model-restated historical identifiers.
+        values = {
+            key: values[key]
+            for key in ("agent_ref",)
+            if key in values
+        }
+    return AttachSourceArguments.model_validate(values)
 
 
 class DetachSourceArguments(BaseModel):
@@ -201,8 +238,31 @@ class AgentBuildLineageListView(BaseModel):
     builds: tuple[AgentBuildLineageView, ...]
 
 
+class AgentProductOverviewView(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    agent_id: uuid.UUID
+    agent_version: int = Field(ge=1)
+    source_count: int = Field(ge=0)
+    design_status: Literal["missing", "draft", "accepted"]
+    design_revision: int | None = Field(default=None, ge=1)
+    build_status: str | None
+    build_runtime_lifecycle: str | None
+    evaluation_status: str | None
+    evaluation_case_count: int = Field(ge=0)
+    evaluation_eligible: bool | None
+    delivery_status: Literal["none", "channel_only", "deploying", "live", "disabled", "failed"]
+    hosted_path: str | None
+    operations_count: int = Field(ge=0)
+    next_step: str
+
+    @classmethod
+    def from_model(cls, value: AgentProductOverview) -> "AgentProductOverviewView":
+        return cls.model_validate(value, from_attributes=True)
+
+
 __all__ = [
     "AgentListView",
+    "AgentProductOverviewView",
     "AgentBuildLineageListView",
     "AgentBuildLineageView",
     "AgentBuildSourceReferenceView",
@@ -212,6 +272,7 @@ __all__ = [
     "AgentSourceAttachmentView",
     "AgentView",
     "AttachSourceArguments",
+    "attach_source_arguments",
     "DetachSourceArguments",
     "AgentLifecycleArguments",
     "CreateAgentArguments",

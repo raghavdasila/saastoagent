@@ -7,7 +7,7 @@ import { AgentsHomeSurface } from "../features/agents/AgentsHomeSurface";
 import { AgentLifecycleReviewSurface } from "../features/agents/AgentLifecycleReviewSurface";
 import { CreateAgentSurface } from "../features/agents/CreateAgentSurface";
 import type { AgentClient } from "../features/agents/client";
-import type { AgentView } from "../features/agents/models";
+import type { AgentProductOverviewView, AgentView } from "../features/agents/models";
 import { AgentStore } from "../features/agents/store";
 import type { SourceClient } from "../features/sources/sourceClient";
 import {
@@ -64,7 +64,28 @@ function storeWith(list: ReturnType<typeof vi.fn>) {
       build_ids: [],
       blocks_delete: false,
     })),
+    productOverview: vi.fn(async () => productOverview()),
   } as unknown as AgentClient);
+}
+
+function productOverview(overrides: Partial<AgentProductOverviewView> = {}): AgentProductOverviewView {
+  return {
+    agent_id: agent().id,
+    agent_version: 1,
+    source_count: 2,
+    design_status: "accepted",
+    design_revision: 3,
+    build_status: "ready",
+    build_runtime_lifecycle: "running",
+    evaluation_status: "eligible",
+    evaluation_case_count: 2,
+    evaluation_eligible: true,
+    delivery_status: "live",
+    hosted_path: "/store-taxonomy",
+    operations_count: 4,
+    next_step: "Inspect deployed interaction evidence in Operations.",
+    ...overrides,
+  };
 }
 
 const sourceClient = {
@@ -99,6 +120,7 @@ it("keeps exact selected-agent context across the operations hub and immutable b
         }],
       }],
     })),
+    productOverview: vi.fn(async () => productOverview()),
   } as unknown as AgentClient;
   const store = new AgentStore(client);
   const dispatch = vi.fn(async (affordance: string) => completed(`agents.${affordance}`, "opened"));
@@ -125,6 +147,29 @@ it("keeps exact selected-agent context across the operations hub and immutable b
       source_revision_id: "revision-ready01",
     },
   ));
+});
+
+
+it("renders the authoritative selected-Agent lifecycle without collapsing owning modules", async () => {
+  const selected = agent();
+  const agentRef = `agent-${selected.id.replaceAll("-", "").slice(0, 20)}`;
+  const store = storeWith(vi.fn(async () => ({ agents: [selected] })));
+  render(
+    <AgentsHomeSurface
+      {...props("agents.home", vi.fn(), { selected_agent_ref: agentRef })}
+      store={store}
+      sourceClient={sourceClient}
+    />,
+  );
+
+  const overview = await screen.findByRole("region", { name: "Selected Agent product overview" });
+  expect(overview).toHaveTextContent("2 attached");
+  expect(overview).toHaveTextContent("accepted · revision 3");
+  expect(overview).toHaveTextContent("ready · running");
+  expect(overview).toHaveTextContent("eligible · 2 cases · eligible");
+  expect(overview).toHaveTextContent("live · /store-taxonomy");
+  expect(overview).toHaveTextContent("Public interactions4");
+  expect(overview).toHaveTextContent("Inspect deployed interaction evidence in Operations.");
 });
 
 

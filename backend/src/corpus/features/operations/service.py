@@ -81,6 +81,9 @@ class OperationsService:
                 input_summary=current.initial.input_summary,
                 output_summary=current.latest.output_summary,
                 status=current.latest.status,
+                evaluation_case_id=await self.evaluation.promoted_operations_case_id(
+                    organization_id, current.initial.interaction_id
+                ),
                 events=tuple(OperationsEventView(
                     sequence=int(item["sequence"]), kind=str(item["kind"]),
                     safe_data=dict(item.get("safe_data", {})),

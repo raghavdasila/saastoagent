@@ -22,6 +22,7 @@ from .declarations import (
     OPEN_CREATE,
     OPEN_EXISTING_AGENT_FOR_SOURCE,
     PENDING_SOURCE_CONTEXT_PROVIDER,
+    SELECTED_AGENT_OVERVIEW_PROVIDER,
     OPEN_SOURCE_CREATION,
     RETURN_FROM_SOURCE,
     RETURN_TO_AGENT_HUB,
@@ -49,12 +50,14 @@ from .operations import (
 from .guards import ArchiveCurrentGuard, DeleteDependenciesGuard
 from .ports import AgentOwnerScopeGateway
 from .service import AgentService
-from .providers import PendingSourceProvider, SelectedAgentProvider
+from .overview import AgentProductOverviewService
+from .providers import PendingSourceProvider, SelectedAgentOverviewProvider, SelectedAgentProvider
 
 
 def create_agents_bindings(
     service: AgentService,
     owner_scope: AgentOwnerScopeGateway,
+    overview_service: AgentProductOverviewService | None = None,
 ) -> FeatureBindings:
     return FeatureBindings(
         handlers={
@@ -85,6 +88,9 @@ def create_agents_bindings(
         providers={
             AGENT_ENTITY_PROVIDER.ref: SelectedAgentProvider(),
             PENDING_SOURCE_CONTEXT_PROVIDER.ref: PendingSourceProvider(),
+            SELECTED_AGENT_OVERVIEW_PROVIDER.ref: SelectedAgentOverviewProvider(
+                overview_service, owner_scope
+            ),
         },
         guards={
             ARCHIVE_CURRENT_GUARD.ref: ArchiveCurrentGuard(service, owner_scope),

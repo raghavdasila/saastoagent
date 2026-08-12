@@ -59,7 +59,7 @@ from .ports import (
 )
 from .schemas import (
     AgentLifecycleArguments,
-    AttachSourceArguments,
+    attach_source_arguments,
     DetachSourceArguments,
     CreateAgentArguments,
     OpenAgentChoiceForSourceArguments,
@@ -253,7 +253,7 @@ class AttachSourceHandler:
 
     async def __call__(self, arguments: Mapping[str, Any], context: ExecutionContext) -> OperationOutcome:
         try:
-            payload = AttachSourceArguments.model_validate(dict(arguments))
+            payload = attach_source_arguments(arguments, context.source)
             organization_id = await self.owner_scope.organization_id_for_route(context.session_id)
             agent_id = uuid.UUID(context.private_entity_id("agent_ref"))
             await self.service.get(organization_id, agent_id)
@@ -344,16 +344,29 @@ class OpenExistingAgentForSourceHandler:
                 payload.source_id,
                 payload.source_revision_id,
             )
+            selected_agent = await self.service.one_agent_attached_to_source(
+                organization_id,
+                source.source_id,
+            )
         except (ValidationError, ValueError) as error:
             return _failure(context, OPEN_EXISTING_AGENT_FOR_SOURCE.id, "invalid_source_choice", str(error), FailureKind.CONTRACT)
         except AgentSourceAttachmentUnavailable as error:
             return _failure(context, OPEN_EXISTING_AGENT_FOR_SOURCE.id, "source_unavailable", str(error), FailureKind.BUSINESS)
         except AgentOwnerScopeUnavailable as error:
             return _failure(context, OPEN_EXISTING_AGENT_FOR_SOURCE.id, "authentication_required", str(error), FailureKind.STATE_CONFLICT)
-        return _success(
-            "opened",
-            effects=_pending_source_open_effects("agents.home", source),
-        )
+        if selected_agent is None:
+            effects = _pending_source_open_effects("agents.home", source)
+        else:
+            effects = _agent_surface_effects(
+                f"agent-{selected_agent.id.hex[:20]}",
+                str(selected_agent.id),
+                pending_source=(
+                    source.source_id,
+                    source.source_revision_id,
+                    source.display_name,
+                ),
+            )
+        return _success("opened", effects=effects)
 
 
 @dataclass(frozen=True)
@@ -494,10 +507,17 @@ class ReturnFromSourceHandler:
                 raise ValueError("An exact selected Agent is required.")
             organization_id = await self.owner_scope.organization_id_for_route(context.session_id)
             await self.service.get(organization_id, uuid.UUID(context.private_entity_id("agent_ref")))
+            pending_source = await _selected_source_update_pending(
+                self.service,
+                organization_id,
+                context,
+            )
         except (ValueError, KeyError) as error:
             return _failure(context, RETURN_FROM_SOURCE.id, "invalid_agent_selection", str(error), FailureKind.CONTRACT)
         except AgentNotFound as error:
             return _failure(context, RETURN_FROM_SOURCE.id, "agent_unavailable", str(error), FailureKind.BUSINESS)
+        except AgentSourceAttachmentUnavailable as error:
+            return _failure(context, RETURN_FROM_SOURCE.id, "source_unavailable", str(error), FailureKind.BUSINESS)
         except AgentOwnerScopeUnavailable as error:
             return _failure(context, RETURN_FROM_SOURCE.id, "authentication_required", str(error), FailureKind.STATE_CONFLICT)
         return _success(
@@ -505,6 +525,7 @@ class ReturnFromSourceHandler:
             effects=_agent_surface_effects(
                 agent_ref,
                 context.private_entity_id("agent_ref"),
+                pending_source=pending_source,
             ),
         )
 
@@ -559,7 +580,6 @@ class OpenAgentAreaHandler:
                         "builder.pause",
                         "builder.stop",
                         "builder.delete",
-                        "evaluation.generate_set",
                         OPEN_ATTACHED_SOURCE.id,
                         OPEN_AGENT_SANDBOX.id,
                     ),
@@ -655,6 +675,13 @@ def _source_surface_effects(
         shared_values.append(PublicValue(name="selected_source_id", value=FrozenJson(source_id)))
     if source_revision_id is not None:
         shared_values.append(PublicValue(name="selected_source_revision_id", value=FrozenJson(source_revision_id)))
+        if mode == "inspect":
+            shared_values.append(
+                PublicValue(
+                    name="attached_source_revision_id",
+                    value=FrozenJson(source_revision_id),
+                )
+            )
     surface_id = "sources.api_intake" if mode == "create" else "sources.api"
     surface_values = [
         *shared_values,
@@ -674,6 +701,19 @@ def _source_surface_effects(
                 agent_ref,
                 private_agent_id,
                 allowed_operation_ids,
+                public_values=(
+                    (
+                        PublicValue(name="attached_source_id", value=FrozenJson(source_id)),
+                        PublicValue(
+                            name="attached_source_revision_id",
+                            value=FrozenJson(source_revision_id),
+                        ),
+                    )
+                    if mode == "inspect"
+                    and source_id is not None
+                    and source_revision_id is not None
+                    else ()
+                ),
             ),
         ),
         surface_updates=(
@@ -707,6 +747,36 @@ def _pending_source(context: ExecutionContext) -> tuple[str, str, str] | None:
     return source_id, revision_id, display_name
 
 
+async def _selected_source_update_pending(
+    service: AgentService,
+    organization_id: uuid.UUID,
+    context: ExecutionContext,
+) -> tuple[str, str, str] | None:
+    provider_values = getattr(context, "provider_values", None)
+    if provider_values is None:
+        return None
+    values = provider_values.to_dict().get("sources.selected_api_source", {})
+    if not isinstance(values, dict) or values.get("attachment_update_available") is not True:
+        return None
+    source_id = values.get("source_id")
+    revision_id = values.get("source_revision_id")
+    if (
+        not isinstance(source_id, str)
+        or len(source_id) != 16
+        or not isinstance(revision_id, str)
+        or len(revision_id) != 16
+    ):
+        raise AgentSourceAttachmentUnavailable(
+            "The newer ready Source version is unavailable for Agent handoff."
+        )
+    source = await service.exact_ready_source(
+        organization_id,
+        source_id,
+        revision_id,
+    )
+    return source.source_id, source.source_revision_id, source.display_name
+
+
 def _pending_source_values(
     pending_source: tuple[str, str, str] | None,
 ) -> list[PublicValue]:
@@ -717,6 +787,7 @@ def _pending_source_values(
         PublicValue(name="pending_source_id", value=FrozenJson(source_id)),
         PublicValue(name="pending_source_revision_id", value=FrozenJson(revision_id)),
         PublicValue(name="pending_source_display_name", value=FrozenJson(display_name)),
+        PublicValue(name="pending_source_ready", value=FrozenJson(True)),
     ]
 
 
@@ -784,6 +855,7 @@ def _designer_surface_effects(agent_ref: str, private_agent_id: str) -> SessionE
                 private_agent_id,
                 (
                     "designer.propose",
+                    "designer.generate_feature",
                     "designer.customize",
                     "designer.approve",
                     "designer.request_build",
@@ -830,12 +902,17 @@ def _agent_binding_effect(
     agent_ref: str,
     private_agent_id: str,
     allowed_operation_ids: tuple[str, ...],
+    public_values: tuple[PublicValue, ...] = (),
 ) -> EntityKindEffects:
     return EntityKindEffects(
         entity_kind="agent",
         bindings=(
             EntityBindingEffect(
-                public=PublicEntityHandle(entity_kind="agent", handle=agent_ref),
+                public=PublicEntityHandle(
+                    entity_kind="agent",
+                    handle=agent_ref,
+                    values=public_values,
+                ),
                 private_id=SecretStr(private_agent_id),
                 allowed_operation_ids=allowed_operation_ids,
             ),

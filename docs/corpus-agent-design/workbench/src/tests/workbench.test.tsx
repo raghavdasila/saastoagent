@@ -120,7 +120,7 @@ describe("RouteDeck Agent Design Studio", () => {
     expect(screen.getByRole("button", { name: "Lounge 8" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Workspace 6" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Agents 13" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Agent Designer 7" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Agent Designer 8" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Source Hub 5" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "API Source 10" })).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: /^Ask Lounge for product help/ }))

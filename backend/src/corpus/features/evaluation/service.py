@@ -37,6 +37,47 @@ class EvaluationService:
         self.generation_jobs = generation_jobs
         self.run_jobs = run_jobs
 
+    async def schedule_initial_set(
+        self,
+        organization_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        *,
+        build_id: uuid.UUID,
+    ) -> None:
+        current = await self.list(organization_id, agent_id)
+        existing = next(
+            (
+                value
+                for value in current.evaluation_sets
+                if value.build_id == build_id and value.name == "Generated coverage"
+            ),
+            None,
+        )
+        if existing is not None:
+            return
+        try:
+            await self.generate_set(
+                organization_id,
+                agent_id,
+                build_id=build_id,
+                set_name="Generated coverage",
+                categories=("paraphrase",),
+            )
+        except EvaluationUnavailable:
+            current = await self.list(organization_id, agent_id)
+            failed = next(
+                (
+                    value
+                    for value in current.evaluation_sets
+                    if value.build_id == build_id
+                    and value.name == "Generated coverage"
+                    and value.generation_status == "failed"
+                ),
+                None,
+            )
+            if failed is None:
+                raise
+
     async def generate_set(
         self,
         organization_id: uuid.UUID,
@@ -302,6 +343,8 @@ class EvaluationService:
         self,
         organization_id: uuid.UUID,
         agent_id: uuid.UUID,
+        *,
+        case_origin: str | None = None,
     ) -> EvaluationCollectionView:
         pending = tuple(
             case
@@ -312,13 +355,19 @@ class EvaluationService:
             if case.latest_status is None
             and not case.removed
             and (
+                case_origin is None
+                or (case_origin == "generated" and case.source_kind == "toolrouter")
+                or (case_origin == "sandbox" and case.source_kind == "sandbox")
+                or (case_origin == "operations" and case.source_kind == "operations")
+            )
+            and (
                 case.latest_run_attempt is None
                 or case.latest_run_attempt.status == "failed"
             )
         )
         if len(pending) != 1:
             raise EvaluationUnavailable(
-                "Run evaluation requires one exact pending evaluation case."
+                "Run evaluation requires one exact pending evaluation case for the requested origin."
             )
         return await self.queue_case(
             organization_id, agent_id, pending[0].id
@@ -429,6 +478,20 @@ class EvaluationService:
         )
         await self._mark_case_added(organization_id, agent_id, build)
         return await self.list(organization_id, agent_id)
+
+    async def promoted_operations_case_id(
+        self, organization_id: uuid.UUID, interaction_id: str,
+    ) -> uuid.UUID | None:
+        cases = await self.repository.cases_by_source(
+            organization_id,
+            source_kind="operations",
+            source_record_id=interaction_id,
+        )
+        if len(cases) > 1:
+            raise EvaluationConflict(
+                "The Operations interaction has conflicting Evaluation promotion lineage."
+            )
+        return cases[0].id if cases else None
 
     async def list(self, organization_id: uuid.UUID, agent_id: uuid.UUID) -> EvaluationCollectionView:
         sets = await self.repository.list_sets(organization_id, agent_id)

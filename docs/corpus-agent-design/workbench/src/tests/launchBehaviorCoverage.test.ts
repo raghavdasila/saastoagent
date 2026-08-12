@@ -8,6 +8,7 @@ const EXPECTED_BEHAVIORS: Readonly<Record<string, readonly string[]>> = {
   "agent-designer": [
     "agent-designer-resolve-source-inputs",
     "agent-designer-propose",
+    "agent-designer-generate-feature",
     "agent-designer-customize",
     "agent-designer-inspect-navgraph",
     "agent-designer-review",

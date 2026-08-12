@@ -34,7 +34,10 @@ CREATE_CASE = Operation(
 RUN_CASE = Operation(
     id="evaluation.run_case", title="Run evaluation case",
     description=(
-        "Queue one durable evaluation of the exact saved case and Agent build; preserve queued, "
+        "Queue one durable evaluation of the exact saved case and Agent build when the owner asks "
+        "to run, check, or evaluate it. In chat, resolve "
+        "ordinary references to the generated, Sandbox, or Operations-derived case only when that "
+        "origin has one exact pending match; surfaces supply the exact case. Preserve queued, "
         "running, failed, and terminal truth without changing the case or build."
     ),
     input_schema=FrozenJsonObject(RunEvaluationCaseArguments.model_json_schema()),

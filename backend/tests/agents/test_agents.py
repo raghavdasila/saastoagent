@@ -19,7 +19,11 @@ from corpus.features.agents.http import (
     create_agents_router,
 )
 from corpus.features.agents.guards import DeleteDependenciesGuard
-from corpus.features.agents.declarations import ARCHIVE_AGENT, DELETE_AGENT
+from corpus.features.agents.declarations import (
+    ARCHIVE_AGENT,
+    DELETE_AGENT,
+    OPEN_AGENT_SANDBOX,
+)
 from corpus.features.agents.domain import AgentLifecycle
 from corpus.features.agents.models import Agent, AgentSourceAttachment, AgentVersion
 from corpus.features.agents.operations import (
@@ -32,6 +36,7 @@ from corpus.features.agents.operations import (
     OpenExistingAgentForSourceHandler,
     OpenSourceCreationHandler,
     OpenAttachedSourceHandler,
+    ReturnFromSourceHandler,
     SaveAgentChangesHandler,
     SelectAgentHandler,
     _agent_surface_effects,
@@ -51,6 +56,7 @@ from corpus.features.agents.ports import (
     AttachableSource,
 )
 from corpus.features.agents.repository import SqlAlchemyAgentRepository
+from corpus.features.agents.providers import PendingSourceProvider
 from corpus.features.agents.schemas import (
     CreateAgentArguments,
     UpdateAgentArguments,
@@ -64,7 +70,7 @@ from routedeck_core.contracts.operations import (
     ReviewPolicy,
     SafetyClass,
 )
-from routedeck_core.contracts.projection import FrozenJsonObject
+from routedeck_core.contracts.projection import FrozenJson, FrozenJsonObject, PublicValue
 from routedeck_core.contracts.session import PrivateSessionState
 from routedeck_core.ports.executor import ResolvedEntityInput
 from routedeck_core.state.session import create_session
@@ -124,6 +130,46 @@ class SourceGatewayProbe:
         if source_revision_id != self.current_revision:
             raise AgentSourceAttachmentUnavailable("The attached Source revision is no longer current.")
         return current
+
+
+@pytest.mark.asyncio
+async def test_pending_source_provider_uses_only_the_active_agent_surface() -> None:
+    def surface(surface_id: str, revision_id: str) -> SimpleNamespace:
+        return SimpleNamespace(
+            surface_id=surface_id,
+            values=(
+                PublicValue(name="pending_source_id", value=FrozenJson("source-ready-001")),
+                PublicValue(name="pending_source_revision_id", value=FrozenJson(revision_id)),
+                PublicValue(name="pending_source_display_name", value=FrozenJson("Ready API")),
+            ),
+        )
+
+    context = SimpleNamespace(
+        session=SimpleNamespace(
+            current=SimpleNamespace(node_id="agents.home"),
+            public_state=SimpleNamespace(
+                surface_state=(
+                    surface("agents.create", "revision-ready01"),
+                    surface("agents.home", "revision-ready02"),
+                )
+            ),
+        )
+    )
+
+    result = await PendingSourceProvider()(context)
+
+    assert result.values.to_python() == {
+        "source_id": "source-ready-001",
+        "source_revision_id": "revision-ready02",
+        "display_name": "Ready API",
+    }
+
+
+def test_open_sandbox_navigation_does_not_substitute_for_starting_a_build_runtime() -> None:
+    description = OPEN_AGENT_SANDBOX.description.casefold()
+
+    assert "does not start, enable, or resume a stopped build runtime" in description
+    assert "separate build lifecycle action must complete first" in description
 
 async def _database(path: Path) -> tuple[CorpusDatabase, uuid.UUID, uuid.UUID]:
     database = CorpusDatabase(f"sqlite+aiosqlite:///{path.as_posix()}")
@@ -383,10 +429,8 @@ async def test_agent_operation_handlers_report_action_result_and_state_errors(
     tmp_path: Path,
 ) -> None:
     database, organization_id, _ = await _database(tmp_path / "operations.sqlite3")
-    service = AgentService(
-        SqlAlchemyAgentRepository(database),
-        SourceGatewayProbe(organization_id),
-    )
+    sources = SourceGatewayProbe(organization_id)
+    service = AgentService(SqlAlchemyAgentRepository(database), sources)
     scope = OwnerScopeProbe(organization_id)
     context = SimpleNamespace(
         session_id="owner-route",
@@ -429,6 +473,7 @@ async def test_agent_operation_handlers_report_action_result_and_state_errors(
             "pending_source_id": "source-ready-001",
             "pending_source_revision_id": "revision-ready01",
             "pending_source_display_name": "Ready API",
+            "pending_source_ready": True,
         }
         provider_values = FrozenJsonObject({
             "agents.pending_source": {
@@ -558,6 +603,7 @@ async def test_agent_operation_handlers_report_action_result_and_state_errors(
                 session_id="owner-route",
                 attempt_id="attach-source-attempt",
                 request_id="attach-source-request",
+                source=OperationSource.AGENT,
                 provider_values=provider_values,
                 private_entity_id=lambda argument_name: str(persisted.id),
             ),
@@ -567,6 +613,30 @@ async def test_agent_operation_handlers_report_action_result_and_state_errors(
         assert [(item.source_id, item.source_revision_id) for item in attached] == [
             ("source-ready-001", "revision-ready01")
         ]
+        sources.current_revision = "revision-ready02"
+        reopened_inventory = await OpenExistingAgentForSourceHandler(service, scope)(
+            {
+                "source_id": "source-ready-001",
+                "source_revision_id": "revision-ready02",
+            },
+            context,
+        )
+        reopened_binding = reopened_inventory.effects.replace_entities[0].bindings[0]
+        assert reopened_binding.public.handle == created_binding.public.handle
+        assert reopened_binding.private_id.get_secret_value() == str(persisted.id)
+        assert "agents.attach_source" in reopened_binding.allowed_operation_ids
+        assert {
+            item.name: item.value.to_python()
+            for item in reopened_inventory.effects.surface_updates[0].values
+        } == {
+            "selected_agent_ref": created_binding.public.handle,
+            "selected_agent_area": "hub",
+            "pending_source_id": "source-ready-001",
+            "pending_source_revision_id": "revision-ready02",
+            "pending_source_display_name": "Ready API",
+            "pending_source_ready": True,
+        }
+        sources.current_revision = "revision-ready01"
         opened_source = await OpenAttachedSourceHandler(service, scope)(
             {"agent_ref": created_binding.public.handle},
             SimpleNamespace(
@@ -590,14 +660,119 @@ async def test_agent_operation_handlers_report_action_result_and_state_errors(
             "agent_handoff_mode": "inspect",
             "selected_source_id": "source-ready-001",
             "selected_source_revision_id": "revision-ready01",
+            "attached_source_revision_id": "revision-ready01",
             "form_handle": "sources-api-connection",
             "mode": "inspect",
             "return_context": "agent",
             "initial_workspace": "graph",
         }
         source_binding = opened_source.effects.replace_entities[0].bindings[0]
+        assert {
+            item.name: item.value.to_python()
+            for item in source_binding.public.values
+        } == {
+            "attached_source_id": "source-ready-001",
+            "attached_source_revision_id": "revision-ready01",
+        }
         assert "agents.return_from_source" in source_binding.allowed_operation_ids
         assert set(source_binding.allowed_operation_ids) == {"agents.return_from_source"}
+
+        sources.current_revision = "revision-ready02"
+        returned = await ReturnFromSourceHandler(service, scope)(
+            {"agent_ref": created_binding.public.handle},
+            SimpleNamespace(
+                session_id="owner-route",
+                provider_values=FrozenJsonObject(
+                    {
+                        "sources.selected_api_source": {
+                            "source_id": "source-ready-001",
+                            "source_revision_id": "revision-ready02",
+                            "attached_source_revision_id": "revision-ready01",
+                            "attachment_update_available": True,
+                        }
+                    }
+                ),
+                private_entity_id=lambda argument_name: str(persisted.id),
+            ),
+        )
+        assert returned.outcome == "opened"
+        returned_values = {
+            item.name: item.value.to_python()
+            for item in returned.effects.surface_updates[0].values
+        }
+        assert returned_values == {
+            "selected_agent_ref": created_binding.public.handle,
+            "selected_agent_area": "hub",
+            "pending_source_id": "source-ready-001",
+            "pending_source_revision_id": "revision-ready02",
+            "pending_source_display_name": "Ready API",
+            "pending_source_ready": True,
+        }
+        rejected_surface_substitution = await AttachSourceHandler(
+            service,
+            scope,
+            "agents.attach_source",
+        )(
+            {
+                "agent_ref": created_binding.public.handle,
+                "source_id": "source-ready-001",
+                "source_revision_id": "revision-ready01",
+            },
+            SimpleNamespace(
+                session_id="owner-route",
+                attempt_id="reject-surface-substitution-attempt",
+                request_id="reject-surface-substitution-request",
+                source=OperationSource.SURFACE,
+                provider_values=FrozenJsonObject(
+                    {
+                        "agents.pending_source": {
+                            "source_id": returned_values["pending_source_id"],
+                            "source_revision_id": returned_values["pending_source_revision_id"],
+                            "display_name": returned_values["pending_source_display_name"],
+                        }
+                    }
+                ),
+                private_entity_id=lambda argument_name: str(persisted.id),
+            ),
+        )
+        assert rejected_surface_substitution.outcome is None
+        assert rejected_surface_substitution.failure is not None
+        assert rejected_surface_substitution.failure.code == "invalid_source_attachment"
+
+        updated_attachment = await AttachSourceHandler(
+            service,
+            scope,
+            "agents.attach_source",
+        )(
+            {
+                "agent_ref": created_binding.public.handle,
+                # An agent can repeat stale IDs from earlier conversation history. The
+                # current server-provided pending Source remains authoritative.
+                "source_id": "source-ready-001",
+                "source_revision_id": "revision-ready01",
+            },
+            SimpleNamespace(
+                session_id="owner-route",
+                attempt_id="attach-updated-source-attempt",
+                request_id="attach-updated-source-request",
+                source=OperationSource.AGENT,
+                provider_values=FrozenJsonObject(
+                    {
+                        "agents.pending_source": {
+                            "source_id": returned_values["pending_source_id"],
+                            "source_revision_id": returned_values["pending_source_revision_id"],
+                            "display_name": returned_values["pending_source_display_name"],
+                        }
+                    }
+                ),
+                private_entity_id=lambda argument_name: str(persisted.id),
+            ),
+        )
+        assert updated_attachment.outcome == "attached"
+        assert [
+            (item.source_id, item.source_revision_id)
+            for item in (await service.list_source_attachments(organization_id, persisted.id)).attachments
+        ] == [("source-ready-001", "revision-ready02")]
 
         saved = await SaveAgentChangesHandler(service, scope)(
             {
@@ -785,6 +960,16 @@ def test_selected_agent_binding_keeps_every_horizontal_destination_available() -
         operation_ids=("builder.assemble",),
     )
     assert expected_navigation <= set(hub.replace_entities[0].bindings[0].allowed_operation_ids)
+    assert set(designer.replace_entities[0].bindings[0].allowed_operation_ids) == {
+        "designer.propose",
+        "designer.generate_feature",
+        "designer.customize",
+        "designer.approve",
+        "designer.request_build",
+        "agents.open_attached_source",
+        "agents.open_builds",
+        "designer.return_to_agent",
+    }
     assert "agents.return_to_hub" not in designer.replace_entities[0].bindings[0].allowed_operation_ids
     assert set(builder.replace_entities[0].bindings[0].allowed_operation_ids) == {
         "builder.assemble",

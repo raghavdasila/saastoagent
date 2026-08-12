@@ -267,7 +267,7 @@ function routedWritePlan() {
     state: "ready" as const,
     steps: [{
       query: "Create a cart",
-      ranked_operations: [{ operation_id: "CreateCart", endpoint_id: "medusa:CreateCart", score: 0.99 }],
+      ranked_operations: [{ operation_id: "CreateCart", operation_label: "Create Cart", endpoint_id: "medusa:CreateCart", score: 0.99 }],
       selected_operation_id: "CreateCart",
       method: "POST",
       path_template: "/store/carts",

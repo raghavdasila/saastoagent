@@ -1,3 +1,4 @@
+// Shared renderer worker ported from the proven Source Hub / ToolRouter visualizer.
 import Graph from "graphology";
 import { connectedComponents } from "graphology-components";
 import forceAtlas2 from "graphology-layout-forceatlas2";

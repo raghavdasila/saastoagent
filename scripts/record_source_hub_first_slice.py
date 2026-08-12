@@ -123,7 +123,9 @@ async def main() -> None:
                     definition=valid_path,
                     description=description_path,
                 )
-                await page.get_by_text("accepted", exact=True).first.wait_for(timeout=30_000)
+                await page.get_by_text("Ready to analyze", exact=True).first.wait_for(
+                    timeout=30_000
+                )
                 await page.get_by_text(
                     "The API definition is saved. Analysis has not started.",
                     exact=True,
@@ -195,8 +197,8 @@ async def main() -> None:
                 _record(
                     assertions,
                     "the complete persisted graph and construction replay are interactive",
-                    await page.locator("#semantic-groups-title").is_visible()
-                    and await page.locator("#graph-stage-title").is_visible()
+                    await graph.is_visible()
+                    and await playback.is_visible()
                     and final_counter != previous_counter,
                     {"finalCounter": final_counter, "previousCounter": previous_counter},
                 )

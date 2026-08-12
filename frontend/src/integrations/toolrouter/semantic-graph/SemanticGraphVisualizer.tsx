@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import type { ApiGraphView } from "./sourceClient";
+import type { ToolRouterSemanticGraph } from "./model";
 
 const NODE_STYLES: Readonly<Record<string, { color: string; size: number }>> = Object.freeze({
   api_operation: { color: "#2563eb", size: 7 },
@@ -48,7 +48,7 @@ export function SemanticGraphVisualizer({
   graph,
   selectedGroupId,
 }: {
-  graph: ApiGraphView;
+  graph: ToolRouterSemanticGraph;
   selectedGroupId: string | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -478,7 +478,7 @@ export function SemanticGraphVisualizer({
 }
 
 function birthIndex(
-  frames: ApiGraphView["trace"],
+  frames: ToolRouterSemanticGraph["trace"],
   field: "added_node_ids" | "added_edge_ids",
 ): ReadonlyMap<string, number> {
   const output = new Map<string, number>();

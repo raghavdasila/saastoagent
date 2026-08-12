@@ -14,6 +14,7 @@ from .ports import (
     AgentSourceAttachmentUnavailable,
 )
 from .service import AgentService
+from .overview import AgentProductOverviewService
 
 
 class AgentsHttpProblem(RuntimeError):
@@ -40,6 +41,7 @@ async def agents_problem_response(_request: Request, error: AgentsHttpProblem):
 def create_agents_router(
     service: AgentService,
     owner_scope: AgentOwnerScopeGateway,
+    overview_service: AgentProductOverviewService | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/agents", tags=["agents"])
 
@@ -86,6 +88,21 @@ def create_agents_router(
         organization_id = await _organization_id(request, owner_scope)
         try:
             result = await service.list_build_lineages(organization_id, agent_id)
+        except AgentNotFound as error:
+            raise AgentsHttpProblem(404, "agent_unavailable", str(error)) from error
+        return _json(result)
+
+    @router.get("/{agent_id}/product-overview")
+    async def get_agent_product_overview(agent_id: uuid.UUID, request: Request):
+        if overview_service is None:
+            raise AgentsHttpProblem(
+                503,
+                "agent_overview_unavailable",
+                "The selected-Agent product overview is unavailable.",
+            )
+        organization_id = await _organization_id(request, owner_scope)
+        try:
+            result = await overview_service.get(organization_id, agent_id)
         except AgentNotFound as error:
             raise AgentsHttpProblem(404, "agent_unavailable", str(error)) from error
         return _json(result)

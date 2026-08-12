@@ -27,7 +27,7 @@ x-runtime-environment: &runtime-environment
   CORPUS_TOOLROUTER_REVIEWER_MODEL: ${CORPUS_DOCKER_REVIEWER_MODEL:-qwen2.5-coder:7b}
   CORPUS_TOOLROUTER_EVALSET_TIMEOUT_SECONDS: "240"
   CORPUS_DATABASE_URL: sqlite+aiosqlite:////var/lib/corpus/corpus.sqlite3
-  CORPUS_MIGRATION_REVISION: 0018_deployment_lifecycle
+  CORPUS_MIGRATION_REVISION: 0019_builder_assembly_lifecycle
   CORPUS_JOB_QUEUE_PATH: /var/lib/corpus/corpus-jobs.sqlite3
   CORPUS_AUTH_ACCESS_TOKEN_MINUTES: "15"
   CORPUS_AUTH_IDLE_SESSION_DAYS: "7"

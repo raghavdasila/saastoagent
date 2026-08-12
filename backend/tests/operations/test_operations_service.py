@@ -28,8 +28,10 @@ class Lineage:
 
 
 class Evaluation:
-    def __init__(self): self.values = None
+    def __init__(self): self.values = None; self.promoted = {}
     async def create_case_from_operations(self, owner, agent, **values): self.values = (owner, agent, values); return "created"
+    async def promoted_operations_case_id(self, owner, interaction_id):
+        return self.promoted.get((owner, interaction_id))
 
 
 @pytest.mark.asyncio
@@ -47,10 +49,34 @@ async def test_owner_operations_projects_safe_trace_and_promotes_exact_runtime_r
 
     inventory = await service.list(owner)
     assert inventory.interactions[0].status == "completed"
+    assert inventory.interactions[0].evaluation_case_id is None
     assert inventory.interactions[0].events[0].safe_data["operation_id"] == "GetProductTypes"
     await service.promote(owner, interaction_id="interaction-1", set_name="Production", title="Taxonomy", category="operations", difficulty="medium", mandatory=True)
     assert evaluation.values[2]["runtime_run_id"] == "runtime-run"
     assert evaluation.values[2]["expected_operation_ids"] == ("GetProductTypes",)
+
+
+@pytest.mark.asyncio
+async def test_operations_projects_persisted_evaluation_promotion_after_reload():
+    owner, agent, build, deployment, case_id = (
+        uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    )
+    interaction = InteractionProjection(
+        "interaction-promoted", "public-session", "runtime-deployment",
+        "List product types", "Observed Apparel", "completed",
+        {"request_id": "runtime-run"},
+    )
+    lineage = OperationsLineage(agent, build, deployment, "runtime-run", ({
+        "sequence": 1, "kind": "api.result",
+        "safe_data": {"operation_id": "GetProductTypes", "status": "succeeded"},
+    },))
+    evaluation = Evaluation()
+    evaluation.promoted[(owner, interaction.interaction_id)] = case_id
+    service = OperationsService(Delivery(interaction), Lineage(owner, lineage), evaluation)
+
+    inventory = await service.list(owner)
+
+    assert inventory.interactions[0].evaluation_case_id == case_id
 
 
 @pytest.mark.asyncio

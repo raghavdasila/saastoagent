@@ -42,6 +42,7 @@ it("generates against the selected immutable build and exposes revisioned case m
     set_name: "Generated coverage", categories: ["paraphrase"],
   }));
   expect(screen.getByText("ToolRouter generated")).toBeVisible();
+  expect(screen.getByText("Draft coverage")).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Edit" }));
   fireEvent.change(screen.getByRole("textbox", { name: "Edit case title" }), { target: { value: "List product taxonomy" } });
   fireEvent.click(screen.getByRole("button", { name: "Save revision" }));
@@ -163,7 +164,7 @@ function setView(agentId: string, buildId: string): EvaluationSetView {
     cases: [{
       id: "8441f6a6-7958-4635-89bb-c3e020bc77f5", title: "List product types",
       message: "List every product type", source_kind: "toolrouter",
-      category: "paraphrase", difficulty: "easy", mandatory: true,
+      category: "paraphrase", difficulty: "easy", mandatory: false,
       expected_operation_ids: ["GetProductTypes"], current_revision: 1,
       removed: false, runnable: false, latest_status: null, latest_run_attempt: null,
     }],

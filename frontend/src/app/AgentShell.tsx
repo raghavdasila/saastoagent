@@ -47,6 +47,9 @@ export interface AgentShellProps {
   registry: RouteDeckSurfaceRegistry;
   client?: AgentChatClient;
   initialConversation?: readonly AgentHistoryTurn[];
+  onConversationSynchronized?: (
+    conversation: readonly AgentHistoryTurn[],
+  ) => void;
   onUploadApiSource?: (file: File) => Promise<ChatSourceUpload>;
 }
 
@@ -54,6 +57,7 @@ export function AgentShell({
   registry,
   client,
   initialConversation = [],
+  onConversationSynchronized,
   onUploadApiSource,
 }: AgentShellProps) {
   const activeRunRequestId = useRouteDeckSelector(selectActiveChatRequestId);
@@ -122,6 +126,7 @@ export function AgentShell({
       }
       observedActiveRun.current = null;
       setAuthoritativeConversation(conversation);
+      onConversationSynchronized?.(conversation);
       setRecoveryError(null);
       setPresentationGeneration((current) => current + 1);
     }).catch(() => {
@@ -132,7 +137,12 @@ export function AgentShell({
       }
     });
     return () => abort.abort();
-  }, [activeRunRequestId, chatClient, conversationStreamActive]);
+  }, [
+    activeRunRequestId,
+    chatClient,
+    conversationStreamActive,
+    onConversationSynchronized,
+  ]);
 
   return (
     <>

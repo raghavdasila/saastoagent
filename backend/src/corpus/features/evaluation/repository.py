@@ -299,6 +299,17 @@ class SqlAlchemyEvaluationRepository:
             ).order_by(AgentEvaluationCase.created_at))).all()
             return tuple(_case(value) for value in values)
 
+    async def cases_by_source(
+        self, organization_id, *, source_kind, source_record_id,
+    ):
+        async with self.database.session() as session:
+            values = (await session.scalars(select(AgentEvaluationCase).where(
+                AgentEvaluationCase.organization_id == organization_id,
+                AgentEvaluationCase.source_kind == source_kind,
+                AgentEvaluationCase.source_record_id == source_record_id,
+            ).order_by(AgentEvaluationCase.created_at))).all()
+            return tuple(_case(value) for value in values)
+
     async def add_run(self, organization_id, case, runtime):
         value = AgentEvaluationRun(
             id=uuid.uuid4(), organization_id=organization_id, case_id=case.id,

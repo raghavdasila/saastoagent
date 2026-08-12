@@ -5,6 +5,8 @@ from corpus.app.agent_product_runtime import create_agent_product_runtime
 from corpus.app.agents_adapters import CorpusAgentSourceGateway
 from corpus.features.agents.repository import SqlAlchemyAgentRepository
 from corpus.features.agents.service import AgentService
+from corpus.features.builder.execution import BuilderAssemblyProcessor
+from corpus.features.builder.tasks import register_builder_assembly_task
 from corpus.features.evaluation.execution import EvaluationRunProcessor
 from corpus.features.evaluation.generation import EvaluationGenerationProcessor
 from corpus.features.evaluation.repository import SqlAlchemyEvaluationRepository
@@ -23,6 +25,7 @@ from corpus.features.deployment.repository import SqlAlchemyDeploymentRepository
 from corpus.features.deployment.service import DeploymentService
 from corpus.features.deployment.tasks import register_deployment_task
 from corpus.integrations.agent_delivery import NeutralAgentDeliveryAdapter
+from corpus.jobs import HueyDurableJobPort
 from corpus.persistence import CorpusDatabase
 from corpus.runtime.config import CorpusRuntimeSettings
 
@@ -48,7 +51,7 @@ product_runtime = create_agent_product_runtime(
     agents=agents,
 )
 evaluation_repository = SqlAlchemyEvaluationRepository(database)
-register_evaluation_generation_task(
+evaluation_generation_task = register_evaluation_generation_task(
     huey,
     EvaluationGenerationProcessor(
         runtime.infrastructure.job_repository,
@@ -57,17 +60,41 @@ register_evaluation_generation_task(
         runtime.api_engine,
     ),
 )
+evaluation_jobs = HueyDurableJobPort(
+    runtime.infrastructure.job_repository,
+    huey,
+    evaluation_generation_task,
+)
+evaluation_service = EvaluationService(
+    evaluation_repository,
+    product_runtime.evaluation_runtime,
+    product_runtime.builder_service,
+    product_runtime.sandbox_service,
+    evaluation_jobs,
+)
+product_runtime.builder_service.bind_initial_evaluation_scheduler(
+    evaluation_service
+)
+builder_assembly_task = register_builder_assembly_task(
+    huey,
+    BuilderAssemblyProcessor(
+        runtime.infrastructure.job_repository,
+        product_runtime.builder_service,
+    ),
+)
+product_runtime.builder_service.bind_assembly_jobs(
+    HueyDurableJobPort(
+        runtime.infrastructure.job_repository,
+        huey,
+        builder_assembly_task,
+    )
+)
 register_evaluation_run_task(
     huey,
     EvaluationRunProcessor(
         runtime.infrastructure.job_repository,
         evaluation_repository,
-        EvaluationService(
-            evaluation_repository,
-            product_runtime.evaluation_runtime,
-            product_runtime.builder_service,
-            product_runtime.sandbox_service,
-        ),
+        evaluation_service,
     ),
 )
 delivery_store = CorpusLocalDeliveryStore(
