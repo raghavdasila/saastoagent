@@ -24,6 +24,8 @@ export function AgentLifecycleReviewSurface({
   async function decide(decision: "accept" | "reject") {
     setPending(decision);
     store.clearError();
+    const selectedId = selected?.id ?? null;
+    if (decision === "accept") store.clearSelection();
     try {
       const result = decision === "accept"
         ? await actions.accept(review.review_id)
@@ -41,6 +43,8 @@ export function AgentLifecycleReviewSurface({
         return;
       }
       if (decision === "accept" && selected !== null) {
+        await store.refresh();
+        store.select(selected.id);
         await store.refreshDependencies(selected.id);
       }
       store.reportError(
@@ -48,6 +52,11 @@ export function AgentLifecycleReviewSurface({
           "Corpus could not complete the Agent lifecycle review. Reload and try again.",
       );
     } catch {
+      if (decision === "accept" && selectedId !== null) {
+        await store.refresh().catch(() => undefined);
+        store.select(selectedId);
+        await store.refreshDependencies(selectedId).catch(() => undefined);
+      }
       store.reportError(
         "Corpus could not complete the Agent lifecycle review. Reload and try again.",
       );

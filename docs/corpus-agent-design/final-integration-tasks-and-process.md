@@ -677,7 +677,7 @@ journey. Tests remain proportional guards and cannot replace the deliverable.
 | **3 — Tested and eligible Agent — COMPLETED** | The real draft Agent has already been proven through visible ToolRouter clarification, zero-call waiting, one validated nonempty Medusa read, redacted trace, automatic exact-build ToolRouter evaluation generation, exact-build case execution, and deployment eligibility. | Builder runtime minimum; Sandbox; Evaluation generation/run/eligibility. | Accepted isolated run `20260811T153036Z-270ee701d6`: all 21 assertions are true and the corrected isolated verifier accepts 21/21; feature film `builder-sandbox-evaluation-maximized.webm` is 60.160 seconds at 1.0x with zero unexpected diagnostics. **Do not rerun this phase.** Evaluation CRUD/recovery breadth remains Phase 5. |
 | **4 — Deployed and observable Agent** | Create the hosted Web channel, deploy the eligible build through review, interact with the public Agent through clarification and one safe call, then inspect the exact interaction and promote it into Evaluation. | Channels minimum; first Deployment; public Agent; Operations inspection/promotion. | Check Channels, Deployment, public Agent, and Operations independently from retained identities. Capture public privacy, exact build/deployment/session lineage, read-only inspection, and one explicit promotion. Stop on unknown delivery, privacy leak, unintended promotion, or duplicate case. |
 | **5 — Operational lifecycle and recovery** | Complete the load-bearing lifecycle controls around the now-working Agent: Builder run/pause/stop/removal semantics and retry, Evaluation case CRUD/retry, Channel availability, Deployment failure/retry/second release/rollback/restart, plus exact lineage after recovery. | Builder lifecycle; Evaluation management; Channels availability; Deployment lifecycle. | Each module gets its own isolated check and short clip; destructive/reviewed actions use disposable records where required. Do not recreate the Source/Agent/design/build chain. Stop on ambiguous delete semantics, implicit retry, unknown external outcome, or lineage drift. |
-| **6 — Product breadth, shell, and truth reconciliation** | Finish non-blocking Agent/Source CRUD, Workspace routing/overview, Lounge/auth/history, chat focus/scroll, maximize/mobile behavior, then reconcile Studio, manifest, Corpus, authorized RouteDeck report, architecture, indexes, evidence, and run broad gates once. | Remaining Agents; remaining Sources; Workspace; Lounge; shared shell; all authority documents. | Feature checks remain isolated; broad automated gates run only after the usable breadth is complete. No full journey runs in this phase. At 60 minutes record any unfinished breadth or failed gate instead of extending the phase. |
+| **6 — Product breadth, shell, and truth reconciliation — COMPLETED** | Finish non-blocking Agent/Source CRUD, Workspace routing/overview, Lounge/auth/history, chat focus/scroll, maximize/mobile behavior, then reconcile Studio, manifest, Corpus, authorized RouteDeck report, architecture, indexes, evidence, and run broad gates once. | Remaining Agents; remaining Sources; Workspace; Lounge; shared shell; all authority documents. | Isolated Agent milestone `20260812T133737Z-790bea8d` proves edit/version, attach/detach, dependency guidance, archive reject/accept, and delete reject/accept in a 27.68-second normal-speed maximized film. Isolated Source run `20260812T134036Z-db4f8fab` proves description versioning, dependency-blocked delete, reject, and accepted disposable deletion in a 39.5-second normal-speed maximized film without analysis or an API call. Current authenticated Lounge/history desktop/mobile films remain the shell/auth acceptance. A real archive selection race was corrected in Corpus; focused Agent tests pass. Full chat/surface/hybrid journeys remain explicitly outside this phase and require the gate below. |
 
 #### Gate after Phase 6
 
@@ -689,11 +689,12 @@ rerun.
 
 #### Active phase queue after evidence reconciliation
 
-Only **Phases 4, 5, and 6** remain active. Phases 1, 2, and 3 are retained
-completed foundations and may be loaded only by their exact identities. A
-later regression can add a bounded correction to the owning active phase, but
-cannot reopen or replay the completed feature film unless its accepted product
-truth is actually invalidated.
+All six feature phases are accepted. They remain retained foundations and may
+be loaded only by their exact identities. A later regression can add a bounded
+correction to its owning phase, but cannot reopen or replay a completed feature
+film unless its accepted product truth is actually invalidated. The only next
+gate is the separately authorized final chat-only, surface-only, and hybrid
+journeys described above.
 
 #### Deferred product-language and surface-design gaps — 2026-08-12
 
@@ -854,6 +855,55 @@ truth is actually invalidated.
   accepted film uses the actual `POST /api/public/agents/{slug}/sessions`
   contract. Phase 5 did not replay Source, Designer, Sandbox, public-agent
   interaction, Operations, or any full chat journey.
+
+#### Phase 6 checkpoint — 2026-08-12
+
+- **Agent lifecycle breadth is accepted as an isolated milestone.** Parent run
+  `20260812T133737Z-790bea8d` remains failed because its later Source context
+  used an ambiguous recorder heading. Its completed Agent prefix is preserved
+  separately and fail-closed in `agent-milestone-result.json`: one disposable
+  Agent reached immutable configuration version 2, attached and detached the
+  exact retained ready Source revision, showed dependency-blocked deletion,
+  rejected and accepted archive, then rejected and accepted permanent deletion.
+  The 27.680s 1440x1000 normal-speed maximized film is
+  `artifacts/phase6-product-breadth/20260812T133737Z-790bea8d/phase6-agents-normal-speed.webm`
+  (SHA-256 `5406c28105708ff2c5b5a0dbc80de2c9a6f9650642e3ae3e075253ec220f8588`).
+- **A real archive-selection race was corrected.** Accepted archive/delete
+  could leave the removed Agent selected long enough for attachment,
+  dependency, build, and overview refreshes to return 404. Corpus now clears
+  selected detail state before accepted lifecycle execution and restores it
+  only when acceptance fails. The Agent surface suite passes 18/18 and the
+  full frontend suite passes 188/188.
+- **Source lifecycle breadth is accepted independently.** Run
+  `20260812T134036Z-db4f8fab` used the exact retained local Medusa definition
+  only as owner input, never analyzed it and never called the target API. It
+  showed deletion blocked for the retained Source with Agent/build lineage,
+  added a disposable accepted Source, saved separate Markdown description,
+  rejected its first deletion review, accepted a fresh deletion review, and
+  removed only that disposable Source. The 26.200s 1440x1000 normal-speed
+  maximized film is
+  `artifacts/phase6-product-breadth/20260812T134036Z-db4f8fab/phase6-sources-normal-speed.webm`
+  (SHA-256 `db0e4ae6a277e6e569577aa9acbd65a3ab17d682e21c928fb2c7ebd31515bce8`).
+  It has zero unexpected HTTP, console, or page diagnostics.
+- **Shell/auth/history retain current isolated acceptance.** Existing owner
+  desktop and 390x844 normal-speed films remain at
+  `artifacts/authenticated-lounge-history/20260811T151635748Z/`; they prove the
+  same owner/conversation and Lounge article across Workspace -> Back ->
+  owner-aware Lounge -> declared Continue to Workspace. Chat focus/stream
+  pinning/deliberate-scroll preservation and dock/maximize bounds remain green
+  in the current 188-test frontend suite.
+- **Broad gates are green.** Backend passes 510/510 with six known dependency
+  deprecation warnings. Frontend passes 35 files / 188 tests; strict typecheck
+  and production build pass with the existing >500kB chunk warning. Studio
+  parity, architecture boundaries, generated frontend contract currency,
+  manifest JSON, recorder compile, and whitespace checks pass. No RouteDeck
+  change was needed for Phase 6 and the user-owned Behavior Notes were not
+  modified.
+- **Retained setup/recorder failures remain failures.** The first Agent attempt
+  used the review-button label inside the lifecycle card; two Source attempts
+  used ambiguous names; and a later Agent-only attempt hit the fixed-hour
+  sign-in limiter before Workspace. None is reclassified or used as accepted
+  whole-run evidence. The two accepted module boundaries above are explicit.
 
 ### Phase 2 — close one feature at a time
 

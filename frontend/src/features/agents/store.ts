@@ -113,6 +113,18 @@ export class AgentStore {
     });
   }
 
+  clearSelection(): void {
+    if (this.state.selectedId === null) return;
+    this.replace({
+      ...this.state,
+      selectedId: null,
+      attachments: Object.freeze([]),
+      dependencies: null,
+      builds: Object.freeze([]),
+      productOverview: null,
+    });
+  }
+
   syncSelectionFromHandle(agentRef: string | null): void {
     if (agentRef === null) return;
     const selected = this.state.agents.find(

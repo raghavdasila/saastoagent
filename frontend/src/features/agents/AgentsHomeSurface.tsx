@@ -564,7 +564,7 @@ export function AgentsHomeSurface({
                 <p>Archive removes this Agent from the active inventory while preserving its record, configuration history, and Source attachments.</p>
                 <p>Permanent deletion is available only when the current dependency inspection is clear. It never detaches or cascades through dependencies.</p>
                 {snapshot.dependencies === null ? (
-                  <p role="status">Checking current deletion dependenciesâ€¦</p>
+                  <p role="status">Checking current deletion dependencies…</p>
                 ) : snapshot.dependencies.blocks_delete ? (
                   <p className="agent-lifecycle-blocker" role="status">
                     Delete blocked: {snapshot.dependencies.source_attachments.length} Source {snapshot.dependencies.source_attachments.length === 1 ? "attachment remains" : "attachments remain"}.
@@ -574,7 +574,7 @@ export function AgentsHomeSurface({
                 )}
                 <div>
                   <Button type="button" variant="outline" disabled={busy !== null || !exactSelectionBound} onClick={() => void requestLifecycleAction("archive")}>
-                    <Archive data-icon="inline-start" /> {busy === "archive" ? "Preparing reviewâ€¦" : "Archive Agent"}
+                    <Archive data-icon="inline-start" /> {busy === "archive" ? "Preparing review…" : "Archive Agent"}
                   </Button>
                   <Button
                     type="button"
@@ -582,7 +582,7 @@ export function AgentsHomeSurface({
                     disabled={busy !== null || !exactSelectionBound || snapshot.dependencies === null}
                     onClick={() => void requestLifecycleAction("delete")}
                   >
-                    <Trash2 data-icon="inline-start" /> {busy === "delete" ? "Preparing reviewâ€¦" : "Delete permanently"}
+                    <Trash2 data-icon="inline-start" /> {busy === "delete" ? "Preparing review…" : "Delete permanently"}
                   </Button>
                 </div>
               </section>

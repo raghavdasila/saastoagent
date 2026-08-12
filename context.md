@@ -1,13 +1,13 @@
 # Corpus Current Context
 
-Updated: 2026-08-10
+Updated: 2026-08-12
 
 ## Current State
 
 Corpus is the authoritative checkout. The horizontal Source -> Agent ->
 Designer -> Builder -> Sandbox -> Evaluation -> Channels/Deployment -> public
 session -> Operations launch baseline is implemented and accepted through
-independent ordinary-chat-only, surface-only, and hybrid evidence. The three
+independent ordinary-chat-only, surface-only, and hybrid baseline evidence. The three
 recordings are normal-speed and uncut; chat uses ordinary owner language and the
 hybrid run proves surface-completed state continuing through later chat.
 
@@ -37,17 +37,19 @@ Corpus-owned adapters. The user-owned
   Evaluation and deployed NavGraphs, Sandbox and public ToolRouter
   clarification, owner-only Operations evidence, restart persistence, and
   390x844 rendering.
-- Fresh backend: 421 passed with 6 dependency deprecation warnings.
-- Fresh frontend: 25 files / 121 passed; strict typecheck and production build
+- Fresh backend: 510 passed with 6 dependency deprecation warnings.
+- Fresh frontend: 35 files / 188 passed; strict typecheck and production build
   passed with the existing large-chunk warning.
 - Design Studio: 9 files / 58 passed; strict typecheck passed.
 - Generated contract, Studio parity, architecture boundaries, shared
   Designer/Builder topology, and deployed runtime evidence gates are green.
 
-The horizontal launch-baseline evidence requirement is closed. Later feature
-depth must retain the same evidence discipline: normal-speed uncut recording,
-ordinary owner-language chat, direct surfaces, mixed continuation, and omission
-only for sensitive credential entry.
+All six final-integration feature phases are now accepted through isolated
+module evidence. Phase 6 closes Agent edit/attach/detach/archive/delete, Source
+description/dependency/delete, authenticated Lounge/history, chat focus/scroll,
+responsive dock/maximize/mobile, truth reconciliation, and broad gates. The
+next step is not another feature run: it is the separately authorized final
+chat-only, surface-only, and hybrid acceptance gate.
 
 ## Runtime
 
@@ -63,12 +65,11 @@ only for sensitive credential entry.
 
 ## Remaining Product Work
 
-Proceed to individual behavior-note depth without reopening the accepted
-horizontal baseline. Explicit follow-ups include Builder runtime controls,
-ToolRouter-generated evaluation CRUD, channel rollback/availability changes,
-Operations promotion, and any other binding still marked
-`pending_external_evidence`. Do not weaken validation or replace any path with
-fixtures or fallbacks.
+Stop before final E2E. When explicitly launched, run one complete chat-only,
+one complete surface-only, and one complete hybrid journey. A failure returns
+only to its owning accepted phase; do not immediately replay the full journey.
+Deferred product-language polish and the remaining deliberately under-designed
+surfaces stay recorded in the controlling task/process document.
 
 ## Boundaries
 

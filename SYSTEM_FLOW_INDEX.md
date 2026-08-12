@@ -117,6 +117,13 @@ state; Corpus does not duplicate those contracts in either drawer. When the
 current node changes, the bounded surface dock resets to its top so a newly
 projected feature surface never inherits the previous feature's scroll state.
 
+Phase 6 retains this shell boundary while closing lifecycle breadth. Reviewed
+Agent archive/delete clears the removed selection before detail refresh so the
+shell never polls a deleted Agent. A failed acceptance restores the exact
+selected Agent and refreshed dependency truth. Source description remains a
+separate immutable Markdown record and Source deletion never analyzes, detaches,
+or cascades through Agent/design/build lineage.
+
 ## Implemented Bearer-Selected Lounge
 
 ```text
