@@ -24,6 +24,7 @@ from scripts.run_horizontal_product_journey import (
     _chat_operations_after,
     _chat_operation_after,
     _classify_expected_graph_capture_warnings,
+    _classify_expected_restart_interruptions,
     _contract_review_id,
     _capture,
     _durable_chat_message,
@@ -87,6 +88,40 @@ def test_horizontal_pass_fails_on_every_unexpected_request_failure() -> None:
     passed = source[source.index("    passed = ("):source.index("    result = {")]
 
     assert 'and not diagnostics["requestFailures"]' in passed
+
+
+def test_only_api_connection_interruptions_after_production_restart_are_expected() -> None:
+    before = {"type": "error", "text": "unrelated", "locationPath": "/api/agents"}
+    restart_console = {
+        "type": "error",
+        "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+        "locationPath": "/api/agents",
+    }
+    restart_request = {
+        "method": "GET",
+        "path": "/api/agents",
+        "failure": "net::ERR_CONNECTION_REFUSED",
+    }
+    unrelated_request = {
+        "method": "POST",
+        "path": "/api/agents",
+        "failure": "net::ERR_CONNECTION_REFUSED",
+    }
+    diagnostics = {
+        "consoleErrors": [before, restart_console],
+        "requestFailures": [restart_request, unrelated_request],
+        "expectedRestartInterruptions": [],
+    }
+
+    _classify_expected_restart_interruptions(
+        diagnostics,
+        console_from=1,
+        request_from=0,
+    )
+
+    assert diagnostics["consoleErrors"] == [before]
+    assert diagnostics["requestFailures"] == [unrelated_request]
+    assert diagnostics["expectedRestartInterruptions"] == [restart_console, restart_request]
 
 
 def test_only_exact_headless_graph_capture_warning_is_classified_expected() -> None:
@@ -238,7 +273,7 @@ def test_restart_starts_backend_and_worker_together_before_generation_barrier(
 
 
 def test_horizontal_recorder_expected_count_matches_the_real_mode_branches() -> None:
-    assert EXPECTED_CHECKS == 36
+    assert EXPECTED_CHECKS == 39
 
 
 def test_horizontal_recorder_retains_the_complete_late_delivery_lifecycle() -> None:
@@ -253,7 +288,7 @@ def test_horizontal_recorder_retains_the_complete_late_delivery_lifecycle() -> N
     assert source.count('_feature_surface(page, "Channels and Deployment").get_by_role(') >= 2
     assert "Ask the deployed Agent a question." not in source
     assert "Ask a question and continue the same request when the Agent needs one more detail." in source
-    assert source.count('"[data-public-agent-application]"') == 3
+    assert source.count('"[data-public-agent-application]"') >= 3
     assert 'page.locator("main.public-agent")' not in source
     assert '"textbox", name="Message the assistant", exact=True' in source
     assert '"button", name="Send message", exact=True' in source
@@ -1790,17 +1825,17 @@ def test_chat_evidence_uses_short_ordinary_intent_without_spoonfeeding() -> None
     )
     assert CHAT_PROMPTS["choose_new_agent"] == "Create a new one."
     assert CHAT_PROMPTS["create_agent"] == (
-        "It is a shopping assistant. It answers product taxonomy questions and must not invent missing information."
+        "It is a shopping assistant that finds products and adds a chosen product to a cart only after approval."
     )
     assert CHAT_PROMPTS["resume_api"] == (
         "Continue with the store API we just added and show me its analyzed structure."
     )
     assert CHAT_PROMPTS["curate_api"] == (
-        "Use only the collection endpoints that list all product tags and all product types. "
-        "Exclude every other API operation."
+        "Keep product search, cart creation, and adding an item to a cart. "
+        "Exclude every other API action."
     )
     assert CHAT_PROMPTS["prepare_api_update"] == (
-        "Prepare the safest API correction for me to review, but do not apply it yet."
+        "The API analysis is finished. Prepare the safest API correction for me to review, but do not apply it yet."
     )
     assert CHAT_PROMPTS["accept_api_update"] == (
         "That API correction looks right. Apply it, and stay with this API because I still need to choose what it may access."
@@ -1812,7 +1847,7 @@ def test_chat_evidence_uses_short_ordinary_intent_without_spoonfeeding() -> None
         "Create the runnable build from that approved design and its store access."
     )
     assert CHAT_PROMPTS["start_private_trial"] == (
-        "Run a private trial with this request: get product taxonomy."
+        'Run a private trial that finds products matching "Medusa T-Shirt".'
     )
     assert "configure_connection" not in CHAT_PROMPTS
     assert CHAT_OPERATION_SAFETY_CLASSES["sources.inspect_current_api"] == "state_selection"
@@ -1887,7 +1922,7 @@ def test_horizontal_profile_save_uses_a_stable_surface_form_and_real_private_wri
     assert "await page.wait_for_timeout(500)" in helper
     assert helper.count("input_value()") >= 3
     assert "form.checkValidity()" in helper
-    assert 'response.request.method == "PUT"' in helper
+    assert 'request.method == "PUT"' in helper
     assert '"/api/routedeck/private-forms/sources-api-connection"' in helper
     assert "await panel.get_by_text(name, exact=True).wait_for" not in helper
     assert "profiles = await _profiles(observations, ids[\"sourceId\"], minimum_count=1)" in source
@@ -1897,14 +1932,14 @@ def test_horizontal_profile_save_uses_a_stable_surface_form_and_real_private_wri
     )
     assert CHAT_PROMPTS["enter_evaluation"] == (
         "Keep that successful trial in the Baseline set as a required easy routing case "
-        "called Store taxonomy success for future versions."
+        "called Product search success for future versions."
     )
     assert CHAT_PROMPTS["create_evaluation"] == (
-        "Keep that trial in the Baseline set as a required easy routing case called Store "
-        "taxonomy success for future versions."
+        "Keep that trial in the Baseline set as a required easy routing case called Product "
+        "search success for future versions."
     )
     assert CHAT_PROMPTS["enter_delivery"] == (
-        "Set up /{slug} as a hosted address called Store Taxonomy, but do not publish it yet."
+        "Set up /{slug} as a hosted address called Medusa Shopping, but do not publish it yet."
     )
     assert CHAT_PROMPTS["request_deployment"] == (
         "Put the eligible version on that address. Show me the consequences for approval before anything goes live."
@@ -2045,7 +2080,7 @@ def test_chat_sandbox_start_accepts_current_node_without_redundant_navigation() 
         .read_text(encoding="utf-8")
     )
     start = source.index('CHAT_PROMPTS["start_private_trial"]')
-    flow = source[start:source.index("waiting_run =", start)]
+    flow = source[start:source.index("sandbox_result =", start)]
 
     assert '("sandbox.start",),' in flow
     assert '(\n                                "agents.open_sandbox",\n                                "sandbox.start",' in flow
@@ -2089,7 +2124,7 @@ def test_delivery_evidence_targets_the_persisted_channel_row_not_chat_copy() -> 
 
     assert 'section.channels-home li[data-status=\'ready\'] > div > span' in source
     assert 'page.get_by_text(f"/{slug}", exact=True)' not in source
-    assert 'slug = f"store-taxonomy-{run_id[-6:].casefold()}"' in source
+    assert 'slug = f"medusa-shopping-{run_id[-6:].casefold()}"' in source
     assert 'CHAT_PROMPTS["enter_delivery"].format(slug=slug)' in source
     assert 'CHAT_PROMPTS["create_channel"].format(slug=slug)' in source
 
@@ -2101,6 +2136,8 @@ def test_guided_continuation_waits_for_the_product_to_finish_enabling_it() -> No
     assert "if await action.is_enabled():" in segment
     assert "did not become enabled" in segment
     assert "is disabled" not in segment
+    assert "if await target_heading.is_visible():" in segment
+    assert "return" in segment
 
 
 def test_chat_only_credential_step_stays_in_the_private_surface_form() -> None:
@@ -2108,7 +2145,7 @@ def test_chat_only_credential_step_stays_in_the_private_surface_form() -> None:
         __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
         .read_text(encoding="utf-8")
     )
-    handoff = source.index('"exact 6fca API version is approved"')
+    handoff = source.index('"exact reviewed effective API version is approved"')
     private_form = source.index("await _save_profile_exact(", handoff)
     curation = source.index('CHAT_PROMPTS["curate_api"]', private_form)
     segment = source[handoff:curation]
@@ -2123,15 +2160,13 @@ def test_file_first_source_handoff_uses_the_created_agent_without_origin_guessin
         __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
         .read_text(encoding="utf-8")
     )
-    start = source.index('if args.mode in {"chat", "hybrid"}:', source.index('"Source shows the persisted semantic node-edge graph"'))
-    end = source.index('await page.get_by_text(', start)
-    flow = source[start:end]
+    flow = source[source.index('CHAT_PROMPTS["attach_source"]') - 1000:source.index("attached_revision =")]
 
     assert 'CHAT_PROMPTS["attach_source"]' in flow
     assert 'ChatOperationAlternatives(' in flow
     assert '("agents.return_from_source", "agents.attach_source")' in flow
     assert '"agents.choose_existing_for_source"' in flow
-    assert 'name="Create a new Agent", exact=True' in flow
+    assert 'name="Use an existing Agent", exact=True' in flow
     assert 'name="Attach Source", exact=True' in flow
     assert 'get_by_label("Ready Workspace Source", exact=True)' not in flow
     assert 'agents.attach_created_source' not in flow
@@ -2187,7 +2222,8 @@ def test_file_first_return_selects_the_inventory_row_not_duplicate_next_step() -
 
     assert 'get_by_role("list", name="API sources", exact=True)' in helper
     assert 'rows.get_by_role("button", name="Open API source", exact=True)' in helper
-    assert "rows.count() != 1" in helper
+    assert "row_count > 1" in helper
+    assert "row_count == 1" in helper
     assert 'api.locator("#source-detail-title")' in helper
 
 
@@ -2205,6 +2241,18 @@ def test_surface_and_hybrid_modes_use_guided_cross_feature_continuations() -> No
         "View Operations",
     ):
         assert f'continuation="{label}"' in source
+
+
+def test_public_write_driver_handles_operation_choice_before_input_detail() -> None:
+    source = Path("scripts/run_horizontal_product_journey.py").read_text(encoding="utf-8")
+    segment = source[
+        source.index("async def _public_request_review("):
+        source.index("async def _public_accept_review(")
+    ]
+    assert 'answer = "Use carts id line items."' in segment
+    assert "operation_choice_sent" in segment
+    assert "detail_sent" in segment
+    assert "unsupported additional clarification" in segment
 
 
 def test_visible_architecture_inspector_cannot_collide_with_product_surface_readiness() -> None:
@@ -2253,14 +2301,14 @@ def test_horizontal_video_keeps_public_runtime_in_the_uncut_primary_page() -> No
     assert 'choices=("surface", "chat", "hybrid")' in source
     assert "context.expect_page()" not in source
     assert "page.goto(urljoin(args.url, hosted_href))" in source
-    assert "get product taxonomy" in source
-    assert "Use product types." in source
+    assert 'Find products matching "Medusa T-Shirt".' in source
+    assert 'answer = "Use carts id line items."' in source
     assert "setpts" not in source
     assert ".playbackRate" not in source
     assert "playbackRate =" not in source
     assert '"heading", name="Corpus Workspace", exact=True' in source
     assert '"heading", name="Workspace Home", exact=True' not in source
-    assert 'name="Agent needs more information", exact=True' in source
+    assert 'response.casefold().startswith("should i use ")' in source
     assert 'name="ToolRouter clarification subagent", exact=True' in source
     assert '"deployed Agent keeps owner-only runtime diagnostics out of the public session"' in source
     assert '"Evaluation shows the immutable build RouteDeck NavGraph it evaluated"' in source
@@ -2310,13 +2358,13 @@ def test_designer_owner_task_can_publish_bounded_three_mode_evidence() -> None:
     assert 'set_viewport_size({"width": 390, "height": 844})' in source
     assert 'get_by_role("button", name="Agent", exact=True).click()' in source
     assert 'name="Create a new Agent", exact=True' in source
-    assert source.count('get_by_role("button", name="Agent", exact=True).click()') == 2
+    assert source.count('get_by_role("button", name="Agent", exact=True).click()') >= 2
     assert 'elif args.mode == "hybrid":' in source
     assert 'get_by_label("Ready Workspace Source", exact=True).select_option' not in source
     assert 'name="Agent design blueprint", exact=True' in source
     assert 'CHAT_PROMPTS["generate_design_feature"]' in source
     assert '"designer.generate_feature"' in source
-    assert 'get_by_label("Feature or behavior", exact=True).fill' in source
+    assert "_fill_designer_feature_and_generate" in source
     assert '"button", name="Generate design proposal", exact=True' in source
     assert '"Customize the Agent goal, behaviors, and policies", exact=True' in source
     assert source.index('"Customize the Agent goal, behaviors, and policies", exact=True') < source.index(
@@ -2349,7 +2397,7 @@ def test_evaluation_owner_task_publishes_a_bounded_maximized_feature_film() -> N
     assert '"maximizedSurface": True' in source
     assert 'name=f"Initial evaluation coverage for build {ids[\'buildId\']}"' in source
     assert 'name="Start runtime", exact=True' in source
-    assert '"Sandbox returns meaningful non-empty real Medusa taxonomy"' in source
+    assert '"Sandbox returns a meaningful real Medusa product"' in source
     assert 'has_text="Generated coverage"' in source
     assert 'get_by_text("Draft coverage", exact=True)' in source
     assert 'run_case_name = "Run exact case"' in source

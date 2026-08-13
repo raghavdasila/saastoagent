@@ -58,9 +58,9 @@ def _generation_response(payload: dict[str, Any]) -> dict[str, Any]:
 def _review_response(
     payload: dict[str, Any], *, accepted: bool
 ) -> dict[str, Any]:
-    allowed = payload["format"]["properties"]["selected_endpoint_ids"][
-        "items"
-    ]["enum"]
+    selected_schema = payload["format"]["properties"]["selected_endpoint_ids"]
+    assert "uniqueItems" not in selected_schema
+    allowed = selected_schema["items"]["enum"]
     selected = next(
         endpoint_id
         for endpoint_id in allowed
@@ -174,6 +174,54 @@ def test_evalset_factory_can_use_one_explicit_openai_model_for_both_roles(
     assert result.status == "ready"
     assert result.generator_model == "gpt-5.6-luna"
     assert result.reviewer_model == "gpt-5.6-luna"
+
+
+def test_evalset_factory_rejects_duplicate_semantic_review_endpoint_ids(
+    tmp_path: Path,
+) -> None:
+    def duplicate_review(payload: dict[str, Any]) -> dict[str, Any]:
+        selected_schema = payload["format"]["properties"]["selected_endpoint_ids"]
+        selected = selected_schema["items"]["enum"][0]
+        return {
+            "response": json.dumps(
+                {
+                    "candidate_id": _candidate_id(payload),
+                    "selected_endpoint_ids": [selected, selected],
+                    "truth_supported": True,
+                    "category_fidelity": True,
+                    "naturalness": True,
+                    "ambiguous": False,
+                    "reasons": [],
+                }
+            ),
+            "prompt_eval_count": 160,
+            "eval_count": 22,
+            "total_duration": 10,
+        }
+
+    adapter = ToolRouterAdapter(
+        ToolRouterSettings(),
+        embedding_provider=KeywordEmbeddingProvider(),
+        generation_transport=_generation_response,
+        review_transport=duplicate_review,
+        model_digest_resolver=lambda model: f"digest:{model}",
+    )
+    artifacts = _ingest(adapter, tmp_path)
+
+    result = adapter.generate_evalset(
+        EvalsetRequest(
+            artifact_dir=artifacts,
+            evalset_id="duplicate-review-endpoints",
+            categories=("paraphrase",),
+            tasks_per_category=1,
+            max_generation_attempts=1,
+            max_review_attempts=1,
+        )
+    )
+
+    assert result.status == "failed"
+    assert result.accepted_count == 0
+    assert result.terminal_status_counts == {"semantic_review_failed": 1}
 
 
 def test_evalset_factory_generates_only_from_the_exact_allowed_endpoint_subset(

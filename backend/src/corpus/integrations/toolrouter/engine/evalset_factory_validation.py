@@ -991,7 +991,6 @@ class OllamaSemanticReviewClient:
                 if allowed_endpoint_ids
                 else {"type": "string"}
             ),
-            "uniqueItems": True,
         }
         if not allowed_endpoint_ids:
             selected_endpoint_schema["maxItems"] = 0
@@ -1171,6 +1170,10 @@ class OllamaSemanticReviewClient:
             selected = tuple(
                 str(value) for value in parsed.get("selected_endpoint_ids", []) if str(value)
             )
+            if len(selected) != len(set(selected)):
+                raise ValueError(
+                    "Semantic reviewer selected duplicate endpoint IDs."
+                )
             unknown = sorted(set(selected) - known_endpoint_ids)
             if unknown:
                 raise ValueError(f"Semantic reviewer selected unknown endpoint IDs: {unknown}")

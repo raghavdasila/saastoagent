@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -12,12 +13,14 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import uuid4
 
-from playwright.async_api import Page, async_playwright
+from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError, async_playwright
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
+import scripts.run_api_contract_revision_journey as contract_journey
+from scripts.deployed_e2e_runtime import GcpJourneyRuntime
 from scripts.run_api_contract_revision_journey import (
     EXPECTED_FINAL,
     EXPECTED_RAW,
@@ -55,12 +58,38 @@ EXPECTED_ASSERTION_COUNT = 8
 async def main() -> None:
     parser = argparse.ArgumentParser(description="Record the safe API connection-check lifecycle.")
     parser.add_argument("--url", default="http://127.0.0.1:5199")
+    parser.add_argument("--backend-url", default="http://127.0.0.1:8099")
+    parser.add_argument("--runtime-mode", choices=("local", "gcp-production"), default="local")
+    parser.add_argument("--medusa-spec", type=Path, default=MEDUSA_SPEC)
+    parser.add_argument("--medusa-env", type=Path, default=MEDUSA_ENV)
+    parser.add_argument("--medusa-base-url", default="http://127.0.0.1:9100")
+    parser.add_argument("--gcp-project", default="saastoagent")
+    parser.add_argument("--corpus-vm", default="corpus-vm-1")
+    parser.add_argument("--corpus-zone", default="asia-south1-a")
+    parser.add_argument("--medusa-vm", default="medusa-test-vm-1")
+    parser.add_argument("--medusa-zone", default="us-west1-a")
     parser.add_argument("--headed", action="store_true")
     args = parser.parse_args()
     repository = Path(__file__).resolve().parents[1]
-    if not MEDUSA_SPEC.is_file() or hashlib.sha256(MEDUSA_SPEC.read_bytes()).hexdigest() != EXPECTED_RAW:
+    if not args.medusa_spec.is_file():
         raise SystemExit("The exact reviewed Medusa Source is unavailable.")
-    medusa_key = _load_required_value(MEDUSA_ENV, "MEDUSA_PUBLISHABLE_KEY")
+    raw_sha256 = hashlib.sha256(args.medusa_spec.read_bytes()).hexdigest()
+    if raw_sha256 != EXPECTED_RAW:
+        raise SystemExit("The exact reviewed Medusa Source is unavailable.")
+    contract_journey.MEDUSA_SPEC = args.medusa_spec
+    runtime = (
+        GcpJourneyRuntime(
+            project=args.gcp_project,
+            corpus_vm=args.corpus_vm,
+            corpus_zone=args.corpus_zone,
+            medusa_vm=args.medusa_vm,
+            medusa_zone=args.medusa_zone,
+            medusa_base_url=args.medusa_base_url,
+        )
+        if args.runtime_mode == "gcp-production"
+        else None
+    )
+    medusa_key = _load_required_value(args.medusa_env, "MEDUSA_PUBLISHABLE_KEY")
     invalid_key = f"invalid-phase-c-{uuid4().hex}"
     run_id = f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:10]}"
     directory = repository / "artifacts" / "api-connection-check" / run_id
@@ -115,7 +144,7 @@ async def main() -> None:
             await page.get_by_role("button", name="Open Sources", exact=True).click()
             hub = _source_hub(page)
             await hub.get_by_role("heading", name="Source Hub", exact=True).wait_for(timeout=30_000)
-            await _upload(page, hub)
+            await _upload_current(page, hub, args.medusa_spec)
             await hub.get_by_text("ready", exact=True).first.wait_for(timeout=180_000)
             ids.update(await _source_ids(page, observations))
             inventory_500s = [
@@ -129,37 +158,58 @@ async def main() -> None:
                 "inventory500Count": len(inventory_500s),
             })
 
-            await hub.get_by_role("button", name="Prepare contract revision", exact=True).click()
+            await hub.get_by_role("button", name="Review API changes", exact=True).click()
             proposal_panel = _proposal_panel(page)
-            await proposal_panel.get_by_role("heading", name="API contract revision proposal", exact=True).wait_for(timeout=90_000)
+            await proposal_panel.get_by_role(
+                "heading", name="Proposed API version update", exact=True
+            ).wait_for(timeout=90_000)
             proposals = await _observed_proposals(observations, ids["sourceId"])
             ids["proposalId"] = str(proposals[0]["proposal_id"])
-            await proposal_panel.get_by_role("button", name="Review this revision", exact=True).click()
+            expected_final_sha256 = _expected_final_sha256(
+                proposals[0], runtime_mode=args.runtime_mode
+            )
+            await proposal_panel.get_by_role(
+                "button", name="Review this API update", exact=True
+            ).click()
             review_surface = _review_surface(page)
-            await review_surface.get_by_role("heading", name="Create this immutable API contract revision?", exact=True).wait_for(timeout=30_000)
+            await review_surface.get_by_role(
+                "heading", name="Create this immutable API version?", exact=True
+            ).wait_for(timeout=30_000)
             ids["reviewId"] = await _latest_review_id(safe_trace)
-            await review_surface.get_by_role("button", name="Accept and create new revision", exact=True).click()
-            await hub.get_by_text("Reviewed contract revision", exact=True).wait_for(timeout=60_000)
+            await review_surface.get_by_role(
+                "button", name="Accept and create new version", exact=True
+            ).click()
+            await hub.get_by_text("Validated API version", exact=True).wait_for(timeout=60_000)
             current = await _observed_current_source(
                 observations,
                 ids["sourceId"],
                 excluding_revision_id=ids["parentRevisionId"],
             )
             ids["approvedRevisionId"] = str(current["revision"]["revision_id"])
-            if current["revision"]["summary"].get("final_canonical_sha256") != EXPECTED_FINAL:
+            if current["revision"]["summary"].get("final_canonical_sha256") != expected_final_sha256:
                 raise RuntimeError("The approved Source revision is not the exact reviewed contract.")
             _record(assertions, "owner approved the exact effective API revision", True, {
                 "proposalId": ids["proposalId"],
                 "reviewId": ids["reviewId"],
                 "approvedRevisionId": ids["approvedRevisionId"],
-                "finalHash": EXPECTED_FINAL,
+                "finalHash": expected_final_sha256,
             })
 
+            await hub.get_by_role("button", name="Connection", exact=True).click()
             panel = hub.locator("section.api-connection-panel")
             await panel.get_by_role("heading", name="API connections", exact=True).wait_for(timeout=30_000)
-            await _save_profile(panel, "Local Medusa valid", medusa_key)
+            profile_prefix = "Private Medusa" if runtime is not None else "Local Medusa"
+            await _save_profile(
+                panel,
+                f"{profile_prefix} valid",
+                medusa_key,
+                base_url=args.medusa_base_url,
+            )
             valid_profiles = await _profiles(observations, ids["sourceId"], minimum_count=1)
-            valid = next(item for item in valid_profiles if item.get("profile_name") == "Local Medusa valid")
+            valid = next(
+                item for item in valid_profiles
+                if item.get("profile_name") == f"{profile_prefix} valid"
+            )
             ids["validProfileId"] = str(valid["id"])
             await panel.get_by_label("Connection profile", exact=True).select_option(ids["validProfileId"])
             await panel.get_by_label("Safe check operation", exact=True).select_option("GetProductTypes")
@@ -189,9 +239,17 @@ async def main() -> None:
                 "desktopBounds": valid_desktop_bounds,
             })
 
-            await _save_profile(panel, "Local Medusa invalid", invalid_key)
+            await _save_profile(
+                panel,
+                f"{profile_prefix} invalid",
+                invalid_key,
+                base_url=args.medusa_base_url,
+            )
             profiles = await _profiles(observations, ids["sourceId"], minimum_count=2)
-            invalid = next(item for item in profiles if item.get("profile_name") == "Local Medusa invalid")
+            invalid = next(
+                item for item in profiles
+                if item.get("profile_name") == f"{profile_prefix} invalid"
+            )
             ids["invalidProfileId"] = str(invalid["id"])
             await panel.get_by_label("Connection profile", exact=True).select_option(ids["invalidProfileId"])
             await panel.get_by_role("button", name="Test connection", exact=True).click()
@@ -266,14 +324,19 @@ async def main() -> None:
             })
 
             await page.set_viewport_size({"width": 1440, "height": 1000})
-            subprocess.run(
-                ["docker", "compose", "restart", "backend"],
-                cwd=repository,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            await asyncio.to_thread(_wait_ready, "http://127.0.0.1:8099/readyz")
+            if runtime is None:
+                subprocess.run(
+                    ["docker", "compose", "restart", "backend"],
+                    cwd=repository,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                await asyncio.to_thread(
+                    _wait_ready, args.backend_url.rstrip("/") + "/readyz"
+                )
+            else:
+                await asyncio.to_thread(runtime.restart_corpus, args.backend_url)
             await page.reload()
             await panel.get_by_text("Connection check succeeded", exact=True).wait_for(timeout=60_000)
             await panel.get_by_text("Connection check failed", exact=True).wait_for(timeout=60_000)
@@ -350,11 +413,16 @@ async def main() -> None:
         "runId": run_id,
         "status": "passed" if passed else "failed",
         "runtime": {
-            "location": "local Docker Compose",
+            "location": (
+                "GCP production VMs"
+                if args.runtime_mode == "gcp-production"
+                else "local Docker Compose"
+            ),
             "frontend": args.url,
-            "backend": "http://127.0.0.1:8099",
-            "medusa": "http://127.0.0.1:9100",
-            "command": ".\\.venv\\Scripts\\python.exe scripts\\run_api_connection_check_journey.py --url http://127.0.0.1:5199",
+            "backend": args.backend_url,
+            "medusa": args.medusa_base_url,
+            "medusaSourceSha256": raw_sha256,
+            "runtimeMode": args.runtime_mode,
         },
         "ids": ids,
         "assertions": assertions,
@@ -396,10 +464,69 @@ async def main() -> None:
     raise SystemExit(0 if passed else 1)
 
 
-async def _save_profile(panel, name: str, credential: str) -> None:
+def _expected_final_sha256(
+    proposal: dict[str, object], *, runtime_mode: str
+) -> str:
+    value = proposal.get("final_canonical_sha256")
+    del runtime_mode
+    parent = proposal.get("repaired_parent_sha256")
+    if (
+        value != EXPECTED_FINAL
+        or not isinstance(parent, str)
+        or re.fullmatch(r"[0-9a-f]{64}", parent) is None
+    ):
+        raise RuntimeError(
+            "The proposal does not preserve the exact reviewed correction contract."
+        )
+    return EXPECTED_FINAL
+
+
+async def _upload_current(page: Page, hub, medusa_spec: Path) -> None:
+    await hub.locator(".sources-header-actions").get_by_role(
+        "button", name="Add API source", exact=True
+    ).click()
+    intake = page.locator("section.sources-debug.api-source-workspace")
+    await intake.get_by_role(
+        "heading", name="Add API source", exact=True
+    ).wait_for(timeout=30_000)
+    source_name = intake.get_by_label("Source name", exact=True)
+    deadline = asyncio.get_running_loop().time() + 15
+    while asyncio.get_running_loop().time() < deadline:
+        try:
+            await source_name.wait_for(state="visible", timeout=1_000)
+            await source_name.fill("Reviewed private Medusa Store", timeout=1_000)
+            await page.wait_for_timeout(100)
+            if await source_name.input_value(timeout=1_000) == "Reviewed private Medusa Store":
+                break
+        except PlaywrightTimeoutError:
+            pass
+    else:
+        raise RuntimeError("The Source intake did not retain its exact name.")
+    definition = intake.get_by_label("OpenAPI or Swagger definition", exact=True)
+    await definition.set_input_files(medusa_spec)
+    if await definition.input_value() == "":
+        raise RuntimeError("The private Medusa definition was not bound to intake.")
+    if await source_name.input_value() != "Reviewed private Medusa Store":
+        await source_name.fill("Reviewed private Medusa Store")
+    await intake.get_by_role(
+        "button", name="Add API definition", exact=True
+    ).click()
+    await intake.get_by_text("Ready to analyze", exact=True).wait_for(timeout=90_000)
+    await intake.get_by_role(
+        "button", name="Analyze API operations", exact=True
+    ).click()
+
+
+async def _save_profile(
+    panel,
+    name: str,
+    credential: str,
+    *,
+    base_url: str = "http://host.docker.internal:9100",
+) -> None:
     await panel.get_by_label("Profile name", exact=True).fill(name)
     await panel.get_by_label("Environment", exact=True).fill("local")
-    await panel.get_by_label("Base URL", exact=True).fill("http://host.docker.internal:9100")
+    await panel.get_by_label("Base URL", exact=True).fill(base_url)
     await panel.get_by_label("Authentication", exact=True).select_option("api_key")
     await panel.get_by_label("Header name", exact=True).fill("x-publishable-api-key")
     await panel.get_by_label("API key", exact=True).fill(credential)

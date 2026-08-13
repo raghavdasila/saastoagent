@@ -118,7 +118,7 @@ components:
 def test_exact_medusa_plan_retains_ordered_reviewed_chain_and_shared_impact() -> None:
     plan = MEDUSA_EFFECTIVE_CONTRACT_PLAN
     assert plan.repaired_parent_sha256 == "bc1b4b2456eefab4684a07ffa6e63f652118f5a705dd13eba5d77e74ab965c6e"
-    assert plan.final_canonical_sha256 == "6fca793be700dfb8bf511c2217d72cf97abf2f6cba08fbc2cd26ef0369b8f3f6"
+    assert plan.final_canonical_sha256 == "c0b9c6bf1b149a0e458de9fbda4f7bad3cf6f9f7eb4ff383bded3b09d23e50ef"
     assert [item.patch_id for item in plan.patches] == [
         "0e3ca203c694b3ea",
         "0b580a91a8f44b89",
@@ -130,6 +130,8 @@ def test_exact_medusa_plan_retains_ordered_reviewed_chain_and_shared_impact() ->
         "2e3008cbf6b3f5b2",
         "edcb5d80e92f57a1",
         "3f4de4aa354d0324",
+        "fe22ecc628158a9b",
+        "b183ac24f1a1a683",
     ]
     shared = next(item for item in plan.patches if item.patch_id == "6435eb6c5861391b")
     assert shared.schema_pointer == "/components/schemas/BaseRegionCountry"

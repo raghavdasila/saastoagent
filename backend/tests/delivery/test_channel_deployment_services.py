@@ -11,7 +11,10 @@ from agent_delivery_runtime.domain import DeployableAgentBundle, DeliveryError
 from agent_delivery_runtime.ports import RuntimeProjection, RuntimeReadiness
 
 from corpus.app.delivery_runtime_store import CorpusLocalDeliveryStore
-from corpus.app.delivery_runtime_adapters import CorpusDeployedAgentRuntimePort
+from corpus.app.delivery_runtime_adapters import (
+    CorpusDeployedAgentRuntimePort,
+    _selected_operation,
+)
 from corpus.app.agent_runtime_adapters import CorpusExecutionBindingRegistry
 from corpus.features.builder.domain import BuilderRecord
 from corpus.features.channels.domain import ChannelRecord
@@ -33,6 +36,14 @@ def test_publishing_and_channel_availability_have_distinct_agent_contracts() -> 
         in DEPLOY_AGENT.description.lower()
     )
     assert "never satisfies a request to publish" in FEATURE_PROMPT.instruction
+
+
+def test_natural_operation_choice_accepts_duplicate_identical_candidates() -> None:
+    assert _selected_operation(
+        "Use carts id line items.",
+        ("PostCartsIdLineItems", "PostCartsIdLineItems"),
+        (),
+    ) == "PostCartsIdLineItems"
 
 
 class Runtime:

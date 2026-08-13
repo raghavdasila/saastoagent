@@ -237,12 +237,12 @@ def _selected_operation(
     if normalized in candidates:
         return normalized
     user_terms = set(_words(normalized)) - _CHOICE_FILLER
-    matches = []
+    matches: set[str] = set()
     for candidate in candidates:
         subject = set(_operation_subject(candidate))
         if subject and subject.issubset(user_terms):
-            matches.append(candidate)
-    return matches[0] if len(matches) == 1 else None
+            matches.add(candidate)
+    return next(iter(matches)) if len(matches) == 1 else None
 
 
 _OPERATION_VERBS = frozenset({

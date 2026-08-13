@@ -21,6 +21,13 @@ Cloudflare remains DNS-only. Caddy terminates TLS directly and renews the public
 certificate. Cloudflare Full (strict) is relevant only if the record is later
 proxied; it is not required for this deployment.
 
+The private Medusa 2.13.6 target used for deployed ecommerce
+acceptance is documented separately in
+[`gcp-medusa-acceptance-vm.md`](gcp-medusa-acceptance-vm.md). It is not part of
+the Corpus service topology. Production API execution is limited to its exact
+private origin, `http://10.138.0.2:9100`; no other outbound API origin is
+allowlisted.
+
 ## Runtime providers
 
 The primary runtime, evaluation models, and ToolRouter generation/review use an
@@ -133,3 +140,19 @@ both a pre-restore archive and the moved pre-restore directories.
   ToolRouter transport with `gpt-5.6-luna`.
 - public browser signup completed for
   `info+corpus-smoke-20260813122921@saastoagent.com` with zero console errors.
+
+## Deployed ecommerce acceptance
+
+Corpus runs on `corpus-vm-1` (`n2-standard-2`, `asia-south1-a`, 160 GB
+balanced disk). Its only ecommerce acceptance destination is private Medusa
+`http://10.138.0.2:9100`; backend and worker receive that exact allowlist
+entry. The current backend and worker image digest is
+`sha256:50145616831f69ad3999b35589794897404565b4d789855ea486004deb6bf595`.
+
+The deployed Surface, Hybrid, and Chat journeys passed 39/39, 40/40, and
+39/39 respectively. Corpus peak memory was 2.90 GB with zero swap and zero OOM
+kills. Peak one-minute load was 1.53 on two vCPUs; sampled host CPU had brief
+90-100% peaks but 21-30% run averages. Restart recovery was 132, 116, and 88
+seconds. This is sufficient for the current internal five-user acceptance
+target; no resize was performed. The evidence and exact run IDs are in
+`docs/superpowers/validation/2026-08-13-deployed-ecommerce-three-mode.md`.

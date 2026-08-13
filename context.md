@@ -133,3 +133,13 @@ normal-speed feature artifact before any replacement horizontal acceptance.
 - Validation meaning: `test_index/README.md`
 - Historical accepted baseline:
   `context_checkpoints/2026-08-10-horizontal-evidence-closeout.md`
+
+## Deployed acceptance update (2026-08-14)
+
+Corpus is live on `corpus-vm-1` (`n2-standard-2`) and the private Medusa 2.13.6
+acceptance dependency is live on `medusa-test-vm-1` (`e2-micro`). Deployed
+Surface, Hybrid, and Chat passed 39/39, 40/40, and 39/39 with independent
+lineages and one audited quantity-1 T-shirt cart each. Both VM sizes are kept:
+Corpus has comfortable memory/disk headroom for the internal five-user target;
+Medusa Free Tier passed without OOM or sustained saturation but is non-SLA.
+Resume from `context_checkpoints/2026-08-14-deployed-ecommerce-three-mode.md`.

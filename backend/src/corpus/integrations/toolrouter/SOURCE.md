@@ -23,7 +23,11 @@ and reviewer also accept an explicit same-model review policy so the Corpus
 adapter can run separate generation and review calls through one selected
 OpenAI model. The default remains independent Ollama models. Provider selection
 is explicit, failures remain explicit, and no provider or model fallback is
-added.
+added. The semantic-review schema omits JSON Schema `uniqueItems`, which the
+OpenAI strict structured-output subset rejects, and preserves the uniqueness
+invariant by rejecting duplicate endpoint IDs after parsing. The deployed
+`gpt-5.6-luna` Responses reference call and a focused duplicate-output test
+both cover this Corpus-owned compatibility adaptation.
 
 ## Included Boundary
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import yaml
 
@@ -41,6 +42,20 @@ def test_production_openai_and_public_origin_are_explicit() -> None:
     assert environment["CORPUS_OPENAI_REASONING_EFFORT"] == "low"
     assert environment["CORPUS_PUBLIC_FRONTEND_URL"] == "https://corpus.saastoagent.com"
     assert environment["ROUTEDECK_BROWSER_ORIGINS"] == "https://corpus.saastoagent.com"
+
+
+def test_production_api_execution_is_limited_to_the_private_medusa_target() -> None:
+    environment = _compose()["services"]["backend"]["environment"]
+    allowed = environment["CORPUS_API_CHECK_ALLOWED_BASE_URLS"]
+    values = tuple(item.strip() for item in allowed.split(",") if item.strip())
+
+    assert values == ("http://10.138.0.2:9100",)
+    parsed = urlsplit(values[0])
+    assert parsed.scheme == "http"
+    assert parsed.hostname == "10.138.0.2"
+    assert parsed.port == 9100
+    assert parsed.path == ""
+    assert "*" not in allowed
 
 
 def test_caddy_is_the_only_public_listener_and_routes_backend_paths() -> None:

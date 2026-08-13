@@ -48,6 +48,7 @@ from scripts.run_api_route_planning_journey import (  # noqa: E402
     _open_sources,
     _wait_for_agent_idle,
 )
+from scripts.deployed_e2e_runtime import GcpJourneyRuntime  # noqa: E402
 
 
 EXPECTED_CHECKS = 39
@@ -82,6 +83,7 @@ EVALUATION_MILESTONE_ASSERTIONS = (
     "Evaluation shows one ToolRouter-generated case for the exact build",
 )
 CHAT_EVIDENCE_BACKEND_URL = "http://127.0.0.1:8099"
+ACTIVE_MEDUSA_SPEC = MEDUSA_SPEC
 ROUTEDECK_MANIFEST = (
     REPOSITORY_ROOT / "contracts" / "corpus-agent-design-routedeck-manifest.json"
 )
@@ -265,6 +267,20 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--url", default="http://127.0.0.1:5199")
     parser.add_argument("--backend-url", default="http://127.0.0.1:8099")
     parser.add_argument(
+        "--runtime-mode",
+        choices=("local", "gcp-production"),
+        default="local",
+        help="Use local Docker controls or the explicit deployed GCP runtime boundary.",
+    )
+    parser.add_argument("--medusa-spec", type=Path, default=MEDUSA_SPEC)
+    parser.add_argument("--medusa-env", type=Path, default=MEDUSA_ENV)
+    parser.add_argument("--medusa-base-url", default="http://127.0.0.1:9100")
+    parser.add_argument("--gcp-project", default="saastoagent")
+    parser.add_argument("--corpus-vm", default="corpus-vm-1")
+    parser.add_argument("--corpus-zone", default="asia-south1-a")
+    parser.add_argument("--medusa-vm", default="medusa-test-vm-1")
+    parser.add_argument("--medusa-zone", default="us-west1-a")
+    parser.add_argument(
         "--mode",
         choices=("surface", "chat", "hybrid"),
         default="surface",
@@ -325,21 +341,36 @@ def _validate_chat_prompts() -> None:
 
 
 async def main() -> None:
-    global CHAT_EVIDENCE_BACKEND_URL
+    global ACTIVE_MEDUSA_SPEC, CHAT_EVIDENCE_BACKEND_URL
     args = arguments()
     if args.verify_milestone is not None:
         report = _verify_retained_milestone(args.verify_milestone, args.artifact)
         print(json.dumps(report, indent=2))
         return
     CHAT_EVIDENCE_BACKEND_URL = args.backend_url.rstrip("/")
+    ACTIVE_MEDUSA_SPEC = args.medusa_spec
     _validate_chat_prompts()
-    if (
-        not MEDUSA_SPEC.is_file()
-        or hashlib.sha256(MEDUSA_SPEC.read_bytes()).hexdigest() != EXPECTED_RAW
-    ):
+    if not ACTIVE_MEDUSA_SPEC.is_file():
         raise SystemExit("The exact reviewed Medusa Source is unavailable.")
-    medusa_key = _load_required_value(MEDUSA_ENV, "MEDUSA_PUBLISHABLE_KEY")
-    runtime_model_provider = _runtime_model_provider()
+    medusa_raw_sha256 = hashlib.sha256(ACTIVE_MEDUSA_SPEC.read_bytes()).hexdigest()
+    if medusa_raw_sha256 != EXPECTED_RAW:
+        raise SystemExit("The exact reviewed Medusa Source is unavailable.")
+    runtime = (
+        GcpJourneyRuntime(
+            project=args.gcp_project,
+            corpus_vm=args.corpus_vm,
+            corpus_zone=args.corpus_zone,
+            medusa_vm=args.medusa_vm,
+            medusa_zone=args.medusa_zone,
+            medusa_base_url=args.medusa_base_url,
+        )
+        if args.runtime_mode == "gcp-production"
+        else None
+    )
+    medusa_key = _load_required_value(args.medusa_env, "MEDUSA_PUBLISHABLE_KEY")
+    runtime_model_provider = (
+        runtime.provider_identity() if runtime is not None else _runtime_model_provider()
+    )
     run_id = f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:10]}"
     artifact_family = f"horizontal-product-{args.mode}"
     directory = REPOSITORY_ROOT / "artifacts" / artifact_family / run_id
@@ -355,6 +386,7 @@ async def main() -> None:
         "requestFailures": [],
         "expectedAbortedRequests": [],
         "expectedConsoleWarnings": [],
+        "expectedRestartInterruptions": [],
     }
     observations: dict[str, object] = {
         "sequence": 0,
@@ -392,9 +424,14 @@ async def main() -> None:
     builder_video_ended_seconds: float | None = None
     evaluation_video_started_seconds: float | None = None
     evaluation_video_ended_seconds: float | None = None
+    runtime_restart_recovery_seconds: float | None = None
     owner = {
         "display_name": "Horizontal Lifecycle Owner",
-        "email": f"horizontal-{uuid4().hex}@example.com",
+        "email": (
+            f"info+corpus-e2e-{uuid4().hex}@saastoagent.com"
+            if args.runtime_mode == "gcp-production"
+            else f"horizontal-{uuid4().hex}@example.com"
+        ),
         "password": f"Corpus-Horizontal-{uuid4().hex}!8",
     }
     slug = f"horizontal-{uuid4().hex[:12]}"
@@ -420,7 +457,7 @@ async def main() -> None:
                 await _open_chat_evidence_inspector(page, safe_trace)
                 setup_response = await _chat_upload_source(
                     page,
-                    MEDUSA_SPEC,
+                    ACTIVE_MEDUSA_SPEC,
                     CHAT_PROMPTS["setup_from_file"],
                     (
                         "workspace.open_sources",
@@ -541,6 +578,9 @@ async def main() -> None:
             ).wait_for(timeout=90_000)
             proposals = await _observed_proposals(observations, ids["sourceId"])
             ids["proposalId"] = str(proposals[0]["proposal_id"])
+            expected_final_sha256 = _expected_final_sha256(
+                proposals[0], runtime_mode=args.runtime_mode
+            )
             if args.mode == "chat":
                 await _chat_dispatch(
                     page,
@@ -591,8 +631,11 @@ async def main() -> None:
                 checks,
                 "exact reviewed effective API version is approved",
                 current["revision"]["summary"].get("final_canonical_sha256")
-                == EXPECTED_FINAL,
-                {"revisionId": ids["approvedRevisionId"]},
+                == expected_final_sha256,
+                {
+                    "revisionId": ids["approvedRevisionId"],
+                    "finalCanonicalSha256": expected_final_sha256,
+                },
             )
 
             await hub.get_by_role("button", name="Connection", exact=True).click()
@@ -603,15 +646,18 @@ async def main() -> None:
             await _save_profile_exact(
                 page,
                 connection,
-                "Horizontal local Medusa",
+                "Horizontal private Medusa" if runtime is not None else "Horizontal local Medusa",
                 medusa_key,
+                base_url=args.medusa_base_url,
+                environment="production" if runtime is not None else "local",
             )
             profiles = await _profiles(observations, ids["sourceId"], minimum_count=1)
             ids["profileId"] = str(
                 next(
                     item
                     for item in profiles
-                    if item.get("profile_name") == "Horizontal local Medusa"
+                    if item.get("profile_name")
+                    == ("Horizontal private Medusa" if runtime is not None else "Horizontal local Medusa")
                 )["id"]
             )
             await hub.get_by_role("button", name="Operations", exact=True).click()
@@ -770,12 +816,9 @@ async def main() -> None:
                     interaction_events,
                 )
             else:
-                await page.get_by_label("Feature or behavior", exact=True).fill(
-                    CHAT_PROMPTS["generate_design_feature"]
+                await _fill_designer_feature_and_generate(
+                    page, CHAT_PROMPTS["generate_design_feature"]
                 )
-                await page.get_by_role(
-                    "button", name="Generate design proposal", exact=True
-                ).click()
             await page.locator(".designer-home__status").get_by_text(
                 "Revision 2", exact=True
             ).wait_for(timeout=90_000)
@@ -1552,7 +1595,16 @@ async def main() -> None:
             )
             await _capture(page, directory, screenshots, "08f-public-access-restored")
 
-            _restart_runtime(args.backend_url)
+            restart_diagnostic_offsets = (
+                len(diagnostics["consoleErrors"]),
+                len(diagnostics["requestFailures"]),
+            )
+            if runtime is None:
+                _restart_runtime(args.backend_url)
+            else:
+                runtime_restart_recovery_seconds = runtime.restart_corpus(
+                    args.backend_url
+                )
             _wait_ready(args.backend_url)
             await page.reload()
             await _feature_surface(page, "Channels and Deployment").get_by_role(
@@ -1563,6 +1615,12 @@ async def main() -> None:
             await page.get_by_role(
                 "link", name="Open hosted Agent", exact=True
             ).wait_for()
+            if runtime is not None:
+                _classify_expected_restart_interruptions(
+                    diagnostics,
+                    console_from=restart_diagnostic_offsets[0],
+                    request_from=restart_diagnostic_offsets[1],
+                )
             _check(checks, "deployment survives backend and worker restart", True, {})
 
             hosted_link = page.get_by_role("link", name="Open hosted Agent", exact=True)
@@ -1880,8 +1938,11 @@ async def main() -> None:
         "runtime": {
             "frontend": args.url,
             "backend": args.backend_url,
-            "medusa": "http://127.0.0.1:9100",
+            "medusa": args.medusa_base_url,
+            "medusaSourceSha256": medusa_raw_sha256,
             "modelProvider": runtime_model_provider,
+            "mode": args.runtime_mode,
+            "restartRecoverySeconds": runtime_restart_recovery_seconds,
         },
     }
     result_path = directory / "result.json"
@@ -2201,6 +2262,46 @@ def _classify_expected_graph_capture_warnings(
     diagnostics["consoleErrors"] = unexpected
 
 
+def _classify_expected_restart_interruptions(
+    diagnostics: dict[str, list[dict[str, object]]],
+    *,
+    console_from: int,
+    request_from: int,
+) -> None:
+    expected = diagnostics.setdefault("expectedRestartInterruptions", [])
+    console = diagnostics.get("consoleErrors", [])
+    retained_console = console[:console_from]
+    for item in console[console_from:]:
+        text = item.get("text")
+        if (
+            item.get("type") == "error"
+            and isinstance(item.get("locationPath"), str)
+            and str(item["locationPath"]).startswith("/api/")
+            and isinstance(text, str)
+            and text.startswith("Failed to load resource: net::ERR_CONNECTION_")
+        ):
+            expected.append(item)
+        else:
+            retained_console.append(item)
+    diagnostics["consoleErrors"] = retained_console
+
+    failures = diagnostics.get("requestFailures", [])
+    retained_failures = failures[:request_from]
+    for item in failures[request_from:]:
+        failure = item.get("failure")
+        if (
+            item.get("method") == "GET"
+            and isinstance(item.get("path"), str)
+            and str(item["path"]).startswith("/api/")
+            and isinstance(failure, str)
+            and failure.startswith("net::ERR_CONNECTION_")
+        ):
+            expected.append(item)
+        else:
+            retained_failures.append(item)
+    diagnostics["requestFailures"] = retained_failures
+
+
 def _require_secret_free_evidence(
     directory: Path,
     forbidden_values: tuple[str, ...],
@@ -2383,6 +2484,11 @@ async def _open_agent_area_for_mode(
             await _open_agent_area(page, label, heading)
         else:
             await _wait_for_product_idle(page)
+            target_heading = _feature_surface(page, heading).locator(
+                ":scope > header"
+            ).get_by_role("heading", name=heading, exact=True)
+            if await target_heading.is_visible():
+                return
             action = page.get_by_role("button", name=continuation, exact=True)
             await action.wait_for(state="visible", timeout=90_000)
             for _ in range(300):
@@ -2394,11 +2500,7 @@ async def _open_agent_area_for_mode(
                     f"The guided continuation {continuation!r} did not become enabled."
                 )
             await action.click()
-            await _feature_surface(page, heading).locator(
-                ":scope > header"
-            ).get_by_role(
-                "heading", name=heading, exact=True
-            ).wait_for(timeout=90_000)
+            await target_heading.wait_for(timeout=90_000)
             await _wait_for_product_idle(page)
         return
     await _chat_dispatch(
@@ -2521,17 +2623,18 @@ async def _surface_add_and_analyze_api(
     await intake.get_by_role(
         "heading", name="Add API source", exact=True
     ).wait_for(timeout=90_000)
-    await _type_exact(
-        intake.get_by_label("Source name", exact=True),
-        "Reviewed local Medusa Store",
-        "Source name",
-    )
+    source_name = intake.get_by_label("Source name", exact=True)
+    await _type_exact(source_name, "Reviewed Medusa Store", "Source name")
     definition = intake.get_by_label(
         "OpenAPI or Swagger definition", exact=True
     )
-    await definition.set_input_files(MEDUSA_SPEC)
+    await definition.set_input_files(ACTIVE_MEDUSA_SPEC)
     if await definition.input_value() == "":
         raise RuntimeError("The exact API definition was not bound to API intake.")
+    if await source_name.input_value() != "Reviewed Medusa Store":
+        await _type_exact(source_name, "Reviewed Medusa Store", "Source name")
+    if await source_name.input_value() != "Reviewed Medusa Store":
+        raise RuntimeError("The Source intake did not retain its exact name.")
     await intake.get_by_role(
         "button", name="Add API definition", exact=True
     ).click()
@@ -2576,6 +2679,28 @@ async def _create_agent_from_surface(page: Page) -> None:
     await page.get_by_role(
         "button", name="Medusa Shopping Agent Version 1", exact=True
     ).wait_for(timeout=90_000)
+
+
+async def _fill_designer_feature_and_generate(
+    page: Page, description: str
+) -> None:
+    deadline = asyncio.get_running_loop().time() + 30
+    while asyncio.get_running_loop().time() < deadline:
+        field = page.get_by_label("Feature or behavior", exact=True)
+        button = page.get_by_role(
+            "button", name="Generate design proposal", exact=True
+        )
+        await field.wait_for(state="visible", timeout=5_000)
+        if await field.input_value() != description:
+            await field.fill(description)
+        await page.wait_for_timeout(150)
+        if await field.input_value() == description and await button.is_enabled():
+            await button.click()
+            return
+        await page.wait_for_timeout(150)
+    raise RuntimeError(
+        "The Designer feature description did not reach an enabled controlled-form state."
+    )
 
 
 async def _return_to_only_api_source(page: Page) -> None:
@@ -2802,12 +2927,15 @@ async def _save_profile_exact(
     panel: Locator,
     name: str,
     credential: str,
+    *,
+    base_url: str = "http://host.docker.internal:9100",
+    environment: str = "local",
 ) -> None:
     """Bind the protected surface form and prove its real private-form write."""
     fields = {
         "Profile name": name,
-        "Environment": "local",
-        "Base URL": "http://host.docker.internal:9100",
+        "Environment": environment,
+        "Base URL": base_url,
         "Header name": "x-publishable-api-key",
     }
     for attempt in range(3):
@@ -3101,6 +3229,8 @@ async def _public_request_review(
     await public_agent.get_by_role(
         "button", name="Send message", exact=True
     ).click()
+    operation_choice_sent = False
+    detail_sent = False
     deadline = asyncio.get_running_loop().time() + 180
     while asyncio.get_running_loop().time() < deadline:
         if await review.count() and await review.is_visible():
@@ -3114,13 +3244,27 @@ async def _public_request_review(
                     + response
                 )
             previous_count = current_count
+            if (
+                not operation_choice_sent
+                and response.casefold().startswith("should i use ")
+                and "line items" in response.casefold()
+            ):
+                answer = "Use carts id line items."
+                operation_choice_sent = True
+            elif not detail_sent:
+                answer = clarification
+                detail_sent = True
+            else:
+                raise RuntimeError(
+                    "The deployed Agent requested an unsupported additional clarification: "
+                    + response
+                )
             await public_agent.get_by_role(
                 "textbox", name="Message the assistant", exact=True
-            ).fill(clarification)
+            ).fill(answer)
             await public_agent.get_by_role(
                 "button", name="Send message", exact=True
             ).click()
-            clarification = None
         await page.wait_for_timeout(250)
     raise TimeoutError("The deployed Agent did not stage its reviewed action.")
 
@@ -4101,6 +4245,23 @@ def _check(checks: list[dict[str, object]], name: str, passed: bool, observed) -
     checks.append({"name": name, "passed": bool(passed), "observed": observed})
     if not passed:
         raise RuntimeError(name)
+
+
+def _expected_final_sha256(
+    proposal: dict[str, object], *, runtime_mode: str
+) -> str:
+    value = proposal.get("final_canonical_sha256")
+    del runtime_mode
+    parent = proposal.get("repaired_parent_sha256")
+    if (
+        value != EXPECTED_FINAL
+        or not isinstance(parent, str)
+        or re.fullmatch(r"[0-9a-f]{64}", parent) is None
+    ):
+        raise RuntimeError(
+            "The Medusa proposal does not preserve the exact reviewed correction contract."
+        )
+    return EXPECTED_FINAL
 
 
 async def _classify_operations(
