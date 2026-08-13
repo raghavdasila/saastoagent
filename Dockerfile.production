@@ -1,0 +1,94 @@
+# syntax=docker/dockerfile:1.7
+
+ARG PYTHON_VERSION=3.11.9
+ARG NODE_VERSION=22.22.0
+ARG PNPM_VERSION=11.9.0
+ARG TORCH_VERSION=2.13.0+cpu
+
+FROM python:${PYTHON_VERSION}-slim-bookworm AS backend-builder
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    VIRTUAL_ENV=/opt/venv \
+    PATH=/opt/venv/bin:$PATH \
+    HF_HOME=/opt/huggingface
+
+RUN python -m venv /opt/venv \
+    && apt-get update \
+    && apt-get install --yes --no-install-recommends ca-certificates libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG TORCH_VERSION
+RUN python -m pip install \
+    --index-url https://download.pytorch.org/whl/cpu \
+    "torch==${TORCH_VERSION}"
+
+COPY routedeck /build/routedeck
+RUN python -m pip install "/build/routedeck[fastapi,persistence]"
+
+COPY agent-execution-runtime/pyproject.toml /build/agent-execution-runtime/pyproject.toml
+COPY agent-execution-runtime/src /build/agent-execution-runtime/src
+COPY agent-delivery-runtime/pyproject.toml /build/agent-delivery-runtime/pyproject.toml
+COPY agent-delivery-runtime/src /build/agent-delivery-runtime/src
+RUN python -m pip install \
+    /build/agent-execution-runtime \
+    /build/agent-delivery-runtime
+
+COPY saastoagent-v0.1/backend /app/backend
+RUN python -m pip install --editable /app/backend \
+    && python -m pip check \
+    && python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', revision='1110a243fdf4706b3f48f1d95db1a4f5529b4d41', device='cpu')"
+
+FROM python:${PYTHON_VERSION}-slim-bookworm AS backend-runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    VIRTUAL_ENV=/opt/venv \
+    PATH=/opt/venv/bin:$PATH \
+    HF_HOME=/opt/huggingface \
+    HOME=/home/corpus
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends ca-certificates libgomp1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 corpus \
+    && useradd --uid 10001 --gid corpus --create-home --shell /usr/sbin/nologin corpus
+
+COPY --from=backend-builder /opt/venv /opt/venv
+COPY --from=backend-builder /opt/huggingface /opt/huggingface
+COPY --from=backend-builder /app/backend /app/backend
+RUN chown -R corpus:corpus /opt/huggingface /app/backend /home/corpus
+
+WORKDIR /app/backend
+USER corpus
+
+HEALTHCHECK --interval=10s --timeout=5s --start-period=90s --retries=12 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8099/readyz', timeout=4).read()"
+
+CMD ["python", "-m", "uvicorn", "corpus.main:create_live_app", "--factory", "--host", "0.0.0.0", "--port", "8099", "--workers", "1"]
+
+FROM node:${NODE_VERSION}-bookworm-slim AS web-builder
+
+ARG PNPM_VERSION
+ENV COREPACK_HOME=/opt/corepack
+
+RUN corepack enable && corepack prepare "pnpm@11.7.0" --activate
+WORKDIR /build
+COPY routedeck /build/routedeck
+RUN pnpm --dir /build/routedeck \
+      --filter @routedeck/core \
+      --filter @routedeck/react \
+      install --frozen-lockfile \
+    && pnpm --dir /build/routedeck --filter @routedeck/core build \
+    && pnpm --dir /build/routedeck --filter @routedeck/react build
+
+RUN corepack prepare "pnpm@${PNPM_VERSION}" --activate
+COPY saastoagent-v0.1/frontend /build/corpus/frontend
+RUN pnpm --dir /build/corpus/frontend install --frozen-lockfile \
+    && pnpm --dir /build/corpus/frontend build
+
+FROM caddy:2.10.2-alpine AS web-runtime
+
+COPY saastoagent-v0.1/deploy/Caddyfile /etc/caddy/Caddyfile
+COPY --from=web-builder /build/corpus/frontend/dist /srv
+

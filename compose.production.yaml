@@ -1,0 +1,100 @@
+name: corpus-production
+
+x-runtime-environment: &runtime-environment
+  ROUTEDECK_DATABASE_URL: sqlite+pysqlite:////srv/corpus/state/routedeck.sqlite
+  ROUTEDECK_INSTANCE_ID: corpus-production
+  ROUTEDECK_REVIEW_TTL_SECONDS: "900"
+  ROUTEDECK_RESUME_CAPABILITY_TTL_SECONDS: "86400"
+  ROUTEDECK_WORKER_COUNT: "1"
+  ROUTEDECK_BROWSER_ORIGINS: https://corpus.saastoagent.com
+  CORPUS_MODEL_PROVIDER: openai
+  CORPUS_OPENAI_MODEL: gpt-5.6-luna
+  CORPUS_OPENAI_REASONING_EFFORT: low
+  CORPUS_EVAL_PROVIDER: openai
+  CORPUS_EVAL_TESTER_MODEL: gpt-5.6-luna
+  CORPUS_EVAL_JUDGE_MODEL: gpt-5.6-luna
+  CORPUS_SOURCE_DATA_ROOT: /srv/corpus/data/sources
+  CORPUS_API_SOURCE_MAX_UPLOAD_BYTES: "20971520"
+  CORPUS_API_CHECK_ALLOWED_BASE_URLS: ""
+  CORPUS_TOOLROUTER_EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
+  CORPUS_TOOLROUTER_EMBEDDING_REVISION: 1110a243fdf4706b3f48f1d95db1a4f5529b4d41
+  CORPUS_TOOLROUTER_EMBEDDING_DEVICE: cpu
+  CORPUS_TOOLROUTER_EMBEDDING_BATCH_SIZE: "64"
+  CORPUS_TOOLROUTER_EMBEDDING_LOCAL_FILES_ONLY: "true"
+  CORPUS_TOOLROUTER_GENERATOR_MODEL: gpt-5.6-luna
+  CORPUS_TOOLROUTER_REVIEWER_MODEL: gpt-5.6-luna
+  CORPUS_TOOLROUTER_EVALSET_TIMEOUT_SECONDS: "240"
+  CORPUS_DATABASE_URL: sqlite+aiosqlite:////srv/corpus/state/corpus.sqlite3
+  CORPUS_MIGRATION_REVISION: 0019_builder_assembly_lifecycle
+  CORPUS_JOB_QUEUE_PATH: /srv/corpus/state/corpus-jobs.sqlite3
+  CORPUS_AUTH_ACCESS_TOKEN_MINUTES: "15"
+  CORPUS_AUTH_IDLE_SESSION_DAYS: "7"
+  CORPUS_AUTH_ABSOLUTE_SESSION_DAYS: "30"
+  CORPUS_VERIFICATION_TOKEN_HOURS: "24"
+  CORPUS_RESET_TOKEN_HOURS: "1"
+  CORPUS_PUBLIC_FRONTEND_URL: https://corpus.saastoagent.com
+  CORPUS_TRUSTED_PROXIES: 172.30.0.0/24
+  CORPUS_SMTP_HOST: smtp.gmail.com
+  CORPUS_SMTP_PORT: "587"
+  CORPUS_SMTP_STARTTLS: "true"
+  CORPUS_SMTP_USERNAME: no-reply@saastoagent.com
+  CORPUS_SMTP_FROM_ADDRESS: no-reply@saastoagent.com
+  CORPUS_SMTP_TIMEOUT_SECONDS: "5"
+
+x-backend-service: &backend-service
+  image: ${CORPUS_BACKEND_IMAGE:?CORPUS_BACKEND_IMAGE must be digest-pinned}
+  env_file:
+    - ${CORPUS_RUNTIME_ENV_FILE:-/run/corpus/runtime.env}
+  environment: *runtime-environment
+  restart: unless-stopped
+  read_only: true
+  tmpfs:
+    - /tmp:size=256m,mode=1777
+  volumes:
+    - /srv/corpus/state:/srv/corpus/state
+    - /srv/corpus/data:/srv/corpus/data
+  networks:
+    - corpus-internal
+  security_opt:
+    - no-new-privileges:true
+
+services:
+  backend:
+    <<: *backend-service
+    command: ["python", "-m", "uvicorn", "corpus.main:create_live_app", "--factory", "--host", "0.0.0.0", "--port", "8099", "--workers", "1"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8099/readyz', timeout=4).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+
+  worker:
+    <<: *backend-service
+    command: ["python", "-m", "huey.bin.huey_consumer", "corpus.features.sources.worker.huey", "--workers", "1"]
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  web:
+    image: ${CORPUS_WEB_IMAGE:?CORPUS_WEB_IMAGE must be digest-pinned}
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+    volumes:
+      - /srv/corpus/caddy/data:/data
+      - /srv/corpus/caddy/config:/config
+    networks:
+      - corpus-internal
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      backend:
+        condition: service_healthy
+
+networks:
+  corpus-internal:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24

@@ -97,6 +97,7 @@ class ExperimentConfig:
     tasks_per_category: int = 1
     generator_model: str = "gemma4:latest"
     reviewer_model: str = "qwen2.5-coder:7b"
+    require_independent_models: bool = True
     ollama_url: str = "http://127.0.0.1:11434"
     seed: int = 0
     generation_temperature: float = 0.6
@@ -132,7 +133,7 @@ class ExperimentConfig:
             raise ValueError("Generator and reviewer model tags are required")
         if not self.generator_model_digest.strip() or not self.reviewer_model_digest.strip():
             raise ValueError("Generator and reviewer model digests are required")
-        if self.generator_model == self.reviewer_model:
+        if self.require_independent_models and self.generator_model == self.reviewer_model:
             raise ValueError("Generator and reviewer models must be independent")
         if not self.ollama_url.strip():
             raise ValueError("Ollama URL is required")
@@ -158,6 +159,7 @@ class ExperimentConfig:
             "tasks_per_category": self.tasks_per_category,
             "generator_model": self.generator_model,
             "reviewer_model": self.reviewer_model,
+            "require_independent_models": self.require_independent_models,
             "generator_model_digest": self.generator_model_digest,
             "reviewer_model_digest": self.reviewer_model_digest,
             "ollama_url": self.ollama_url,

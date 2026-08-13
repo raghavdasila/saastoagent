@@ -34,3 +34,38 @@ def test_toolrouter_settings_own_and_load_all_toolrouter_values(
     assert settings.generator_model == "generator:1"
     assert settings.reviewer_model == "reviewer:1"
     assert settings.evalset_timeout_seconds == 90
+
+
+def test_toolrouter_settings_reuse_selected_openai_runtime_configuration(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("CORPUS_MODEL_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "deployment-key")
+    monkeypatch.setenv("CORPUS_OPENAI_MODEL", "gpt-5.6-luna")
+    monkeypatch.setenv("CORPUS_OPENAI_REASONING_EFFORT", "low")
+
+    settings = ToolRouterSettings.from_env(tmp_path / "missing.env")
+
+    assert settings.model_provider == "openai"
+    assert settings.openai_api_key is not None
+    assert settings.openai_api_key.get_secret_value() == "deployment-key"
+    assert settings.generator_model == "gpt-5.6-luna"
+    assert settings.reviewer_model == "gpt-5.6-luna"
+    assert settings.openai_reasoning_effort == "low"
+
+
+def test_toolrouter_adapter_requires_an_api_key_for_openai() -> None:
+    import pytest
+
+    from corpus.integrations.toolrouter import ToolRouterAdapter
+
+    with pytest.raises(ValueError, match="OPENAI_API_KEY"):
+        ToolRouterAdapter(
+            ToolRouterSettings(
+                model_provider="openai",
+                openai_api_key=None,
+                generator_model="gpt-5.6-luna",
+                reviewer_model="gpt-5.6-luna",
+            )
+        )

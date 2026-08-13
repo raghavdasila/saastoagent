@@ -258,6 +258,9 @@ def experiment_config_from_frozen(
         tasks_per_category=int(values["tasks_per_category"]),
         generator_model=str(values["generator_model"]),
         reviewer_model=str(values["reviewer_model"]),
+        require_independent_models=bool(
+            values.get("require_independent_models", True)
+        ),
         ollama_url=str(values["ollama_url"]),
         seed=int(values["seed"]),
         generation_temperature=float(values["generation_temperature"]),

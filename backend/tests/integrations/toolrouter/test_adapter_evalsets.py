@@ -143,6 +143,39 @@ def test_evalset_factory_exports_generated_and_independently_reviewed_cases(
     assert (result.run_dir / "accepted_manifest.json").is_file()
 
 
+def test_evalset_factory_can_use_one_explicit_openai_model_for_both_roles(
+    tmp_path: Path,
+) -> None:
+    adapter = ToolRouterAdapter(
+        ToolRouterSettings(
+            model_provider="openai",
+            openai_api_key="deployment-key",
+            generator_model="gpt-5.6-luna",
+            reviewer_model="gpt-5.6-luna",
+        ),
+        embedding_provider=KeywordEmbeddingProvider(),
+        generation_transport=_generation_response,
+        review_transport=lambda payload: _review_response(payload, accepted=True),
+        model_digest_resolver=lambda model: f"openai-digest:{model}",
+    )
+    artifacts = _ingest(adapter, tmp_path)
+
+    result = adapter.generate_evalset(
+        EvalsetRequest(
+            artifact_dir=artifacts,
+            evalset_id="openai-luna-smoke",
+            categories=("paraphrase",),
+            tasks_per_category=1,
+            max_generation_attempts=1,
+            max_review_attempts=1,
+        )
+    )
+
+    assert result.status == "ready"
+    assert result.generator_model == "gpt-5.6-luna"
+    assert result.reviewer_model == "gpt-5.6-luna"
+
+
 def test_evalset_factory_generates_only_from_the_exact_allowed_endpoint_subset(
     tmp_path: Path,
 ) -> None:

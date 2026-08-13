@@ -60,7 +60,8 @@ ApiSourceSettings
 
 ToolRouterSettings
   -> embedding model/revision/device/batch/local-only
-  -> ToolRouter Ollama URL
+  -> explicit Ollama or OpenAI model provider
+  -> provider credentials/endpoint and reasoning effort
   -> evalset generator/reviewer models and timeout
 ```
 
@@ -110,7 +111,7 @@ authenticated owner
   -> explicit retry requeues only the linked failed job
   -> GRAG retrieval from reloaded graph/index
   -> optional source-grounded evalset run
-  -> local Gemma generator -> deterministic checks -> local Qwen reviewer
+  -> configured generator -> deterministic checks -> configured reviewer call
   -> accepted export or explicit quarantine/failure
 ```
 
@@ -171,7 +172,8 @@ belong in this tree.
 | File | Responsibility | Why this boundary exists |
 | --- | --- | --- |
 | `integrations/toolrouter/__init__.py` | The only supported ToolRouter public exports. | Features never import the private engine snapshot. |
-| `integrations/toolrouter/settings.py` | Immutable defaults, environment names/loading, and validation for embedding, ToolRouter Ollama, generator/reviewer models, and timeout. | Every ToolRouter runtime value has one owner and the adapter receives one explicit dependency object. |
+| `integrations/toolrouter/settings.py` | Immutable defaults, environment names/loading, and validation for embedding, explicit model provider, provider credential/endpoint, generator/reviewer models, reasoning effort, and timeout. | Every ToolRouter runtime value has one owner and the adapter receives one explicit dependency object. |
+| `integrations/toolrouter/openai_responses.py` | Official OpenAI Responses API strict-schema transport and stable provider/model identity. | OpenAI translation stays outside the private engine snapshot and can be selected without changing Source contracts or adding fallback behavior. |
 | `integrations/toolrouter/contracts.py` | ToolRouter-specific ingest, ranked-endpoint, retrieval, trace, and evalset requests/results. | Engine dataclasses and filesystem details do not leak through the facade. |
 | `integrations/toolrouter/errors.py` | Input, dependency, artifact, and base integration exceptions. | Failure category survives engine translation and can be translated once more by a connector. |
 | `integrations/toolrouter/serialization.py` | Atomic graph JSON, NumPy embedding, and reconstructed-index persistence. | Artifact format and reload rules stay beside the integration rather than in Sources. |
@@ -204,8 +206,8 @@ Nothing outside `corpus.integrations.toolrouter` may import these files.
 | `engine/ladder_runtime.py` | Ladder runtime configuration and hardware/package probes. | Retained only as an upstream dependency closure; Corpus runtime configuration remains separate. |
 | `engine/evalset_factory_contracts.py` | Recipe, candidate, verdict, token usage, and context-strategy contracts. | Factory-internal identity must remain stable for resume and audit. |
 | `engine/evalset_factory_seed.py` | Derives source-grounded OpenAPI seed tasks and dependency fields. | Truth construction stays tied to normalized endpoints/schemas. |
-| `engine/evalset_factory_generation.py` | Builds generator context/hints and calls the configured local Ollama generator with cache/audit evidence. | Generation must preserve exact upstream prompt and token-accounting semantics. |
-| `engine/evalset_factory_validation.py` | Deterministic checks, review packets, and independent local Ollama semantic review. | Review is deliberately independent from generation and must not be folded into one convenience call. |
+| `engine/evalset_factory_generation.py` | Builds generator context/hints and calls the configured structured-output transport with cache/audit evidence. | Generation preserves exact upstream prompt and token-accounting semantics while the adapter owns provider selection. |
+| `engine/evalset_factory_validation.py` | Deterministic checks, review packets, and a separate structured semantic-review call. | Review remains a separate invocation and is never folded into generation; local Ollama defaults retain distinct models while an explicitly selected OpenAI provider may use the same configured model for both roles. |
 | `engine/evalset_factory_experiment.py` | Runs/resumes completion keys, writes progress/candidates/reviews/audits/ledger, and produces summaries. | The experiment is the atomic audited orchestration unit. |
 | `engine/evalset_factory_export.py` | Builds and writes accepted tasks plus provenance manifest. | Only accepted reviewed candidates enter the export; quarantine remains separate. |
 | `engine/evalset_factory_freeze.py` | Freezes and verifies immutable experiment configuration identity. | Resume cannot silently change model, recipe, source, or run parameters. |

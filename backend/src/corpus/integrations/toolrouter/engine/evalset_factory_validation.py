@@ -953,6 +953,7 @@ class OllamaSemanticReviewClient:
         num_predict: int = 480,
         keep_alive: str = "0s",
         transport: OllamaTransport | None = None,
+        require_independent_model: bool = True,
     ) -> None:
         if not model.strip():
             raise ValueError("Semantic review requires an explicit Ollama model tag")
@@ -969,6 +970,7 @@ class OllamaSemanticReviewClient:
         self.num_predict = num_predict
         self.keep_alive = keep_alive.strip()
         self.transport = transport or _ollama_transport(url=self.url, timeout_seconds=timeout_seconds)
+        self.require_independent_model = require_independent_model
 
     def _payload(
         self,
@@ -1115,7 +1117,11 @@ class OllamaSemanticReviewClient:
         recipe: Recipe,
         bundle: NormalizedBundle,
     ) -> SemanticReviewResult:
-        if candidate.generator_model and candidate.generator_model == self.model:
+        if (
+            self.require_independent_model
+            and candidate.generator_model
+            and candidate.generator_model == self.model
+        ):
             raise ValueError("The generator model cannot be the sole semantic reviewer of its own candidate")
         packet = build_review_packet(candidate, recipe, bundle)
         deterministic = validate_deterministically(candidate, recipe, bundle)

@@ -16,14 +16,14 @@ identifies this snapshot.
 
 ## Corpus Runtime Adaptation
 
-The manifest deliberately records two vendored hashes that differ from their
-source hashes. Corpus changed the evalset generator and reviewer transport
-validation to accept an operator-configured HTTP Ollama hostname with an
-explicit port. The source snapshot accepted loopback hostnames only, which
-prevented the unchanged ToolRouter pipeline from reaching host or dedicated
-Ollama servers when Corpus ran in a container. The adapter still owns the URL,
-the transport remains Ollama-compatible `/api/generate`, and failures remain
-explicit; no provider or model fallback was added.
+The manifest records Corpus-owned runtime adaptations whose vendored hashes
+differ from the source snapshot. The generator and reviewer accept an
+operator-configured HTTP Ollama hostname with an explicit port. The experiment
+and reviewer also accept an explicit same-model review policy so the Corpus
+adapter can run separate generation and review calls through one selected
+OpenAI model. The default remains independent Ollama models. Provider selection
+is explicit, failures remain explicit, and no provider or model fallback is
+added.
 
 ## Included Boundary
 

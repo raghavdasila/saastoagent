@@ -36,6 +36,10 @@ from .engine.evalset_factory_validation import OllamaSemanticReviewClient
 from .engine.ladder_llm import stable_hash
 from .engine.openapi_loader import load_openapi_specs, write_normalized_bundle
 from .engine.openapi_loader import read_normalized_bundle
+from .openai_responses import (
+    OpenAIResponsesTransport,
+    resolve_openai_model_digest,
+)
 from .engine.semantic_grag_router import SemanticGRAGRouter
 from .engine.semantic_graph import build_semantic_graph
 from .engine.semantic_graph_retrieval import (
@@ -72,10 +76,30 @@ class ToolRouterAdapter:
     ) -> None:
         self.settings = settings
         self._embedding_provider = embedding_provider
-        self._generation_transport = generation_transport
-        self._review_transport = review_transport
+        if settings.model_provider == "openai":
+            if settings.openai_api_key is None:
+                raise ValueError(
+                    "OPENAI_API_KEY is required for the ToolRouter OpenAI provider"
+                )
+            openai_transport = None
+            if generation_transport is None or review_transport is None:
+                openai_transport = OpenAIResponsesTransport(
+                    api_key=settings.openai_api_key.get_secret_value(),
+                    timeout_seconds=settings.evalset_timeout_seconds,
+                    reasoning_effort=settings.openai_reasoning_effort,
+                )
+            self._generation_transport = generation_transport or openai_transport
+            self._review_transport = review_transport or openai_transport
+        else:
+            self._generation_transport = generation_transport
+            self._review_transport = review_transport
         self._model_digest_resolver = (
-            model_digest_resolver or self._resolve_ollama_model_digest
+            model_digest_resolver
+            or (
+                resolve_openai_model_digest
+                if settings.model_provider == "openai"
+                else self._resolve_ollama_model_digest
+            )
         )
 
     def ingest(self, request: IngestRequest) -> IngestResult:
@@ -353,11 +377,12 @@ class ToolRouterAdapter:
             )
         except Exception as error:
             raise ToolRouterDependencyError(
-                f"The configured Ollama model identity is unavailable: {error}"
+                "The configured ToolRouter model identity is unavailable for "
+                f"provider {self.settings.model_provider}: {error}"
             ) from error
         if not generator_digest or not reviewer_digest:
             raise ToolRouterDependencyError(
-                "The configured Ollama models must expose immutable digests."
+                "The configured ToolRouter models must expose stable identities."
             )
         # User labels never become path segments. The compact stable token is
         # important because the engine's immutable cache keys are long and
@@ -369,6 +394,7 @@ class ToolRouterAdapter:
             targets=(target_id,),
             generator_model=self.settings.generator_model,
             reviewer_model=self.settings.reviewer_model,
+            require_independent_models=self.settings.model_provider != "openai",
             generator_model_digest=generator_digest,
             reviewer_model_digest=reviewer_digest,
             ollama_url=self.settings.ollama_url,
@@ -405,6 +431,7 @@ class ToolRouterAdapter:
             num_predict=config.review_num_predict,
             keep_alive=config.review_keep_alive,
             transport=self._review_transport,
+            require_independent_model=self.settings.model_provider != "openai",
         )
         try:
             summary = EvalsetFactoryExperiment(
