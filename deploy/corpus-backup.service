@@ -1,0 +1,7 @@
+[Unit]
+Description=Corpus application-consistent backup
+
+[Service]
+Type=oneshot
+ExecStart=/srv/corpus/deploy/backup-corpus.sh daily
+

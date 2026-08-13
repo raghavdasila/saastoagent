@@ -33,7 +33,7 @@ x-runtime-environment: &runtime-environment
   CORPUS_VERIFICATION_TOKEN_HOURS: "24"
   CORPUS_RESET_TOKEN_HOURS: "1"
   CORPUS_PUBLIC_FRONTEND_URL: https://corpus.saastoagent.com
-  CORPUS_TRUSTED_PROXIES: 172.30.0.0/24
+  CORPUS_TRUSTED_PROXIES: 172.30.0.2
   CORPUS_SMTP_HOST: smtp.gmail.com
   CORPUS_SMTP_PORT: "587"
   CORPUS_SMTP_STARTTLS: "true"
@@ -53,14 +53,15 @@ x-backend-service: &backend-service
   volumes:
     - /srv/corpus/state:/srv/corpus/state
     - /srv/corpus/data:/srv/corpus/data
-  networks:
-    - corpus-internal
   security_opt:
     - no-new-privileges:true
 
 services:
   backend:
     <<: *backend-service
+    networks:
+      corpus-internal:
+        ipv4_address: 172.30.0.3
     command: ["python", "-m", "uvicorn", "corpus.main:create_live_app", "--factory", "--host", "0.0.0.0", "--port", "8099", "--workers", "1"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8099/readyz', timeout=4).read()"]
@@ -71,7 +72,12 @@ services:
 
   worker:
     <<: *backend-service
+    networks:
+      corpus-internal:
+        ipv4_address: 172.30.0.4
     command: ["python", "-m", "huey.bin.huey_consumer", "corpus.features.sources.worker.huey", "--workers", "1"]
+    healthcheck:
+      disable: true
     depends_on:
       backend:
         condition: service_healthy
@@ -86,7 +92,8 @@ services:
       - /srv/corpus/caddy/data:/data
       - /srv/corpus/caddy/config:/config
     networks:
-      - corpus-internal
+      corpus-internal:
+        ipv4_address: 172.30.0.2
     security_opt:
       - no-new-privileges:true
     depends_on:

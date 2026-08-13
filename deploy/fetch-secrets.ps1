@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [string]$ProjectId = "saastoagent",
-    [string]$EnvironmentFile = ".env.local"
+    [string]$EnvironmentFile = ".env.local",
+    [switch]$ForceNewCredentialVaultVersion
 )
 
 $ErrorActionPreference = "Stop"
@@ -36,7 +37,7 @@ function New-Base64UrlSecret {
     finally {
         $generator.Dispose()
     }
-    return [Convert]::ToBase64String($bytes).TrimEnd("=").Replace("+", "-").Replace("/", "_")
+    return [Convert]::ToBase64String($bytes).Replace("+", "-").Replace("/", "_")
 }
 
 $inventory = @(
@@ -59,7 +60,8 @@ if ($LASTEXITCODE -ne 0) {
 foreach ($item in $inventory) {
     $secretName = $item.Secret
     $secretExists = $existingSecretNames -contains $secretName
-    if ($secretExists) {
+    $forceNewVersion = $ForceNewCredentialVaultVersion -and $secretName -eq "corpus-credential-vault-key"
+    if ($secretExists -and -not $forceNewVersion) {
         $enabledVersion = & gcloud.cmd secrets versions list $secretName --project=$ProjectId --filter="state=ENABLED" --limit=1 --format="value(name)"
         if ($LASTEXITCODE -ne 0) {
             throw "Could not inspect versions for $secretName."
@@ -71,6 +73,9 @@ foreach ($item in $inventory) {
     }
 
     $value = $environment[$item.Environment]
+    if ($forceNewVersion) {
+        $value = New-Base64UrlSecret -ByteCount 32
+    }
     if ([string]::IsNullOrWhiteSpace($value)) {
         if ($item.RequiredLocal) {
             throw "$($item.Environment) is required in $EnvironmentFile."
