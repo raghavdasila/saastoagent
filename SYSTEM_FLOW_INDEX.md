@@ -6,7 +6,10 @@ Navgraph is maintained separately in the design notebook.
 ## Validated Horizontal Product Lifecycle
 
 ```text
-owner creates and approves one API Source revision
+owner stages one API definition without processing
+  -> explicitly starts durable Source analysis
+  -> Source Hub renders the persisted ToolRouter semantic graph
+  -> owner reviews and approves one effective API Source revision
   -> saves one protected profile and exact operation curation
   -> creates an Agent pinned to the exact Source revision
   -> Designer uses the configured real model to append one owner-described,
@@ -19,17 +22,23 @@ owner creates and approves one API Source revision
   -> Evaluation runs the generated exact-build case and derives eligibility
   -> Channels creates hosted Web; Deployment requires explicit review
   -> backend/worker restart restores exact build and delivery bindings
-  -> public hosted session invokes that deployment
+  -> public hosted session searches the real Medusa catalog
+  -> cart creation waits for explicit review and executes once
+  -> add-to-cart uses bounded response-derived session references,
+     waits for a second explicit review, and executes once
   -> Operations shows owner-scoped redacted interaction evidence and promotion
 ```
 
-The complete local path is independently retained through direct surfaces
-(`20260809T153004Z-7cd51d776b`, 24/24), ordinary owner-language chat
-(`20260809T165131Z-63d1c6220b`, 24/24), and one continuing hybrid conversation
-(`20260809T210136Z-853c33486c`, 25/25). The hybrid recording is raw, uncut,
-normal-speed, and includes the semantic graph, Designer topology, compiled
-build/evaluation/deployment NavGraphs, ToolRouter clarification before and after
-deployment, restart, Operations evidence, and 390x844 rendering.
+The current complete local path is independently retained through direct
+surfaces (`20260812T183856Z-02c48c5a50`, 39/39), ordinary owner-language chat
+(`20260812T222652Z-403a886798`, 39/39), and one continuing hybrid conversation
+(`20260812T221223Z-0e9ec6eb55`, 40/40). All three recordings are raw, uncut,
+normal-speed, and include the semantic graph, Designer topology, compiled
+build/evaluation/deployment NavGraphs, real Sandbox and public product search,
+reviewed cart creation and add-to-cart, restart, Operations evidence/promotion,
+and 390x844 rendering. Each has zero unexpected HTTP, console, page, or request
+failures. Exact paths, hashes, IDs, and diagnostic allowlists are recorded in
+`docs/superpowers/validation/2026-08-13-horizontal-ecommerce-chat-surface-hybrid.md`.
 
 The accepted Designer revision now compiles one shared product-owned topology.
 Designer visibly renders its stable topology hash, executable node, exact
@@ -44,10 +53,11 @@ film shows the feature transition through queued/running/ready, the exact
 immutable compiled NavGraph, and automatic evaluation-coverage scheduling.
 The run stopped before Sandbox and Evaluation by design.
 
-Run `20260808T100957Z-f63809ea83` passed this flow 13/13 locally with
-desktop/mobile screenshots, video, and zero unexpected browser diagnostics.
+Earlier accepted and failed runs retain their historical claim boundaries.
 RouteDeck owns legality, review, transitions, and projection. Corpus owns every
 domain identity, adapter, persistence record, public route, and product surface.
+Credentials resolve only at the execution boundary; reviewed public writes do
+not expose request/response bodies or owner-only runtime evidence.
 
 ## Docker Development Startup
 
@@ -289,9 +299,9 @@ owner Home -> workspace.open_sources
   -> owner explicitly selects the exact effective revision, saved profile, and GetProductTypes or GetProductTags
   -> sources.test_api_connection rechecks owner/source/revision/profile/credential version
   -> credential resolves just in time inside the API execution adapter
-  -> exact 6fca contract validates one request and response; no retry or fallback exists
+  -> exact reviewed effective API definition validates one request and response; no retry or fallback exists
   -> immutable redacted success or failure identity persists without headers, bodies, query values, or secrets
-  -> sources.propose_contract_revision reproduces the accepted repaired-parent + ten-patch chain without transport
+  -> sources.propose_contract_revision reproduces the accepted repaired-parent + twelve-patch chain without transport
   -> owner-scoped proposal persists exact hashes, patch records, local target and evidence
   -> proposal projects through the RouteDeck detail slot while Source Hub stays active
   -> sources.approve_contract_revision stages durable required review from an opaque proposal entity

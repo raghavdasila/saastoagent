@@ -17,6 +17,7 @@ export function BuilderSurface({ dispatchAffordance, props, agentStore, designer
   const agents = useSyncExternalStore(agentStore.subscribe, agentStore.snapshot);
   const selectedRef = typeof props.selected_agent_ref === "string" ? props.selected_agent_ref : null;
   const selected = useMemo(() => agents.agents.find((item) => item.id === agents.selectedId) ?? null, [agents.agents, agents.selectedId]);
+  const selectedAgentId = selected?.id ?? null;
   const [builds, setBuilds] = useState<readonly AgentBuildView[]>([]);
   const [evaluationSets, setEvaluationSets] = useState<readonly EvaluationSetView[]>([]);
   const [design, setDesign] = useState<AgentDesignView | null>(null);
@@ -44,7 +45,7 @@ export function BuilderSurface({ dispatchAffordance, props, agentStore, designer
   }, [designerClient, runtimeClient, selected?.id, sessionVersion]);
 
   useEffect(() => {
-    if (selected === null || !builds.some((item) => {
+    if (selectedAgentId === null || !builds.some((item) => {
       if (item.status === "queued" || item.status === "running") return true;
       if (item.status !== "ready") return false;
       const evaluation = evaluationSets.find((value) => value.build_id === item.id) ?? null;
@@ -54,15 +55,15 @@ export function BuilderSurface({ dispatchAffordance, props, agentStore, designer
     })) return;
     const timer = window.setInterval(() => {
       void Promise.all([
-        runtimeClient.builds(selected.id),
-        runtimeClient.evaluations(selected.id),
+        runtimeClient.builds(selectedAgentId),
+        runtimeClient.evaluations(selectedAgentId),
       ]).then(([inventory, evaluations]) => {
         setBuilds(inventory.builds);
         setEvaluationSets(evaluations.evaluation_sets);
       }).catch((caught) => setError(message(caught)));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [builds, evaluationSets, runtimeClient, selected]);
+  }, [builds, evaluationSets, runtimeClient, selectedAgentId]);
 
   async function assemble() {
     if (selectedRef === null || selected === null || requestId === null) return;

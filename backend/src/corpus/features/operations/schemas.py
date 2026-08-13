@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class OperationsEventView(BaseModel):
@@ -33,8 +33,15 @@ class OperationsCollectionView(BaseModel):
 class PromoteInteractionArguments(BaseModel):
     model_config = ConfigDict(extra="forbid")
     interaction_id: str | None = Field(default=None, min_length=1, max_length=80)
+    interaction_request: str | None = Field(default=None, min_length=1, max_length=1000)
     set_name: str = Field(min_length=1, max_length=160)
     title: str = Field(min_length=1, max_length=160)
     category: str = Field(min_length=1, max_length=80)
     difficulty: str = Field(pattern="^(easy|medium|hard)$")
     mandatory: bool = True
+
+    @model_validator(mode="after")
+    def exact_selector(self):
+        if self.interaction_id is not None and self.interaction_request is not None:
+            raise ValueError("Provide one interaction selector, not both.")
+        return self

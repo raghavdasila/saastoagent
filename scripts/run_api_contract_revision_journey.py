@@ -20,7 +20,7 @@ MEDUSA_SPEC = Path(
 )
 EXPECTED_RAW = "fd17273078c222a5632459f67204cbc9cf03cb925641d47669209baa9cc97fb6"
 EXPECTED_PARENT = "bc1b4b2456eefab4684a07ffa6e63f652118f5a705dd13eba5d77e74ab965c6e"
-EXPECTED_FINAL = "6fca793be700dfb8bf511c2217d72cf97abf2f6cba08fbc2cd26ef0369b8f3f6"
+EXPECTED_FINAL = "c0b9c6bf1b149a0e458de9fbda4f7bad3cf6f9f7eb4ff383bded3b09d23e50ef"
 ALLOWED_OPERATION_IDS = frozenset({
     "workspace.open_sources",
     "sources.open_api_creation",
@@ -143,7 +143,7 @@ async def main() -> None:
                 "03-proposal-patches-review-desktop",
             )
             _record(assertions, "proposal exposes the exact chain and shared impact before review", True, {
-                "proposalId": ids["proposalId"], "patchCount": 10, "impactCount": 2,
+                "proposalId": ids["proposalId"], "patchCount": 12, "impactCount": 2,
                 "parentHash": EXPECTED_PARENT, "finalHash": EXPECTED_FINAL,
                 "desktopViewport": {"width": 1440, "height": 1000},
                 "desktopTopBounds": proposal_top_bounds,
@@ -478,8 +478,8 @@ def _assert_proposal(proposal: dict[str, object]) -> None:
     patches = proposal.get("patches")
     if proposal.get("repaired_parent_sha256") != EXPECTED_PARENT or proposal.get("final_canonical_sha256") != EXPECTED_FINAL:
         raise RuntimeError("The persisted proposal hash chain is invalid.")
-    if not isinstance(patches, list) or len(patches) != 10:
-        raise RuntimeError("The persisted proposal does not contain ten patches.")
+    if not isinstance(patches, list) or len(patches) != 11:
+        raise RuntimeError("The persisted proposal does not contain eleven patches.")
     shared = [item for item in patches if isinstance(item, dict) and item.get("patch_id") == "6435eb6c5861391b"]
     if len(shared) != 1 or shared[0].get("impact_count") != 2:
         raise RuntimeError("The shared BaseRegionCountry impact is invalid.")

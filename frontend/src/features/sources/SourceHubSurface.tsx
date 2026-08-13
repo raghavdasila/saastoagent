@@ -112,16 +112,12 @@ export function SourceHubSurface({
     if (selectedFromHandoff !== null) setSelectedId(selectedFromHandoff);
   }, [selectedFromHandoff, surfaceProps.mode]);
 
-  const hasActive = sources.some(({ revision }) =>
-    revision.state === "queued" || revision.state === "running"
-  );
   useEffect(() => {
-    if (!hasActive) return;
     const timer = window.setInterval(() => {
       void refresh().catch((caught) => setError(errorMessage(caught)));
     }, 1500);
     return () => window.clearInterval(timer);
-  }, [hasActive, refresh]);
+  }, [refresh]);
 
   const selected = useMemo(
     () => sources.find((source) => source.source_id === selectedId) ?? null,
@@ -725,7 +721,7 @@ export function SourceHubSurface({
                         safeCheckEnabled={
                           selected.revision.summary.revision_kind === "reviewed_api_contract"
                           && selected.revision.summary.final_canonical_sha256
-                            === "6fca793be700dfb8bf511c2217d72cf97abf2f6cba08fbc2cd26ef0369b8f3f6"
+                            === "c0b9c6bf1b149a0e458de9fbda4f7bad3cf6f9f7eb4ff383bded3b09d23e50ef"
                         }
                         sourceClient={sourceClient}
                         privateForm={privateForm}

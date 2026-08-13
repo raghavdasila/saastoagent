@@ -95,3 +95,35 @@ Capability, picker Surface and lifecycle Operations activate the exact
 accepted Studio policies. Internal selection and return Operations remain
 current RouteDeck contracts without being presented as Studio-authored
 product Operations.
+
+## Accepted ecommerce lineage
+
+The current horizontal product path preserves one exact owner-scoped lineage:
+
+```text
+Source revision + profile + curation
+  -> Agent configuration version + exact Source attachment
+  -> accepted Designer revision + topology hash
+  -> immutable Builder artifact + compiled RouteDeck Application
+  -> Sandbox run + exact-build Evaluation coverage/results
+  -> Channel + immutable Deployment releases
+  -> public session + redacted interaction evidence
+  -> owner-only Operations promotion back into Evaluation
+```
+
+No feature resolves “latest” as a substitute for an unavailable historical
+identity. Builder and Evaluation surfaces poll their authoritative feature
+services while mounted so queued/worker-completed state is visible after
+leaving and returning. Source Hub likewise refreshes while mounted, including
+when chat creates the first Source after an initially empty inventory.
+
+The assembled Sandbox and deployed Agent retain only bounded response-derived
+references needed by the current session: a product variant from the validated
+search response and a cart ID from the reviewed cart response. They do not
+retain or expose response bodies, credentials, headers, cookies, or private
+router evidence. Each public write remains a separate RouteDeck review; the
+second operation cannot inherit approval from the first.
+
+Operations inspection is read-only. Promotion requires an explicit owner
+request and selects one exact matching deployed interaction/build lineage;
+viewing or explaining an interaction cannot promote it implicitly.

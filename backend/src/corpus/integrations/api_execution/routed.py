@@ -324,8 +324,6 @@ def _operation_contract(
             )
         )
     request_body = operation.get("requestBody") or {}
-    if isinstance(request_body, Mapping) and request_body.get("required"):
-        raise RoutedApiExecutionError("Required API request bodies are not supported in this phase.")
     request_content = request_body.get("content") if isinstance(request_body, Mapping) else {}
     request_media_type = (
         "application/json"

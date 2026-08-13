@@ -57,6 +57,15 @@ _TOOLROUTER_STATUS_SCHEMA = {
     },
     "additionalProperties": False,
 }
+_WRITE_REVIEW_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "state": {"type": "string", "enum": ["pending"]},
+        "review_id": {"type": "string", "minLength": 1},
+        "expires_at": {"type": "string", "minLength": 1},
+    },
+    "additionalProperties": False,
+}
 
 
 @dataclass(frozen=True)
@@ -105,6 +114,12 @@ def compile_agent_navgraph(snapshot: BuilderInputSnapshot) -> AgentNavGraphArtif
         component="agent_runtime.toolrouter_status",
         lifecycle=SurfaceLifecycle.STABLE,
         public_props_schema=FrozenJsonObject(_TOOLROUTER_STATUS_SCHEMA),
+    )
+    write_review_surface = Surface(
+        id="agent_runtime.write_review",
+        component="agent_runtime.write_review",
+        lifecycle=SurfaceLifecycle.STABLE,
+        public_props_schema=FrozenJsonObject(_WRITE_REVIEW_SCHEMA),
     )
     policies = _policies(snapshot)
     metadata = FrozenJsonObject({
@@ -157,6 +172,7 @@ def compile_agent_navgraph(snapshot: BuilderInputSnapshot) -> AgentNavGraphArtif
             active_surface=active_surfaces[topology_node.id],
             clarification_surface=clarification_surface,
             router_status_surface=router_status_surface,
+            write_review_surface=write_review_surface,
             error_surface=error_surface,
             policies=policies,
             metadata=metadata,
@@ -317,6 +333,7 @@ def _node(
     active_surface,
     clarification_surface,
     router_status_surface,
+    write_review_surface,
     error_surface,
     policies,
     metadata,
@@ -353,6 +370,7 @@ def _node(
         surfaces=SurfaceSlots(
             active=active_surface,
             detail=(clarification_surface,),
+            review=(write_review_surface,),
             status=(router_status_surface,),
             error=(error_surface,),
         ),
@@ -415,6 +433,10 @@ def _operation_declaration(binding: BuilderSourceBinding, operation_id: str) -> 
             "source_revision_id": binding.source_revision_id,
             "method": method.upper(),
             "path_template": path_template,
+            **(
+                {"review_surface_id": "agent_runtime.write_review"}
+                if review is ReviewPolicy.REQUIRED else {}
+            ),
         }),
     )
     return operation_id, operation

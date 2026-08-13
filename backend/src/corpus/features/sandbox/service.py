@@ -146,6 +146,47 @@ class SandboxService:
             answers=answers,
         )
 
+    async def resolve_review(
+        self,
+        organization_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        *,
+        run_id: uuid.UUID,
+        review_id: str,
+        accepted: bool,
+        request_id: str,
+    ) -> SandboxRunView:
+        record = await self.repository.begin_resume(
+            organization_id, agent_id, run_id
+        )
+        if record.awaiting != "write_review":
+            await self.repository.fail(
+                organization_id, record.id, code="write_review_not_pending"
+            )
+            raise SandboxUnavailable("The Sandbox run is not waiting for action review.")
+        build = await self.builds.require_running(
+            organization_id, agent_id, record.build_id
+        )
+        try:
+            result = await self.runtime.resolve_review(
+                organization_id=organization_id,
+                record=record,
+                build=build,
+                review_id=review_id,
+                accepted=accepted,
+                request_id=request_id,
+            )
+            return _view(
+                await self.repository.complete(organization_id, record.id, result)
+            )
+        except Exception as error:
+            await self.repository.fail(
+                organization_id, record.id, code=type(error).__name__
+            )
+            if isinstance(error, SandboxUnavailable):
+                raise
+            raise SandboxUnavailable("The Sandbox action review failed.") from error
+
 
 def _view(value):
     clarification = _clarification(value)

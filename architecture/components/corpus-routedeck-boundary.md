@@ -98,6 +98,19 @@ public conversations, persistence, revocation, and ownership claims stay in
   retrieval/evalset contracts are generic; API upload transport is
   connector-owned, only the explicit API/ToolRouter bridge imports the public
   adapter, and HTTP never exposes engine paths.
+- Hosted-Agent write operations use the exact compiled per-build RouteDeck
+  Application. A public session may expose one Corpus-owned pending-action
+  review projection, but no external write is sent until the exact RouteDeck
+  review is accepted. Reject, stale review, or missing review fails closed.
+  Cart creation and add-to-cart are separate reviews; approval is never shared.
+- Corpus retains only public typed outcomes and bounded same-session response
+  references across deployed turns. Owner-only NavGraph, ToolRouter trace,
+  Source, credential, and execution diagnostics remain outside the public
+  projection and are available only through authenticated Operations.
+- Hybrid evidence is source-aware. Versioned agent commits correlate only to
+  the exact RouteDeck session/projection versions, while direct surface commits
+  retain their surface provenance. Unmatched model evidence never borrows a
+  surface event cursor or hides another detailed operation.
 - The frontend consumes the RouteDeck frontend contract and dispatches only
   declared surface affordances.
 - The compiled frontend contract is exported deterministically to

@@ -1,0 +1,49 @@
+{
+  "authority": "Corpus-reviewed local Medusa evidence; not an official Medusa contract",
+  "capturedAt": "2026-08-12T18:31:00Z",
+  "localMedusaVersion": "2.13.6",
+  "operationId": "PostCartsIdLineItems",
+  "request": {
+    "method": "POST",
+    "pathTemplate": "/store/carts/{id}/line-items",
+    "credential": "profile-managed header; value omitted",
+    "bodyRetained": false
+  },
+  "response": {
+    "status": 200,
+    "topLevelKeys": ["cart"],
+    "cartIdentityPresent": true,
+    "lineItemCount": 1,
+    "lineItemIdentityPresent": true,
+    "variantIdentityPresent": true,
+    "quantity": 1,
+    "bodyRetained": false
+  },
+  "validation": {
+    "baseEffectiveContractSha256": "649a8782aa921e26491064f91b6e667d3770772e52b5cfcf51a17fd164a29860",
+    "beforeRuntimeOutcome": "response_contract_outcome_unknown",
+    "customPatchId": "b183ac24f1a1a683",
+    "targetPointer": "/paths/~1store~1carts~1{id}~1line-items/post/responses/200/content/application~1json/schema",
+    "targetSha256": "1657825eb69f1a6e757766e7696bea8f57155b56718f255d471dd4b7231cf0eb",
+    "derivedEffectiveContractSha256": "c0b9c6bf1b149a0e458de9fbda4f7bad3cf6f9f7eb4ff383bded3b09d23e50ef",
+    "requiredResponseIdentity": [
+      "cart.id",
+      "cart.items[].id",
+      "cart.items[].variant_id",
+      "cart.items[].quantity"
+    ],
+    "additionalResponseFieldsAllowed": true
+  },
+  "runtimeProof": {
+    "cartId": "cart_01KZVKVCAR4BQBR7N8XN020SD4",
+    "persistedLineItemCount": 1,
+    "persistedQuantity": 1,
+    "rollbackPerformed": false
+  },
+  "redaction": {
+    "headers": false,
+    "credentialValues": false,
+    "requestBody": false,
+    "responseBody": false
+  }
+}

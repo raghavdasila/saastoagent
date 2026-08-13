@@ -1,6 +1,6 @@
 # Sources And ToolRouter Integration
 
-Status: bounded Source Hub integration implemented and locally validated on 2026-08-07
+Status: Source Hub ecommerce path locally validated through three modes on 2026-08-13
 
 ## Purpose
 
@@ -83,7 +83,8 @@ generic Sources configuration.
 ```text
 authenticated owner
   -> Source Hub product surface
-  -> validated API YAML plus optional Markdown upload
+  -> validated API YAML plus optional Markdown is staged without processing
+  -> owner explicitly requests analysis
   -> queued source revision and durable-job linkage persisted
   -> revision metadata is published before the discoverable Source pointer
   -> Huey source-worker marks the job and revision running
@@ -96,7 +97,7 @@ authenticated owner
   -> persisted graph presenter returns semantic groups + construction stages
   -> protected private form supplies connection credential material
   -> public save Operation carries {} and persists only a credential reference
-  -> owner prepares an exact transport-free API contract revision proposal
+  -> owner prepares an exact transport-free API-definition revision proposal
   -> Source-scoped lock serializes proposal/approval manifest mutations
   -> proposal detail exposes raw/repair/parent/final/local-target/evidence hashes
   -> RouteDeck required review rechecks exact owner/current plan on acceptance
@@ -104,6 +105,8 @@ authenticated owner
   -> exact API operation nodes become one revision-bound curation inventory
   -> owner classifies every operation include/exclude and saves by exact CAS
   -> immutable curation history and its current pointer survive reload/restart
+  -> exact curated route planning may clarify without an API call
+  -> a resolved read executes once; each write requires separate review
   -> explicit retry requeues only the linked failed job
   -> GRAG retrieval from reloaded graph/index
   -> optional source-grounded evalset run
@@ -142,7 +145,7 @@ file full of API-, database-, Slack-, or channel-specific branches.
 | `features/sources/connectors/api/toolrouter.py` | Implements `ApiSourceEngine` by translating ToolRouter requests, results, and failures. | Exactly one explicit bridge knows both the API engine port and the public ToolRouter facade. |
 | `features/sources/connectors/api/graph.py` | Projects persisted ToolRouter graph, semantic groups, and recorded construction stages into product-safe view models. | The frontend does not parse private ToolRouter artifact schemas or invent playback state. |
 | `features/sources/connectors/api/connections.py` | Validates revision-bound non-secret profile metadata and stores credential references returned by the shared vault. | Source configuration owns profile identity while the vault alone owns secret bytes. |
-| `features/sources/connectors/api/contract_revisions.py` | Reproduces the accepted one-repair/ten-patch contract chain, persists exact proposal provenance, and creates a new immutable revision after review. | Proposal/review/approval cannot call the target API, overwrite the parent, or accept changed hashes, patch metadata, local target, or evidence. |
+| `features/sources/connectors/api/contract_revisions.py` | Reproduces the accepted one-repair/twelve-patch API-definition chain, including reviewed local product and line-item response identity, persists exact proposal provenance, and creates a new immutable revision after review. | Proposal/review/approval cannot call the target API, overwrite the parent, or accept changed hashes, patch metadata, local target, or evidence. |
 | `features/sources/connectors/api/operation_curation.py` | Derives the exact API-operation inventory from a READY revision's existing ToolRouter artifact and appends exhaustive include/exclude decisions under exact expected-current CAS. | Curation cannot silently broaden, execute, resolve credentials, create route plans, retarget historical revisions, or overwrite prior records. |
 | `features/sources/connectors/api/route_plans.py` | Builds immutable owner-, conversation-, session-, revision-, profile-, and curation-bound non-executing route-plan lineages through the curated ToolRouter subset. | Ambiguity and missing input append exact-CAS clarification records; credentials are never resolved, `api_call_count` remains zero, and read/write execution stays outside this service. |
 
@@ -317,11 +320,19 @@ owner's source from a missing source.
 
 ## Current Claim Boundary
 
-This proves Sources can turn an API collection into persisted ToolRouter
-artifacts, retrieve from them, and create independently reviewed evalset
-candidates. It does not prove Agent Designer, agent execution, Sandbox, public
-Web, deployment, background workers, or production storage. Semantic GRAG
-remains explicitly experimental.
+The Source-focused evidence proves Sources can turn an API collection into
+persisted ToolRouter artifacts, retrieve from them, and create independently
+reviewed evalset candidates. That component evidence does not by itself prove
+Agent Designer, agent execution, Sandbox, public Web, deployment, background
+workers, or production storage. Semantic GRAG remains explicitly experimental.
+
+The integration is also consumed by the accepted ecommerce Agent path, but
+that does not broaden Source ownership. Current three-mode evidence proves the
+persisted graph is visible, only the exact curated `GetProducts`, `PostCarts`,
+and `PostCartsIdLineItems` operations enter the assembled Agent, and ToolRouter
+routes the real product search before execution. Designer, Builder, Sandbox,
+Deployment, and Operations truth is owned and documented by their respective
+features, not by this Source component.
 
 The rendered evidence surface was also exercised with the real Ory Kratos
 `api.yaml`: 56 endpoints produced 477 nodes, 876 edges, and 477 cards;

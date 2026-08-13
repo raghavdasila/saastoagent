@@ -11,6 +11,7 @@ from .contracts import (
     SandboxEventProjection,
     SandboxRunProjection,
     SandboxRunSpec,
+    ReviewedRunCompletion,
 )
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "SandboxEventProjection",
     "SandboxRunProjection",
     "SandboxRunSpec",
+    "ReviewedRunCompletion",
 ]

@@ -1,0 +1,52 @@
+{
+  "authority": "Corpus-reviewed local Medusa evidence; not an official Medusa contract",
+  "capturedAt": "2026-08-12T17:42:00Z",
+  "localMedusaVersion": "2.13.6",
+  "operationId": "GetProducts",
+  "request": {
+    "method": "GET",
+    "pathTemplate": "/store/products",
+    "queryNames": [
+      "q"
+    ],
+    "credential": "profile-managed header; value omitted"
+  },
+  "response": {
+    "status": 200,
+    "topLevelKeys": [
+      "count",
+      "limit",
+      "offset",
+      "products"
+    ],
+    "productCount": 1,
+    "firstProductTitle": "Medusa T-Shirt",
+    "firstProductVariantCount": 8,
+    "bodyRetained": false
+  },
+  "validation": {
+    "baseEffectiveContractSha256": "6fca793be700dfb8bf511c2217d72cf97abf2f6cba08fbc2cd26ef0369b8f3f6",
+    "beforeIssueCount": 364,
+    "afterIssueCount": 0,
+    "customPatchId": "fe22ecc628158a9b",
+    "targetPointer": "/paths/~1store~1products/get/responses/200/content/application~1json/schema",
+    "targetSha256": "23e40838ada9b1b8170cc2c5c94597bd595ece2017dc476f67ed7d189053c66c",
+    "derivedEffectiveContractSha256": "649a8782aa921e26491064f91b6e667d3770772e52b5cfcf51a17fd164a29860",
+    "requiredResponseIdentity": [
+      "products",
+      "count",
+      "offset",
+      "limit",
+      "products[].id",
+      "products[].title",
+      "products[].variants[].id"
+    ],
+    "additionalResponseFieldsAllowed": true
+  },
+  "redaction": {
+    "headers": false,
+    "credentialValues": false,
+    "requestBody": false,
+    "responseBody": false
+  }
+}

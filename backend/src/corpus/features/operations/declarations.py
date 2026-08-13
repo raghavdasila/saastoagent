@@ -13,7 +13,9 @@ PROMOTE_INTERACTION = Operation(
     description=(
         "Only when the owner explicitly asks to turn one selected deployed interaction "
         "into a future evaluation case, create it from that exact interaction and build "
-        "lineage. Never use this operation to inspect, explain, or display how an "
+        "lineage. When chat has no hidden interaction id, supply the exact deployed "
+        "customer request text as interaction_request. Never use this operation to "
+        "inspect, explain, or display how an "
         "interaction ran."
     ),
     input_schema=FrozenJsonObject(PromoteInteractionArguments.model_json_schema()),

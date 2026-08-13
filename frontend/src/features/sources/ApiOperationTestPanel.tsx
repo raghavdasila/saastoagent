@@ -16,7 +16,7 @@ import {
 } from "./sourceClient";
 import type { RoutedExecutionStore } from "./routedExecutionStore";
 
-const EFFECTIVE_HASH = "6fca793be700dfb8bf511c2217d72cf97abf2f6cba08fbc2cd26ef0369b8f3f6";
+const EFFECTIVE_HASH = "c0b9c6bf1b149a0e458de9fbda4f7bad3cf6f9f7eb4ff383bded3b09d23e50ef";
 
 export function ApiOperationTestPanel({
   props,

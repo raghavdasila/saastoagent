@@ -2,7 +2,7 @@ from routedeck_core.contracts.operations import EntityInput, Operation, Operatio
 from routedeck_core.contracts.projection import FrozenJsonObject
 
 from corpus.auth.contracts import OWNER_CONTEXT_PROVIDER
-from .schemas import ResumeSandboxArguments, StartSandboxArguments
+from .schemas import ResumeSandboxArguments, ResolveSandboxReviewArguments, StartSandboxArguments
 
 
 _SANDBOX_OBSERVATION_SCHEMA = {
@@ -80,4 +80,34 @@ RESUME_SANDBOX = Operation(
     review_policy=ReviewPolicy.NONE,
 )
 
-__all__ = ["RESUME_SANDBOX", "START_SANDBOX"]
+ACCEPT_SANDBOX_REVIEW = Operation(
+    id="sandbox.accept_action_review", title="Approve reviewed Sandbox action",
+    description=(
+        "Accept the exact pending reviewed action for the selected Sandbox run after the "
+        "owner explicitly approves its visible effect. Continue that same immutable run; "
+        "never infer approval from the original request or a clarification answer."
+    ),
+    input_schema=FrozenJsonObject(ResolveSandboxReviewArguments.model_json_schema()),
+    safety_class=SafetyClass.DRAFT,
+    allowed_sources=frozenset({OperationSource.SURFACE}),
+    outcomes=("resumed",), outcome_schemas=FrozenJsonObject({"resumed": _SANDBOX_OBSERVATION_SCHEMA}),
+    public_outcome_schemas=FrozenJsonObject({"resumed": _SANDBOX_OBSERVATION_SCHEMA}),
+    provider_refs=(OWNER_CONTEXT_PROVIDER.ref,),
+    entity_inputs=(EntityInput(argument_name="agent_ref", entity_kind="agent"),),
+    review_policy=ReviewPolicy.NONE,
+)
+
+REJECT_SANDBOX_REVIEW = Operation(
+    id="sandbox.reject_action_review", title="Reject reviewed Sandbox action",
+    description="Reject the exact pending Sandbox action without sending its external write.",
+    input_schema=FrozenJsonObject(ResolveSandboxReviewArguments.model_json_schema()),
+    safety_class=SafetyClass.DRAFT,
+    allowed_sources=frozenset({OperationSource.SURFACE}),
+    outcomes=("resumed",), outcome_schemas=FrozenJsonObject({"resumed": _SANDBOX_OBSERVATION_SCHEMA}),
+    public_outcome_schemas=FrozenJsonObject({"resumed": _SANDBOX_OBSERVATION_SCHEMA}),
+    provider_refs=(OWNER_CONTEXT_PROVIDER.ref,),
+    entity_inputs=(EntityInput(argument_name="agent_ref", entity_kind="agent"),),
+    review_policy=ReviewPolicy.NONE,
+)
+
+__all__ = ["ACCEPT_SANDBOX_REVIEW", "REJECT_SANDBOX_REVIEW", "RESUME_SANDBOX", "START_SANDBOX"]

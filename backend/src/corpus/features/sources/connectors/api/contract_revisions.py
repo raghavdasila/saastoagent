@@ -50,21 +50,29 @@ class ApprovedPatchPlan:
     field_name: str | None
     evidence_count: int
     impact_count: int = 1
+    operation_id: str = "CreateCart"
+    instance_path: str = "/"
+    before_schema: Mapping[str, object] | None = None
+    replacement_schema: Mapping[str, object] | None = None
+    target_hash: str | None = None
 
     def runtime_patch(self) -> ContractPatch:
         return ContractPatch(
             patch_id=self.patch_id,
             kind=self.kind,
-            operation_id="CreateCart",
+            operation_id=self.operation_id,
             status_code=200,
             media_type="application/json",
-            instance_path="/",
+            instance_path=self.instance_path,
             schema_pointer=self.schema_pointer,
             field_name=self.field_name,
             observed="reviewed local Medusa evidence",
             declared="official-current Medusa Store contract",
             proposed=self.kind.value,
             evidence_count=self.evidence_count,
+            before_schema=self.before_schema,
+            replacement_schema=self.replacement_schema,
+            target_hash=self.target_hash,
             impact_count=self.impact_count,
         )
 
@@ -104,11 +112,11 @@ MEDUSA_EFFECTIVE_CONTRACT_PLAN = EffectiveContractPlan(
     source_canonical_sha256="a3dbb864bef80085e5600496784fc908bf3ea5791de97043f48397d812ad4f87",
     repair_manifest_sha256="dc712d7c172a8e6c3ee2fef8aa11c4f337d0c1622330df521dcf89c6fda19af2",
     repaired_parent_sha256="bc1b4b2456eefab4684a07ffa6e63f652118f5a705dd13eba5d77e74ab965c6e",
-    final_canonical_sha256="6fca793be700dfb8bf511c2217d72cf97abf2f6cba08fbc2cd26ef0369b8f3f6",
+    final_canonical_sha256="c0b9c6bf1b149a0e458de9fbda4f7bad3cf6f9f7eb4ff383bded3b09d23e50ef",
     local_medusa_version="2.13.6",
     local_package_json_sha256="798ddcda5807af7667b0892586386056a9c1c1ec4367a085722385c5980a99ab",
     local_package_lock_sha256="540ad6d63416365a54a624302d17c9a544a57a16903d590cbcade8a46dae34e4",
-    evidence_sha256="de4840c7056f1667d8ae381b17bf34739eed30c48bb2a07fa576795495d08892",
+    evidence_sha256="eb250633572df3a6eee25f06998858dc1ff18461a07c1a7c89263879a8af3e3f",
     patches=(
         ApprovedPatchPlan("0e3ca203c694b3ea", PatchKind.SET_NULLABLE, "/components/schemas/StoreCart/properties/billing_address", None, 1),
         ApprovedPatchPlan("0b580a91a8f44b89", PatchKind.SET_NULLABLE, "/components/schemas/StoreCart/properties/completed_at", None, 1),
@@ -120,6 +128,85 @@ MEDUSA_EFFECTIVE_CONTRACT_PLAN = EffectiveContractPlan(
         ApprovedPatchPlan("2e3008cbf6b3f5b2", PatchKind.REMOVE_REQUIRED, "/components/schemas/StoreCart", "original_subtotal", 1),
         ApprovedPatchPlan("edcb5d80e92f57a1", PatchKind.REMOVE_REQUIRED, "/components/schemas/StoreCart", "gift_card_total", 1),
         ApprovedPatchPlan("3f4de4aa354d0324", PatchKind.REMOVE_REQUIRED, "/components/schemas/StoreCart", "gift_card_tax_total", 1),
+        ApprovedPatchPlan(
+            "fe22ecc628158a9b",
+            PatchKind.CUSTOM_SCHEMA,
+            "/paths/~1store~1products/get/responses/200/content/application~1json/schema",
+            None,
+            1,
+            operation_id="GetProducts",
+            before_schema={"$ref": "#/components/schemas/StoreProductListResponse"},
+            replacement_schema={
+                "type": "object",
+                "required": ["products", "count", "offset", "limit"],
+                "additionalProperties": True,
+                "properties": {
+                    "products": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["id", "title", "variants"],
+                            "additionalProperties": True,
+                            "properties": {
+                                "id": {"type": "string"},
+                                "title": {"type": "string"},
+                                "variants": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "required": ["id"],
+                                        "additionalProperties": True,
+                                        "properties": {"id": {"type": "string"}},
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "count": {"type": "integer"},
+                    "offset": {"type": "integer"},
+                    "limit": {"type": "integer"},
+                },
+            },
+            target_hash="23e40838ada9b1b8170cc2c5c94597bd595ece2017dc476f67ed7d189053c66c",
+        ),
+        ApprovedPatchPlan(
+            "b183ac24f1a1a683",
+            PatchKind.CUSTOM_SCHEMA,
+            "/paths/~1store~1carts~1{id}~1line-items/post/responses/200/content/application~1json/schema",
+            None,
+            1,
+            operation_id="PostCartsIdLineItems",
+            before_schema={"$ref": "#/components/schemas/StoreCartResponse"},
+            replacement_schema={
+                "type": "object",
+                "required": ["cart"],
+                "additionalProperties": True,
+                "properties": {
+                    "cart": {
+                        "type": "object",
+                        "required": ["id", "items"],
+                        "additionalProperties": True,
+                        "properties": {
+                            "id": {"type": "string"},
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "required": ["id", "variant_id", "quantity"],
+                                    "additionalProperties": True,
+                                    "properties": {
+                                        "id": {"type": "string"},
+                                        "variant_id": {"type": "string"},
+                                        "quantity": {"type": "integer"},
+                                    },
+                                },
+                            },
+                        },
+                    }
+                },
+            },
+            target_hash="1657825eb69f1a6e757766e7696bea8f57155b56718f255d471dd4b7231cf0eb",
+        ),
     ),
 )
 

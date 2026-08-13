@@ -20,6 +20,11 @@ class PublicMessageInput(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
 
 
+class PublicReviewInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    review_id: str = Field(min_length=1, max_length=160)
+
+
 def create_channels_router(channels, deployments, owner_scope, delivery) -> APIRouter:
     router = APIRouter(tags=["agent-channels"])
 
@@ -86,6 +91,34 @@ def create_channels_router(channels, deployments, owner_scope, delivery) -> APIR
             headers={"Cache-Control": "no-store"},
         )
 
+    @router.post("/api/public/agents/{slug}/sessions/{session_id}/reviews/accept")
+    async def accept_public_review(slug: str, session_id: str, payload: PublicReviewInput):
+        channel = await channels.get_public(slug)
+        _require_public_channel(channel)
+        await deployments.prepare_public(channel)
+        projection, interaction = await asyncio.to_thread(
+            delivery.resolve_review, slug, session_id, payload.review_id, True,
+            uuid.uuid4().hex,
+        )
+        return JSONResponse(
+            content=jsonable_encoder({"agent": _public_agent(projection, display_name=channel.name), "interaction": interaction}),
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @router.post("/api/public/agents/{slug}/sessions/{session_id}/reviews/reject")
+    async def reject_public_review(slug: str, session_id: str, payload: PublicReviewInput):
+        channel = await channels.get_public(slug)
+        _require_public_channel(channel)
+        await deployments.prepare_public(channel)
+        projection, interaction = await asyncio.to_thread(
+            delivery.resolve_review, slug, session_id, payload.review_id, False,
+            uuid.uuid4().hex,
+        )
+        return JSONResponse(
+            content=jsonable_encoder({"agent": _public_agent(projection, display_name=channel.name), "interaction": interaction}),
+            headers={"Cache-Control": "no-store"},
+        )
+
     return router
 
 
@@ -113,8 +146,15 @@ def _private(value):
 def _public_agent(projection, *, display_name: str) -> dict[str, object]:
     """Project only end-user conversation state; runtime diagnostics are owner-only."""
     awaiting_clarification = False
+    pending_review: dict[str, object] | None = None
     for surface in projection.surfaces:
         if surface.get("component") != "agent_runtime.clarification":
+            if surface.get("component") == "agent_runtime.write_review":
+                props = surface.get("props")
+                if isinstance(props, dict) and props.get("state") == "pending":
+                    review_id = props.get("review_id")
+                    if isinstance(review_id, str) and review_id:
+                        pending_review = {"review_id": review_id}
             continue
         props = surface.get("props")
         if isinstance(props, dict) and props.get("state") in {
@@ -136,6 +176,7 @@ def _public_agent(projection, *, display_name: str) -> dict[str, object]:
         "revision": projection.revision,
         "messages": projection.messages,
         "awaiting_clarification": awaiting_clarification,
+        "pending_action_review": pending_review,
         "suggested_prompts": suggested_prompts,
     }
 

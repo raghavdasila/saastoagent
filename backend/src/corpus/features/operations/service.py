@@ -146,5 +146,36 @@ class OperationsService:
             mandatory=mandatory,
         )
 
+    async def promote_matching_request(
+        self,
+        organization_id: uuid.UUID,
+        *,
+        interaction_request: str,
+        set_name: str,
+        title: str,
+        category: str,
+        difficulty: str,
+        mandatory: bool,
+    ):
+        requested = interaction_request.strip()
+        interactions = tuple(
+            item
+            for item in (await self.list(organization_id)).interactions
+            if item.input_summary.strip() == requested
+        )
+        if len(interactions) != 1:
+            raise OperationsUnavailable(
+                "Promotion requires one exact owner interaction request."
+            )
+        return await self.promote(
+            organization_id,
+            interaction_id=interactions[0].interaction_id,
+            set_name=set_name,
+            title=title,
+            category=category,
+            difficulty=difficulty,
+            mandatory=mandatory,
+        )
+
 
 __all__ = ["OperationsService"]

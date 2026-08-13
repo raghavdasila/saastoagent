@@ -50,6 +50,13 @@ class ResumeSandboxArguments(BaseModel):
     )
 
 
+class ResolveSandboxReviewArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    agent_ref: str = Field(min_length=1, max_length=64)
+    run_id: uuid.UUID
+    review_id: str = Field(min_length=1, max_length=160)
+
+
 class SandboxClarificationChoiceView(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     operation_id: str
@@ -100,6 +107,7 @@ class SandboxRunCollectionView(BaseModel):
 
 __all__ = [
     "ResumeSandboxArguments",
+    "ResolveSandboxReviewArguments",
     "SandboxClarificationChoiceView",
     "SandboxClarificationView",
     "SandboxEventView",

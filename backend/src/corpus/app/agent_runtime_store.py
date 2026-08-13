@@ -29,6 +29,11 @@ class CorpusLocalAgentRuntimeStore:
                 CREATE TABLE IF NOT EXISTS corpus_agent_events (run_id TEXT NOT NULL, sequence INTEGER NOT NULL, tenant_id TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(run_id, sequence));
                 CREATE TABLE IF NOT EXISTS corpus_agent_eval_cases (case_id TEXT PRIMARY KEY, build_hash TEXT NOT NULL, payload TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS corpus_agent_eval_runs (eval_run_id TEXT PRIMARY KEY, build_hash TEXT NOT NULL, payload TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS corpus_agent_session_context (
+                  tenant_id TEXT NOT NULL, session_id TEXT NOT NULL,
+                  build_hash TEXT NOT NULL, payload TEXT NOT NULL,
+                  PRIMARY KEY(tenant_id, session_id, build_hash)
+                );
             """)
 
     def _db(self):
@@ -115,6 +120,36 @@ class CorpusLocalAgentRuntimeStore:
         with self._lock, self._db() as db:
             rows = db.execute("SELECT payload FROM corpus_agent_eval_runs WHERE build_hash=? ORDER BY eval_run_id", (build_hash,)).fetchall()
         return tuple(EvalRun(**{**value, "reasons": tuple(value["reasons"])}) for value in (json.loads(row[0]) for row in rows))
+
+    def session_context(
+        self, tenant_id: str, session_id: str, build_hash: str
+    ) -> dict[str, object]:
+        with self._lock, self._db() as db:
+            row = db.execute(
+                "SELECT payload FROM corpus_agent_session_context "
+                "WHERE tenant_id=? AND session_id=? AND build_hash=?",
+                (tenant_id, session_id, build_hash),
+            ).fetchone()
+        value = {} if row is None else json.loads(row[0])
+        if not isinstance(value, dict):
+            raise ValueError("corpus_agent_session_context_invalid")
+        return value
+
+    def save_session_context(
+        self,
+        tenant_id: str,
+        session_id: str,
+        build_hash: str,
+        value: Mapping[str, object],
+    ) -> None:
+        payload = json.dumps(dict(value), sort_keys=True, separators=(",", ":"))
+        with self._lock, self._db() as db:
+            db.execute(
+                "INSERT INTO corpus_agent_session_context "
+                "(tenant_id,session_id,build_hash,payload) VALUES (?,?,?,?) "
+                "ON CONFLICT(tenant_id,session_id,build_hash) DO UPDATE SET payload=excluded.payload",
+                (tenant_id, session_id, build_hash, payload),
+            )
 
 
 def _dump(value) -> str:

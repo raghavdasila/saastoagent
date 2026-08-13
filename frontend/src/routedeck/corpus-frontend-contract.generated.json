@@ -452,6 +452,8 @@
         "agents.return_to_hub",
         "sandbox.start",
         "sandbox.resume",
+        "sandbox.accept_action_review",
+        "sandbox.reject_action_review",
         "agents.open_evaluation"
       ],
       "route_template": "/agents/sandbox",
@@ -1653,6 +1655,20 @@
           }
         },
         {
+          "event": "submit",
+          "id": "accept_action_review",
+          "operation": {
+            "id": "sandbox.accept_action_review"
+          }
+        },
+        {
+          "event": "submit",
+          "id": "reject_action_review",
+          "operation": {
+            "id": "sandbox.reject_action_review"
+          }
+        },
+        {
           "event": "open",
           "id": "continue_to_evaluation",
           "operation": {
@@ -2585,6 +2601,18 @@
     },
     {
       "operation_id": "sandbox.resume",
+      "outcome": "resumed",
+      "source": "sandbox.home",
+      "target": "sandbox.home"
+    },
+    {
+      "operation_id": "sandbox.accept_action_review",
+      "outcome": "resumed",
+      "source": "sandbox.home",
+      "target": "sandbox.home"
+    },
+    {
+      "operation_id": "sandbox.reject_action_review",
       "outcome": "resumed",
       "source": "sandbox.home",
       "target": "sandbox.home"

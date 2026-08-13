@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from agent_delivery_runtime.domain import DeployableAgentBundle
+from agent_delivery_runtime.domain import (
+    DeployableAgentBundle, InteractionRecord, new_id, now_iso,
+)
 from agent_delivery_runtime.ports import (
     DeliveryStorePort,
     DeployedAgentRuntimePort,
@@ -86,6 +88,41 @@ class NeutralAgentDeliveryAdapter:
         request_id: str,
     ) -> tuple[PublicAgentProjection, InteractionProjection]:
         projection, interaction = self._channels().invoke(slug, session_id, text, request_id)
+        return _public(projection), _interaction(interaction)
+
+    def resolve_review(
+        self,
+        slug: str,
+        session_id: str,
+        review_id: str,
+        accepted: bool,
+        request_id: str,
+    ) -> tuple[PublicAgentProjection, InteractionProjection]:
+        channel_service = self._channels()
+        session, deployment = channel_service._public_context(slug, session_id)
+        started = now_iso()
+        projection = self.runtime.resolve_review(
+            deployment.bundle,
+            session.runtime_session_id,
+            review_id,
+            accepted,
+            request_id,
+        )
+        assistant = next(
+            (
+                str(turn.get("content", ""))
+                for turn in reversed(projection.messages)
+                if turn.get("role") == "assistant"
+            ),
+            "",
+        )
+        interaction = InteractionRecord(
+            new_id("int"), session.session_id, deployment.deployment_id,
+            "Approved the pending Agent action." if accepted else "Rejected the pending Agent action.",
+            assistant[:1000], "completed", started, now_iso(),
+            {"request_id": request_id, "projection_revision": projection.revision, "surface_count": len(projection.surfaces)},
+        )
+        self.store.save_interaction(interaction)
         return _public(projection), _interaction(interaction)
 
     def interactions(self) -> tuple[InteractionProjection, ...]:

@@ -4,10 +4,11 @@
 
 Phase A established a neutral, hash-pinned execution foundation. Corpus owns
 `corpus.integrations.api_execution`; the unchanged sibling `0.1.0` modules
-live under its private `_snapshot` package. Phase C adds one narrow
-Corpus-owned adapter consumed only by the Source safe connection-check service.
-It is not a generic execution host, queue, session, route planner, or second
-Source owner.
+live under its private `_snapshot` package. Corpus now has two narrow adapters:
+the Phase C Source connection-check adapter and a separate routed adapter used
+only after an exact current Source plan or immutable assembled-Agent operation
+has been resolved. This integration is not a generic execution host, queue,
+session, route planner, or second Source owner.
 
 The restricted snapshot contains only contracts, errors, ports, compiler,
 plugins, security, validation, runtime, and contract-revision logic. Corpus did
@@ -48,3 +49,30 @@ exception text do not cross into RouteDeck arguments, DTOs, traces, DOM, logs,
 or evidence. Connection checks do not authorize operation curation, route
 planning, or generic read/write execution. See
 `docs/superpowers/validation/2026-08-08-api-connection-check-phase-c.md`.
+
+## Routed read/write boundary
+
+The routed adapter accepts one exact operation, reviewed effective API
+definition, parameter binding, target, profile-managed credential identity,
+and optional internal write-approval marker. It validates the request before
+transport, resolves the credential just in time, makes at most one call, and
+validates the response. There is no automatic retry, alternate operation,
+cached success, or body-shaped fallback.
+
+Source route-plan execution owns immutable single-use claim/result persistence.
+Assembled Sandbox and hosted-Agent runtimes own their session/run records and
+call the same narrow execution boundary through Corpus adapters. RouteDeck
+still owns whether a write has an accepted current review. The adapter treats a
+missing approval marker as a pre-transport failure.
+
+The accepted local Medusa API-definition chain now ends at canonical hash
+`c0b9c6bf1b149a0e458de9fbda4f7bad3cf6f9f7eb4ff383bded3b09d23e50ef`.
+It adds reviewed response-identity schemas for `GetProducts` and
+`PostCartsIdLineItems` without retaining response bodies. The product runtime
+may retain only the validated product variant and cart IDs needed for the same
+session's next explicitly requested operation.
+
+Current surface, ordinary-chat, and hybrid journeys independently prove one
+validated `GetProducts` call, zero calls before each write review, one approved
+`PostCarts` call, and one separately approved `PostCartsIdLineItems` call. See
+`docs/superpowers/validation/2026-08-13-horizontal-ecommerce-chat-surface-hybrid.md`.

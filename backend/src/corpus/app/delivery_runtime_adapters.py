@@ -4,6 +4,7 @@ import asyncio
 import re
 import uuid
 
+from agent_execution_runtime import ApiCallResult
 from agent_delivery_runtime.domain import DeployableAgentBundle
 from agent_delivery_runtime.ports import RuntimeProjection, RuntimeReadiness
 
@@ -112,7 +113,7 @@ class CorpusDeployedAgentRuntimePort:
                 selected_operation_id=operation_id,
                 provided_inputs=provided,
             )
-        with agent_route_session(runtime_session_id):
+        with agent_route_session(runtime_session_id, tenant_id):
             result = asyncio.run(self.execution.run(spec))
         route_projection = asyncio.run(
             self.routedeck.projection(build, runtime_session_id, tenant_id)
@@ -125,6 +126,76 @@ class CorpusDeployedAgentRuntimePort:
         if result.status != "succeeded" or not result.final_response:
             raise RuntimeError("deployed_agent_run_failed")
         return _projection(result, route_projection, messages)
+
+    def resolve_review(
+        self,
+        bundle: DeployableAgentBundle,
+        runtime_session_id: str,
+        review_id: str,
+        accepted: bool,
+        request_id: str,
+    ) -> RuntimeProjection:
+        build_hash, tenant_id = _runtime_identity(bundle)
+        build = self._restore_binding(bundle, build_hash)
+        pending = asyncio.run(
+            self.routedeck.pending_review(build, runtime_session_id, tenant_id)
+        )
+        if pending is None or pending.review_id != review_id:
+            raise RuntimeError("deployed_agent_review_unavailable")
+        if not accepted:
+            asyncio.run(self.routedeck.reject(
+                build=build, tenant_id=tenant_id,
+                session_id=runtime_session_id, review_id=review_id,
+                request_id=request_id,
+            ))
+            waiting = self._review_waiting_run(
+                tenant_id, runtime_session_id, build_hash
+            )
+            rejected = ApiCallResult(
+                request_id, pending.operation_id, "failed", None, None,
+                "review_rejected", False,
+                "The requested action was not sent.", (),
+            )
+            completed = self.execution.complete_reviewed_run(
+                tenant_id=tenant_id, run_id=waiting.run_id,
+                api_result=rejected,
+            )
+            return _projection(
+                completed,
+                asyncio.run(self.routedeck.projection(build, runtime_session_id, tenant_id)),
+                self.execution.session_messages(tenant_id, runtime_session_id, build_hash),
+            )
+        resolved = asyncio.run(self.routedeck.accept(
+            build=build, tenant_id=tenant_id, session_id=runtime_session_id,
+            review_id=review_id, request_id=request_id,
+        ))
+        if resolved.api_result is None:
+            raise RuntimeError("deployed_agent_review_failed")
+        self.routedeck.retain_result(
+            tenant_id=tenant_id,
+            build_hash=build_hash,
+            result=resolved.api_result,
+            session_id=runtime_session_id,
+        )
+        waiting = self._review_waiting_run(
+            tenant_id, runtime_session_id, build_hash
+        )
+        completed = self.execution.complete_reviewed_run(
+            tenant_id=tenant_id,
+            run_id=waiting.run_id,
+            api_result=resolved.api_result,
+        )
+        return _projection(
+            completed,
+            asyncio.run(self.routedeck.projection(build, runtime_session_id, tenant_id)),
+            self.execution.session_messages(tenant_id, runtime_session_id, build_hash),
+        )
+
+    def _review_waiting_run(self, tenant_id: str, session_id: str, build_hash: str):
+        value = self.execution.waiting_run(tenant_id, session_id, build_hash)
+        if value is None or value.awaiting != "write_review":
+            raise RuntimeError("deployed_agent_review_run_unavailable")
+        return value
 
     def _restore_binding(self, bundle: DeployableAgentBundle, build_hash: str):
         organization_id = uuid.UUID(str(bundle.runtime_config.get("organization_id")))
@@ -233,13 +304,38 @@ def _surfaces(route_projection: dict[str, object], result) -> tuple[dict[str, ob
         component = value.get("component")
         if component == "agent_runtime.clarification":
             value["props"] = clarification
+        elif component == "agent_runtime.write_review":
+            value["props"] = _public_surface_props(value.get("props"))
         elif component == "agent_runtime.toolrouter_status":
             value["props"] = _router_status(result, clarification)
     return tuple(values)
 
 
+def _public_surface_props(raw: object) -> dict[str, object]:
+    """Convert RouteDeck's typed public values into product surface props."""
+    if not isinstance(raw, list):
+        raise RuntimeError("deployed_agent_surface_props_invalid")
+    values: dict[str, object] = {}
+    for item in raw:
+        if not isinstance(item, dict):
+            raise RuntimeError("deployed_agent_surface_prop_invalid")
+        name = item.get("name")
+        if (
+            not isinstance(name, str)
+            or not name
+            or name in values
+        ):
+            raise RuntimeError("deployed_agent_surface_prop_invalid")
+        values[name] = item.get("value")
+    return values
+
+
 def _clarification(result) -> dict[str, object]:
-    if result is None or result.status != "waiting":
+    if (
+        result is None
+        or result.status != "waiting"
+        or result.awaiting == "write_review"
+    ):
         return {"state": "idle", "question": "", "candidate_operation_ids": [], "missing_input_names": []}
     candidates, missing = clarification_context(result.events)
     return {

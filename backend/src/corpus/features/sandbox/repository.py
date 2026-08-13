@@ -58,9 +58,20 @@ class SqlAlchemySandboxRepository:
                 run, session = await _locked(db, organization_id, record_id)
                 if run.agent_id != agent_id or run.status != "waiting" or not run.awaiting:
                     raise SandboxUnavailable("The Sandbox run is not waiting for clarification.")
+                # Keep the exact waiting reason on the returned locked record. The
+                # durable row moves to running only after the caller has captured it.
+                waiting_reason = run.awaiting
                 run.status, run.awaiting, run.updated_at = "running", None, datetime.now(UTC)
                 await db.flush()
-                return _record(run, session.runtime_session_id)
+                value = _record(run, session.runtime_session_id)
+                return SandboxRecord(
+                    value.id, value.organization_id, value.agent_id, value.build_id,
+                    value.runtime_build_hash, value.runtime_session_id,
+                    value.runtime_run_id, value.status, waiting_reason,
+                    value.final_response, value.api_call_count, value.safe_events,
+                    value.routedeck_projection, value.failure_code,
+                    value.created_at, value.updated_at, value.message,
+                )
 
     async def fail(self, organization_id, record_id, *, code):
         async with self.database.session() as db:

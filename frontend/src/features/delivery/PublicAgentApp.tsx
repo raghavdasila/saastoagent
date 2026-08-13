@@ -12,6 +12,7 @@ interface PublicAgentProjection {
   readonly messages: readonly Readonly<Record<string, unknown>>[];
   readonly awaiting_clarification: boolean;
   readonly suggested_prompts: readonly string[];
+  readonly pending_action_review: { readonly review_id: string } | null;
 }
 
 const EMPTY_AGENT: PublicAgentProjection = {
@@ -20,6 +21,7 @@ const EMPTY_AGENT: PublicAgentProjection = {
   messages: [],
   awaiting_clarification: false,
   suggested_prompts: [],
+  pending_action_review: null,
 };
 
 export function PublicAgentApp({ slug }: { slug: string }) {
@@ -78,6 +80,24 @@ export function PublicAgentApp({ slug }: { slug: string }) {
     } finally { setBusy(false); }
   }
 
+  async function resolveActionReview(accepted: boolean) {
+    const review = agent.pending_action_review;
+    if (sessionId === null || review === null) return;
+    setBusy(true); setError(null);
+    try {
+      const response = await fetch(
+        `/api/public/agents/${encodeURIComponent(slug)}/sessions/${encodeURIComponent(sessionId)}/reviews/${accepted ? "accept" : "reject"}`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ review_id: review.review_id }) },
+      );
+      if (!response.ok) throw new Error(await problem(response));
+      const value = await response.json() as { agent: PublicAgentProjection };
+      setAgent(value.agent);
+    } catch (caught) {
+      setError(text(caught));
+      throw caught;
+    } finally { setBusy(false); }
+  }
+
   function startNewConversation() {
     window.sessionStorage.removeItem(publicSessionKey(slug));
     setSessionId(null);
@@ -109,6 +129,11 @@ export function PublicAgentApp({ slug }: { slug: string }) {
           <p>Current request</p><h2>One detail needed</h2>
           <span>Answer the Agent's question below to continue the same request.</span>
         </section> : null}
+        {agent.pending_action_review === null ? null : <section className="public-agent__action-review" aria-label="Review Agent action">
+          <p>Action review</p><h2>Approve this Agent action?</h2>
+          <span>The Agent has prepared one external store change. Nothing is sent until you approve it.</span>
+          <div><Button type="button" variant="outline" disabled={busy} onClick={() => void resolveActionReview(false)}>Reject</Button><Button type="button" disabled={busy} onClick={() => void resolveActionReview(true)}>Approve and continue</Button></div>
+        </section>}
       </div>
       <div className={`public-agent__experience${suggestedPrompts.length === 0 ? " public-agent__experience--conversation-only" : ""}`}>
         {suggestedPrompts.length === 0 ? null : <aside className="public-agent__suggestions" aria-labelledby="public-agent-suggestions-title">

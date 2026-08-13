@@ -710,9 +710,9 @@
         "productOwnership": "Corpus owns agent/source/build identities, associations, dependency rules, lifecycle records, immutable lineage, persistence, DTOs, adapters, surfaces, evaluators, and evidence.",
         "frameworkOwnership": "RouteDeck owns legal Node and Transition navigation, scoped Capabilities and Surfaces, supervised Operations, private entity binding, context providers, guards, required review, session state, projections, recovery, and effects.",
         "suggestedActionBoundary": "Attach source and Add new source are not SuggestedActions. RouteDeck SuggestedActions carry compile-time literal arguments validated against the target Operation schema, while these behaviors require the runtime-selected agent_ref and, for existing attachment, source_id. The accepted behavior remains available through the selected-agent surface affordance and through the agent choosing the declared Operation from current owner-scoped entity context; no identifier is frozen into Studio design or a static suggestion.",
-        "evaluationTruth": "Every accepted Agents evaluation keeps its exact Studio definition ID and uses a registered setup adapter. Existing attachment/handoff definitions retain their lifecycle evidence owner, while attached-file guided setup is owned by scripts/run_horizontal_product_journey.py and remains unclaimed until replacement chat, surface, and hybrid evidence passes.",
+        "evaluationTruth": "Every accepted Agents evaluation keeps its exact Studio definition ID and uses a registered setup adapter. Existing attachment/handoff definitions retain their lifecycle evidence owner. Attached-file guided setup is owned by scripts/run_horizontal_product_journey.py and is now retained independently in passing surface, ordinary-chat and hybrid ecommerce runs recorded in docs/superpowers/validation/2026-08-13-horizontal-ecommerce-chat-surface-hybrid.md.",
         "frameworkGap": "No missing RouteDeck framework primitive was proven by the read-only audit. Every missing Step 5 behavior is Corpus-owned declaration, binding, domain, persistence, cross-feature adapter, frontend, evaluator, and evidence work. A later proven gap triggers the cross-repository stop condition.",
-        "proofLock": "Attachment-specific evidence remains run 20260807T115259Z-ca04df5b57. Horizontal launch-baseline evidence is now independently retained as surface-only run 20260809T153004Z-7cd51d776b (24/24), ordinary-chat-only run 20260809T165131Z-63d1c6220b (24/24), and hybrid run 20260809T210136Z-853c33486c (25/25). Each is a normal-speed uncut local recording; the hybrid run visibly retains the semantic graph, Designer topology, compiled build/evaluation/deployment NavGraphs, Sandbox and public ToolRouter clarification, owner Operations evidence, restart persistence, and 390x844 rendering."
+        "proofLock": "Attachment-specific evidence remains run 20260807T115259Z-ca04df5b57. Current ecommerce evidence is independently retained as surface 20260812T183856Z-02c48c5a50 (39/39), ordinary chat 20260812T222652Z-403a886798 (39/39), and hybrid 20260812T221223Z-0e9ec6eb55 (40/40). Each is a normal-speed uncut local recording and proves exact Source attachment through the downstream immutable build, deployed write reviews, Operations promotion, restart persistence, and 390x844 rendering."
       }
     },
     {
@@ -916,7 +916,7 @@
         "transition": "designer.home -> builder.home",
         "boundary": "The continuation appears only after the immutable build request exists and performs navigation only."
       },
-      "evidenceStatus": "Shared Designer-to-Builder topology correspondence is focused-test and browser proven. Surface-only 20260809T153004Z-7cd51d776b, ordinary-chat-only 20260809T165131Z-63d1c6220b, and hybrid 20260809T210136Z-853c33486c retain normal-speed uncut evidence. Hybrid visibly proves the proposed Designer topology, compiled per-build NavGraph, Sandbox clarification, and the same deployed-agent clarification continuing through public delivery and owner Operations evidence."
+      "evidenceStatus": "Shared Designer-to-Builder topology correspondence is focused-contract and browser proven. Surface 20260812T183856Z-02c48c5a50, ordinary chat 20260812T222652Z-403a886798, and hybrid 20260812T221223Z-0e9ec6eb55 retain normal-speed uncut evidence. All three visibly prove the grounded immutable design revision, proposed design system and NavGraph, separate approval/build request, compiled per-build NavGraph, and downstream use through Sandbox, Evaluation, Deployment and Operations. Evaluator-specific bindings remain separately statused below."
     },
     {
       "designFeature": "Source Hub",
@@ -1429,7 +1429,7 @@
         {"operation": "agents.open_sandbox", "transition": "builder.home -> sandbox.home", "precondition": "One exact immutable draft build is running."},
         {"operation": "agents.open_evaluation", "transition": "sandbox.home -> evaluation.home", "precondition": "A successful immutable Sandbox run is visible."}
       ],
-      "evidenceStatus": "Focused runtime lifecycle, cross-feature readiness, and frontend review gates pass. A real signed-in local product check on 2026-08-11 exercised one persisted immutable build through pause, reload, resume, stop, and start; verified that paused and stopped states suppress new draft work; restored the build to its original running state; and inspected the desktop split plus 390x844 mobile surface without synthetic data. Surface-only 20260809T153004Z-7cd51d776b, ordinary-chat-only 20260809T165131Z-63d1c6220b, and hybrid 20260809T210136Z-853c33486c independently prove assembled-build and same-run ToolRouter clarification paths in normal-speed uncut recordings. Replacement chat-only, surface-only, and hybrid evidence for the newly added runtime controls and generated-evalset behavior remains pending_external_evidence."
+      "evidenceStatus": "Isolated lifecycle evidence proves run, pause, reload, resume, stop, start and reviewed runtime removal without changing immutable lineage. Current surface 20260812T183856Z-02c48c5a50, ordinary chat 20260812T222652Z-403a886798, and hybrid 20260812T221223Z-0e9ec6eb55 independently prove durable assembly, the compiled NavGraph, automatic exact-build evaluation scheduling, real Sandbox product routing/execution and owner runtime evidence. Evaluator-specific bindings remain separately statused below."
     },
     {
       "designFeature": "Evaluation",
@@ -1558,7 +1558,7 @@
         "transition": "evaluation.home -> channels.home",
         "precondition": "The exact selected build has durable eligible evaluation evidence."
       },
-      "evidenceStatus": "Focused runtime gates pass. Surface-only 20260809T153004Z-7cd51d776b, ordinary-chat-only 20260809T165131Z-63d1c6220b, and hybrid 20260809T210136Z-853c33486c independently prove case creation, evaluation, and eligibility derived from the exact successful Sandbox run. A real signed-in local product check on 2026-08-11 queued an existing exact-build case, visibly observed Running, completed through the source worker in 2.536 seconds, returned to passed, and retained the same result after page reload and backend/worker restart. SQL retained one succeeded attempt and one succeeded durable job with attempt_count 1 and max_attempts 1. Explicit failed-attempt retry and one-active-attempt concurrency are proven in focused service, SQL repository, and frontend gates; a real browser failure/retry path and replacement complete interaction-mode evidence remain pending_external_evidence."
+      "evidenceStatus": "Current surface 20260812T183856Z-02c48c5a50, ordinary chat 20260812T222652Z-403a886798, and hybrid 20260812T221223Z-0e9ec6eb55 independently prove automatic exact-build generation, generated draft truth, required case execution, eligibility and the evaluated immutable NavGraph. Isolated Phase 5 evidence proves explicit failed-attempt retry and case edit/remove without automatic retry. Evaluator-specific bindings remain separately statused below."
     },
     {
       "designFeature": "Channels and Deployment",
@@ -1713,7 +1713,7 @@
         "transition": "channels.home -> operations.home",
         "precondition": "An active hosted deployment exists for the selected Agent."
       },
-      "evidenceStatus": "Focused runtime gates pass. Surface-only 20260809T153004Z-7cd51d776b, ordinary-chat-only 20260809T165131Z-63d1c6220b, and hybrid 20260809T210136Z-853c33486c prove reviewed hosted deployment, restart persistence, natural same-run public clarification, and owner-only RouteDeck/NavGraph/ToolRouter evidence. Rollback and availability-change bindings remain pending."
+      "evidenceStatus": "Current surface 20260812T183856Z-02c48c5a50, ordinary chat 20260812T222652Z-403a886798, and hybrid 20260812T221223Z-0e9ec6eb55 independently prove hosted Web creation, reviewed deployment, a second immutable release, rollback, pause/resume at the same address, backend/worker restart, real public product search, separate reviewed cart creation/add-to-cart, and public privacy. Evaluator-specific bindings and exploratory custom domains remain separately statused below."
     },
     {
       "designFeature": "Operations",
@@ -1776,7 +1776,7 @@
         }
       },
       "runtimeBoundary": "Operations filters the neutral interaction inventory through Corpus-owned deployment lineage for the authenticated owner, exposes only allowlisted safe run events, and promotes only an explicit exact interaction into Evaluation.",
-      "evidenceStatus": "Focused runtime gates pass. Surface-only 20260809T153004Z-7cd51d776b, ordinary-chat-only 20260809T165131Z-63d1c6220b, and hybrid 20260809T210136Z-853c33486c prove chat-led and surface-led entry to deployed interaction evidence, desktop and 390x844 rendering, and exact redacted lineage. Promotion remains pending and was not invoked by read-only inspection."
+      "evidenceStatus": "Current surface 20260812T183856Z-02c48c5a50, ordinary chat 20260812T222652Z-403a886798, and hybrid 20260812T221223Z-0e9ec6eb55 independently prove owner-only deployed interaction and redacted RouteDeck/ToolRouter evidence, desktop and 390x844 rendering, and explicit exact-lineage promotion into Evaluation. Read-only inspection remains non-mutating. Evaluator-specific bindings remain separately statused below."
     }
   ],
   "designOnlyMappings": {
@@ -1923,7 +1923,7 @@
           "outcomes": [
             "checked"
           ],
-          "boundary": "Use one explicitly selected, fully resolved GetProductTypes or GetProductTags operation from the exact ready effective revision and saved profile. Corpus rechecks owner, Source, revision, profile and credential version, resolves the credential just in time, validates against the exact 6fca contract, makes one call without retry, and persists only redacted immutable identity. The Studio static SuggestedAction remains separately unmapped because it cannot carry unresolved dynamic inputs truthfully."
+          "boundary": "Use one explicitly selected, fully resolved GetProductTypes or GetProductTags operation from the exact ready effective revision and saved profile. Corpus rechecks owner, Source, revision, profile and credential version, resolves the credential just in time, validates against the exact reviewed effective API definition, makes one call without retry, and persists only redacted immutable identity. The Studio static SuggestedAction remains separately unmapped because it cannot carry unresolved dynamic inputs truthfully."
         },
         "sources.save_api_operation_curation": {
           "implementationStatus": "implemented_browser_behavior_validated",
@@ -1962,7 +1962,7 @@
           "packageJsonSha256": "798ddcda5807af7667b0892586386056a9c1c1ec4367a085722385c5980a99ab",
           "packageLockSha256": "540ad6d63416365a54a624302d17c9a544a57a16903d590cbcade8a46dae34e4"
         },
-        "parentBoundary": "Run the canonical official-current source through the existing explicit ToolRouter remove-invalid-default repair first. That produces the validated repaired parent bc1b4b2456eefab4684a07ffa6e63f652118f5a705dd13eba5d77e74ab965c6e from one recorded repair. Apply the 10 reviewed cart patches to that exact parent. The earlier effective 5d4f8ef1cc7548c52aabe93b4250fe98d0f3f7449b484d2b2a47138db117655c revision is not the parent because its unrelated changes did not correct the 22 cart validation details.",
+        "parentBoundary": "Run the canonical official-current source through the existing explicit ToolRouter remove-invalid-default repair first. That produces the validated repaired parent bc1b4b2456eefab4684a07ffa6e63f652118f5a705dd13eba5d77e74ab965c6e from one recorded repair. Apply the 10 reviewed cart patches and the one GetProducts response-identity patch to that exact parent. The earlier effective 5d4f8ef1cc7548c52aabe93b4250fe98d0f3f7449b484d2b2a47138db117655c revision is not the parent because its unrelated changes did not correct the live cart and product-response validation evidence.",
         "normalizationRepair": {
           "policy": "remove_invalid_defaults_only",
           "count": 1,
@@ -1974,10 +1974,16 @@
           "auditPath": ".runtime/audits/20260807-api-execution-contract-chain/contract-chain-audit.json"
         },
         "evidence": {
-          "path": ".runtime/audits/20260807-api-execution-reference/cart-contract-validation-details.txt",
-          "sha256": "de4840c7056f1667d8ae381b17bf34739eed30c48bb2a07fa576795495d08892",
-          "validatorDetailCount": 22,
-          "reviewedPatchCount": 10
+          "path": "docs/superpowers/validation/2026-08-13-medusa-line-item-response-correction.json",
+          "sha256": "eb250633572df3a6eee25f06998858dc1ff18461a07c1a7c89263879a8af3e3f",
+          "productEvidencePath": "docs/superpowers/validation/2026-08-12-medusa-product-response-correction.json",
+          "productEvidenceSha256": "a2fa1f42ceb482774f10ea3a4d4706d5d59cbd1078dd6e4716e9528b757044e5",
+          "cartEvidencePath": ".runtime/audits/20260807-api-execution-reference/cart-contract-validation-details.txt",
+          "cartEvidenceSha256": "de4840c7056f1667d8ae381b17bf34739eed30c48bb2a07fa576795495d08892",
+          "cartValidatorDetailCount": 22,
+          "productValidatorDetailCountBefore": 364,
+          "productValidatorDetailCountAfter": 0,
+          "reviewedPatchCount": 12
         },
         "approvedPatches": [
           {
@@ -2045,10 +2051,26 @@
             "schemaPointer": "/components/schemas/StoreCart",
             "fieldName": "gift_card_tax_total",
             "evidenceCount": 1
+          },
+          {
+            "patchId": "fe22ecc628158a9b",
+            "kind": "custom_schema",
+            "operationId": "GetProducts",
+            "schemaPointer": "/paths/~1store~1products/get/responses/200/content/application~1json/schema",
+            "evidenceCount": 1,
+            "reviewBoundary": "Require the live response envelope, product id and title, and variant id used by same-session cart continuation; allow additional response fields without retaining the response body."
+          },
+          {
+            "patchId": "b183ac24f1a1a683",
+            "kind": "custom_schema",
+            "operationId": "PostCartsIdLineItems",
+            "schemaPointer": "/paths/~1store~1carts~1{id}~1line-items/post/responses/200/content/application~1json/schema",
+            "evidenceCount": 1,
+            "reviewBoundary": "Require the returned cart id plus each retained line-item id, variant id, and quantity; allow additional response fields without retaining the response body."
           }
         ],
-        "expectedCanonicalRevisionHash": "6fca793be700dfb8bf511c2217d72cf97abf2f6cba08fbc2cd26ef0369b8f3f6",
-        "storageBoundary": "Create a new reviewed Source Hub revision and canonical effective-6fca793be700.json input. Never overwrite the source revision. Persist source and parent revision IDs, source raw and canonical hashes, normalization-repair manifest hash, repaired-parent hash, derived hash, ordered patch IDs, owner approver and timestamp, evidence hash, and local target package hashes. The prior revision remains immutable."
+        "expectedCanonicalRevisionHash": "c0b9c6bf1b149a0e458de9fbda4f7bad3cf6f9f7eb4ff383bded3b09d23e50ef",
+        "storageBoundary": "Create a new reviewed Source Hub revision and canonical effective-c0b9c6bf1b14.json input. Never overwrite the source revision. Persist source and parent revision IDs, source raw and canonical hashes, normalization-repair manifest hash, repaired-parent hash, derived hash, ordered patch IDs, owner approver and timestamp, evidence hash, and local target package hashes. The prior revision remains immutable."
       },
       "apiExecutionDependencyPlan": {
         "python": ">=3.11,<3.12",
@@ -2243,10 +2265,10 @@
           "sources.api_operation_test",
           "sources.routed_api_write_review"
         ],
-        "executionBoundary": "Corpus executes only one fully resolved selected step from the exact current opaque Phase E plan. It rechecks owner, conversation, RouteDeck session, current Source revision, profile, credential version identity, curation, curated subset, effective 6fca contract and plan fingerprint immediately before an immutable single-use claim. There is no generic execution, fallback or automatic retry.",
+        "executionBoundary": "Corpus executes only one fully resolved selected step from the exact current opaque Phase E plan. It rechecks owner, conversation, RouteDeck session, current Source revision, profile, credential version identity, curation, curated subset, exact reviewed effective API definition and plan fingerprint immediately before an immutable single-use claim. There is no generic execution, fallback or automatic retry.",
         "persistenceBoundary": "The exact plan plus RouteDeck request owns one create-only claim and one immutable terminal result under the Source revision lock. An identical RouteDeck request replays the retained terminal result without another call. A pending write recovered after process restart becomes POSSIBLY_SENT and outcome_unknown without another call; prior nondeterministic or unindexed plans are not scanned or migrated.",
         "redactionBoundary": "Credentials resolve just in time inside the execution adapter. Persisted and public results retain only operation and contract identity, delivery, status, media type, response byte count and canonical body hash, validation summary, an exact zero/one call count when known or explicit unknown after interrupted-claim recovery, timestamps and allowlisted trace details; never headers, query values, request or response bodies, credentials or vault identifiers.",
-        "evidenceStatus": "Focused adapter, immutable claim/result, compiled RouteDeck and frontend tests are current. The unchanged official api-execution-runtime 0.1.0 Medusa acceptance passed against local Medusa 2.13.6 and the exact 6fca contract with six calls and one intentionally retained local cart. The real Corpus browser execution journey remains pending, so this is not a completed design-behavior claim."
+        "evidenceStatus": "The unchanged official api-execution-runtime 0.1.0 Medusa acceptance remains the adapter baseline. Current Corpus surface, ordinary-chat and hybrid ecommerce journeys independently pass through the shared routed adapter from the assembled Agent using exact reviewed GetProducts, PostCarts and PostCartsIdLineItems behavior against local Medusa 2.13.6. Each stages external writes with zero calls before review, performs one approved cart create and one approved add-to-cart with no retry, retains only redacted result identity, and keeps owner diagnostics out of the public Agent. This does not reclassify the direct Source planner operations sources.test_routed_api_read/write as browser-validated; their implementationStatus remains implemented_automated_e2e_pending. Exact run IDs and hashes are recorded in docs/superpowers/validation/2026-08-13-horizontal-ecommerce-chat-surface-hybrid.md."
       },
       "completedDesignBehaviors": [
         "Upload an API YAML file",

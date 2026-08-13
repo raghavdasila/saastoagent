@@ -22,15 +22,21 @@ class PromoteInteractionHandler:
         try:
             payload = PromoteInteractionArguments.model_validate(dict(arguments))
             owner = await self.owner_scope.organization_id_for_route(context.session_id)
-            values = payload.model_dump(exclude={"interaction_id"})
-            if payload.interaction_id is None:
-                await self.service.promote_current(owner, **values)
-            else:
+            values = payload.model_dump(exclude={"interaction_id", "interaction_request"})
+            if payload.interaction_id is not None:
                 await self.service.promote(
                     owner,
                     interaction_id=payload.interaction_id,
                     **values,
                 )
+            elif payload.interaction_request is not None:
+                await self.service.promote_matching_request(
+                    owner,
+                    interaction_request=payload.interaction_request,
+                    **values,
+                )
+            else:
+                await self.service.promote_current(owner, **values)
         except (ValidationError, ValueError, KeyError) as error:
             return _failure(context, "invalid_operations_promotion", str(error), FailureKind.CONTRACT)
         except (OperationsUnavailable, AgentOwnerScopeUnavailable) as error:

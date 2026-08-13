@@ -16,7 +16,7 @@ from urllib.parse import urljoin, urlsplit
 from urllib.request import urlopen
 from uuid import uuid4
 
-from playwright.async_api import Locator, Page, async_playwright
+from playwright.async_api import Locator, Page, TimeoutError as PlaywrightTimeoutError, async_playwright
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -50,12 +50,12 @@ from scripts.run_api_route_planning_journey import (  # noqa: E402
 )
 
 
-EXPECTED_CHECKS = 36
+EXPECTED_CHECKS = 39
 DESIGNER_CHECKPOINT_EXPECTED_CHECKS = 12
 BUILDER_CHECKPOINT_EXPECTED_CHECKS = 15
 EVALUATION_CHECKPOINT_EXPECTED_CHECKS = 23
 DESIGNER_MILESTONE_ASSERTIONS = (
-    "profile and exact two-operation curation are current",
+    "profile and exact shopping-operation curation are current",
     "Agent is created and pins the exact approved Source revision",
     "Designer generates one grounded immutable feature from ordinary owner language",
     "Designer appends, reviews, accepts and requests one immutable build",
@@ -73,10 +73,10 @@ EVALUATION_MILESTONE_ASSERTIONS = (
     "Builder materializes the exact accepted design and Source bindings",
     "Builder shows the immutable compiled RouteDeck NavGraph",
     "Builder automatically schedules initial ToolRouter evaluation coverage for the exact build",
-    "Sandbox exposes a real ToolRouter clarification before any API call",
+    "Sandbox routes an exact real product search through ToolRouter",
     "Sandbox completes one validated API call through the assembled build",
-    "Sandbox returns meaningful non-empty real Medusa taxonomy",
-    "Sandbox shows isolated RouteDeck and ToolRouter clarification plumbing",
+    "Sandbox returns a meaningful real Medusa product",
+    "Sandbox shows isolated RouteDeck and ToolRouter runtime plumbing",
     "Evaluation retains generated draft truth and derives eligibility from the required exact-build case",
     "Evaluation shows the immutable build RouteDeck NavGraph it evaluated",
     "Evaluation shows one ToolRouter-generated case for the exact build",
@@ -92,7 +92,7 @@ FRONTEND_ROUTEDECK_CONTRACT = (
     / "routedeck"
     / "corpus-frontend-contract.generated.json"
 )
-INCLUDED_OPERATIONS = frozenset({"GetProductTags", "GetProductTypes"})
+INCLUDED_OPERATIONS = frozenset({"GetProducts", "PostCarts", "PostCartsIdLineItems"})
 REVIEW_STAGE_OPERATIONS = frozenset(
     {
         "sources.approve_contract_revision",
@@ -114,34 +114,33 @@ FEATURE_SURFACE_SELECTORS = {
 CHAT_PROMPTS = {
     "setup_from_file": "Use this file please. Also set up the agent for me.",
     "choose_new_agent": "Create a new one.",
-    "create_agent": "It is a shopping assistant. It answers product taxonomy questions and must not invent missing information.",
+    "create_agent": "It is a shopping assistant that finds products and adds a chosen product to a cart only after approval.",
     "resume_api": "Continue with the store API we just added and show me its analyzed structure.",
-    "prepare_api_update": "Prepare the safest API correction for me to review, but do not apply it yet.",
+    "prepare_api_update": "The API analysis is finished. Prepare the safest API correction for me to review, but do not apply it yet.",
     "request_api_update_decision": "What would that API correction change?",
     "stage_api_update": "I am ready to review that API correction. Keep it pending until I decide.",
     "accept_api_update": (
         "That API correction looks right. Apply it, and stay with this API because I still need to choose what it may access."
     ),
-    "curate_api": "Use only the collection endpoints that list all product tags and all product types. Exclude every other API operation.",
+    "curate_api": "Keep product search, cart creation, and adding an item to a cart. Exclude every other API action.",
     "attach_source": "Attach this prepared store API to the shopping assistant.",
     "enter_design": "Turn my requirements into proposed assistant behavior that I can review.",
     "propose_design": "Turn what we've agreed into a draft design for me to review.",
-    "generate_design_feature": "Add product taxonomy behavior that answers category questions, asks whether tags or types when unclear, and never invents results.",
+    "generate_design_feature": "Add shopping behavior that searches exact product words and requires approval before creating or changing a cart.",
     "request_design_decision": "Put that proposed behavior up for my approval without accepting it.",
     "accept_design": "Those changes match what I want. Save them.",
     "request_build": "Save this approved design as the version I want built next.",
     "enter_build": "I want to try the approved assistant privately now.",
     "assemble_build": "Create the runnable build from that approved design and its store access.",
     "start_build_runtime": "Start this private runtime so I can try the approved assistant.",
-    "enter_private_trial": "Before customers see it, I want to try a real taxonomy question.",
-    "start_private_trial": "Run a private trial with this request: get product taxonomy.",
-    "clarify_types": "Use product types.",
-    "enter_evaluation": "Keep that successful trial in the Baseline set as a required easy routing case called Store taxonomy success for future versions.",
-    "create_evaluation": "Keep that trial in the Baseline set as a required easy routing case called Store taxonomy success for future versions.",
+    "enter_private_trial": "Before customers see it, I want to try a real product search.",
+    "start_private_trial": "Run a private trial that finds products matching \"Medusa T-Shirt\".",
+    "enter_evaluation": "Keep that successful trial in the Baseline set as a required easy routing case called Product search success for future versions.",
+    "create_evaluation": "Keep that trial in the Baseline set as a required easy routing case called Product search success for future versions.",
     "run_generated_evaluation": "Evaluate the automatically generated required case for this version.",
     "run_evaluation": "Now check the required case from my private trial.",
-    "enter_delivery": "Set up /{slug} as a hosted address called Store Taxonomy, but do not publish it yet.",
-    "create_channel": "Use /{slug} for a hosted address called Store Taxonomy.",
+    "enter_delivery": "Set up /{slug} as a hosted address called Medusa Shopping, but do not publish it yet.",
+    "create_channel": "Use /{slug} for a hosted address called Medusa Shopping.",
     "request_deployment": "Put the eligible version on that address. Show me the consequences for approval before anything goes live.",
     "accept_deployment": "Those publishing consequences are acceptable. Go ahead.",
     "request_second_deployment": "Publish the same eligible version again as a separate reviewed release.",
@@ -153,7 +152,7 @@ CHAT_PROMPTS = {
     "request_resume": "Restore public access to this address, again only after I approve the consequences.",
     "accept_resume": "Apply that reviewed restoration.",
     "enter_operations": "Show me how that public request to this assistant actually ran.",
-    "promote_interaction": "Save that successful customer request as a required medium deployed-interaction case titled Live taxonomy request in the Regression from live use set.",
+    "promote_interaction": "Save deployed request \"Add one of that product to the cart.\" as required medium case \"Reviewed cart addition\" in \"Regression from live use\", category deployed-interaction.",
 }
 
 CHAT_FORBIDDEN_PHRASES = (
@@ -520,7 +519,7 @@ async def main() -> None:
 
             if args.mode in {"chat", "hybrid"}:
                 agent_button = page.get_by_role(
-                    "button", name="Store Taxonomy Assistant Version 1", exact=True
+                    "button", name="Medusa Shopping Agent Version 1", exact=True
                 )
                 ids["agentId"] = await _latest_agent_id(observations)
 
@@ -542,7 +541,7 @@ async def main() -> None:
             ).wait_for(timeout=90_000)
             proposals = await _observed_proposals(observations, ids["sourceId"])
             ids["proposalId"] = str(proposals[0]["proposal_id"])
-            if args.mode in {"chat", "hybrid"}:
+            if args.mode == "chat":
                 await _chat_dispatch(
                     page,
                     CHAT_PROMPTS["request_api_update_decision"],
@@ -590,7 +589,7 @@ async def main() -> None:
             ids["approvedRevisionId"] = str(current["revision"]["revision_id"])
             _check(
                 checks,
-                "exact 6fca API version is approved",
+                "exact reviewed effective API version is approved",
                 current["revision"]["summary"].get("final_canonical_sha256")
                 == EXPECTED_FINAL,
                 {"revisionId": ids["approvedRevisionId"]},
@@ -647,7 +646,7 @@ async def main() -> None:
             ids["curationId"] = str(saved["current"]["id"])
             _check(
                 checks,
-                "profile and exact two-operation curation are current",
+                "profile and exact shopping-operation curation are current",
                 set(saved["current"]["included_operation_ids"])
                 == INCLUDED_OPERATIONS,
                 {"profileId": ids["profileId"], "curationId": ids["curationId"]},
@@ -677,7 +676,7 @@ async def main() -> None:
                 {"layout": "chat-left-surface-right"},
             )
 
-            if args.mode in {"chat", "hybrid"}:
+            if args.mode == "chat":
                 await _chat_dispatch(
                     page,
                     CHAT_PROMPTS["attach_source"],
@@ -693,6 +692,17 @@ async def main() -> None:
                     safe_trace,
                     interaction_events,
                 )
+            elif args.mode == "hybrid":
+                await hub.get_by_role("button", name="Agent", exact=True).click()
+                await hub.get_by_role(
+                    "button", name="Use an existing Agent", exact=True
+                ).click()
+                await page.get_by_role(
+                    "button", name="Medusa Shopping Agent Version 1", exact=True
+                ).click()
+                await page.get_by_role(
+                    "button", name="Attach Source", exact=True
+                ).click()
             else:
                 await hub.get_by_role("button", name="Agent", exact=True).click()
                 await hub.get_by_role(
@@ -700,7 +710,7 @@ async def main() -> None:
                 ).click()
                 await _create_agent_from_surface(page)
                 agent_button = page.get_by_role(
-                    "button", name="Store Taxonomy Assistant Version 1", exact=True
+                    "button", name="Medusa Shopping Agent Version 1", exact=True
                 )
                 ids["agentId"] = await _latest_agent_id(observations)
                 await page.get_by_role("button", name="Attach Source", exact=True).click()
@@ -1092,40 +1102,21 @@ async def main() -> None:
                     )
                 else:
                     await page.get_by_label("Message", exact=True).fill(
-                        "get product taxonomy"
+                        'Find products matching "Medusa T-Shirt".'
                     )
                     await page.get_by_role(
                         "button", name="Start isolated run", exact=True
                     ).click()
-            waiting_run = await _wait_for_sandbox_clarification(page)
-            await waiting_run.get_by_role(
-                "region", name="ToolRouter clarification subagent", exact=True
-            ).wait_for(timeout=30_000)
-            _check(
-                checks,
-                "Sandbox exposes a real ToolRouter clarification before any API call",
-                await waiting_run.get_by_text("0 API calls", exact=True).is_visible(),
-                {},
-            )
-            await waiting_run.scroll_into_view_if_needed()
-            await _capture(page, directory, screenshots, "04-sandbox-waiting")
-            if args.mode == "chat":
-                await _chat_dispatch(
-                    page,
-                    CHAT_PROMPTS["clarify_types"],
-                    "sandbox.resume",
-                    safe_trace,
-                    interaction_events,
-                )
-            else:
-                await waiting_run.get_by_label("Operation", exact=True).select_option(
-                    "GetProductTypes"
-                )
-                await waiting_run.get_by_role(
-                    "button", name="Continue same run", exact=True
-                ).click()
             sandbox_result = page.locator(".sandbox-home li[data-status='succeeded']").first
             await sandbox_result.wait_for(timeout=180_000)
+            _check(
+                checks,
+                "Sandbox routes an exact real product search through ToolRouter",
+                await sandbox_result.get_by_role(
+                    "region", name="ToolRouter clarification subagent", exact=True
+                ).is_visible(),
+                {"request": "Medusa T-Shirt"},
+            )
             await sandbox_result.get_by_text("1 API calls", exact=True).wait_for()
             ids["sandboxRunId"] = await _latest_sandbox_id(observations)
             _check(
@@ -1136,13 +1127,15 @@ async def main() -> None:
             )
             _check(
                 checks,
-                "Sandbox returns meaningful non-empty real Medusa taxonomy",
-                await sandbox_result.get_by_text(re.compile(r"\bApparel\b")).is_visible(),
-                {"taxonomy": "Apparel", "source": "local Medusa"},
+                "Sandbox returns a meaningful real Medusa product",
+                await sandbox_result.get_by_text(
+                    re.compile(r"Medusa T-Shirt", re.IGNORECASE)
+                ).is_visible(),
+                {"product": "Medusa T-Shirt", "source": "local Medusa"},
             )
             _check(
                 checks,
-                "Sandbox shows isolated RouteDeck and ToolRouter clarification plumbing",
+                "Sandbox shows isolated RouteDeck and ToolRouter runtime plumbing",
                 await sandbox_result.get_by_role("heading", name="RouteDeck runtime", exact=True).is_visible()
                 and await sandbox_result.get_by_role("region", name="ToolRouter clarification subagent", exact=True).is_visible(),
                 {"sandboxRunId": ids["sandboxRunId"]},
@@ -1280,7 +1273,7 @@ async def main() -> None:
                     evaluation_video_ended_seconds = time.monotonic() - video_clock_started
                 raise CampaignCheckpointReached
 
-            slug = f"store-taxonomy-{run_id[-6:].casefold()}"
+            slug = f"medusa-shopping-{run_id[-6:].casefold()}"
             delivery_prompt = CHAT_PROMPTS["enter_delivery"].format(slug=slug)
             if args.mode == "chat":
                 await _chat_dispatch(
@@ -1363,7 +1356,7 @@ async def main() -> None:
                 "heading", name="Approve hosted Agent deployment", exact=True
             ).wait_for(timeout=30_000)
             await _capture(page, directory, screenshots, "07-deployment-review")
-            if args.mode == "chat":
+            if args.mode in {"chat", "hybrid"}:
                 await _chat_dispatch(
                     page,
                     CHAT_PROMPTS["accept_deployment"],
@@ -1581,32 +1574,64 @@ async def main() -> None:
                 "Ask a question and continue the same request when the Agent needs one more detail.",
                 exact=True,
             ).wait_for(timeout=90_000)
-            waiting_response = await _public_send(page, "get product taxonomy")
-            clarification = page.get_by_role(
-                "region", name="Agent needs more information", exact=True
+            search_response = await _public_send(
+                page, 'Find products matching "Medusa T-Shirt".'
             )
-            await clarification.get_by_role(
-                "heading", name="One detail needed", exact=True
-            ).wait_for(timeout=90_000)
             _check(
                 checks,
-                "deployed Agent visibly waits for ToolRouter clarification without an API call",
-                waiting_response.startswith("Should I use")
-                and "product types" in waiting_response.casefold()
-                and "product tags" in waiting_response.casefold()
-                and "GetProduct" not in waiting_response
-                and await clarification.is_visible(),
-                {"responseLength": len(waiting_response)},
+                "deployed Agent completes a real product search",
+                "Medusa T-Shirt" in search_response,
+                {"product": "Medusa T-Shirt", "responseLength": len(search_response)},
             )
-            await _capture(page, directory, screenshots, "09-public-clarification")
-            final_response = await _public_send(page, "Use product types.")
+            await _capture(page, directory, screenshots, "09-public-product-search")
+
+            cart_review = await _public_request_review(
+                page, "Create a new empty cart now."
+            )
             _check(
                 checks,
-                "public hosted session completes the deployed read without secrets",
-                bool(final_response)
-                and "Should I use" not in final_response
-                and "What value should I use for id" not in final_response,
-                {"responseLength": len(final_response)},
+                "deployed Agent stages cart creation for explicit owner review",
+                await cart_review.get_by_role(
+                    "button", name="Approve and continue", exact=True
+                ).is_visible(),
+                {"operation": "PostCarts", "externalCallsBeforeApproval": 0},
+            )
+            await _capture(page, directory, screenshots, "10-public-cart-review")
+            cart_response = await _public_accept_review(page, cart_review)
+            _check(
+                checks,
+                "reviewed cart creation completes once",
+                "cart" in cart_response.casefold()
+                and "unknown" not in cart_response.casefold()
+                and "not created" not in cart_response.casefold(),
+                {"operation": "PostCarts", "responseLength": len(cart_response)},
+            )
+
+            line_item_review = await _public_request_review(
+                page,
+                "Add one of that product to the cart.",
+                clarification=(
+                    "Use the Medusa T-Shirt variant in size S / White in the cart "
+                    "I just created."
+                ),
+            )
+            _check(
+                checks,
+                "deployed Agent stages add-to-cart for explicit owner review",
+                await line_item_review.get_by_role(
+                    "button", name="Approve and continue", exact=True
+                ).is_visible(),
+                {"operation": "PostCartsIdLineItems", "quantity": 1},
+            )
+            await _capture(page, directory, screenshots, "11-public-add-to-cart-review")
+            final_response = await _public_accept_review(page, line_item_review)
+            _check(
+                checks,
+                "reviewed add-to-cart completes once in the same public session",
+                "cart" in final_response.casefold()
+                and "unknown" not in final_response.casefold()
+                and "not confirm" not in final_response.casefold(),
+                {"operation": "PostCartsIdLineItems", "responseLength": len(final_response)},
             )
             public_copy = await page.locator(
                 "[data-public-agent-application]"
@@ -1616,11 +1641,11 @@ async def main() -> None:
                 "deployed Agent keeps owner-only runtime diagnostics out of the public session",
                 all(token not in public_copy for token in (
                     "RouteDeck", "NavGraph", "ToolRouter", "agent_runtime.",
-                    "GetProductTags", "GetProductTypes",
+                    "GetProducts", "PostCarts", "PostCartsIdLineItems",
                 )),
                 {"slug": slug},
             )
-            await _capture(page, directory, screenshots, "10-public-resolved")
+            await _capture(page, directory, screenshots, "12-public-cart-complete")
             await page.go_back(wait_until="domcontentloaded")
             await _feature_surface(page, "Channels and Deployment").get_by_role(
                 "heading", name="Channels and Deployment", exact=True
@@ -1644,14 +1669,16 @@ async def main() -> None:
                 "Deployed Agent interactions and redacted execution evidence",
                 exact=True,
             ).wait_for(timeout=60_000)
-            interaction = page.locator(".operations-home ol > li").first
+            promote_label = "Create an Evaluation case from this interaction"
+            promoted_request = "Add one of that product to the cart."
+            interaction = page.locator(".operations-home ol > li").filter(
+                has=page.get_by_text(promoted_request, exact=True)
+            ).first
             await interaction.wait_for(timeout=60_000)
             _check(
                 checks,
                 "Operations shows deployed interactions and promotion controls",
-                await interaction.get_by_text(
-                    "Create an Evaluation case from this interaction", exact=True
-                ).is_visible(),
+                await interaction.get_by_text(promote_label, exact=True).is_visible(),
                 {},
             )
             await _capture(page, directory, screenshots, "11-operations-evidence")
@@ -1688,6 +1715,17 @@ async def main() -> None:
                     safe_trace,
                     interaction_events,
                 )
+                await page.reload(wait_until="domcontentloaded")
+                await page.get_by_role(
+                    "heading", name="Operations", exact=True
+                ).wait_for(timeout=90_000)
+                await _wait_for_product_idle(page)
+                interaction = page.locator(".operations-home ol > li").filter(
+                    has=page.get_by_text(promoted_request, exact=True)
+                ).first
+                await interaction.get_by_text(
+                    "Create an Evaluation case from this interaction", exact=True
+                ).click()
             else:
                 await interaction.get_by_text(
                     "Create an Evaluation case from this interaction", exact=True
@@ -2521,22 +2559,22 @@ async def _create_agent_from_surface(page: Page) -> None:
     form = page.locator("section.agent-create form")
     await _type_exact(
         form.get_by_label("Name", exact=True),
-        "Store Taxonomy Assistant",
+        "Medusa Shopping Agent",
         "Agent name",
     )
     await _type_exact(
         form.get_by_label("Description", exact=True),
-        "Answers product taxonomy questions from an approved API.",
+        "Finds products and adds a chosen product to a reviewed cart.",
         "Agent description",
     )
     await _type_exact(
         form.get_by_label("Instructions", exact=True),
-        "For product lookup requests, use the user's exact words and never invent an identifier.",
+        "Search with the user's exact product words and require approval before changing a cart.",
         "Agent instructions",
     )
     await form.get_by_role("button", name="Create agent", exact=True).click()
     await page.get_by_role(
-        "button", name="Store Taxonomy Assistant Version 1", exact=True
+        "button", name="Medusa Shopping Agent Version 1", exact=True
     ).wait_for(timeout=90_000)
 
 
@@ -2548,8 +2586,15 @@ async def _return_to_only_api_source(page: Page) -> None:
     hub = await _open_sources(page)
     inventory = hub.get_by_role("list", name="API sources", exact=True)
     rows = inventory.get_by_role("listitem")
-    if await rows.count() != 1:
-        raise RuntimeError("The fresh owner does not have exactly one API Source row.")
+    for _ in range(300):
+        row_count = await rows.count()
+        if row_count > 1:
+            raise RuntimeError("The fresh owner has multiple API Source rows.")
+        if row_count == 1:
+            break
+        await asyncio.sleep(0.1)
+    else:
+        raise RuntimeError("The fresh owner's API Source row did not remount.")
     action = rows.get_by_role("button", name="Open API source", exact=True)
     await _wait_for_unique_locator(
         action,
@@ -2759,63 +2804,72 @@ async def _save_profile_exact(
     credential: str,
 ) -> None:
     """Bind the protected surface form and prove its real private-form write."""
-    form = panel.get_by_role(
-        "heading", name="Add connection profile", exact=True
-    ).locator("xpath=ancestor::form[1]")
-    if await form.count() != 1:
-        raise RuntimeError("The exact API connection form is unavailable.")
-
     fields = {
         "Profile name": name,
         "Environment": "local",
         "Base URL": "http://host.docker.internal:9100",
         "Header name": "x-publishable-api-key",
     }
-    await form.get_by_label("Authentication", exact=True).select_option("api_key")
-    for label, value in fields.items():
-        control = form.get_by_label(label, exact=True)
-        await control.wait_for(state="visible", timeout=30_000)
-        await control.fill(value)
-    secret = form.get_by_label("API key", exact=True)
-    await secret.wait_for(state="visible", timeout=30_000)
-    await secret.fill(credential)
+    for attempt in range(3):
+        form = panel.get_by_role(
+            "heading", name="Add connection profile", exact=True
+        ).locator("xpath=ancestor::form[1]")
+        if await form.count() != 1:
+            raise RuntimeError("The exact API connection form is unavailable.")
+        await form.get_by_label("Authentication", exact=True).select_option("api_key")
+        for label, value in fields.items():
+            control = form.get_by_label(label, exact=True)
+            await control.wait_for(state="visible", timeout=30_000)
+            await control.fill(value)
+        secret = form.get_by_label("API key", exact=True)
+        await secret.wait_for(state="visible", timeout=30_000)
+        await secret.fill(credential)
 
-    # A review/session resync may remount this uncontrolled form. Require a
-    # stable, exact readback immediately before the visible user click.
-    await page.wait_for_timeout(500)
-    for label, expected in fields.items():
-        if await form.get_by_label(label, exact=True).input_value() != expected:
-            raise RuntimeError(
-                f"The exact API connection {label.casefold()} was not retained."
-            )
-    if await form.get_by_label("Authentication", exact=True).input_value() != "api_key":
-        raise RuntimeError("The exact API connection authentication was not retained.")
-    if await secret.input_value() != credential:
-        raise RuntimeError("The protected API credential was not retained by its form.")
-    validity = await form.evaluate(
-        """form => ({
-          valid: form.checkValidity(),
-          invalid: Array.from(form.elements)
-            .filter(element => typeof element.checkValidity === 'function' && !element.checkValidity())
-            .map(element => element.getAttribute('name') || element.getAttribute('id') || 'unnamed')
-        })"""
-    )
-    if not isinstance(validity, dict) or validity.get("valid") is not True:
-        invalid = validity.get("invalid", []) if isinstance(validity, dict) else []
-        raise RuntimeError(
-            "The API connection form is not valid: " + ", ".join(map(str, invalid))
+        # Session projection changes can remount this private form. Rebind only
+        # when the visible click emitted no write at all; once a PUT exists, the
+        # action is single-shot and its exact response is authoritative.
+        await page.wait_for_timeout(500)
+        for label, expected in fields.items():
+            if await form.get_by_label(label, exact=True).input_value() != expected:
+                raise RuntimeError(
+                    f"The exact API connection {label.casefold()} was not retained."
+                )
+        if await form.get_by_label("Authentication", exact=True).input_value() != "api_key":
+            raise RuntimeError("The exact API connection authentication was not retained.")
+        if await secret.input_value() != credential:
+            raise RuntimeError("The protected API credential was not retained by its form.")
+        validity = await form.evaluate(
+            """form => ({
+              valid: form.checkValidity(),
+              invalid: Array.from(form.elements)
+                .filter(element => typeof element.checkValidity === 'function' && !element.checkValidity())
+                .map(element => element.getAttribute('name') || element.getAttribute('id') || 'unnamed')
+            })"""
         )
-
-    async with page.expect_response(
-        lambda response: response.request.method == "PUT"
-        and urlsplit(response.url).path
-        == "/api/routedeck/private-forms/sources-api-connection",
-        timeout=30_000,
-    ) as pending_private_write:
-        await form.get_by_role("button", name="Save connection", exact=True).click()
-    private_write = await pending_private_write.value
-    if private_write.status != 200:
-        raise RuntimeError("The protected API connection form was not accepted.")
+        if not isinstance(validity, dict) or validity.get("valid") is not True:
+            invalid = validity.get("invalid", []) if isinstance(validity, dict) else []
+            raise RuntimeError(
+                "The API connection form is not valid: " + ", ".join(map(str, invalid))
+            )
+        try:
+            async with page.expect_request(
+                lambda request: request.method == "PUT"
+                and urlsplit(request.url).path
+                == "/api/routedeck/private-forms/sources-api-connection",
+                timeout=5_000,
+            ) as pending_private_write:
+                await form.get_by_role("button", name="Save connection", exact=True).click()
+            private_request = await pending_private_write.value
+            private_write = await private_request.response()
+            if private_write is None or private_write.status != 200:
+                raise RuntimeError("The protected API connection form was not accepted.")
+            return
+        except PlaywrightTimeoutError:
+            if attempt == 2:
+                raise RuntimeError(
+                    "The protected API connection form did not emit its private write."
+                )
+            await page.wait_for_timeout(250)
 
 
 async def _chat_operations_after(
@@ -3004,8 +3058,11 @@ async def _wait_for_evaluation_terminal(case: Locator) -> str:
 
 
 async def _public_send(page: Page, text: str) -> str:
-    content = page.locator(".public-agent article p").last
-    previous = await content.inner_text() if await content.is_visible() else ""
+    responses = page.locator(
+        ".public-agent [data-agent-message='assistant']"
+        "[data-agent-message-status='finalized'] article"
+    )
+    previous_count = await responses.count()
     public_agent = page.locator("[data-public-agent-application]")
     await public_agent.get_by_role(
         "textbox", name="Message the assistant", exact=True
@@ -3015,12 +3072,77 @@ async def _public_send(page: Page, text: str) -> str:
     ).click()
     deadline = asyncio.get_running_loop().time() + 180
     while asyncio.get_running_loop().time() < deadline:
-        if await content.is_visible():
-            current = await content.inner_text()
-            if current.strip() and current != previous:
+        if await responses.count() > previous_count:
+            current = await responses.last.inner_text()
+            if current.strip():
                 return current
         await page.wait_for_timeout(250)
     raise TimeoutError("The deployed Agent did not publish its next response.")
+
+
+async def _public_request_review(
+    page: Page,
+    text: str,
+    *,
+    clarification: str | None = None,
+) -> Locator:
+    public_agent = page.locator("[data-public-agent-application]")
+    review = public_agent.get_by_role(
+        "region", name="Review Agent action", exact=True
+    )
+    responses = page.locator(
+        ".public-agent [data-agent-message='assistant']"
+        "[data-agent-message-status='finalized'] article"
+    )
+    previous_count = await responses.count()
+    await public_agent.get_by_role(
+        "textbox", name="Message the assistant", exact=True
+    ).fill(text)
+    await public_agent.get_by_role(
+        "button", name="Send message", exact=True
+    ).click()
+    deadline = asyncio.get_running_loop().time() + 180
+    while asyncio.get_running_loop().time() < deadline:
+        if await review.count() and await review.is_visible():
+            return review
+        current_count = await responses.count()
+        if current_count > previous_count:
+            response = (await responses.last.inner_text()).strip()
+            if clarification is None:
+                raise RuntimeError(
+                    "The deployed Agent responded without staging the requested review: "
+                    + response
+                )
+            previous_count = current_count
+            await public_agent.get_by_role(
+                "textbox", name="Message the assistant", exact=True
+            ).fill(clarification)
+            await public_agent.get_by_role(
+                "button", name="Send message", exact=True
+            ).click()
+            clarification = None
+        await page.wait_for_timeout(250)
+    raise TimeoutError("The deployed Agent did not stage its reviewed action.")
+
+
+async def _public_accept_review(page: Page, review: Locator) -> str:
+    responses = page.locator(
+        ".public-agent [data-agent-message='assistant']"
+        "[data-agent-message-status='finalized'] article"
+    )
+    previous_count = await responses.count()
+    await review.get_by_role(
+        "button", name="Approve and continue", exact=True
+    ).click()
+    await review.wait_for(state="detached", timeout=180_000)
+    deadline = asyncio.get_running_loop().time() + 180
+    while asyncio.get_running_loop().time() < deadline:
+        if await responses.count() > previous_count:
+            current = await responses.last.inner_text()
+            if current.strip():
+                return current
+        await page.wait_for_timeout(250)
+    raise TimeoutError("The reviewed Agent action did not publish its terminal response.")
 
 
 def _observe_horizontal(page: Page, observations: dict, trace: list[dict]) -> None:
@@ -3519,33 +3641,45 @@ async def _refresh_chat_evidence_inspector(
     page: Page,
     trace: list[dict[str, object]],
 ):
-    region = page.get_by_role(
-        "region", name="Invocation traces", exact=True
-    )
-    if not await region.is_visible():
-        tab = page.get_by_role(
-            "button", name="Invocation trace", exact=True
+    inspection_response = None
+    for attempt in range(3):
+        region = page.get_by_role(
+            "region", name="Invocation traces", exact=True
         )
-        if not await tab.is_visible():
-            opener = page.get_by_role(
-                "button", name="Open docked Navgraph", exact=True
+        if not await region.is_visible():
+            tab = page.get_by_role(
+                "button", name="Invocation trace", exact=True
             )
-            await opener.wait_for(state="visible", timeout=30_000)
-            await opener.click()
-        await tab.wait_for(state="visible", timeout=30_000)
-        await tab.click()
-    await region.wait_for(state="visible", timeout=30_000)
-    refresh = region.get_by_role("button", name="Refresh", exact=True)
-    async with page.expect_response(
-        lambda response: (
-            response.request.method == "GET"
-            and urlsplit(response.url).path == "/api/routedeck/inspect"
-            and response.status == 200
-        ),
-        timeout=30_000,
-    ) as pending_inspection:
-        await refresh.click()
-    inspection_response = await pending_inspection.value
+            if not await tab.is_visible():
+                opener = page.get_by_role(
+                    "button", name="Open docked Navgraph", exact=True
+                )
+                await opener.wait_for(state="visible", timeout=30_000)
+                await opener.click()
+            await tab.wait_for(state="visible", timeout=30_000)
+            await tab.click()
+        await region.wait_for(state="visible", timeout=30_000)
+        refresh = region.get_by_role("button", name="Refresh", exact=True)
+        try:
+            async with page.expect_response(
+                lambda response: (
+                    response.request.method == "GET"
+                    and urlsplit(response.url).path == "/api/routedeck/inspect"
+                    and response.status == 200
+                ),
+                timeout=5_000,
+            ) as pending_inspection:
+                await refresh.click()
+            inspection_response = await pending_inspection.value
+            break
+        except PlaywrightTimeoutError:
+            if attempt == 2:
+                raise RuntimeError(
+                    "The mounted invocation inspector did not emit its refresh request."
+                )
+            await page.wait_for_timeout(250)
+    if inspection_response is None:
+        raise RuntimeError("The invocation inspector refresh was not observed.")
     snapshot = await inspection_response.json()
     if not isinstance(snapshot, dict):
         raise RuntimeError("The authenticated RouteDeck inspection was invalid.")

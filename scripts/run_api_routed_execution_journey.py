@@ -696,7 +696,7 @@ async def _provision_api_source(
     current = await _observed_current_source(observations, ids["sourceId"], excluding_revision_id=ids["parentRevisionId"])
     ids["approvedRevisionId"] = str(current["revision"]["revision_id"])
     if current["revision"]["summary"].get("final_canonical_sha256") != EXPECTED_FINAL:
-        raise RuntimeError("The approved Source is not the exact 6fca contract.")
+        raise RuntimeError("The approved Source is not the exact reviewed effective API definition.")
     connection = hub.locator("section.api-connection-panel")
     await connection.get_by_role("heading", name="API connections", exact=True).wait_for(timeout=30_000)
     await _save_profile(connection, "Local Medusa routed execution", medusa_key)

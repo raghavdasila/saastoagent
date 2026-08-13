@@ -266,11 +266,14 @@ OPEN_SOURCE_CREATION = operation(
 )
 ATTACH_CREATED_SOURCE = operation(
     "agents.attach_created_source",
-    "Attach created Source",
+    "Attach Source created from this Agent",
     (
         "Pin the newly created ready API version and return to the selected Agent only when "
-        "Source creation began from that Agent and the Source is not already attached. Never "
-        "use this operation after updating or reviewing an API version already attached to the Agent."
+        "Source creation was opened from that already-existing selected Agent and the Source is "
+        "not already attached. Never use this operation in a file-first setup where the Agent "
+        "did not exist when Source intake began; use the regular eligible Source attachment after "
+        "creating that Agent. Never use it after updating or reviewing an API version already "
+        "attached to the Agent."
     ),
     "attached",
     input_schema=AttachSourceArguments.model_json_schema(),

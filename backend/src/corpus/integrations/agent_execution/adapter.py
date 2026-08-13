@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from dataclasses import replace
 from typing import Any, Mapping
 
 from agent_execution_runtime import (
@@ -10,6 +11,10 @@ from agent_execution_runtime import (
     BuildLimits,
     ConnectionBinding,
     RunCommand,
+    RecordEvent,
+    RunStatus,
+    frozen,
+    now_iso,
 )
 from agent_execution_runtime.ports import ApiExecutorPort, ModelPort, RouterPort, RuntimeStore
 
@@ -19,6 +24,7 @@ from .contracts import (
     SandboxEventProjection,
     SandboxRunProjection,
     SandboxRunSpec,
+    ReviewedRunCompletion,
 )
 
 
@@ -41,6 +47,14 @@ _EVENT_FIELDS: dict[str, frozenset[str]] = {
             "response_summary",
         }
     ),
+    "api.review_resolved": frozenset(
+        {
+            "execution_id", "operation_id", "status", "http_status",
+            "error_code", "public_message", "validation_issues",
+            "outcome_verified",
+        }
+    ),
+    "run.review_pending": frozenset({"status"}),
     "api.verification_started": frozenset(
         {"source_execution_id", "execution_id", "operation_id"}
     ),
@@ -140,12 +154,82 @@ class NeutralAgentExecutionAdapter:
                 provided_inputs=dict(spec.provided_inputs or {}),
             )
         )
+        projection = _promote_review_pending(self.store, projection)
         return _run_projection(projection)
 
     def load_run(self, tenant_id: str, run_id: str) -> SandboxRunProjection:
         run = self.store.get_run(tenant_id, run_id)
         events = self.store.events(tenant_id, run_id)
         return _run_projection(type("Projection", (), {"run": run, "events": events})())
+
+    def complete_reviewed_run(
+        self,
+        *,
+        tenant_id: str,
+        run_id: str,
+        api_result,
+    ) -> ReviewedRunCompletion:
+        run = self.store.get_run(tenant_id, run_id)
+        if run.status.value != "waiting" or run.awaiting != "write_review":
+            raise ValueError("reviewed_run_not_waiting")
+        events = self.store.events(tenant_id, run_id)
+        expected = [
+            event for event in events
+            if event.kind == "api.result"
+            and dict(event.safe_data).get("status") == "review_pending"
+        ]
+        if len(expected) != 1 or dict(expected[0].safe_data).get("operation_id") != api_result.operation_id:
+            raise ValueError("reviewed_run_operation_mismatch")
+        sequence = len(events)
+        self.store.append_event(
+            run_id,
+            RecordEvent(
+                sequence + 1,
+                "api.review_resolved",
+                now_iso(),
+                frozen({
+                    "execution_id": api_result.execution_id,
+                    "operation_id": api_result.operation_id,
+                    "status": api_result.status,
+                    "http_status": api_result.http_status,
+                    "error_code": api_result.error_code,
+                    "public_message": api_result.public_message,
+                    "validation_issues": list(api_result.validation_issues),
+                    "outcome_verified": api_result.outcome_verified,
+                }),
+            ),
+        )
+        response = self.model.answer(
+            self.store.get_build(run.build_hash),
+            _latest_user_message(events),
+            (api_result,),
+        )
+        completed = replace(
+            run,
+            status=(RunStatus.SUCCEEDED if api_result.status == "succeeded" else RunStatus.FAILED),
+            awaiting=None,
+            final_response=response,
+            updated_at=now_iso(),
+        )
+        self.store.update_run(completed)
+        self.store.append_event(
+            run_id,
+            RecordEvent(
+                sequence + 2,
+                "run.completed",
+                now_iso(),
+                frozen({"status": completed.status.value, "response": response}),
+            ),
+        )
+        projected = self.load_run(tenant_id, run_id)
+        return ReviewedRunCompletion(
+            run_id=run_id,
+            build_hash=run.build_hash,
+            status=projected.status,
+            final_response=response,
+            api_call_count=projected.api_call_count,
+            events=projected.events,
+        )
 
     def waiting_run(
         self, tenant_id: str, session_id: str, build_hash: str
@@ -182,7 +266,9 @@ class NeutralAgentExecutionAdapter:
         )
         messages: list[dict[str, str]] = []
         for run in runs:
-            events = self.store.events(tenant_id, run.run_id)
+            events = _events_without_superseded_review_completion(
+                self.store.events(tenant_id, run.run_id)
+            )
             for index, event in enumerate(events):
                 data = dict(event.safe_data)
                 if event.kind == "user.message":
@@ -198,6 +284,11 @@ class NeutralAgentExecutionAdapter:
                         }
                     )
                 elif event.kind == "run.completed":
+                    if (
+                        run.status.value == "waiting"
+                        and run.awaiting == "write_review"
+                    ):
+                        continue
                     content = data.get("response", run.final_response)
                     if not isinstance(content, str) or not content.strip():
                         raise RuntimeError("runtime_conversation_response_invalid")
@@ -235,9 +326,10 @@ def _build_projection(build: AgentBuild) -> ImmutableBuildProjection:
 
 
 def _run_projection(value: Any) -> SandboxRunProjection:
+    source_events = _events_without_superseded_review_completion(value.events)
     user_message_index = 0
     projected_events: list[SandboxEventProjection] = []
-    for event in value.events:
+    for event in source_events:
         if event.kind == "user.message":
             user_message_index += 1
         projected_events.append(_safe_event(event, user_message_index=user_message_index))
@@ -254,10 +346,35 @@ def _run_projection(value: Any) -> SandboxRunProjection:
             else value.run.final_response
         ),
         api_call_count=sum(
-            event.kind in {"api.result", "api.verification_result"}
-            for event in value.events
+            event.kind in {"api.result", "api.review_resolved", "api.verification_result"}
+            and dict(event.safe_data).get("status") != "review_pending"
+            for event in source_events
         ),
         events=events,
+    )
+
+
+def _events_without_superseded_review_completion(events: Any) -> tuple[Any, ...]:
+    """Hide the provisional failed completion superseded by a write review.
+
+    The immutable event ledger retains both the provisional executor completion
+    and the later reviewed terminal result. Product projections must present
+    only the reviewed terminal response once a review was staged.
+    """
+    values = tuple(events)
+    review_sequences = tuple(
+        event.sequence for event in values if event.kind == "run.review_pending"
+    )
+    if not review_sequences:
+        return values
+    first_review_sequence = min(review_sequences)
+    return tuple(
+        event
+        for event in values
+        if not (
+            event.kind == "run.completed"
+            and event.sequence < first_review_sequence
+        )
     )
 
 
@@ -274,6 +391,8 @@ def _safe_event(event: Any, *, user_message_index: int) -> SandboxEventProjectio
         ),
         "run.waiting": "run.needs_input",
         "run.failed": "run.failed",
+        "run.review_pending": "run.review_pending",
+        "api.review_resolved": "api.result",
     }.get(event.kind, event.kind if event.kind in _EVENT_FIELDS else "run.progress")
     if event.kind == "router.decision":
         decision = str(dict(event.safe_data).get("decision_type", ""))
@@ -314,6 +433,49 @@ def _clarification_question(events: Any) -> str:
         labels = tuple(_operation_label(value) for value in candidates)
         return "Should I use " + " or ".join(labels) + "?"
     return "I need one more detail before I can continue. What should I use?"
+
+
+def _latest_user_message(events: Any) -> str:
+    values = [
+        dict(event.safe_data).get("message")
+        for event in events
+        if event.kind == "user.message"
+    ]
+    message = values[-1] if values else None
+    if not isinstance(message, str) or not message.strip():
+        raise RuntimeError("reviewed_run_user_message_missing")
+    return message
+
+
+def _promote_review_pending(store: RuntimeStore, projection: Any) -> Any:
+    events = store.events(projection.run.tenant_id, projection.run.run_id)
+    pending = [
+        event for event in events
+        if event.kind == "api.result"
+        and dict(event.safe_data).get("status") == "review_pending"
+    ]
+    if not pending:
+        return projection
+    if len(pending) != 1 or projection.run.status is not RunStatus.FAILED:
+        raise RuntimeError("agent_write_review_state_invalid")
+    waiting = replace(
+        projection.run,
+        status=RunStatus.WAITING,
+        awaiting="write_review",
+        final_response="Review this action before the Agent sends the external write.",
+        updated_at=now_iso(),
+    )
+    store.update_run(waiting)
+    store.append_event(
+        waiting.run_id,
+        RecordEvent(
+            len(events) + 1,
+            "run.review_pending",
+            now_iso(),
+            frozen({"status": "waiting"}),
+        ),
+    )
+    return type(projection)(waiting, store.events(waiting.tenant_id, waiting.run_id))
 
 
 def _operation_label(operation_id: str) -> str:

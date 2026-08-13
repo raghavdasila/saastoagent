@@ -60,8 +60,10 @@ def create_agent_product_runtime(
     model = CorpusAgentModelPort(
         create_chat_model(settings), plain_json=plain_json
     )
-    router = CorpusToolRouterPort(sources.api_engine, bindings)
-    executor = CorpusApiExecutorPort(sources.routed_execution_adapter, bindings)
+    router = CorpusToolRouterPort(sources.api_engine, bindings, runtime_store)
+    executor = CorpusApiExecutorPort(
+        sources.routed_execution_adapter, bindings, runtime_store
+    )
     supervisor = AgentRouteDeckSupervisor(
         settings.sources.data_root.parent / "agent-routedeck",
         settings.host.routedeck_state_encryption_key.get_secret_value(),

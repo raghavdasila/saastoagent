@@ -17,6 +17,7 @@ export function EvaluationSurface({ dispatchAffordance, props, agentStore, runti
   const agents = useSyncExternalStore(agentStore.subscribe, agentStore.snapshot);
   const selectedRef = typeof props.selected_agent_ref === "string" ? props.selected_agent_ref : null;
   const selected = useMemo(() => agents.agents.find((item) => item.id === agents.selectedId) ?? null, [agents.agents, agents.selectedId]);
+  const selectedAgentId = selected?.id ?? null;
   const [builds, setBuilds] = useState<readonly AgentBuildView[]>([]);
   const [runs, setRuns] = useState<readonly SandboxRunView[]>([]);
   const [sets, setSets] = useState<readonly EvaluationSetView[]>([]);
@@ -55,14 +56,13 @@ export function EvaluationSurface({ dispatchAffordance, props, agentStore, runti
     return () => { active = false; };
   }, [runtimeClient, selected?.id, sessionVersion]);
   useEffect(() => {
-    if (selected === null || !sets.some((set) =>
-      set.generation_status === "queued"
-      || set.generation_status === "running"
-      || set.cases.some((item) => item.latest_run_attempt?.status === "queued" || item.latest_run_attempt?.status === "running")
-    )) return;
-    const interval = window.setInterval(() => void refresh(selected.id).catch((caught) => setError(message(caught))), 2000);
+    if (selectedAgentId === null) return;
+    const interval = window.setInterval(
+      () => void refresh(selectedAgentId).catch((caught) => setError(message(caught))),
+      2000,
+    );
     return () => window.clearInterval(interval);
-  }, [selected?.id, sets]);
+  }, [runtimeClient, selectedAgentId]);
   useEffect(() => {
     const availableRuns = runs.filter((item) => item.build_id === buildId);
     setRunId((current) => availableRuns.some((item) => item.id === current) ? current : availableRuns[0]?.id ?? "");

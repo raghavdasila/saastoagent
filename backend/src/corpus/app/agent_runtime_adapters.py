@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+import re
 import threading
 import uuid
 from collections.abc import Mapping
@@ -24,7 +25,13 @@ from corpus.features.builder.navgraph import compile_agent_navgraph
 from corpus.features.sandbox.domain import RuntimeSandboxRun
 from corpus.features.sources.connectors.api.engine import SourceManagedParameter
 from corpus.features.sources.connectors.api.toolrouter import ToolRouterApiSourceEngine
-from corpus.app.agent_routedeck_runtime import AgentRouteDeckSupervisor, agent_route_session
+from corpus.app.agent_routedeck_runtime import (
+    AgentRouteDeckSupervisor,
+    agent_route_session,
+    current_agent_route_session,
+    current_agent_route_tenant,
+)
+from corpus.app.agent_runtime_store import CorpusLocalAgentRuntimeStore
 from corpus.integrations.agent_execution import (
     BuildConnectionSpec, EvaluationCaseSpec, ImmutableBuildSpec,
     NeutralAgentExecutionAdapter, NeutralEvaluationAdapter, SandboxRunSpec,
@@ -231,12 +238,28 @@ class CorpusExecutionBindingRegistry:
 
 
 class CorpusToolRouterPort:
-    def __init__(self, engine: ToolRouterApiSourceEngine, bindings: CorpusExecutionBindingRegistry) -> None:
-        self.engine, self.bindings = engine, bindings
+    def __init__(
+        self,
+        engine: ToolRouterApiSourceEngine,
+        bindings: CorpusExecutionBindingRegistry,
+        context_store: CorpusLocalAgentRuntimeStore | None = None,
+    ) -> None:
+        self.engine, self.bindings, self.context_store = engine, bindings, context_store
 
     def route(self, build, query: str, provided: Mapping[str, Any]) -> RoutingDecision:
         selected = provided.get("__selected_operation_id")
         routed_inputs = _toolrouter_inputs(provided)
+        session_context: Mapping[str, object] = {}
+        if self.context_store is not None:
+            session_context = self.context_store.session_context(
+                current_agent_route_tenant(),
+                current_agent_route_session(),
+                build.content_hash,
+            )
+            routed_inputs = {
+                **_session_context_inputs(session_context),
+                **routed_inputs,
+            }
         bindings = self.bindings.get(build.content_hash)
         if selected is not None:
             selected = str(selected)
@@ -302,8 +325,61 @@ class CorpusToolRouterPort:
         ]
         if len(matching) == 1:
             result = matching[0]
-            return RoutingDecision(result.decision_type, result.decision_reason, candidates, result.missing_inputs)
+            missing = tuple(result.missing_inputs)
+            selected_operation = candidates[0].operation_id if candidates else None
+            session_context = self._retain_explicit_request_context(
+                build.content_hash,
+                selected_operation,
+                query,
+                session_context,
+            )
+            contextual = _contextual_operation_inputs(
+                selected_operation,
+                session_context,
+            )
+            missing = tuple(name for name in missing if name not in contextual)
+            return RoutingDecision(
+                "ROUTE" if result.decision_type == "ASK_PARAM" and not missing else result.decision_type,
+                (
+                    "same_session_result_context"
+                    if result.decision_type == "ASK_PARAM" and not missing
+                    else result.decision_reason
+                ),
+                candidates,
+                missing,
+                {"resolved_inputs": contextual},
+            )
         return RoutingDecision("ASK_DISAMBIGUATE", "multiple_accepted_sources_match", candidates)
+
+    def _retain_explicit_request_context(
+        self,
+        build_hash: str,
+        operation_id: str | None,
+        query: str,
+        context: Mapping[str, object],
+    ) -> Mapping[str, object]:
+        if self.context_store is None or operation_id is None:
+            return context
+        explicit: dict[str, object] = {}
+        if operation_id == "GetProducts":
+            search_term = _explicit_search_term(query)
+            if search_term is not None:
+                explicit["product_search_term"] = search_term
+        elif operation_id == "PostCartsIdLineItems":
+            quantity = _explicit_quantity(query)
+            if quantity is not None:
+                explicit["quantity"] = quantity
+        if not explicit:
+            return context
+        updated = dict(context)
+        updated["current_request"] = explicit
+        self.context_store.save_session_context(
+            current_agent_route_tenant(),
+            current_agent_route_session(),
+            build_hash,
+            updated,
+        )
+        return updated
 
 
 def _toolrouter_endpoint_map(
@@ -329,8 +405,13 @@ def _toolrouter_endpoint_map(
 
 
 class CorpusApiExecutorPort:
-    def __init__(self, execution: RoutedApiExecutionAdapter, bindings: CorpusExecutionBindingRegistry) -> None:
-        self.execution, self.bindings = execution, bindings
+    def __init__(
+        self,
+        execution: RoutedApiExecutionAdapter,
+        bindings: CorpusExecutionBindingRegistry,
+        context_store: CorpusLocalAgentRuntimeStore | None = None,
+    ) -> None:
+        self.execution, self.bindings, self.context_store = execution, bindings, context_store
         self.supervisor = None
 
     def attach_supervisor(self, supervisor) -> None:
@@ -342,18 +423,32 @@ class CorpusApiExecutorPort:
         if self.supervisor is None:
             raise BuilderUnavailable("The Agent RouteDeck supervisor is unavailable.")
         record = self.bindings.get_build(build.content_hash)
+        effective_inputs = dict(inputs)
+        if self.context_store is not None:
+            effective_inputs = _apply_session_context(
+                operation_id,
+                effective_inputs,
+                self.context_store.session_context(
+                    tenant_id,
+                    current_agent_route_session(),
+                    build.content_hash,
+                ),
+            )
         supervised = await self.supervisor.execute(
             build=record,
             tenant_id=tenant_id,
             operation_id=operation_id,
-            inputs=_routedeck_tool_arguments(inputs),
+            inputs=_routedeck_tool_arguments(effective_inputs),
             execution_id=execution_id,
         )
         if supervised.api_result is not None:
+            self.retain_session_result(
+                tenant_id, build.content_hash, supervised.api_result
+            )
             return supervised.api_result
         if supervised.operation.disposition.value == "requires_review":
             return ApiCallResult(
-                execution_id, operation_id, "failed", None, None,
+                execution_id, operation_id, "review_pending", None, None,
                 "review_required", False,
                 "Review is required before this Agent can send the external write.", (),
             )
@@ -362,6 +457,34 @@ class CorpusApiExecutorPort:
             execution_id, operation_id, "failed", None, None,
             failure.code if failure is not None else "routedeck_operation_failed", False,
             failure.public_message if failure is not None else "The supervised Agent operation did not complete.", (),
+        )
+
+    def retain_session_result(
+        self,
+        tenant_id: str,
+        build_hash: str,
+        result: ApiCallResult,
+        *,
+        session_id: str | None = None,
+    ) -> None:
+        if (
+            self.context_store is None
+            or result.status != "succeeded"
+            or not isinstance(result.response, Mapping)
+        ):
+            return
+        session_id = session_id or current_agent_route_session()
+        context = self.context_store.session_context(
+            tenant_id, session_id, build_hash
+        )
+        references = dict(context.get("references", {}))
+        for name, value in _response_references(result.response).items():
+            references[name] = value
+        self.context_store.save_session_context(
+            tenant_id,
+            session_id,
+            build_hash,
+            {"references": references},
         )
 
     async def execute_direct(
@@ -444,7 +567,7 @@ class CorpusSandboxRuntimeGateway:
 
     async def start(self, *, organization_id, session_id, run_id, build, message):
         self.bindings.bind(build)
-        with agent_route_session(session_id):
+        with agent_route_session(session_id, str(organization_id)):
             projection = await self.runtime.run(SandboxRunSpec(
                 tenant_id=str(organization_id), session_id=session_id,
                 build_hash=build.runtime_build_hash, message=message, run_id=run_id,
@@ -478,7 +601,7 @@ class CorpusSandboxRuntimeGateway:
         provided = clarification_inputs(
             self.bindings.get(build.runtime_build_hash), operation_id, answers
         )
-        with agent_route_session(record.runtime_session_id):
+        with agent_route_session(record.runtime_session_id, str(organization_id)):
             projection = await self.runtime.run(SandboxRunSpec(
                 tenant_id=str(organization_id),
                 session_id=record.runtime_session_id,
@@ -501,6 +624,64 @@ class CorpusSandboxRuntimeGateway:
             sandbox_safe_events(build, projection.events),
             routedeck_projection,
         )
+
+    async def resolve_review(
+        self,
+        *,
+        organization_id,
+        record,
+        build,
+        review_id: str,
+        accepted: bool,
+        request_id: str,
+    ):
+        pending = await self.routedeck.pending_review(
+            build, record.runtime_session_id, str(organization_id)
+        )
+        if pending is None or pending.review_id != review_id:
+            raise BuilderUnavailable("The exact Sandbox action review is unavailable.")
+        if accepted:
+            resolved = await self.routedeck.accept(
+                build=build,
+                tenant_id=str(organization_id),
+                session_id=record.runtime_session_id,
+                review_id=review_id,
+                request_id=request_id,
+            )
+            if resolved.api_result is None:
+                failure = resolved.operation.failure
+                raise BuilderUnavailable(
+                    failure.public_message
+                    if failure is not None
+                    else "The reviewed Sandbox action did not complete."
+                )
+            self.routedeck.retain_result(
+                tenant_id=str(organization_id),
+                build_hash=build.runtime_build_hash,
+                result=resolved.api_result,
+                session_id=record.runtime_session_id,
+            )
+            completed = self.runtime.complete_reviewed_run(
+                tenant_id=str(organization_id),
+                run_id=record.runtime_run_id,
+                api_result=resolved.api_result,
+            )
+            projection = await self.routedeck.projection(
+                build, record.runtime_session_id, str(organization_id)
+            )
+            return RuntimeSandboxRun(
+                completed.run_id, completed.status, None,
+                completed.final_response, completed.api_call_count,
+                sandbox_safe_events(build, completed.events), projection,
+            )
+        await self.routedeck.reject(
+            build=build,
+            tenant_id=str(organization_id),
+            session_id=record.runtime_session_id,
+            review_id=review_id,
+            request_id=request_id,
+        )
+        raise BuilderUnavailable("The Sandbox action was not sent because its review was rejected.")
 
 
 def sandbox_safe_events(build, events) -> tuple[dict[str, object], ...]:
@@ -656,6 +837,129 @@ def _toolrouter_inputs(provided: Mapping[str, Any]) -> dict[str, Any]:
                 raise BuilderUnavailable("Clarification inputs contain conflicting values.")
             routed[key] = value
     return routed
+
+
+def _response_references(value: Mapping[str, Any]) -> dict[str, object]:
+    """Extract bounded, response-derived identifiers for this exact Agent session."""
+    references: dict[str, object] = {}
+    cart = value.get("cart")
+    if isinstance(cart, Mapping) and isinstance(cart.get("id"), str):
+        references["cart_id"] = str(cart["id"])
+    products = value.get("products")
+    if isinstance(products, list):
+        variants: list[str] = []
+        for product in products[:20]:
+            if not isinstance(product, Mapping):
+                continue
+            raw_variants = product.get("variants")
+            if not isinstance(raw_variants, list):
+                continue
+            for variant in raw_variants[:20]:
+                if isinstance(variant, Mapping) and isinstance(variant.get("id"), str):
+                    variants.append(str(variant["id"]))
+        if variants:
+            references["first_product_variant_id"] = variants[0]
+    return references
+
+
+def _session_context_inputs(context: Mapping[str, Any]) -> dict[str, object]:
+    references = context.get("references", {})
+    if not isinstance(references, Mapping):
+        raise BuilderUnavailable("The Agent session reference context is invalid.")
+    values: dict[str, object] = {}
+    cart_id = references.get("cart_id")
+    variant_id = references.get("first_product_variant_id")
+    if isinstance(cart_id, str) and cart_id:
+        values["id"] = cart_id
+    if isinstance(variant_id, str) and variant_id:
+        values["variant_id"] = variant_id
+    current_request = context.get("current_request", {})
+    if isinstance(current_request, Mapping):
+        search_term = current_request.get("product_search_term")
+        quantity = current_request.get("quantity")
+        if isinstance(search_term, str) and search_term:
+            values["q"] = search_term
+        if isinstance(quantity, int):
+            values["quantity"] = quantity
+    return values
+
+
+def _contextual_operation_inputs(
+    operation_id: str | None, context: Mapping[str, Any]
+) -> tuple[str, ...]:
+    if operation_id == "GetProducts":
+        current_request = context.get("current_request", {})
+        return (
+            ("q",)
+            if isinstance(current_request, Mapping)
+            and isinstance(current_request.get("product_search_term"), str)
+            else ()
+        )
+    if operation_id != "PostCartsIdLineItems":
+        return ()
+    references = context.get("references", {})
+    if not isinstance(references, Mapping):
+        return ()
+    values = []
+    if isinstance(references.get("cart_id"), str):
+        values.append("id")
+    if isinstance(references.get("first_product_variant_id"), str):
+        values.append("variant_id")
+    current_request = context.get("current_request", {})
+    if isinstance(current_request, Mapping) and isinstance(current_request.get("quantity"), int):
+        values.extend(("quantity", "body"))
+    return tuple(values)
+
+
+def _apply_session_context(
+    operation_id: str,
+    provided: Mapping[str, Any],
+    context: Mapping[str, Any],
+) -> dict[str, Any]:
+    values = dict(provided)
+    current_request = context.get("current_request", {})
+    if operation_id == "GetProducts":
+        if not isinstance(current_request, Mapping):
+            return values
+        search_term = current_request.get("product_search_term")
+        if isinstance(search_term, str) and search_term:
+            query = dict(values.get("query", {})) if isinstance(values.get("query", {}), Mapping) else {}
+            query.setdefault("q", search_term)
+            values["query"] = query
+        return values
+    if operation_id != "PostCartsIdLineItems":
+        return values
+    references = context.get("references", {})
+    if not isinstance(references, Mapping):
+        raise BuilderUnavailable("The Agent session reference context is invalid.")
+    cart_id = references.get("cart_id")
+    variant_id = references.get("first_product_variant_id")
+    if not isinstance(cart_id, str) or not isinstance(variant_id, str):
+        return values
+    if not isinstance(current_request, Mapping) or not isinstance(current_request.get("quantity"), int):
+        return values
+    path = dict(values.get("path", {})) if isinstance(values.get("path", {}), Mapping) else {}
+    path.setdefault("id", cart_id)
+    values["path"] = path
+    body = dict(values.get("body", {})) if isinstance(values.get("body", {}), Mapping) else {}
+    body.setdefault("variant_id", variant_id)
+    body.setdefault("quantity", current_request["quantity"])
+    values["body"] = body
+    return values
+
+
+def _explicit_search_term(query: str) -> str | None:
+    quoted = re.findall(r"[\"']([^\"']{1,120})[\"']", query)
+    return quoted[-1].strip() if len(quoted) == 1 and quoted[-1].strip() else None
+
+
+def _explicit_quantity(query: str) -> int | None:
+    normalized = query.casefold()
+    matches = re.findall(r"\b(?:quantity\s+)?([1-9][0-9]?)\b", normalized)
+    if not matches and re.search(r"\b(?:add|put)\s+one\b", normalized):
+        return 1
+    values = tuple(dict.fromkeys(int(value) for value in matches))
+    return values[0] if len(values) == 1 else None
 
 
 def _routedeck_tool_arguments(provided: Mapping[str, Any]) -> dict[str, Any]:

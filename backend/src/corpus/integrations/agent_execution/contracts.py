@@ -79,6 +79,16 @@ class SandboxRunProjection:
 
 
 @dataclass(frozen=True)
+class ReviewedRunCompletion:
+    run_id: str
+    build_hash: str
+    status: str
+    final_response: str
+    api_call_count: int
+    events: tuple[SandboxEventProjection, ...]
+
+
+@dataclass(frozen=True)
 class EvaluationCaseSpec:
     tenant_id: str
     run_id: str
@@ -129,5 +139,6 @@ __all__ = [
     "ImmutableBuildSpec",
     "SandboxEventProjection",
     "SandboxRunProjection",
+    "ReviewedRunCompletion",
     "SandboxRunSpec",
 ]

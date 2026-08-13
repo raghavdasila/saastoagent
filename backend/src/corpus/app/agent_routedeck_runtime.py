@@ -34,6 +34,7 @@ from corpus.features.builder.ports import BuilderConflict, BuilderUnavailable
 
 
 _SESSION_ID: contextvars.ContextVar[str | None] = contextvars.ContextVar("corpus_agent_routedeck_session", default=None)
+_TENANT_ID: contextvars.ContextVar[str | None] = contextvars.ContextVar("corpus_agent_routedeck_tenant", default=None)
 
 
 class DirectAgentApiExecutor(Protocol):
@@ -48,6 +49,15 @@ class DirectAgentApiExecutor(Protocol):
         approved_write: bool,
     ) -> ApiCallResult: ...
 
+    def retain_session_result(
+        self,
+        tenant_id: str,
+        build_hash: str,
+        result: ApiCallResult,
+        *,
+        session_id: str,
+    ) -> None: ...
+
 
 @dataclass(frozen=True)
 class AgentRouteDeckResult:
@@ -56,14 +66,23 @@ class AgentRouteDeckResult:
     projection: dict[str, object]
 
 
+@dataclass(frozen=True)
+class AgentPendingReview:
+    review_id: str
+    operation_id: str
+    expires_at: str
+
+
 @contextmanager
-def agent_route_session(session_id: str):
+def agent_route_session(session_id: str, tenant_id: str | None = None):
     if not session_id:
         raise BuilderUnavailable("The Agent RouteDeck session identity is required.")
     token = _SESSION_ID.set(session_id)
+    tenant_token = _TENANT_ID.set(tenant_id)
     try:
         yield
     finally:
+        _TENANT_ID.reset(tenant_token)
         _SESSION_ID.reset(token)
 
 
@@ -71,6 +90,13 @@ def current_agent_route_session() -> str:
     value = _SESSION_ID.get()
     if value is None:
         raise BuilderUnavailable("The Agent execution is not bound to an isolated RouteDeck session.")
+    return value
+
+
+def current_agent_route_tenant() -> str:
+    value = _TENANT_ID.get()
+    if value is None:
+        raise BuilderUnavailable("The Agent execution is not bound to an owner.")
     return value
 
 
@@ -141,6 +167,62 @@ class AgentRouteDeckSupervisor:
                 return AgentRouteDeckResult(result, captured.pop(request_id, None), projection)
             finally:
                 await runtime.close()
+
+    async def reject(self, *, build: BuilderRecord, tenant_id: str, session_id: str, review_id: str, request_id: str) -> AgentRouteDeckResult:
+        async with self._runtime_lock(build):
+            runtime, _captured = await self._open(build, tenant_id)
+            try:
+                snapshot = await self._load_or_create(runtime, session_id)
+                result = await runtime.services.runner.reject_review(
+                    review_id,
+                    request_id=request_id,
+                    expected_session_version=snapshot.session_version,
+                    session_id=session_id,
+                )
+                projection = await self._projection(runtime, session_id)
+                return AgentRouteDeckResult(result, None, projection)
+            finally:
+                await runtime.close()
+
+    async def pending_review(
+        self, build: BuilderRecord, session_id: str, tenant_id: str
+    ) -> AgentPendingReview | None:
+        async with self._runtime_lock(build):
+            runtime, _captured = await self._open(build, tenant_id)
+            try:
+                snapshot = await self._load_or_create(runtime, session_id)
+                operation_state = snapshot.state.operation
+                review = (
+                    operation_state.pending_review
+                    if operation_state is not None else None
+                )
+                if review is None:
+                    return None
+                source_id = _source_id_for_compiled_operation(
+                    runtime.services.app.app, review.attempt.operation_id
+                )
+                return AgentPendingReview(
+                    review.review_id,
+                    source_id,
+                    review.expires_at.isoformat(),
+                )
+            finally:
+                await runtime.close()
+
+    def retain_result(
+        self,
+        *,
+        tenant_id: str,
+        build_hash: str,
+        session_id: str,
+        result: ApiCallResult,
+    ) -> None:
+        self.direct.retain_session_result(
+            tenant_id,
+            build_hash,
+            result,
+            session_id=session_id,
+        )
 
     @asynccontextmanager
     async def _runtime_lock(self, build: BuilderRecord):
@@ -311,6 +393,16 @@ def _operation_for_source_id(app, operation_id: str):
     return values[0]
 
 
+def _source_id_for_compiled_operation(app, operation_id: str) -> str:
+    operation = app.operations.get(operation_id)
+    if operation is None:
+        raise BuilderConflict("The pending Agent review operation is unavailable.")
+    source_id = operation.public_metadata_value().get("source_operation_id")
+    if not isinstance(source_id, str) or not source_id:
+        raise BuilderConflict("The pending Agent review has no Source operation identity.")
+    return source_id
+
+
 def _node_for_operation(app, operation_id: str) -> str:
     values = tuple(
         node.id
@@ -352,7 +444,9 @@ def _delivery_phase(result: ApiCallResult) -> DeliveryPhase:
 
 __all__ = [
     "AgentRouteDeckResult",
+    "AgentPendingReview",
     "AgentRouteDeckSupervisor",
     "agent_route_session",
     "current_agent_route_session",
+    "current_agent_route_tenant",
 ]

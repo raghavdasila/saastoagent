@@ -233,32 +233,31 @@ that later integration work must not reduce, replace, or mock.
    graph and construction replay. Non-executing route-plan creation and
    clarification retain exact curation/profile/revision boundaries; final
    interaction-mode evidence remains part of item 7.
-7. **Finish current interaction-mode evidence.** Earlier horizontal evidence
-   protects the baseline only. Prove every materially changed behavior through
-   ordinary chat-only, surface-only, and hybrid paths, then prove one complete
-   end-to-end owner journey in each mode. Do not count expected-operation
-   assertions as proof that the model was not spoonfed.
-8. **Reconcile all authorities before completion.** Studio, manifest, compiled
-   Corpus, architecture documents, authorized RouteDeck report, tests, and
-   evidence must agree. The current audit found ten Lounge parity mismatches,
-   a stale documented host-node count, incomplete recording of authorized
-   RouteDeck change families, and manifest statuses that conflate runtime
-   implementation with mapping and evidence completion.
+7. **Delivered: current interaction-mode evidence.** Independent surface,
+   ordinary-chat, and hybrid ecommerce journeys now pass from fresh file intake
+   through reviewed cart creation/add-to-cart and Operations promotion. Chat
+   prompts use ordinary owner language; expected-operation assertions remain
+   evidence checks rather than instructions to the model.
+8. **Delivered for the accepted ecommerce slice: authority reconciliation.**
+   Studio mapping, manifest, compiled Corpus contracts, generated frontend
+   contract, architecture owners, flow index, validation index, checkpoint,
+   and current context agree on the accepted behavior and its remaining QA
+   debt. Historical failed campaigns remain failed and disclosed.
 
 ### Current task status summary
 
 | Owner tasks | Current audited state |
 | --- | --- |
-| 1 | Partial: meaningful WIP commits exist, but the current branch is ahead of the tracked remote and has uncommitted integration work. |
+| 1 | Meaningful WIP commits exist; the current ecommerce integration slice is being closed in one additional review checkpoint commit. No push is implied. |
 | 2, 5, 11 | Strong backend foundation; preserve it while completing the integrated product. |
 | 3, 12 | Most named CRUD/lifecycle operations exist; Builder async execution and automatic build evalsets are delivered. Aggregation and some recovery/evidence remain open. |
-| 4, 14 | A real-model horizontal baseline exists; latest behaviors and per-behavior chat-only/surface-only/hybrid proof remain open. |
-| 6, 9, 13 | Split/maximized shell, focused real NavGraph/public Agent composition, chat focus/scroll, and the isolated Task 9 video are implemented and rendered; per-mode evidence remains open. |
-| 7 | Guided Source workflow is substantially implemented; shared visualizer ownership and full interaction symmetry remain open. |
-| 8 | Owner-described real-model feature generation, immutable customization/review/build handoff, visible topology, and isolated maximized surface evidence are delivered; chat/hybrid proof remains open. |
-| 10 | Runtime clarification paths exist; retain and re-prove them through current Sandbox and public-Agent flows. |
-| 15 | Earlier normal-speed evidence exists; complete current evidence remains open. |
-| 16 | Studio/manifest/compiled parity currently passes; final documentation/change-report reconciliation remains open until all modules finish. |
+| 4, 14 | Current surface/chat/hybrid ecommerce journeys pass independently with ordinary chat prompts and exact versioned operation evidence. |
+| 6, 9, 13 | Split/maximized shell, real semantic graph and NavGraphs, Sandbox/deployed runtime composition, chat focus/scroll, public reviews, and mobile rendering are visible in current evidence. |
+| 7 | Guided Source workflow, explicit analysis, shared semantic graph, reviewed effective API definition, curation, and real routed shopping operations are accepted in all three modes. |
+| 8 | Owner-described generation, immutable customization/review/build handoff, visible topology, and chat/surface/hybrid proof are delivered. |
+| 10 | Sandbox and public-Agent ToolRouter paths complete a real product search; public write actions wait for explicit review and continue in the same session. |
+| 15 | Current normal-speed uncut evidence exists for surface, hybrid, and chat, including failures only in their historical artifacts. |
+| 16 | Studio/manifest/compiled contracts and current architecture/context/flow/validation owners are reconciled for the accepted ecommerce slice. |
 
 ## Product behaviors that must remain explicit
 
@@ -542,6 +541,11 @@ these into shared compiled features (`Source Hub + API Source`, `Builder +
 Sandbox`, and `Channels + Deployment`). The ledger keeps the boundaries
 separate so a working half cannot hide an incomplete neighboring half.
 
+> Historical audit: the row gaps and cross-feature findings below explain the
+> recovery plan at its 2026-08-12 starting point. The isolated phase checkpoints
+> and `Final three-mode ecommerce acceptance — 2026-08-13` section are the
+> current status and supersede “current blocker” wording inside this table.
+
 Status vocabulary:
 
 - **implemented** means current product code and a compiled operation/surface
@@ -675,26 +679,26 @@ journey. Tests remain proportional guards and cannot replace the deliverable.
 | **1 — Working API Source — COMPLETED** | The working Source path is delivered: stage without processing, explicitly analyze, retain durable status, render the real semantic graph/replay, save and check the protected connection, curate operations, visibly clarify, and perform one safe routed read. | Source Hub; API Source. Phase A–F artifacts plus current 36/36 surface evidence retain their exact bounded claims. | **Do not redeliver or rerun this phase.** One later semantic regression remains at the outgoing Source→Agent handoff: “stay with this API” can select return-to-Agent. That is a narrow Phase 2 entry correction, not a new Source campaign. Stale Studio/manifest labels reconcile in Phase 6. |
 | **2 — Runnable draft Agent — COMPLETED** | Close only the Source→Agent stay/return handoff, then create/select one Agent, attach the exact retained Source revision, preserve the already-delivered visible grounded Designer configuration, request and asynchronously assemble one immutable build, and expose the real compiled NavGraph. | Agents minimum lineage; selected-Agent hub; Agent Designer; Builder assembly. Broader lifecycle controls remain Phase 6. | Fresh isolated run `20260812T072222Z-dd4537e463` proves an ordinary chat request remains at the exact attached API Source, performs only the real read-only inspection, asks the owner to choose access, and never dispatches `agents.return_from_source` or replays Source processing. The 12.0-second normal-speed 1440×1000 clip is maximized and has zero HTTP, console, page, or request-failure diagnostics. Exact retained Designer `20260811T171207Z-98270a1d7f` and Builder `20260811T163659Z-73c50607a2` milestone verifiers remain accepted. Focused Agent/Source contracts pass 24/24 and recorder contracts pass 5/5. |
 | **3 — Tested and eligible Agent — COMPLETED** | The real draft Agent has already been proven through visible ToolRouter clarification, zero-call waiting, one validated nonempty Medusa read, redacted trace, automatic exact-build ToolRouter evaluation generation, exact-build case execution, and deployment eligibility. | Builder runtime minimum; Sandbox; Evaluation generation/run/eligibility. | Accepted isolated run `20260811T153036Z-270ee701d6`: all 21 assertions are true and the corrected isolated verifier accepts 21/21; feature film `builder-sandbox-evaluation-maximized.webm` is 60.160 seconds at 1.0x with zero unexpected diagnostics. **Do not rerun this phase.** Evaluation CRUD/recovery breadth remains Phase 5. |
-| **4 — Deployed and observable Agent** | Create the hosted Web channel, deploy the eligible build through review, interact with the public Agent through clarification and one safe call, then inspect the exact interaction and promote it into Evaluation. | Channels minimum; first Deployment; public Agent; Operations inspection/promotion. | Check Channels, Deployment, public Agent, and Operations independently from retained identities. Capture public privacy, exact build/deployment/session lineage, read-only inspection, and one explicit promotion. Stop on unknown delivery, privacy leak, unintended promotion, or duplicate case. |
-| **5 — Operational lifecycle and recovery** | Complete the load-bearing lifecycle controls around the now-working Agent: Builder run/pause/stop/removal semantics and retry, Evaluation case CRUD/retry, Channel availability, Deployment failure/retry/second release/rollback/restart, plus exact lineage after recovery. | Builder lifecycle; Evaluation management; Channels availability; Deployment lifecycle. | Each module gets its own isolated check and short clip; destructive/reviewed actions use disposable records where required. Do not recreate the Source/Agent/design/build chain. Stop on ambiguous delete semantics, implicit retry, unknown external outcome, or lineage drift. |
+| **4 — Deployed and observable Agent — COMPLETED** | Create the hosted Web channel, deploy the eligible build through review, interact with the public Agent through clarification and real calls, then inspect the exact interaction and promote it into Evaluation. | Channels minimum; first Deployment; public Agent; Operations inspection/promotion. | Isolated Operations promotion run `20260812T111946Z-88961b32` closes the earlier exact-owner gap. The final three-mode ecommerce runs additionally prove public product search, separate reviewed cart creation and add-to-cart, owner/private evidence separation, and exact promotion. |
+| **5 — Operational lifecycle and recovery — COMPLETED** | Complete the load-bearing lifecycle controls around the now-working Agent: Builder run/pause/stop/removal semantics and retry, Evaluation case CRUD/retry, Channel availability, Deployment failure/retry/second release/rollback/restart, plus exact lineage after recovery. | Builder lifecycle; Evaluation management; Channels availability; Deployment lifecycle. | The four isolated Phase 5 films below retain the lifecycle/recovery boundaries. Final three-mode runs prove two reviewed releases, rollback, pause/resume, and backend/worker restart without replacing exact lineage. A failed-deployment browser state was not fabricated; its explicit retry remains contract-covered. |
 | **6 — Product breadth, shell, and truth reconciliation — COMPLETED** | Finish non-blocking Agent/Source CRUD, Workspace routing/overview, Lounge/auth/history, chat focus/scroll, maximize/mobile behavior, then reconcile Studio, manifest, Corpus, authorized RouteDeck report, architecture, indexes, evidence, and run broad gates once. | Remaining Agents; remaining Sources; Workspace; Lounge; shared shell; all authority documents. | Isolated Agent milestone `20260812T133737Z-790bea8d` proves edit/version, attach/detach, dependency guidance, archive reject/accept, and delete reject/accept in a 27.68-second normal-speed maximized film. Isolated Source run `20260812T134036Z-db4f8fab` proves description versioning, dependency-blocked delete, reject, and accepted disposable deletion in a 39.5-second normal-speed maximized film without analysis or an API call. Current authenticated Lounge/history desktop/mobile films remain the shell/auth acceptance. A real archive selection race was corrected in Corpus; focused Agent tests pass. Full chat/surface/hybrid journeys remain explicitly outside this phase and require the gate below. |
 
 #### Gate after Phase 6
 
 The complete chat-only, surface-only, and hybrid journeys are not phase tests
-or debugging tools. After all six phases are accepted and broad gates are
-green, they require a separate explicit launch decision. Each gets one attempt;
-a failure returns only to the owning phase and cannot trigger an immediate full
-rerun.
+or debugging tools. They were launched only after all six phases were accepted.
+The accepted replacement runs are recorded in the final acceptance checkpoint
+below. This restriction remains active for QA: a future horizontal failure
+returns only to its owning phase and cannot trigger an immediate full rerun.
 
 #### Active phase queue after evidence reconciliation
 
-All six feature phases are accepted. They remain retained foundations and may
-be loaded only by their exact identities. A later regression can add a bounded
-correction to its owning phase, but cannot reopen or replay a completed feature
-film unless its accepted product truth is actually invalidated. The only next
-gate is the separately authorized final chat-only, surface-only, and hybrid
-journeys described above.
+All six feature phases and the separate final three-mode ecommerce gate are
+accepted. They remain retained foundations and may be loaded only by their
+exact identities. A later regression can add a bounded correction to its
+owning phase, but cannot reopen or replay a completed feature film unless its
+accepted product truth is actually invalidated. The next lane is code review
+and structured feature-owned QA, not another complete journey.
 
 #### Deferred product-language and surface-design gaps — 2026-08-12
 
@@ -1014,6 +1018,46 @@ fully accepted, all three current interaction modes pass, final gates are
 green, all retained failures remain disclosed, and the full owner task list is
 reconciled. Progress through many features or a near-complete horizontal run is
 not completion.
+
+## Final three-mode ecommerce acceptance — 2026-08-13
+
+The recovery completion gate is satisfied for the defined Medusa shopping
+Agent path. The accepted runs are independent and immutable:
+
+- surface `20260812T183856Z-02c48c5a50`: 39/39;
+- hybrid `20260812T221223Z-0e9ec6eb55`: 40/40;
+- ordinary chat `20260812T222652Z-403a886798`: 39/39.
+
+Together they prove fresh staged file intake, explicit Source analysis,
+persisted ToolRouter semantic graph, reviewed API correction, exact shopping
+curation, Agent creation and Source attachment, visible generated Designer
+topology, asynchronous immutable build and automatic exact-build evaluation
+coverage, real Sandbox product search, Evaluation eligibility, reviewed hosted
+deployment, second release, rollback, pause/resume, backend/worker restart,
+hosted product search, separate reviewed cart creation and add-to-cart, public
+privacy, owner-only Operations evidence/promotion, and 390x844 rendering.
+
+The chat journey uses ordinary owner messages and supplies no Corpus/RouteDeck
+operation IDs, routes, nodes, feature names, hidden entity IDs, or UI-click
+instructions. Credential values remain surface-only. The hybrid result retains
+both versioned chat-operation provenance and direct surface actions in one
+conversation. The surface journey uses only declared affordances for product
+mutation.
+
+Exact artifact paths, hashes, IDs, screenshots, trace keys, and diagnostics
+are recorded in
+`docs/superpowers/validation/2026-08-13-horizontal-ecommerce-chat-surface-hybrid.md`.
+All unexpected HTTP, console, page, and request-failure lists are empty.
+
+This acceptance does not erase the Failed Goal record above or reclassify any
+failed/partial campaign. It closes the replacement product gate by using the
+feature-first and isolated-milestone process that record required.
+
+The next work is review and QA. Known non-blocking debt remains explicit:
+later-surface visual design, docked wrong-direction overflow, repetitive
+`consequences` tester vocabulary, and Behavior Note depth beyond the accepted
+ecommerce path. Those items must be handled in their owning feature or shell
+lane. They do not authorize another complete journey as a debugger.
 
 ## Anti-drift and execution gate
 

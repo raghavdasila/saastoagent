@@ -10,9 +10,9 @@ from routedeck_core.ports.executor import ExecutionContext
 from corpus.features.agents.ports import AgentOwnerScopeGateway, AgentOwnerScopeUnavailable
 from corpus.features.builder.ports import BuilderUnavailable
 
-from .declarations import RESUME_SANDBOX, START_SANDBOX
+from .declarations import ACCEPT_SANDBOX_REVIEW, REJECT_SANDBOX_REVIEW, RESUME_SANDBOX, START_SANDBOX
 from .ports import SandboxConflict, SandboxUnavailable
-from .schemas import ResumeSandboxArguments, StartSandboxArguments
+from .schemas import ResumeSandboxArguments, ResolveSandboxReviewArguments, StartSandboxArguments
 from .service import SandboxService
 
 
@@ -91,6 +91,43 @@ class ResumeSandboxHandler:
             return _failure_for(RESUME_SANDBOX.id, context, "sandbox_conflict", str(error), FailureKind.STATE_CONFLICT)
         except AgentOwnerScopeUnavailable as error:
             return _failure_for(RESUME_SANDBOX.id, context, "authentication_required", str(error), FailureKind.STATE_CONFLICT)
+        observation = FrozenJsonObject(sandbox_tool_observation(result))
+        return OperationOutcome(
+            outcome="resumed",
+            delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
+            observation=observation,
+            public_observation=observation,
+        )
+
+
+@dataclass(frozen=True)
+class ResolveSandboxReviewHandler:
+    service: SandboxService
+    owner_scope: AgentOwnerScopeGateway
+    accepted: bool
+
+    async def __call__(self, arguments, context: ExecutionContext) -> OperationOutcome:
+        operation_id = ACCEPT_SANDBOX_REVIEW.id if self.accepted else REJECT_SANDBOX_REVIEW.id
+        try:
+            payload = ResolveSandboxReviewArguments.model_validate(dict(arguments))
+            organization_id = await self.owner_scope.organization_id_for_route(context.session_id)
+            agent_id = uuid.UUID(context.private_entity_id("agent_ref"))
+            result = await self.service.resolve_review(
+                organization_id,
+                agent_id,
+                run_id=payload.run_id,
+                review_id=payload.review_id,
+                accepted=self.accepted,
+                request_id=context.request_id,
+            )
+        except (ValidationError, ValueError, KeyError) as error:
+            return _failure_for(operation_id, context, "invalid_sandbox_action_review", str(error), FailureKind.CONTRACT)
+        except (SandboxUnavailable, BuilderUnavailable) as error:
+            return _failure_for(operation_id, context, "sandbox_unavailable", str(error), FailureKind.BUSINESS)
+        except SandboxConflict as error:
+            return _failure_for(operation_id, context, "sandbox_conflict", str(error), FailureKind.STATE_CONFLICT)
+        except AgentOwnerScopeUnavailable as error:
+            return _failure_for(operation_id, context, "authentication_required", str(error), FailureKind.STATE_CONFLICT)
         observation = FrozenJsonObject(sandbox_tool_observation(result))
         return OperationOutcome(
             outcome="resumed",

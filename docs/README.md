@@ -26,6 +26,12 @@ artifacts. It does not own current source boundaries or session state.
   Source Hub/API Source suite against the 11-feature launch baseline and owns
   the future Corpus adapter/integration map. The suite is not currently
   imported into Corpus.
+- `superpowers/validation/2026-08-13-horizontal-ecommerce-chat-surface-hybrid.md`
+  is the current local QA evidence owner for the complete Medusa shopping Agent
+  across independent surface, ordinary-chat, and hybrid journeys. It records
+  exact artifact paths, hashes, IDs, redaction, diagnostics, and claim limits;
+  large video/screenshot files remain local artifacts rather than repository
+  documentation.
 
 ## Stale Design Artifacts
 
