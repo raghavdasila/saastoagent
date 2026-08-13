@@ -63,3 +63,14 @@ def test_production_images_are_immutable_runtime_targets() -> None:
     assert "USER corpus" in dockerfile
     assert "backend[testing]" not in dockerfile
     assert ".env.local" not in dockerfile
+
+
+def test_systemd_prestart_fetches_secrets_and_migrates_before_start() -> None:
+    unit = (ROOT / "deploy" / "corpus.service").read_text(encoding="utf-8")
+    prestart = (ROOT / "deploy" / "corpus-prestart.sh").read_text(encoding="utf-8")
+
+    assert "ExecStartPre=/srv/corpus/deploy/corpus-prestart.sh" in unit
+    assert "@sha256:" in prestart
+    assert "fetch-runtime-secrets.sh" in prestart
+    assert "python -m corpus.persistence.migrations" in prestart
+    assert prestart.index("fetch-runtime-secrets.sh") < prestart.index("python -m corpus.persistence.migrations")

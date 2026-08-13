@@ -1,0 +1,19 @@
+[Unit]
+Description=Corpus production stack
+Wants=network-online.target docker.service google-cloud-ops-agent.service
+After=network-online.target docker.service google-cloud-ops-agent.service
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/corpus/deploy
+Environment=CORPUS_RUNTIME_ENV_FILE=/run/corpus/runtime.env
+ExecStartPre=/srv/corpus/deploy/corpus-prestart.sh
+ExecStart=/usr/bin/docker compose --env-file /srv/corpus/deploy/image-manifest.env -f /srv/corpus/deploy/compose.production.yaml up --remove-orphans
+ExecStop=/usr/bin/docker compose --env-file /srv/corpus/deploy/image-manifest.env -f /srv/corpus/deploy/compose.production.yaml down --timeout 30
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=900
+TimeoutStopSec=90
+
+[Install]
+WantedBy=multi-user.target
