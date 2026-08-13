@@ -77,6 +77,9 @@ if ($firewalls -notcontains "corpus-web-ipv6") {
 if ($firewalls -notcontains "corpus-iap-ssh") {
     Invoke-Gcloud compute firewall-rules create corpus-iap-ssh --project=$ProjectId --network=default --direction=INGRESS --priority=1000 --action=ALLOW --rules=tcp:22 --source-ranges=35.235.240.0/20 --target-tags=corpus-iap-ssh
 }
+if ($firewalls -notcontains "corpus-deny-public-admin") {
+    Invoke-Gcloud compute firewall-rules create corpus-deny-public-admin --project=$ProjectId --network=default --direction=INGRESS --priority=1100 --action=DENY "--rules=tcp:22,tcp:3389" --source-ranges=0.0.0.0/0 --target-tags=corpus-iap-ssh
+}
 
 $addresses = @(& gcloud.cmd compute addresses list --project=$ProjectId --regions=$region --format="value(name)")
 if ($LASTEXITCODE -ne 0) { throw "Could not list regional addresses." }

@@ -10,7 +10,8 @@ Status: deployed for internal v0.1 testing on 2026-08-13
 - VM: `corpus-vm-1`, `n2-standard-2`, 160 GB `pd-balanced`
 - static IP: `8.231.125.65` (`corpus-origin-ip`)
 - VM identity: `corpus-vm@saastoagent.iam.gserviceaccount.com`
-- public ports: 80 and 443 only; SSH is available only through IAP
+- public ports: 80 and 443 only; a Corpus-targeted deny overrides the default
+  network SSH/RDP rules, while the higher-priority IAP range retains SSH access
 - application services: Caddy web, one Uvicorn backend process, one Huey worker
 - persistence: `/srv/corpus/state` and `/srv/corpus/data`
 - deployment manager: `corpus.service`
@@ -132,4 +133,3 @@ both a pre-restore archive and the moved pre-restore directories.
   ToolRouter transport with `gpt-5.6-luna`.
 - public browser signup completed for
   `info+corpus-smoke-20260813122921@saastoagent.com` with zero console errors.
-

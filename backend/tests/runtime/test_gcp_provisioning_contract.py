@@ -31,6 +31,9 @@ def test_firewall_contract_exposes_only_web_and_iap_ssh() -> None:
     assert "tcp:80,tcp:443" in script
     assert "35.235.240.0/20" in script
     assert "tcp:22" in script
+    assert "corpus-deny-public-admin" in script
+    assert "--action=DENY" in script
+    assert "tcp:22,tcp:3389" in script
     for forbidden in ("8099", "5199", "8771", "8782", "11434", "2375", "2376"):
         assert forbidden not in script
 
