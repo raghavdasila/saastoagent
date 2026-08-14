@@ -119,6 +119,12 @@ public conversations, persistence, revocation, and ownership claims stay in
   selected record from its owning feature service on every invocation. Earlier
   chat outcomes such as `queued` never override a later persisted `ready`,
   `failed`, or other terminal state.
+- A chat operation that semantically selects one pending record by category or
+  origin must receive current owner-scoped inventory from that feature's own
+  service. Evaluation, for example, exposes exact generated, Sandbox, and
+  Operations pending-case counts plus active-run count for the selected Agent;
+  RouteDeck session history and cross-feature summaries are not substitutes for
+  this Evaluation-owned truth.
 - The frontend consumes the RouteDeck frontend contract and dispatches only
   declared surface affordances.
 - The compiled frontend contract is exported deterministically to

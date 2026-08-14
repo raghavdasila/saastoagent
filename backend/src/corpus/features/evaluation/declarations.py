@@ -1,4 +1,11 @@
-from routedeck_core.contracts.operations import EntityInput, Operation, OperationSource, ReviewPolicy, SafetyClass
+from routedeck_core.contracts.operations import (
+    ContextProvider,
+    EntityInput,
+    Operation,
+    OperationSource,
+    ReviewPolicy,
+    SafetyClass,
+)
 from routedeck_core.contracts.projection import FrozenJsonObject
 
 from corpus.auth.contracts import OWNER_CONTEXT_PROVIDER
@@ -14,6 +21,41 @@ from .schemas import (
     RunEvaluationCaseArguments,
 )
 from .policies import EXACT_STATE
+
+
+CURRENT_EVALUATION_PROVIDER = ContextProvider(
+    id="evaluation.current",
+    description=(
+        "Authoritative current evaluation inventory for the exact selected Agent, including "
+        "origin-specific pending case counts and active run count."
+    ),
+    output_schema=FrozenJsonObject(
+        {
+            "type": "object",
+            "properties": {
+                "evaluation_set_count": {"type": "integer", "minimum": 0},
+                "pending_generated_case_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                },
+                "pending_sandbox_case_count": {"type": "integer", "minimum": 0},
+                "pending_operations_case_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                },
+                "active_case_run_count": {"type": "integer", "minimum": 0},
+            },
+            "required": [
+                "evaluation_set_count",
+                "pending_generated_case_count",
+                "pending_sandbox_case_count",
+                "pending_operations_case_count",
+                "active_case_run_count",
+            ],
+            "additionalProperties": False,
+        }
+    ),
+)
 
 
 CREATE_CASE = Operation(
@@ -44,7 +86,7 @@ RUN_CASE = Operation(
     safety_class=SafetyClass.READ_EXTERNAL,
     allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
     outcomes=("queued",), outcome_schemas=FrozenJsonObject({"queued": EMPTY_OBJECT_SCHEMA}),
-    provider_refs=(OWNER_CONTEXT_PROVIDER.ref,),
+    provider_refs=(OWNER_CONTEXT_PROVIDER.ref, CURRENT_EVALUATION_PROVIDER.ref),
     entity_inputs=(EntityInput(argument_name="agent_ref", entity_kind="agent"),),
     review_policy=ReviewPolicy.NONE,
     policy_refs=(EXACT_STATE.ref,),
@@ -124,6 +166,7 @@ DELETE_CASE = Operation(
 )
 
 __all__ = [
-    "CREATE_CASE", "DELETE_CASE", "EDIT_CASE", "GENERATE_SET",
+    "CREATE_CASE", "CURRENT_EVALUATION_PROVIDER", "DELETE_CASE", "EDIT_CASE",
+    "GENERATE_SET",
     "RETRY_CASE_RUN", "RETRY_GENERATION", "RUN_CASE",
 ]

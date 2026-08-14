@@ -13,7 +13,16 @@ from corpus.features.agents.contracts import (
 )
 
 from .contracts import EVALUATION_HOME_REF
-from .declarations import CREATE_CASE, DELETE_CASE, EDIT_CASE, GENERATE_SET, RETRY_CASE_RUN, RETRY_GENERATION, RUN_CASE
+from .declarations import (
+    CREATE_CASE,
+    CURRENT_EVALUATION_PROVIDER,
+    DELETE_CASE,
+    EDIT_CASE,
+    GENERATE_SET,
+    RETRY_CASE_RUN,
+    RETRY_GENERATION,
+    RUN_CASE,
+)
 from .policies import EVALUATION_POLICIES, EXACT_STATE
 
 
@@ -73,7 +82,8 @@ def create_evaluation_feature(
         id=EVALUATION_HOME_REF.id, title="Evaluation", kind=NodeKind.SECTION,
         parent=agents_home_ref,
         route=Route(template="/agents/evaluation", deep_link_policy=DeepLinkPolicy.SESSION_BOUND),
-        context_providers=(OWNER_CONTEXT_PROVIDER,), entity_providers=(AGENT_ENTITY_PROVIDER,),
+        context_providers=(OWNER_CONTEXT_PROVIDER, CURRENT_EVALUATION_PROVIDER),
+        entity_providers=(AGENT_ENTITY_PROVIDER,),
         operations=(
             RETURN_TO_AGENT_HUB, OPEN_AGENT_BUILDS, GENERATE_SET, RETRY_GENERATION,
             CREATE_CASE, EDIT_CASE, DELETE_CASE, RUN_CASE, OPEN_AGENT_CHANNELS,
