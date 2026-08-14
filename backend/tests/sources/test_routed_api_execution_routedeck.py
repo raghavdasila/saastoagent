@@ -255,7 +255,11 @@ async def _runtime(tmp_path: Path, probe: ExecutionProbe):
                 source_service=SimpleNamespace(
                     get_source=lambda **_kwargs: SimpleNamespace(
                         source_id="selected-source1",
-                        revision=SimpleNamespace(revision_id="selected-revsn01"),
+                        display_name="Store API",
+                        revision=SimpleNamespace(
+                            revision_id="selected-revsn01",
+                            state=SimpleNamespace(value="ready"),
+                        ),
                     )
                 ),
                 source_graph_presenter=object(),

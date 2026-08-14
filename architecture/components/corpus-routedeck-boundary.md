@@ -113,6 +113,12 @@ public conversations, persistence, revocation, and ownership claims stay in
   the exact RouteDeck session/projection versions, while direct surface commits
   retain their surface provenance. Unmatched model evidence never borrows a
   surface event cursor or hides another detailed operation.
+- RouteDeck session projection may identify the exact feature record selected
+  by a surface, but it is not a cache of mutable feature truth. A Corpus context
+  provider that exposes processing or lifecycle state must load the exact
+  selected record from its owning feature service on every invocation. Earlier
+  chat outcomes such as `queued` never override a later persisted `ready`,
+  `failed`, or other terminal state.
 - The frontend consumes the RouteDeck frontend contract and dispatches only
   declared surface affordances.
 - The compiled frontend contract is exported deterministically to

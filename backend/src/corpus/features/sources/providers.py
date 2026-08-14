@@ -1,5 +1,10 @@
+import asyncio
+
 from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.supervision.guards import ProviderInvocationContext, ProviderResult
+
+from .ports import SourceOwnerScopeGateway
+from .service import SourceService
 
 
 class ContractRevisionProposalProvider:
@@ -9,6 +14,14 @@ class ContractRevisionProposalProvider:
 
 
 class SelectedApiSourceProvider:
+    def __init__(
+        self,
+        service: SourceService,
+        owner_scope: SourceOwnerScopeGateway,
+    ) -> None:
+        self.service = service
+        self.owner_scope = owner_scope
+
     async def __call__(self, context: ProviderInvocationContext) -> ProviderResult:
         selected = next(
             (
@@ -25,9 +38,20 @@ class SelectedApiSourceProvider:
         revision_id = values.get("selected_source_revision_id")
         if not isinstance(source_id, str) or not isinstance(revision_id, str):
             return ProviderResult(values=FrozenJsonObject({}))
+        organization_id = await self.owner_scope.organization_id_for_route(
+            context.session.session_id
+        )
+        source = await asyncio.to_thread(
+            self.service.get_source,
+            owner_key=str(organization_id),
+            source_id=source_id,
+            revision_id=revision_id,
+        )
         selected_context = {
             "source_id": source_id,
             "source_revision_id": revision_id,
+            "display_name": source.display_name,
+            "processing_state": source.revision.state.value,
         }
         for name in (
             "return_agent_ref",

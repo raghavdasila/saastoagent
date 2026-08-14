@@ -64,7 +64,11 @@ async def test_sql_routedeck_opens_nonexecuting_planner_from_agent_and_surface(
                 source_service=SimpleNamespace(
                     get_source=lambda **_kwargs: SimpleNamespace(
                         source_id=source_id,
-                        revision=SimpleNamespace(revision_id=revision_id),
+                        display_name="Store API",
+                        revision=SimpleNamespace(
+                            revision_id=revision_id,
+                            state=SimpleNamespace(value="ready"),
+                        ),
                     )
                 ),
                 source_graph_presenter=object(),

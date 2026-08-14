@@ -81,7 +81,8 @@ CONTRACT_REVISION_PROPOSAL_PROVIDER = EntityProvider(
 SELECTED_API_SOURCE_PROVIDER = ContextProvider(
     id="sources.selected_api_source",
     description=(
-        "The exact API Source and revision already selected on the current API Source surface."
+        "The exact API Source and revision already selected on the current API Source surface, "
+        "including its freshly loaded persisted processing state."
     ),
     output_schema=FrozenJsonObject(
         {
@@ -92,6 +93,11 @@ SELECTED_API_SOURCE_PROVIDER = ContextProvider(
                     "type": "string",
                     "minLength": 16,
                     "maxLength": 16,
+                },
+                "display_name": {"type": "string", "minLength": 1},
+                "processing_state": {
+                    "type": "string",
+                    "enum": ["accepted", "queued", "running", "ready", "failed"],
                 },
                 "return_agent_ref": {"type": "string", "minLength": 1},
                 "agent_handoff_mode": {
@@ -114,8 +120,9 @@ SELECTED_API_SOURCE_PROVIDER = ContextProvider(
                 },
             },
             "dependentRequired": {
-                "source_id": ["source_revision_id"],
-                "source_revision_id": ["source_id"],
+                "source_id": ["source_revision_id", "processing_state"],
+                "source_revision_id": ["source_id", "processing_state"],
+                "processing_state": ["source_id", "source_revision_id"],
             },
             "additionalProperties": False,
         }

@@ -152,7 +152,10 @@ def create_sources_bindings(
         },
         providers={
             CONTRACT_REVISION_PROPOSAL_PROVIDER.ref: ContractRevisionProposalProvider(),
-            SELECTED_API_SOURCE_PROVIDER.ref: SelectedApiSourceProvider(),
+            SELECTED_API_SOURCE_PROVIDER.ref: SelectedApiSourceProvider(
+                service,
+                owner_scope,
+            ),
         },
         guards={
             CONTRACT_REVISION_CURRENT_GUARD.ref: ContractRevisionCurrentGuard(

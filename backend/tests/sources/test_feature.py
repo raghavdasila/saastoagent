@@ -18,10 +18,28 @@ from corpus.features.sources.providers import SelectedApiSourceProvider
 
 @pytest.mark.asyncio
 async def test_selected_source_context_exposes_an_exact_agent_pin_update() -> None:
-    provider = SelectedApiSourceProvider()
+    class SourceService:
+        def __init__(self) -> None:
+            self.request = None
+
+        def get_source(self, **request):
+            self.request = request
+            return SimpleNamespace(
+                display_name="Store API",
+                revision=SimpleNamespace(state=SimpleNamespace(value="ready")),
+            )
+
+    class OwnerScope:
+        async def organization_id_for_route(self, session_id: str):
+            assert session_id == "route-session-001"
+            return "owner-001"
+
+    service = SourceService()
+    provider = SelectedApiSourceProvider(service, OwnerScope())
     result = await provider(
         SimpleNamespace(
             session=SimpleNamespace(
+                session_id="route-session-001",
                 public_state=SimpleNamespace(
                     surface_state=(
                         SimpleNamespace(
@@ -50,11 +68,18 @@ async def test_selected_source_context_exposes_an_exact_agent_pin_update() -> No
     assert result.values.to_dict() == {
         "source_id": "sourceopaque0001",
         "source_revision_id": "currentrevision1",
+        "display_name": "Store API",
+        "processing_state": "ready",
         "return_agent_ref": "agent-canonical-001",
         "agent_handoff_mode": "inspect",
         "attached_source_revision_id": "attachedrev00001",
         "return_context": "agent",
         "attachment_update_available": True,
+    }
+    assert service.request == {
+        "owner_key": "owner-001",
+        "source_id": "sourceopaque0001",
+        "revision_id": "currentrevision1",
     }
 
 
