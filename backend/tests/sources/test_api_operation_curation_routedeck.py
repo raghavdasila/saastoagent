@@ -13,6 +13,7 @@ from routedeck_core.contracts.operations import (
 )
 from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.ports.executor import ExecutionContext
+from routedeck_langgraph import build_model_context
 from routedeck_sqlalchemy import open_sqlalchemy_routedeck_runtime
 
 from corpus.bindings import bind_corpus_app
@@ -214,7 +215,21 @@ async def test_sql_routedeck_saves_exact_curation_and_guard_blocks_stale_invento
         assert {
             "selected_source_id": source_id,
             "selected_source_revision_id": revision_id,
+            "selected_source_display_name": "Widgets",
+            "processing_state": "ready",
         }.items() <= selected_values.items()
+        model_context = build_model_context(selected, compiled)
+        assert model_context.active_surface is not None
+        model_surface_values = {
+            value.name: value.value.to_python()
+            for value in model_context.active_surface.values
+        }
+        assert {
+            "selected_source_id": source_id,
+            "selected_source_revision_id": revision_id,
+            "selected_source_display_name": "Widgets",
+            "processing_state": "ready",
+        }.items() <= model_surface_values.items()
         inspected = await runtime.services.runner.run(
             OperationRequest(
                 session_id=session_id,

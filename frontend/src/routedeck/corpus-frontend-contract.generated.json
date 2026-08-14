@@ -1871,6 +1871,16 @@
             ],
             "type": "string"
           },
+          "processing_state": {
+            "enum": [
+              "accepted",
+              "queued",
+              "running",
+              "ready",
+              "failed"
+            ],
+            "type": "string"
+          },
           "return_agent_ref": {
             "minLength": 1,
             "type": "string"
@@ -1880,6 +1890,10 @@
               "agent",
               "builder"
             ],
+            "type": "string"
+          },
+          "selected_source_display_name": {
+            "minLength": 1,
             "type": "string"
           },
           "selected_source_id": {

@@ -176,17 +176,7 @@ class OpenApiSourceHandler:
         return _success(
             "opened",
             effects=SessionEffects(
-                surface_updates=(
-                    PublicSurfaceEffect(
-                        surface_id="sources.api",
-                        values=(
-                            PublicValue(name="form_handle", value=FrozenJson(API_CONNECTION_FORM_ID)),
-                            PublicValue(name="mode", value=FrozenJson("inspect")),
-                            PublicValue(name="selected_source_id", value=FrozenJson(source.source_id)),
-                            PublicValue(name="selected_source_revision_id", value=FrozenJson(source.revision.revision_id)),
-                        ),
-                    ),
-                ),
+                surface_updates=(_selected_api_surface_effect(source),),
             ),
         )
 
@@ -244,18 +234,9 @@ class OpenApiDescriptionHandler:
             "opened",
             effects=SessionEffects(
                 surface_updates=(
-                    PublicSurfaceEffect(
-                        surface_id="sources.api",
-                        values=(
-                            PublicValue(name="form_handle", value=FrozenJson(API_CONNECTION_FORM_ID)),
-                            PublicValue(name="mode", value=FrozenJson("inspect")),
-                            PublicValue(name="selected_source_id", value=FrozenJson(source.source_id)),
-                            PublicValue(
-                                name="selected_source_revision_id",
-                                value=FrozenJson(source.revision.revision_id),
-                            ),
-                            PublicValue(name="initial_workspace", value=FrozenJson("description")),
-                        ),
+                    _selected_api_surface_effect(
+                        source,
+                        initial_workspace="description",
                     ),
                 ),
             ),
@@ -677,23 +658,7 @@ class AcceptStagedApiHandler:
             "accepted",
             observation=observation,
             effects=SessionEffects(
-                surface_updates=(
-                    PublicSurfaceEffect(
-                        surface_id="sources.api",
-                        values=(
-                            PublicValue(
-                                name="form_handle",
-                                value=FrozenJson(API_CONNECTION_FORM_ID),
-                            ),
-                            PublicValue(name="mode", value=FrozenJson("inspect")),
-                            PublicValue(name="selected_source_id", value=FrozenJson(source.source_id)),
-                            PublicValue(
-                                name="selected_source_revision_id",
-                                value=FrozenJson(source.revision.revision_id),
-                            ),
-                        ),
-                    ),
-                ),
+                surface_updates=(_selected_api_surface_effect(source),),
             ),
         )
 
@@ -780,7 +745,18 @@ class ProcessApiHandler:
             "display_name": source.display_name,
             "state": "queued",
         }
-        return _success("queued", observation=observation)
+        return _success(
+            "queued",
+            observation=observation,
+            effects=SessionEffects(
+                surface_updates=(
+                    _selected_api_surface_effect(
+                        source,
+                        provider_values=context.provider_values,
+                    ),
+                ),
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -1087,7 +1063,7 @@ class RetrySourceProcessingHandler:
             organization_id = await self.owner_scope.organization_id_for_route(
                 context.session_id
             )
-            await self.service.retry_processing(
+            source = await self.service.retry_processing(
                 owner_id=organization_id,
                 source_id=payload.source_id,
             )
@@ -1131,7 +1107,17 @@ class RetrySourceProcessingHandler:
                 "Source processing retry is unavailable.",
                 FailureKind.PERSISTENCE,
             )
-        return _success("queued")
+        return _success(
+            "queued",
+            effects=SessionEffects(
+                surface_updates=(
+                    _selected_api_surface_effect(
+                        source,
+                        provider_values=context.provider_values,
+                    ),
+                ),
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -1628,29 +1614,9 @@ class ApproveContractRevisionHandler:
                     EntityKindEffects(entity_kind="contract_revision_proposal"),
                 ),
                 surface_updates=(
-                    PublicSurfaceEffect(
-                        surface_id="sources.api",
-                        values=tuple((
-                            PublicValue(
-                                name="form_handle",
-                                value=FrozenJson(API_CONNECTION_FORM_ID),
-                            ),
-                            PublicValue(name="mode", value=FrozenJson("inspect")),
-                            PublicValue(
-                                name="selected_source_id",
-                                value=FrozenJson(approved.source_id),
-                            ),
-                            PublicValue(
-                                name="selected_source_revision_id",
-                                value=FrozenJson(approved.revision.revision_id),
-                            ),
-                        ) + tuple(
-                            PublicValue(name=name, value=FrozenJson(value))
-                            for name, value in _selected_source_handoff_context(
-                                context.provider_values,
-                                selected_revision_id=approved.revision.revision_id,
-                            ).items()
-                        )),
+                    _selected_api_surface_effect(
+                        approved,
+                        provider_values=context.provider_values,
                     ),
                     PublicSurfaceEffect(
                         surface_id="sources.contract_revision_proposal"
@@ -1688,6 +1654,56 @@ def _selected_source_handoff_context(
             attached_revision_id != selected_revision_id
         )
     return handoff
+
+
+def _selected_api_surface_effect(
+    source: Any,
+    *,
+    provider_values: FrozenJsonObject | None = None,
+    initial_workspace: str | None = None,
+) -> PublicSurfaceEffect:
+    values = [
+        PublicValue(
+            name="form_handle",
+            value=FrozenJson(API_CONNECTION_FORM_ID),
+        ),
+        PublicValue(name="mode", value=FrozenJson("inspect")),
+        PublicValue(
+            name="selected_source_id",
+            value=FrozenJson(source.source_id),
+        ),
+        PublicValue(
+            name="selected_source_revision_id",
+            value=FrozenJson(source.revision.revision_id),
+        ),
+        PublicValue(
+            name="selected_source_display_name",
+            value=FrozenJson(source.display_name),
+        ),
+        PublicValue(
+            name="processing_state",
+            value=FrozenJson(source.revision.state.value),
+        ),
+    ]
+    if initial_workspace is not None:
+        values.append(
+            PublicValue(
+                name="initial_workspace",
+                value=FrozenJson(initial_workspace),
+            )
+        )
+    if provider_values is not None:
+        values.extend(
+            PublicValue(name=name, value=FrozenJson(value))
+            for name, value in _selected_source_handoff_context(
+                provider_values,
+                selected_revision_id=source.revision.revision_id,
+            ).items()
+        )
+    return PublicSurfaceEffect(
+        surface_id="sources.api",
+        values=tuple(values),
+    )
 
 
 def _success(

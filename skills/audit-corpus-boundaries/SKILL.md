@@ -62,6 +62,17 @@ selected persisted reviewed revision. Medusa correction hashes and patches
 belong only to the explicitly selected `corpus.integrations.medusa_acceptance`
 adapter and its focused tests.
 
+RouteDeck context-provider values supervise operation execution and are not
+automatically model-visible. When the model must reason about current public
+feature state, project the freshly loaded safe fields through the owning
+feature's declared active Surface or entity contract using an existing Corpus
+operation. Keep the exact provider/guard for execution-time truth. Add one
+focused assertion against `routedeck_langgraph.build_model_context`; do not
+infer model visibility from a passing provider test or from frontend API data.
+If no existing RouteDeck public projection can carry the required state, stop
+and report the missing framework contract instead of adding a Corpus-side
+parallel context system.
+
 ## Classify findings
 
 For each finding, record:

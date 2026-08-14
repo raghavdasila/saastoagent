@@ -150,6 +150,11 @@ API_SOURCE_SURFACE = Surface(
                 "agent_handoff_mode": {"type": "string", "enum": ["create", "inspect"]},
                 "selected_source_id": {"type": "string", "minLength": 16, "maxLength": 16},
                 "selected_source_revision_id": {"type": "string", "minLength": 16, "maxLength": 16},
+                "selected_source_display_name": {"type": "string", "minLength": 1},
+                "processing_state": {
+                    "type": "string",
+                    "enum": ["accepted", "queued", "running", "ready", "failed"],
+                },
                 "attached_source_revision_id": {"type": "string", "minLength": 16, "maxLength": 16},
                 "attachment_update_available": {"type": "boolean"},
                 "return_context": {"type": "string", "enum": ["agent", "builder"]},

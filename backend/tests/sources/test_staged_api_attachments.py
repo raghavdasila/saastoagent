@@ -179,6 +179,8 @@ async def test_agent_handlers_accept_then_explicitly_queue_the_staged_api(
         "selected_source_revision_id": accepted.public_observation.to_python()[
             "source_revision_id"
         ],
+        "selected_source_display_name": "Store API",
+        "processing_state": "accepted",
     }
     accepted_view = repository.list(owner_key=str(OWNER))[0]
     assert accepted_view.revision.state is SourceState.ACCEPTED
@@ -202,6 +204,17 @@ async def test_agent_handlers_accept_then_explicitly_queue_the_staged_api(
     )
 
     assert queued.outcome == "queued"
+    assert {
+        value.name: value.value.to_python()
+        for value in queued.effects.surface_updates[0].values
+    } == {
+        "form_handle": API_CONNECTION_FORM_ID,
+        "mode": "inspect",
+        "selected_source_id": accepted_view.source_id,
+        "selected_source_revision_id": accepted_view.revision.revision_id,
+        "selected_source_display_name": "Store API",
+        "processing_state": "queued",
+    }
     queued_view = repository.get(
         owner_key=str(OWNER), source_id=accepted_view.source_id
     )

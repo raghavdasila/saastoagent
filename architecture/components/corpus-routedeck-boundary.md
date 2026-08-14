@@ -119,6 +119,14 @@ public conversations, persistence, revocation, and ownership claims stay in
   selected record from its owning feature service on every invocation. Earlier
   chat outcomes such as `queued` never override a later persisted `ready`,
   `failed`, or other terminal state.
+- Context-provider values supervise operations; they are not part of
+  RouteDeck's default model context. When the model must reason about current
+  public feature truth, the Corpus operation that opens or refreshes the active
+  record must project the freshly loaded safe fields through that feature's
+  declared public Surface or entity contract as well. Protect both boundaries:
+  a provider/guard test for exact execution truth and a `build_model_context`
+  regression proving the active model-visible projection. Do not assume that a
+  correct execution provider can correct an older conversation observation.
 - A chat operation that semantically selects one pending record by category or
   origin must receive current owner-scoped inventory from that feature's own
   service. Evaluation, for example, exposes exact generated, Sandbox, and
