@@ -60,17 +60,34 @@ machine in the browser.
 
 ## Mechanical enforcement
 
+### Accepted universal target
+
+ADR-005 makes this dependency rule universal. Every backend and frontend
+feature must be discovered and governed by the architecture checker. A feature
+may depend on itself, stable shared primitives, public shared-infrastructure
+interfaces, `corpus.auth.contracts`, and another feature's deliberately public
+`contracts` module. Concrete cross-feature services, repositories, ORM models,
+HTTP problems, handlers, declarations, app/runtime modules, and integration
+implementations are forbidden. Consumer-owned ports are implemented and wired
+by `corpus.app`.
+
+The current source does not yet satisfy that accepted target. Exact findings
+and counts are retained in
+`audits/2026-08-14-present-system-boundary-audit.md`; the approved refactor is
+specified in
+`docs/superpowers/specs/2026-08-14-corpus-boundary-refactor-design.md`. Do not
+add a permanent violation baseline or broad ignore list during the transition.
+
 Run:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\check_architecture_boundaries.py
 ```
 
-The checker currently governs Lounge, Workspace, and Agents. It rejects
-feature-to-application imports, concrete auth imports, cross-feature internal
-imports, frontend feature-store coupling, and shared-layer dependencies on
-product subsystems. Sources remains outside this enforcement set until its
-separate implementation lane is reconciled.
+Until ADR-005 is implemented, the checker governs Lounge, Workspace, and
+Agents only. That passing result is not evidence that later feature boundaries
+are clean. After the refactor, this section and the checker must report
+universal feature discovery and zero violations.
 
 ## Agent Source attachment boundary
 

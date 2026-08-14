@@ -11,3 +11,4 @@ Current decisions:
 - `ADR-002-corpus-owner-identity.md`
 - `ADR-003-vendored-toolrouter-adapter.md`
 - `ADR-004-gcp-single-vm-v0-1-deployment.md`
+- `ADR-005-enforced-feature-and-acceptance-boundaries.md`
