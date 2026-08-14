@@ -143,3 +143,7 @@ lineages and one audited quantity-1 T-shirt cart each. Both VM sizes are kept:
 Corpus has comfortable memory/disk headroom for the internal five-user target;
 Medusa Free Tier passed without OOM or sustained saturation but is non-SLA.
 Resume from `context_checkpoints/2026-08-14-deployed-ecommerce-three-mode.md`.
+The deployment methodology, rejected alternatives, sizing rationale, security
+boundary, and revisit triggers are owned by
+`decisions/ADR-004-gcp-single-vm-v0-1-deployment.md`; operational commands
+remain in the two `docs/deployment/` runbooks.

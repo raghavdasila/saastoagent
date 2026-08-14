@@ -2,6 +2,11 @@
 
 Status: deployed for internal v0.1 testing on 2026-08-13
 
+The selected methodology, alternatives, security/cost trade-offs, and revisit
+triggers are recorded in
+[`ADR-004`](../../decisions/ADR-004-gcp-single-vm-v0-1-deployment.md). This
+runbook owns the resulting operational procedure.
+
 ## Live boundary
 
 - URL: `https://corpus.saastoagent.com`

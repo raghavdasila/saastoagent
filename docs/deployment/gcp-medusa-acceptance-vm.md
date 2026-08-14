@@ -2,6 +2,11 @@
 
 Status: deployed and validated for Corpus production acceptance on 2026-08-13
 
+The reason this target is a separate private Free Tier VM, its upgrade boundary,
+and the alternatives considered are recorded in
+[`ADR-004`](../../decisions/ADR-004-gcp-single-vm-v0-1-deployment.md). This
+runbook owns Medusa-specific operations.
+
 ## Boundary
 
 This is a real Medusa 2.13.6 acceptance target for the deployed Corpus
