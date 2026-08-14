@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import json
 import secrets
 import uuid
 from dataclasses import dataclass
@@ -12,19 +10,12 @@ from typing import Any, Mapping
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from corpus.credentials import CredentialVaultPort
-from corpus.integrations.api_execution._snapshot.contract_revision import (
-    openapi_document_hash,
-)
-from corpus.integrations.api_execution.adapters import (
-    SAFE_API_OPERATIONS,
-    SafeApiExecutionAdapter,
-    SafeApiExecutionError,
-    SafeApiExecutionTarget,
-)
-from corpus.integrations.api_execution.redaction import (
+from corpus.shared.api_execution import (
     RedactedApiExecution,
+    SafeApiExecutionError,
+    SafeApiExecutionPort,
+    SafeApiExecutionTarget,
     SafeApiTraceRecord,
-    redact_execution,
 )
 
 from ...models import SourceState
@@ -35,12 +26,13 @@ from .connections import (
     ApiConnectionProfile,
     ApiConnectionProfileRepository,
 )
-from .contract_revisions import MEDUSA_EFFECTIVE_CONTRACT_PLAN
+from .reviewed_revision import ReviewedApiRevisionMismatch, load_reviewed_document
 
 
-MEDUSA_EFFECTIVE_CONTRACT_HASH = (
-    MEDUSA_EFFECTIVE_CONTRACT_PLAN.final_canonical_sha256
-)
+SAFE_API_OPERATIONS: Mapping[str, tuple[str, str]] = {
+    "GetProductTypes": ("GET", "/store/product-types"),
+    "GetProductTags": ("GET", "/store/product-tags"),
+}
 
 
 class ApiConnectionCheckRecord(BaseModel):
@@ -88,6 +80,7 @@ class PreparedApiConnectionCheck:
     method: str
     path_template: str
     document: Mapping[str, Any]
+    document_hash: str
 
 
 @dataclass(frozen=True)
@@ -150,7 +143,7 @@ class ApiConnectionCheckService:
     profiles: ApiConnectionProfileRepository
     records: ApiConnectionCheckRepository
     credentials: CredentialVaultPort
-    execution: SafeApiExecutionAdapter
+    execution: SafeApiExecutionPort
 
     def require_executable(
         self,
@@ -169,15 +162,6 @@ class ApiConnectionCheckService:
         )
         if source.connector_key != "api" or source.revision.state is not SourceState.READY:
             raise SourceNotReady("The selected API Source revision is not ready.")
-        summary = source.revision.summary
-        if (
-            summary.get("revision_kind") != "reviewed_api_contract"
-            or summary.get("final_canonical_sha256") != MEDUSA_EFFECTIVE_CONTRACT_HASH
-            or summary.get("approved_by_owner_id") != owner_key
-        ):
-            raise ApiConnectionCheckConflict(
-                "The selected Source version is not the approved executable API version."
-            )
         profile = self.profiles.get_exact(
             owner_key=owner_key,
             source_id=source_id,
@@ -205,22 +189,12 @@ class ApiConnectionCheckService:
                 raise ApiConnectionCheckConflict(
                     "The selected API Source revision changed before the check began."
                 )
-            path = revision_dir / "i" / source.revision.original_filename
             try:
-                content = path.read_bytes()
-                document = json.loads(content)
-            except (OSError, json.JSONDecodeError) as error:
-                raise ApiConnectionCheckError(
-                    "The approved API definition is unavailable."
-                ) from error
-        if (
-            hashlib.sha256(content).hexdigest() != source.revision.content_sha256
-            or not isinstance(document, Mapping)
-            or openapi_document_hash(document) != MEDUSA_EFFECTIVE_CONTRACT_HASH
-        ):
-            raise ApiConnectionCheckConflict(
-                "The selected API version no longer matches its approved identity."
-            )
+                document, document_hash = load_reviewed_document(
+                    locked_source, revision_dir, owner_key=owner_key
+                )
+            except ReviewedApiRevisionMismatch as error:
+                raise ApiConnectionCheckConflict(str(error)) from error
         method, path_template = operation
         return PreparedApiConnectionCheck(
             owner_id=owner_id,
@@ -231,6 +205,7 @@ class ApiConnectionCheckService:
             method=method,
             path_template=path_template,
             document=document,
+            document_hash=document_hash,
         )
 
     async def execute(
@@ -293,7 +268,7 @@ class ApiConnectionCheckService:
             )
             return self._persist(prepared, check_id, execution_id, redacted)
         try:
-            outcome = await self.execution.execute(
+            redacted = await self.execution.execute_redacted(
                 SafeApiExecutionTarget(
                     execution_id=execution_id,
                     owner_id=owner_id,
@@ -305,12 +280,11 @@ class ApiConnectionCheckService:
                     credential_name=profile.credential_name,
                     credential_reference_id=profile.credential_reference_id,
                     credential_version=profile.credential_version,
-                    document_hash=MEDUSA_EFFECTIVE_CONTRACT_HASH,
+                    document_hash=prepared.document_hash,
                     document=prepared.document,
                     operation_id=operation_id,
                 )
             )
-            redacted = redact_execution(outcome)
         except (SafeApiExecutionError, ValueError):
             redacted = _failed_before_http(
                 "safe_api_check_unavailable",
@@ -364,7 +338,7 @@ class ApiConnectionCheckService:
                 operation_id=prepared.operation_id,
                 method=prepared.method,
                 path_template=prepared.path_template,
-                effective_contract_sha256=MEDUSA_EFFECTIVE_CONTRACT_HASH,
+                effective_contract_sha256=prepared.document_hash,
                 status=redacted.status,
                 status_code=redacted.status_code,
                 error_code=redacted.error_code,
@@ -400,6 +374,5 @@ __all__ = [
     "ApiConnectionCheckRecord",
     "ApiConnectionCheckRepository",
     "ApiConnectionCheckService",
-    "MEDUSA_EFFECTIVE_CONTRACT_HASH",
     "PreparedApiConnectionCheck",
 ]

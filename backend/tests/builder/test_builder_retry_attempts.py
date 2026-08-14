@@ -10,9 +10,9 @@ from corpus.auth.models import Organization
 from corpus.features.agents.repository import SqlAlchemyAgentRepository
 from corpus.features.agents.schemas import CreateAgentArguments
 from corpus.features.agents.service import AgentService
-from corpus.features.builder.repository import SqlAlchemyBuilderRepository
+from corpus.app.builder_repository import SqlAlchemyBuilderRepository
 from corpus.features.designer.domain import DesignerInputSnapshot, DesignerSemanticGroup, DesignerSourceInput
-from corpus.features.designer.repository import SqlAlchemyDesignerRepository
+from corpus.app.designer_repository import SqlAlchemyDesignerRepository
 from corpus.features.designer.service import DesignerService
 from corpus.persistence import CorpusDatabase
 

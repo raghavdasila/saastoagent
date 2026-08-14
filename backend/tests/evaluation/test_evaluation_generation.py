@@ -9,6 +9,7 @@ import pytest
 from corpus.features.builder.domain import BuilderRecord
 from corpus.features.evaluation.domain import EvaluationSetRecord
 from corpus.features.evaluation.generation import EvaluationGenerationProcessor
+from corpus.app.evaluation_adapters import CorpusEvaluationGenerationGateway
 from corpus.integrations.toolrouter import IngestRequest, ToolRouterAdapter, ToolRouterSettings
 
 from backend.tests.integrations.toolrouter.conftest import KeywordEmbeddingProvider, write_openapi_fixture
@@ -95,7 +96,9 @@ async def test_generation_uses_only_the_exact_build_curation_and_persists_draft_
     jobs, evaluations, engine = Jobs(owner, payload), Evaluations(evaluation_set), Engine()
 
     result = await EvaluationGenerationProcessor(
-        jobs, evaluations, Builds(build), engine
+        jobs,
+        evaluations,
+        CorpusEvaluationGenerationGateway(Builds(build), engine),
     ).process(uuid.uuid4())
 
     assert evaluations.status == "ready"

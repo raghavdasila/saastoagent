@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import uuid
 
-from corpus.features.agents.service import AgentService
 from corpus.jobs import DurableJobEnqueueError, DurableJobPort
 
 from .domain import BuilderInputSnapshot
 from .ports import (
     BuilderConflict,
+    BuilderAgentGateway,
     BuilderInputGateway,
     BuilderRepository,
     BuilderRuntimeGateway,
@@ -18,7 +18,7 @@ from .schemas import AgentBuildCollectionView, AgentBuildView, BuilderSourceBind
 
 
 class BuilderService:
-    def __init__(self, repository: BuilderRepository, inputs: BuilderInputGateway, runtime: BuilderRuntimeGateway, agents: AgentService) -> None:
+    def __init__(self, repository: BuilderRepository, inputs: BuilderInputGateway, runtime: BuilderRuntimeGateway, agents: BuilderAgentGateway) -> None:
         self.repository, self.inputs, self.runtime, self.agents = repository, inputs, runtime, agents
         self._initial_evaluations: InitialEvaluationSetScheduler | None = None
         self._assembly_jobs: DurableJobPort | None = None

@@ -17,7 +17,7 @@ from agent_delivery_runtime.service import (
     OperationsService,
 )
 
-from .contracts import (
+from corpus.shared.agent_delivery import (
     ActivationProjection,
     ChannelProjection,
     DeployableBundleSpec,

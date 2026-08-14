@@ -15,8 +15,7 @@ import {
   type SourceView,
 } from "./sourceClient";
 import type { RoutedExecutionStore } from "./routedExecutionStore";
-
-const EFFECTIVE_HASH = "c0b9c6bf1b149a0e458de9fbda4f7bad3cf6f9f7eb4ff383bded3b09d23e50ef";
+import { isReviewedApiRevision, reviewedApiDocumentHash } from "./reviewedRevision";
 
 export function ApiOperationTestPanel({
   props,
@@ -223,7 +222,9 @@ export function ApiOperationTestPanel({
                   </option>
                 ))}
               </select>
-              <FieldDescription>API definition {EFFECTIVE_HASH.slice(0, 12)}…</FieldDescription>
+              <FieldDescription>
+                API definition {selectedSource === null ? "" : reviewedApiDocumentHash(selectedSource.revision)?.slice(0, 12)}…
+              </FieldDescription>
             </Field>
             <Field>
               <FieldLabel htmlFor="api-route-profile">Saved connection profile</FieldLabel>
@@ -480,9 +481,7 @@ function operationLabel(plan: ApiRoutePlanView, operationId: string): string {
 
 function isEffectiveReadySource(source: SourceView): boolean {
   return source.connector_key === "api"
-    && source.revision.state === "ready"
-    && source.revision.summary.revision_kind === "reviewed_api_contract"
-    && source.revision.summary.final_canonical_sha256 === EFFECTIVE_HASH;
+    && isReviewedApiRevision(source.revision);
 }
 
 function stateLabel(state: ApiRoutePlanView["state"]): string {

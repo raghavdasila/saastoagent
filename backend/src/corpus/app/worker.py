@@ -1,8 +1,9 @@
-"""Huey consumer entry point for real Source processing jobs."""
+"""Application-owned Huey consumer composition for all Corpus background jobs."""
 
 from corpus.app.source_composition import create_source_runtime
 from corpus.app.agent_product_runtime import create_agent_product_runtime
 from corpus.app.agents_adapters import CorpusAgentSourceGateway
+from corpus.app.evaluation_adapters import CorpusEvaluationGenerationGateway
 from corpus.features.agents.repository import SqlAlchemyAgentRepository
 from corpus.features.agents.service import AgentService
 from corpus.features.builder.execution import BuilderAssemblyProcessor
@@ -56,8 +57,9 @@ evaluation_generation_task = register_evaluation_generation_task(
     EvaluationGenerationProcessor(
         runtime.infrastructure.job_repository,
         evaluation_repository,
-        product_runtime.builder_repository,
-        runtime.api_engine,
+        CorpusEvaluationGenerationGateway(
+            product_runtime.builder_repository, runtime.api_engine
+        ),
     ),
 )
 evaluation_jobs = HueyDurableJobPort(

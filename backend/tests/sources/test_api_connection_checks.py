@@ -11,7 +11,6 @@ import httpx
 import pytest
 
 from corpus.credentials.domain import CredentialReference, ResolvedCredential
-from corpus.features.sources.connectors.api import connection_checks as checks_module
 from corpus.features.sources.connectors.api.connection_checks import (
     ApiConnectionCheckConflict,
     ApiConnectionCheckRepository,
@@ -93,7 +92,6 @@ def test_safe_check_revalidates_exact_identity_calls_once_and_persists_redacted(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     repository, source_id, revision_id, profile_id, contract_hash = _fixture(tmp_path)
-    monkeypatch.setattr(checks_module, "MEDUSA_EFFECTIVE_CONTRACT_HASH", contract_hash)
     calls = 0
 
     async def respond(request: httpx.Request) -> httpx.Response:
@@ -148,7 +146,6 @@ def test_changed_credential_version_is_an_immutable_zero_call_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     repository, source_id, revision_id, profile_id, contract_hash = _fixture(tmp_path)
-    monkeypatch.setattr(checks_module, "MEDUSA_EFFECTIVE_CONTRACT_HASH", contract_hash)
     calls = 0
 
     async def respond(request: httpx.Request) -> httpx.Response:
@@ -180,7 +177,6 @@ def test_invalid_operation_or_profile_never_calls_or_persists(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     repository, source_id, revision_id, profile_id, contract_hash = _fixture(tmp_path)
-    monkeypatch.setattr(checks_module, "MEDUSA_EFFECTIVE_CONTRACT_HASH", contract_hash)
     calls = 0
 
     async def respond(request: httpx.Request) -> httpx.Response:
@@ -219,7 +215,6 @@ def test_jit_vault_corruption_is_persisted_as_redacted_zero_call_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     repository, source_id, revision_id, profile_id, contract_hash = _fixture(tmp_path)
-    monkeypatch.setattr(checks_module, "MEDUSA_EFFECTIVE_CONTRACT_HASH", contract_hash)
     canary = "credential-authentication-exception-secret"
     calls = 0
 
@@ -257,7 +252,6 @@ def test_routedeck_handler_rechecks_and_returns_truthful_success_and_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     repository, source_id, revision_id, profile_id, contract_hash = _fixture(tmp_path)
-    monkeypatch.setattr(checks_module, "MEDUSA_EFFECTIVE_CONTRACT_HASH", contract_hash)
     responses = iter(
         (
             httpx.Response(

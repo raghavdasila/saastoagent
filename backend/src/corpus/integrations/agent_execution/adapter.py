@@ -18,7 +18,7 @@ from agent_execution_runtime import (
 )
 from agent_execution_runtime.ports import ApiExecutorPort, ModelPort, RouterPort, RuntimeStore
 
-from .contracts import (
+from corpus.shared.agent_execution import (
     ImmutableBuildProjection,
     ImmutableBuildSpec,
     SandboxEventProjection,

@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 
 from corpus.persistence import CorpusDatabase
 
-from .contracts import OwnerRouteContext
+from .contracts import ConversationUnavailable, OwnerRouteContext, SessionUnavailable
 from .database import TransactionalUserDatabase
 from .manager import CorpusUserManager
 from .models import (
@@ -51,15 +51,7 @@ class InvalidCredentials(AuthServiceError):
     pass
 
 
-class ConversationUnavailable(AuthServiceError):
-    pass
-
-
 class ConversationLimitReached(AuthServiceError):
-    pass
-
-
-class SessionUnavailable(AuthServiceError):
     pass
 
 

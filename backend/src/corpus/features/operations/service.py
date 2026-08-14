@@ -3,14 +3,17 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 
-from corpus.features.evaluation.service import EvaluationService
-from corpus.integrations.agent_delivery import (
+from corpus.shared.agent_delivery import (
     InteractionProjection,
-    NeutralAgentDeliveryAdapter,
 )
 
 from .domain import OperationsLineage
-from .ports import OperationsLineageGateway, OperationsUnavailable
+from .ports import (
+    OperationsDeliveryPort,
+    OperationsEvaluationPort,
+    OperationsLineageGateway,
+    OperationsUnavailable,
+)
 from .schemas import OperationsCollectionView, OperationsEventView, OperationsInteractionView
 
 
@@ -23,7 +26,7 @@ class _RunInteraction:
 
 
 class OperationsService:
-    def __init__(self, delivery: NeutralAgentDeliveryAdapter, lineage: OperationsLineageGateway, evaluation: EvaluationService) -> None:
+    def __init__(self, delivery: OperationsDeliveryPort, lineage: OperationsLineageGateway, evaluation: OperationsEvaluationPort) -> None:
         self.delivery, self.lineage, self.evaluation = delivery, lineage, evaluation
 
     async def list(

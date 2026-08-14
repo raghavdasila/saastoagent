@@ -5,16 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { AgentStore } from "../agents/store";
-import { completedOutcome } from "../agents/operationResult";
+import type { AgentSelectionStore } from "../agents/contracts";
+import { completedOutcome } from "@/shared/routedeck/operationResult";
 import type { AgentRuntimeClient } from "./client";
 import type { AgentBuildView, SandboxRunView } from "./models";
-import { BuildNavGraph } from "./BuildNavGraph";
+import { BuildNavGraph } from "@/shared/agent/BuildNavGraph";
 import { SandboxRuntimeEvidence } from "./SandboxRuntimeEvidence";
 import { useRouteDeckSessionVersion } from "../../routedeck/RouteDeckSessionVersionContext";
 
 
-export function SandboxSurface({ dispatchAffordance, props, agentStore, runtimeClient }: RouteDeckSurfaceComponentProps & { agentStore: AgentStore; runtimeClient: AgentRuntimeClient }) {
+export function SandboxSurface({ dispatchAffordance, props, agentStore, runtimeClient }: RouteDeckSurfaceComponentProps & { agentStore: AgentSelectionStore; runtimeClient: AgentRuntimeClient }) {
   const sessionVersion = useRouteDeckSessionVersion();
   const agents = useSyncExternalStore(agentStore.subscribe, agentStore.snapshot);
   const selectedRef = typeof props.selected_agent_ref === "string" ? props.selected_agent_ref : null;

@@ -114,17 +114,25 @@ FEATURE_SURFACE_SELECTORS = {
 }
 
 CHAT_PROMPTS = {
-    "setup_from_file": "Use this file please. Also set up the agent for me.",
+    "setup_from_file": (
+        "Use this file please. Analyze it, then ask me which Agent should use it."
+    ),
     "choose_new_agent": "Create a new one.",
     "create_agent": "It is a shopping assistant that finds products and adds a chosen product to a cart only after approval.",
-    "resume_api": "Continue with the store API we just added and show me its analyzed structure.",
+    "resume_api": (
+        "I want to continue with the store API attached to the selected Agent and see its "
+        "analyzed structure."
+    ),
     "prepare_api_update": "The API analysis is finished. Prepare the safest API correction for me to review, but do not apply it yet.",
     "request_api_update_decision": "What would that API correction change?",
     "stage_api_update": "I am ready to review that API correction. Keep it pending until I decide.",
     "accept_api_update": (
         "That API correction looks right. Apply it, and stay with this API because I still need to choose what it may access."
     ),
-    "curate_api": "Keep product search, cart creation, and adding an item to a cart. Exclude every other API action.",
+    "curate_api": (
+        "Keep only API actions that list or search products, create an empty cart, and "
+        "add a line item to a cart. Exclude product-by-ID lookup and every other action."
+    ),
     "attach_source": "Attach this prepared store API to the shopping assistant.",
     "enter_design": "Turn my requirements into proposed assistant behavior that I can review.",
     "propose_design": "Turn what we've agreed into a draft design for me to review.",
@@ -153,7 +161,10 @@ CHAT_PROMPTS = {
     "accept_pause": "Apply that reviewed pause.",
     "request_resume": "Restore public access to this address, again only after I approve the consequences.",
     "accept_resume": "Apply that reviewed restoration.",
-    "enter_operations": "Show me how that public request to this assistant actually ran.",
+    "enter_operations": (
+        "Show me how that public request to this assistant actually ran, but do not "
+        "save it as an Evaluation case yet."
+    ),
     "promote_interaction": "Save deployed request \"Add one of that product to the cart.\" as required medium case \"Reviewed cart addition\" in \"Regression from live use\", category deployed-interaction.",
 }
 
@@ -274,7 +285,15 @@ def arguments() -> argparse.Namespace:
     )
     parser.add_argument("--medusa-spec", type=Path, default=MEDUSA_SPEC)
     parser.add_argument("--medusa-env", type=Path, default=MEDUSA_ENV)
-    parser.add_argument("--medusa-base-url", default="http://127.0.0.1:9100")
+    parser.add_argument(
+        "--medusa-base-url",
+        default="http://host.docker.internal:9100",
+        help=(
+            "Medusa origin persisted into the Source connection. The local default "
+            "must be reachable from the Docker backend; override it with the private "
+            "origin for gcp-production."
+        ),
+    )
     parser.add_argument("--gcp-project", default="saastoagent")
     parser.add_argument("--corpus-vm", default="corpus-vm-1")
     parser.add_argument("--corpus-zone", default="asia-south1-a")

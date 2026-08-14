@@ -4,10 +4,7 @@ import uuid
 from dataclasses import dataclass
 
 from corpus.auth.service import AuthService, SessionUnavailable
-
-
-class SourceOwnerScopeUnavailable(RuntimeError):
-    pass
+from corpus.features.sources.ports import SourceOwnerScopeUnavailable
 
 
 @dataclass(frozen=True)
@@ -33,4 +30,4 @@ class AuthSourceOwnerScopeGateway:
             ) from error
 
 
-__all__ = ["AuthSourceOwnerScopeGateway", "SourceOwnerScopeUnavailable"]
+__all__ = ["AuthSourceOwnerScopeGateway"]

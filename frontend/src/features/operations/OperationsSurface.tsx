@@ -4,15 +4,14 @@ import type { RouteDeckSurfaceComponentProps } from "@routedeck/react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { completedOutcome } from "../agents/operationResult";
-import type { AgentRuntimeClient } from "../builder/client";
-import type { AgentBuildView, OperationsInteractionView } from "../builder/models";
-import type { AgentStore } from "../agents/store";
+import { completedOutcome } from "@/shared/routedeck/operationResult";
+import type { AgentRuntimeReader, AgentBuildView, OperationsInteractionView } from "../builder/contracts";
+import type { AgentSelectionStore } from "../agents/contracts";
 import { useRouteDeckSessionVersion } from "../../routedeck/RouteDeckSessionVersionContext";
 import { DeployedRuntimeEvidence } from "./DeployedRuntimeEvidence";
 
 
-export function OperationsSurface({ dispatchAffordance, props, runtimeClient, agentStore }: RouteDeckSurfaceComponentProps & { runtimeClient: AgentRuntimeClient; agentStore: AgentStore }) {
+export function OperationsSurface({ dispatchAffordance, props, runtimeClient, agentStore }: RouteDeckSurfaceComponentProps & { runtimeClient: AgentRuntimeReader; agentStore: AgentSelectionStore }) {
   const sessionVersion = useRouteDeckSessionVersion();
   const agents = useSyncExternalStore(agentStore.subscribe, agentStore.snapshot);
   const selectedAgentRef = typeof props.selected_agent_ref === "string" ? props.selected_agent_ref : null;

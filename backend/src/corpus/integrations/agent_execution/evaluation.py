@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from agent_execution_runtime import EvaluationService
 from agent_execution_runtime.ports import ReviewerPort, RuntimeStore
 
-from .contracts import (
+from corpus.shared.agent_execution import (
     EligibilityProjection,
     EvaluationCaseProjection,
     EvaluationCaseSpec,

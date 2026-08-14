@@ -11,10 +11,10 @@ import pytest
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
-from corpus.features.sources.connectors.api.contract_revisions import (
+from corpus.integrations.medusa_acceptance import (
     MEDUSA_EFFECTIVE_CONTRACT_PLAN,
 )
-from corpus.features.sources.connectors.api.toolrouter import load_api_contract_documents
+from corpus.app.toolrouter_source_adapter import load_api_contract_documents
 from corpus.integrations.api_execution._snapshot.contract_revision import (
     approve_contract_patches,
 )

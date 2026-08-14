@@ -7,7 +7,6 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from routedeck_fastapi import SameOriginMutationPolicy
 
-from corpus.auth.config import AuthSettings
 from .http_common import (
     OwnerSessionResolver,
     SourceHttpProblem,
@@ -44,7 +43,6 @@ def create_sources_router(
     *,
     service: SourceService,
     auth_service: OwnerSessionResolver,
-    auth_settings: AuthSettings,
     mutation_policy: SameOriginMutationPolicy,
     lifecycle_service: SourceLifecycleService | None = None,
 ) -> APIRouter:
@@ -52,7 +50,7 @@ def create_sources_router(
 
     @router.get("")
     async def list_sources(request: Request):
-        current_owner = await owner_key(request, auth_service, auth_settings)
+        current_owner = await owner_key(request, auth_service)
         result = await call_source_service(
             service.list_sources,
             owner_key=current_owner,
@@ -61,7 +59,7 @@ def create_sources_router(
 
     @router.get("/{source_id}")
     async def get_source(source_id: str, request: Request, revision_id: str | None = None):
-        current_owner = await owner_key(request, auth_service, auth_settings)
+        current_owner = await owner_key(request, auth_service)
         result = await call_source_service(
             service.get_source,
             owner_key=current_owner,
@@ -72,7 +70,7 @@ def create_sources_router(
 
     @router.get("/{source_id}/description")
     async def get_source_description(source_id: str, request: Request):
-        current_owner = await owner_key(request, auth_service, auth_settings)
+        current_owner = await owner_key(request, auth_service)
         result = await call_source_service(
             service.get_description,
             owner_key=current_owner,
@@ -88,7 +86,7 @@ def create_sources_router(
                 "source_lifecycle_unavailable",
                 "Source lifecycle details are unavailable.",
             )
-        current_owner = await owner_key(request, auth_service, auth_settings)
+        current_owner = await owner_key(request, auth_service)
         result = await lifecycle_service.inspect_dependencies(
             uuid.UUID(current_owner), source_id
         )
@@ -97,7 +95,7 @@ def create_sources_router(
     @router.post("/{source_id}/retrieve")
     async def retrieve(source_id: str, body: RetrievalBody, request: Request):
         authorize_mutation(request, mutation_policy)
-        current_owner = await owner_key(request, auth_service, auth_settings)
+        current_owner = await owner_key(request, auth_service)
         result = await call_source_service(
             service.retrieve,
             owner_key=current_owner,
@@ -116,7 +114,7 @@ def create_sources_router(
         request: Request,
     ):
         authorize_mutation(request, mutation_policy)
-        current_owner = await owner_key(request, auth_service, auth_settings)
+        current_owner = await owner_key(request, auth_service)
         result = await call_source_service(
             service.generate_evalset,
             owner_key=current_owner,

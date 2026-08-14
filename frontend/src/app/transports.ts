@@ -1,21 +1,7 @@
-export type AuthorizedFetch = (
-  input: RequestInfo | URL,
-  init?: RequestInit,
-) => Promise<Response>;
-
-/**
- * A bearer-authorized HTTP boundary. It deliberately has no browser storage,
- * cookie, or conversation-selection behavior so native clients can implement
- * the same protocol with platform-secure credential storage.
- */
-export interface AuthorizedTransport {
-  fetch: AuthorizedFetch;
-}
-
-export interface ConversationTransport extends AuthorizedTransport {
-  selectConversation(conversationId: string): void;
-  clearConversation(): void;
-}
+import type {
+  AuthorizedTransport,
+  ConversationTransport,
+} from "@/shared/transport/contracts";
 
 export function createConversationTransport(
   authorized: AuthorizedTransport,

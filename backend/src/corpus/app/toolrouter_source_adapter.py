@@ -17,20 +17,20 @@ from corpus.integrations.toolrouter import (
 )
 from corpus.integrations.toolrouter.engine.openapi_loader import load_openapi_specs
 
-from ...contracts import (
+from corpus.features.sources.contracts import (
     SourceEvalsetResult,
     SourceRankedItem,
     SourceRetrievalResult,
     SourceRetrievalStep,
     SourceTraceMode,
 )
-from ...errors import (
+from corpus.features.sources.errors import (
     SourceArtifactError,
     SourceDependencyError,
     SourceInputError,
     SourceIntegrationError,
 )
-from .engine import SourceManagedParameter
+from corpus.features.sources.connectors.api.engine import SourceManagedParameter
 
 
 class ToolRouterApiSourceEngine:

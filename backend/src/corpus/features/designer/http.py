@@ -6,8 +6,8 @@ from fastapi import APIRouter, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
-from corpus.features.agents.http import AgentsHttpProblem
-from corpus.features.agents.ports import AgentOwnerScopeGateway
+from corpus.shared.http import CorpusHttpProblem as AgentsHttpProblem
+from corpus.auth.contracts import AgentOwnerScopeGateway
 
 from .ports import DesignerUnavailable
 from .service import DesignerService

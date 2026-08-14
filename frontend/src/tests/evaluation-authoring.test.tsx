@@ -15,7 +15,7 @@ vi.mock("@routedeck/react", async (importOriginal) => {
   const original = await importOriginal<typeof import("@routedeck/react")>();
   return { ...original, useRouteDeckReviewActions: () => ({ accept: acceptReview, reject: rejectReview }) };
 });
-vi.mock("../features/builder/BuildNavGraph", () => ({ BuildNavGraph: () => <div>Exact build NavGraph</div> }));
+vi.mock("../shared/agent/BuildNavGraph", () => ({ BuildNavGraph: () => <div>Exact build NavGraph</div> }));
 
 
 it("generates against the selected immutable build and exposes revisioned case management", async () => {

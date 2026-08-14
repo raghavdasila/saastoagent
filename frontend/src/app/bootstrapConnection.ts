@@ -7,9 +7,8 @@ import {
 } from "./browserSessionAdapters";
 import {
   createConversationTransport,
-  type AuthorizedTransport,
-  type ConversationTransport,
 } from "./transports";
+import type { AuthorizedTransport, ConversationTransport } from "@/shared/transport/contracts";
 import {
   createConversationClient,
   selectConversation,

@@ -27,7 +27,7 @@ from routedeck_core.contracts.projection import (
 from pydantic import SecretStr
 from routedeck_core.ports.executor import ExecutionContext
 
-from corpus.app.source_adapters import SourceOwnerScopeUnavailable
+from .ports import SourceOwnerScopeUnavailable
 
 from corpus.shared.private_forms import EncryptedPrivateFormReader, PrivateFormError
 

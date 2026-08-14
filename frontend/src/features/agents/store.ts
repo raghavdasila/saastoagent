@@ -1,28 +1,8 @@
 import type { AgentClient } from "./client";
 import type {
-  AgentDependencyView,
-  AgentBuildLineageView,
-  AgentProductOverviewView,
-  AgentSourceAttachmentView,
-  AgentView,
-} from "./models";
-
-export interface AgentStoreSnapshot {
-  readonly agents: readonly AgentView[];
-  readonly selectedId: string | null;
-  readonly loading: boolean;
-  readonly error: string | null;
-  readonly attachments: readonly AgentSourceAttachmentView[];
-  readonly dependencies: AgentDependencyView | null;
-  readonly builds: readonly AgentBuildLineageView[];
-  readonly productOverview: AgentProductOverviewView | null;
-}
-
-export interface CreateAgentDraft {
-  readonly name: string;
-  readonly description: string;
-  readonly instructions: string;
-}
+  AgentStoreSnapshot,
+  CreateAgentDraft,
+} from "./contracts";
 
 const EMPTY_CREATE_DRAFT: CreateAgentDraft = Object.freeze({
   name: "",

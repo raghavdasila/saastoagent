@@ -19,10 +19,8 @@ import {
   type RouteDeckSurfaceSlot,
 } from "@routedeck/react";
 
-import { Composer } from "./Composer";
-import type { ChatSourceUpload } from "./Composer";
-import { Conversation } from "./Conversation";
-import type { ConversationScrollState } from "./Conversation";
+import { Composer, type ChatSourceUpload } from "@/shared/conversation/Composer";
+import { Conversation, type ConversationScrollState } from "@/shared/conversation/Conversation";
 import { CorpusSuggestedActions } from "./CorpusSuggestedActions";
 import { RouteDeckSessionVersionContext } from "../routedeck/RouteDeckSessionVersionContext";
 

@@ -79,4 +79,3 @@ class EvaluationCandidateProjection:
     input_summary: str
     output_summary: str
     trace: Mapping[str, Any]
-

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from corpus.jobs.repository import SqlAlchemyDurableJobRepository
+from corpus.jobs import DurableJobLifecyclePort
 
 from .ports import BuilderConflict, BuilderUnavailable
 from .service import BuilderService
@@ -11,7 +11,7 @@ from .service import BuilderService
 class BuilderAssemblyProcessor:
     """Materialize one exact queued build attempt in the durable worker."""
 
-    def __init__(self, jobs: SqlAlchemyDurableJobRepository, service: BuilderService) -> None:
+    def __init__(self, jobs: DurableJobLifecyclePort, service: BuilderService) -> None:
         self.jobs = jobs
         self.service = service
 

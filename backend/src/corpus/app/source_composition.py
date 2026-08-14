@@ -49,9 +49,10 @@ from corpus.features.sources.connectors.api.staged_descriptions import (
     ApiStagedDescriptionService,
 )
 from corpus.features.sources.lifecycle import SourceLifecycleService
-from corpus.features.sources.connectors.api.toolrouter import (
+from corpus.app.toolrouter_source_adapter import (
     ToolRouterApiSourceEngine,
 )
+from corpus.integrations.medusa_acceptance import MedusaContractAcceptanceAdapter
 from corpus.features.sources.http import (
     OwnerSessionResolver,
     create_sources_router,
@@ -145,7 +146,7 @@ def create_source_runtime(
             connection_profiles,
             infrastructure.credentials,
         ),
-        contract_revision_service=ApiContractRevisionService(repository),
+        contract_revision_service=MedusaContractAcceptanceAdapter(repository),
         connection_check_service=ApiConnectionCheckService(
             sources=repository,
             profiles=connection_profiles,
@@ -194,14 +195,12 @@ def create_source_routers(
         create_sources_router(
             service=service,
             auth_service=auth_service,
-            auth_settings=auth_settings,
             mutation_policy=mutation_policy,
             lifecycle_service=lifecycle_service,
         ),
         create_api_source_router(
             service=service,
             auth_service=auth_service,
-            auth_settings=auth_settings,
             mutation_policy=mutation_policy,
             max_upload_bytes=api_settings.max_upload_bytes,
             graph_presenter=graph_presenter,

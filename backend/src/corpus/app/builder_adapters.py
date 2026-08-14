@@ -17,8 +17,8 @@ from corpus.features.sources.models import SourceState
 from corpus.features.sources.repository import LocalSourceRepository, SourceNotFound, SourceNotReady
 from corpus.features.sources.connectors.api.connections import ApiConnectionError, ApiConnectionProfileRepository
 from corpus.features.sources.connectors.api.operation_curation import ApiOperationCurationError, ApiOperationCurationService
-from corpus.features.sources.connectors.api.toolrouter import load_api_contract_documents
-from corpus.integrations.api_execution._snapshot.contract_revision import openapi_document_hash
+from corpus.app.toolrouter_source_adapter import load_api_contract_documents
+from corpus.shared.openapi import openapi_document_hash
 from corpus.persistence import CorpusDatabase
 
 

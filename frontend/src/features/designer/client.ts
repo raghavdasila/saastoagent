@@ -1,8 +1,8 @@
-import type { AgentAuthorizedTransport } from "../agents/client";
+import type { AuthorizedTransport } from "@/shared/transport/contracts";
 import type { AgentDesignView } from "./models";
 
 export class DesignerClient {
-  constructor(private readonly transport: AgentAuthorizedTransport) {}
+  constructor(private readonly transport: AuthorizedTransport) {}
 
   async get(agentId: string): Promise<AgentDesignView | null> {
     const response = await this.transport.fetch(`/api/agents/${encodeURIComponent(agentId)}/design`);

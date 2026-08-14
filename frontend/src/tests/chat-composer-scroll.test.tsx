@@ -2,9 +2,8 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { AgentConversationMessage } from "@routedeck/react";
 import { expect, it, vi } from "vitest";
 
-import { Composer } from "../app/Composer";
-import { Conversation } from "../app/Conversation";
-import type { ConversationScrollState } from "../app/Conversation";
+import { Composer } from "../shared/conversation/Composer";
+import { Conversation, type ConversationScrollState } from "../shared/conversation/Conversation";
 
 it("marks only a genuinely empty conversation so mobile surfaces can reclaim the unused chat space", () => {
   const view = render(

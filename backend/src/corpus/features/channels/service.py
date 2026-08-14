@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import asyncio
 
-from corpus.integrations.agent_delivery import NeutralAgentDeliveryAdapter
-
-from .ports import ChannelUnavailable
+from .ports import ChannelDeliveryPort, ChannelUnavailable
 
 
 class ChannelService:
-    def __init__(self, repository, delivery: NeutralAgentDeliveryAdapter, agents) -> None:
+    def __init__(self, repository, delivery: ChannelDeliveryPort, agents) -> None:
         self.repository = repository
         self.delivery = delivery
         self.agents = agents

@@ -1,6 +1,6 @@
 from routedeck_core.app import FeatureBindings
 
-from corpus.features.agents.ports import AgentOwnerScopeGateway
+from corpus.auth.contracts import AgentOwnerScopeGateway
 
 from .declarations import PROMOTE_INTERACTION
 from .operations import PromoteInteractionHandler

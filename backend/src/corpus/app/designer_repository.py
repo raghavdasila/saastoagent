@@ -10,9 +10,9 @@ from corpus.features.agents.domain import AgentLifecycle
 from corpus.features.agents.models import Agent
 from corpus.persistence import CorpusDatabase
 
-from .domain import AgentDesignRecord, BuildRequestRecord, DesignerInputSnapshot, DesignRevisionRecord
-from .models import AgentBuildRequest, AgentDesign, AgentDesignRevision
-from .ports import DesignerConflict, DesignerUnavailable
+from corpus.features.designer.domain import AgentDesignRecord, BuildRequestRecord, DesignerInputSnapshot, DesignRevisionRecord
+from corpus.features.designer.models import AgentBuildRequest, AgentDesign, AgentDesignRevision
+from corpus.features.designer.ports import DesignerConflict, DesignerUnavailable
 
 
 class SqlAlchemyDesignerRepository:

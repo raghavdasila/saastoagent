@@ -7,9 +7,12 @@ from fastapi import APIRouter, Body, File, Form, Query, Request, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 from routedeck_fastapi import SameOriginMutationPolicy
 
-from corpus.auth.config import AuthSettings
-from corpus.auth.selector import bearer_token, conversation_id
-from corpus.auth.service import ConversationUnavailable, SessionUnavailable
+from corpus.auth.contracts import (
+    ConversationUnavailable,
+    SessionUnavailable,
+    bearer_token,
+    conversation_id,
+)
 
 from ...http_common import (
     OwnerSessionResolver,
@@ -68,7 +71,6 @@ def create_api_source_router(
     *,
     service: SourceService,
     auth_service: OwnerSessionResolver,
-    auth_settings: AuthSettings,
     mutation_policy: SameOriginMutationPolicy,
     max_upload_bytes: int,
     graph_presenter: ApiGraphPresenter,
@@ -100,7 +102,7 @@ def create_api_source_router(
             )
         authorize_mutation(request, mutation_policy)
         current_owner, selected = await _planning_session(
-            request, auth_service, auth_settings
+            request, auth_service
         )
         content = await file.read(max_upload_bytes + 1)
         description_content: bytes | None = None
@@ -163,7 +165,7 @@ def create_api_source_router(
                 "The attached API definition is unavailable.",
             )
         current_owner, selected = await _planning_session(
-            request, auth_service, auth_settings
+            request, auth_service
         )
         try:
             result = await call_source_service(
@@ -193,7 +195,7 @@ def create_api_source_router(
             )
         authorize_mutation(request, mutation_policy)
         current_owner, selected = await _planning_session(
-            request, auth_service, auth_settings
+            request, auth_service
         )
         content = await file.read(1024 * 1024 + 1)
         filename = file.filename or ""
@@ -230,7 +232,7 @@ def create_api_source_router(
                 "The attached API description is unavailable.",
             )
         current_owner, selected = await _planning_session(
-            request, auth_service, auth_settings
+            request, auth_service
         )
         try:
             result = await call_source_service(
@@ -249,7 +251,7 @@ def create_api_source_router(
 
     @router.get("/{source_id}/graph")
     async def inspect_api_graph(source_id: str, request: Request):
-        current_owner = await owner_key(request, auth_service, auth_settings)
+        current_owner = await owner_key(request, auth_service)
         result = await call_source_service(
             graph_presenter.inspect,
             owner_key=current_owner,
@@ -259,7 +261,7 @@ def create_api_source_router(
 
     @router.get("/{source_id}/connections")
     async def list_api_connections(source_id: str, request: Request):
-        current_owner = await owner_key(request, auth_service, auth_settings)
+        current_owner = await owner_key(request, auth_service)
         try:
             result = await call_source_service(
                 connection_profiles.list,
@@ -276,7 +278,7 @@ def create_api_source_router(
 
     @router.get("/{source_id}/contract-revisions")
     async def list_api_contract_revisions(source_id: str, request: Request):
-        current_owner = await owner_key(request, auth_service, auth_settings)
+        current_owner = await owner_key(request, auth_service)
         try:
             result = await call_source_service(
                 contract_revision_service.list,
@@ -297,7 +299,7 @@ def create_api_source_router(
         request: Request,
         revision_id: Annotated[str, Query(min_length=16, max_length=16)],
     ):
-        current_owner = await owner_key(request, auth_service, auth_settings)
+        current_owner = await owner_key(request, auth_service)
         try:
             result = await call_source_service(
                 connection_check_service.list,
@@ -319,7 +321,7 @@ def create_api_source_router(
         request: Request,
         revision_id: Annotated[str, Query(min_length=16, max_length=16)],
     ):
-        current_owner = await owner_key(request, auth_service, auth_settings)
+        current_owner = await owner_key(request, auth_service)
         try:
             result = await call_source_service(
                 operation_curation_service.inspect,
@@ -343,7 +345,7 @@ def create_api_source_router(
     ):
         authorize_mutation(request, mutation_policy)
         current_owner, selected = await _planning_session(
-            request, auth_service, auth_settings
+            request, auth_service
         )
         try:
             result = await call_source_service(
@@ -375,7 +377,7 @@ def create_api_source_router(
         revision_id: Annotated[str, Query(min_length=16, max_length=16)],
     ):
         current_owner, selected = await _planning_session(
-            request, auth_service, auth_settings
+            request, auth_service
         )
         try:
             result = await call_source_service(
@@ -404,7 +406,7 @@ def create_api_source_router(
         revision_id: Annotated[str, Query(min_length=16, max_length=16)],
     ):
         current_owner, selected = await _planning_session(
-            request, auth_service, auth_settings
+            request, auth_service
         )
         try:
             result = await call_source_service(
@@ -438,7 +440,7 @@ def create_api_source_router(
     ):
         authorize_mutation(request, mutation_policy)
         current_owner, selected = await _planning_session(
-            request, auth_service, auth_settings
+            request, auth_service
         )
         try:
             result = await call_source_service(
@@ -469,7 +471,7 @@ def create_api_source_router(
         request: Request,
     ):
         current_owner, selected = await _planning_session(
-            request, auth_service, auth_settings
+            request, auth_service
         )
         if routed_execution_service is None:
             raise SourceHttpProblem(
@@ -513,8 +515,8 @@ def create_api_source_router(
     return router
 
 
-async def _planning_session(request, auth_service, auth_settings):
-    current_owner = await owner_key(request, auth_service, auth_settings)
+async def _planning_session(request, auth_service):
+    current_owner = await owner_key(request, auth_service)
     try:
         selected = await auth_service.resolve_conversation(
             access_token=bearer_token(request),

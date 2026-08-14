@@ -1,4 +1,4 @@
-import type { AuthorizedTransport } from "@/app/transports";
+import type { AuthorizedTransport } from "@/shared/transport/contracts";
 import type { ContractRevisionProposal, SourceView, StagedApiAttachment } from "./contracts";
 import type {
   ToolRouterGraphEdge,

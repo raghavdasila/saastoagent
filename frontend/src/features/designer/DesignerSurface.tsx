@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { AgentStore } from "../agents/store";
-import { completedOutcome } from "../agents/operationResult";
+import type { AgentSelectionStore } from "../agents/contracts";
+import { completedOutcome } from "@/shared/routedeck/operationResult";
 import type { DesignerClient } from "./client";
 import type { AgentDesignView, DesignContent } from "./models";
 import type { DesignerRefreshStore } from "./refreshStore";
@@ -14,7 +14,7 @@ import { DesignerBlueprint } from "./DesignerBlueprint";
 import { useRouteDeckSessionVersion } from "../../routedeck/RouteDeckSessionVersionContext";
 
 
-export function DesignerSurface({ dispatchAffordance, props, agentStore, client, refreshStore }: RouteDeckSurfaceComponentProps & { agentStore: AgentStore; client: DesignerClient; refreshStore: DesignerRefreshStore }) {
+export function DesignerSurface({ dispatchAffordance, props, agentStore, client, refreshStore }: RouteDeckSurfaceComponentProps & { agentStore: AgentSelectionStore; client: DesignerClient; refreshStore: DesignerRefreshStore }) {
   const sessionVersion = useRouteDeckSessionVersion();
   const agents = useSyncExternalStore(agentStore.subscribe, agentStore.snapshot);
   const selectedRef = typeof props.selected_agent_ref === "string" ? props.selected_agent_ref : null;

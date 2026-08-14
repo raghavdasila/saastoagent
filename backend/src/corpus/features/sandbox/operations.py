@@ -7,8 +7,8 @@ from routedeck_core.contracts.operations import DeliveryPhase, OperationOutcome
 from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.ports.executor import ExecutionContext
 
-from corpus.features.agents.ports import AgentOwnerScopeGateway, AgentOwnerScopeUnavailable
-from corpus.features.builder.ports import BuilderUnavailable
+from corpus.auth.contracts import AgentOwnerScopeGateway, AgentOwnerScopeUnavailable
+from corpus.features.builder.contracts import BuilderUnavailable
 
 from .declarations import ACCEPT_SANDBOX_REVIEW, REJECT_SANDBOX_REVIEW, RESUME_SANDBOX, START_SANDBOX
 from .ports import SandboxConflict, SandboxUnavailable

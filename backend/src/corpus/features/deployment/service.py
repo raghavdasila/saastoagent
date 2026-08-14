@@ -5,15 +5,15 @@ import hashlib
 import json
 
 from corpus.jobs import DurableJobEnqueueError, DurableJobPort
-from corpus.integrations.agent_delivery import DeployableBundleSpec, NeutralAgentDeliveryAdapter
+from corpus.shared.agent_delivery import DeployableBundleSpec
 
-from .ports import DeploymentConflict, DeploymentUnavailable
+from .ports import DeploymentConflict, DeploymentDeliveryPort, DeploymentUnavailable
 
 
 class DeploymentService:
     def __init__(
         self, repository, channels, builds, eligibility,
-        delivery: NeutralAgentDeliveryAdapter, bindings,
+        delivery: DeploymentDeliveryPort, bindings,
         jobs: DurableJobPort | None = None,
     ) -> None:
         self.repository = repository

@@ -1,6 +1,6 @@
 from routedeck_core.app import FeatureBindings
 
-from corpus.features.agents.ports import AgentOwnerScopeGateway
+from corpus.auth.contracts import AgentOwnerScopeGateway
 
 from .declarations import ASSEMBLE_BUILD, DELETE_BUILD, PAUSE_BUILD, RUN_BUILD, STOP_BUILD
 from .operations import AssembleBuildHandler, BuildRuntimeLifecycleHandler

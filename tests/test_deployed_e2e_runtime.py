@@ -69,3 +69,15 @@ def test_horizontal_runner_exposes_explicit_production_target_arguments(monkeypa
 
     assert parsed.runtime_mode == "gcp-production"
     assert parsed.medusa_base_url == "http://10.138.0.2:9100"
+
+
+def test_horizontal_runner_uses_the_docker_reachable_local_medusa_target(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "sys.argv",
+        ["run_horizontal_product_journey.py", "--mode", "surface"],
+    )
+
+    parsed = arguments()
+
+    assert parsed.runtime_mode == "local"
+    assert parsed.medusa_base_url == "http://host.docker.internal:9100"

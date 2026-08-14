@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-GOVERNED_FEATURES = frozenset({"agents", "lounge", "workspace"})
+PUBLIC_BACKEND_ROOTS = frozenset({"corpus.credentials", "corpus.jobs"})
+PUBLIC_BACKEND_NAMESPACES = frozenset({"corpus.persistence", "corpus.shared"})
 IMPORT_PATTERN = re.compile(
     r"(?:import|export)\s+(?:type\s+)?(?:[^;]*?\s+from\s+)?[\"']([^\"']+)[\"']"
 )
@@ -36,7 +37,7 @@ def _backend_feature_violations(
 ) -> list[ArchitectureViolation]:
     root = repository / "backend" / "src" / "corpus" / "features"
     violations: list[ArchitectureViolation] = []
-    for feature in GOVERNED_FEATURES:
+    for feature in _feature_directories(root):
         feature_root = root / feature
         if not feature_root.exists():
             continue
@@ -61,9 +62,12 @@ def _backend_feature_import_allowed(feature: str, module: str) -> bool:
         f"corpus.features.{feature}."
     ):
         return True
-    if module == "corpus.shared" or module.startswith("corpus.shared."):
+    if module in PUBLIC_BACKEND_ROOTS:
         return True
-    if module == "corpus.persistence" or module.startswith("corpus.persistence."):
+    if any(
+        module == namespace or module.startswith(f"{namespace}.")
+        for namespace in PUBLIC_BACKEND_NAMESPACES
+    ):
         return True
     if module == "corpus.auth.contracts":
         return True
@@ -104,7 +108,7 @@ def _frontend_feature_violations(
     source_root = repository / "frontend" / "src"
     features_root = source_root / "features"
     violations: list[ArchitectureViolation] = []
-    for feature in GOVERNED_FEATURES:
+    for feature in _feature_directories(features_root):
         feature_root = features_root / feature
         if not feature_root.exists():
             continue
@@ -129,7 +133,7 @@ def _frontend_feature_violations(
                 if target_feature == feature:
                     continue
                 contract_path = relative.parts[1:]
-                if contract_path and contract_path[0].startswith("contracts"):
+                if contract_path and contract_path[0] == "contracts":
                     continue
                 violations.append(
                     ArchitectureViolation(
@@ -181,6 +185,18 @@ def _python_imports(path: Path) -> list[tuple[str, int]]:
 def _typescript_files(root: Path):
     for pattern in ("*.ts", "*.tsx"):
         yield from root.rglob(pattern)
+
+
+def _feature_directories(root: Path) -> tuple[str, ...]:
+    if not root.is_dir():
+        return ()
+    return tuple(
+        sorted(
+            path.name
+            for path in root.iterdir()
+            if path.is_dir() and not path.name.startswith((".", "_"))
+        )
+    )
 
 
 def _typescript_imports(path: Path) -> list[tuple[str, int]]:

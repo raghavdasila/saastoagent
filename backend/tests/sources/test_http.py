@@ -25,15 +25,13 @@ from corpus.features.sources.connectors.api import (
     ApiGraphPresenter,
     ApiSourceConnector,
 )
-from corpus.features.sources.connectors.api.toolrouter import (
+from corpus.app.toolrouter_source_adapter import (
     ToolRouterApiSourceEngine,
 )
 from corpus.features.sources.connectors.api.connections import (
     ApiConnectionProfileRepository,
 )
-from corpus.features.sources.connectors.api.contract_revisions import (
-    ApiContractRevisionService,
-)
+from corpus.integrations.medusa_acceptance import MedusaContractAcceptanceAdapter
 from corpus.features.sources.connectors.api.http import create_api_source_router
 from corpus.features.sources.connectors.api.operation_curation import (
     ApiOperationCurationService,
@@ -202,7 +200,6 @@ def test_owner_authenticated_sources_http_path_uploads_retrieves_and_generates(
         create_sources_router(
             service=service,
             auth_service=OwnerResolver(),  # type: ignore[arg-type]
-            auth_settings=settings,
             mutation_policy=SameOriginMutationPolicy(
                 trusted_origins=frozenset({"http://127.0.0.1:5199"})
             ),
@@ -212,14 +209,13 @@ def test_owner_authenticated_sources_http_path_uploads_retrieves_and_generates(
         create_api_source_router(
             service=service,
             auth_service=OwnerResolver(),  # type: ignore[arg-type]
-            auth_settings=settings,
             mutation_policy=SameOriginMutationPolicy(
                 trusted_origins=frozenset({"http://127.0.0.1:5199"})
             ),
             max_upload_bytes=20 * 1024 * 1024,
             graph_presenter=ApiGraphPresenter(service.repository),
             connection_profiles=ApiConnectionProfileRepository(service.repository),
-                contract_revision_service=ApiContractRevisionService(service.repository),
+                contract_revision_service=MedusaContractAcceptanceAdapter(service.repository),
                 connection_check_service=object(),  # endpoint is covered by the Phase C HTTP tests
                 operation_curation_service=ApiOperationCurationService(service.repository),
                 route_plan_service=object(),

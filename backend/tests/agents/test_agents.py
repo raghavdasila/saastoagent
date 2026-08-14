@@ -13,11 +13,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
 from corpus.auth.models import Organization
-from corpus.features.agents.http import (
-    AgentsHttpProblem,
-    agents_problem_response,
-    create_agents_router,
-)
+from corpus.auth.contracts import AgentOwnerScopeUnavailable
+from corpus.features.agents.http import create_agents_router
+from corpus.shared.http import CorpusHttpProblem, corpus_problem_response
 from corpus.features.agents.guards import DeleteDependenciesGuard
 from corpus.features.agents.declarations import (
     ARCHIVE_AGENT,
@@ -49,7 +47,6 @@ from corpus.features.agents.ports import (
     AgentDependencyConflict,
     AgentLifecycleConflict,
     AgentNotFound,
-    AgentOwnerScopeUnavailable,
     AgentVersionConflict,
     AgentSourceAttachmentConflict,
     AgentSourceAttachmentUnavailable,
@@ -996,7 +993,7 @@ def test_agents_http_reads_are_authenticated_and_workspace_scoped(tmp_path: Path
         )
     )
     app = FastAPI()
-    app.add_exception_handler(AgentsHttpProblem, agents_problem_response)
+    app.add_exception_handler(CorpusHttpProblem, corpus_problem_response)
     app.include_router(create_agents_router(service, OwnerScopeProbe(organization_id)))
     try:
         with TestClient(app) as client:

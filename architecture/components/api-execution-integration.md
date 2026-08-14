@@ -39,8 +39,9 @@ success and records zero API calls.
 The adapter receives an owner/revision/profile-bound target, a safe operation
 identity (`GetProductTypes` or `GetProductTags`), and an opaque credential
 reference/version. The credential vault resolves that secret just in time.
-The adapter validates the request and response against the exact effective
-`6fca793b...` contract and permits one transport call with no retry or fallback.
+The adapter validates the request and response against the exact canonical
+document hash recorded by the selected persisted reviewed Source revision and
+permits one transport call with no retry or fallback.
 It returns only redacted execution identity and call/validation counts.
 
 Corpus persists the immutable safe result through the existing Source owner.
@@ -65,12 +66,19 @@ call the same narrow execution boundary through Corpus adapters. RouteDeck
 still owns whether a write has an accepted current review. The adapter treats a
 missing approval marker as a pre-transport failure.
 
-The accepted local Medusa API-definition chain now ends at canonical hash
+The explicitly selected `corpus.integrations.medusa_acceptance` chain for the
+accepted local Medusa 2.13.6 vertical ends at canonical hash
 `c0b9c6bf1b149a0e458de9fbda4f7bad3cf6f9f7eb4ff383bded3b09d23e50ef`.
 It adds reviewed response-identity schemas for `GetProducts` and
 `PostCartsIdLineItems` without retaining response bodies. The product runtime
 may retain only the validated product variant and cart IDs needed for the same
 session's next explicitly requested operation.
+
+Generic connection checks, route plans, routed execution, and Source UI do not
+compare against that Medusa hash. They require the exact selected revision,
+owner, profile/curation lineage, recorded canonical hash, and verified
+persisted document. An unrelated reviewed API revision may therefore execute
+without receiving or inheriting Medusa corrections.
 
 Current surface, ordinary-chat, and hybrid journeys independently prove one
 validated `GetProducts` call, zero calls before each write review, one approved

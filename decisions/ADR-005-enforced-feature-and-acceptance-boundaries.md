@@ -1,6 +1,6 @@
 # ADR-005: Enforced feature and acceptance boundaries
 
-Status: accepted for implementation planning
+Status: accepted and implemented; validation complete
 
 Date: 2026-08-14
 
@@ -183,6 +183,14 @@ The decision is implemented only when:
    pass after focused verification is green.
 
 The horizontal E2E is the final acceptance gate, not the refactor debugger.
+
+Implementation completed on 2026-08-14. The universal checker reports zero
+violations without exemptions; the complete root, backend, and frontend suites
+pass; both Compose configurations parse; the application-owned worker starts
+and registers the required tasks; and fresh Surface, Hybrid, and Chat journeys
+passed 39/39, 40/40, and 39/39 respectively. Exact commands, run IDs, runtime
+locations, and claim boundaries are recorded in
+`docs/superpowers/validation/2026-08-14-corpus-boundary-refactor.md`.
 
 ## Follow-up
 

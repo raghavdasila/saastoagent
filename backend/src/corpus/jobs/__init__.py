@@ -1,7 +1,7 @@
 from .config import DurableJobSettings
 from .domain import DurableJobRecord, DurableJobState
 from .huey import DurableJobEnqueueError, HueyDurableJobPort
-from .ports import DurableJobPort
+from .ports import DurableJobLifecyclePort, DurableJobPort
 from .repository import (
     DurableJobNotFound,
     DurableJobStateConflict,
@@ -11,6 +11,7 @@ from .repository import (
 __all__ = [
     "DurableJobEnqueueError",
     "DurableJobNotFound",
+    "DurableJobLifecyclePort",
     "DurableJobPort",
     "DurableJobRecord",
     "DurableJobSettings",

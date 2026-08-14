@@ -6,7 +6,7 @@ from routedeck_core.contracts.failures import FailureKind, FailureSafeDetails, R
 from routedeck_core.contracts.operations import DeliveryPhase, OperationOutcome
 from routedeck_core.ports.executor import ExecutionContext
 
-from corpus.features.agents.ports import AgentOwnerScopeGateway, AgentOwnerScopeUnavailable
+from corpus.auth.contracts import AgentOwnerScopeGateway, AgentOwnerScopeUnavailable
 
 from .declarations import ASSEMBLE_BUILD, DELETE_BUILD, PAUSE_BUILD, RUN_BUILD, STOP_BUILD
 from .ports import BuilderConflict, BuilderUnavailable

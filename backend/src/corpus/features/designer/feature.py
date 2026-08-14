@@ -7,7 +7,7 @@ from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.contracts.surfaces import Surface, SurfaceAffordance, SurfaceLifecycle, SurfaceSlots
 
 from corpus.auth.contracts import OWNER_CONTEXT_PROVIDER
-from corpus.features.agents.declarations import (
+from corpus.features.agents.contracts import (
     AGENT_ENTITY_PROVIDER,
     OPEN_AGENT_BUILDS,
     OPEN_ATTACHED_SOURCE,

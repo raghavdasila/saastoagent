@@ -11,8 +11,7 @@ from pydantic import BaseModel
 from routedeck_fastapi import SameOriginMutationPolicy
 from routedeck_fastapi.security import RouteDeckMutationRejected
 
-from corpus.auth.config import AuthSettings
-from corpus.auth.service import SessionUnavailable
+from corpus.auth.contracts import SessionUnavailable
 
 from .errors import (
     SourceArtifactError,
@@ -51,9 +50,7 @@ async def source_problem_response(_request: Request, error: SourceHttpProblem):
 async def owner_key(
     request: Request,
     service: OwnerSessionResolver,
-    settings: AuthSettings,
 ) -> str:
-    del settings
     authorization = request.headers.get("authorization")
     if authorization is None:
         raise unauthorized()

@@ -23,7 +23,7 @@ from corpus.auth.contracts import OWNER_CONTEXT_PROVIDER
 from corpus.features.workspace.contracts import HOME_REF
 from corpus.features.agents.contracts import AGENTS_CREATE_REF, AGENTS_HOME_REF
 from corpus.features.builder.contracts import BUILDER_HOME_REF
-from corpus.features.agents.declarations import (
+from corpus.features.agents.contracts import (
     AGENT_ENTITY_PROVIDER,
     ATTACH_CREATED_SOURCE,
     OPEN_AGENT_BUILDS,

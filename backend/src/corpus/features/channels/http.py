@@ -8,11 +8,11 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from corpus.clarification import ClarificationInputRejected, screen_clarification_values
-from corpus.features.agents.http import AgentsHttpProblem
+from corpus.shared.clarification import ClarificationInputRejected, screen_clarification_values
+from corpus.shared.http import CorpusHttpProblem as AgentsHttpProblem
 
 from .schemas import ChannelCollectionView, ChannelView
-from corpus.features.deployment.schemas import DeploymentCollectionView, DeploymentView
+from corpus.features.deployment.contracts import DeploymentCollectionView, DeploymentView
 
 
 class PublicMessageInput(BaseModel):

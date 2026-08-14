@@ -2,32 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from pydantic import BaseModel, ConfigDict, Field
+from corpus.shared.api_execution import RedactedApiExecution, SafeApiTraceRecord
 
 from .adapters import SafeApiExecutionOutcome
-
-
-class SafeApiTraceRecord(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    event: str
-    occurred_at: str
-    safe_details: dict[str, str | int | bool | None]
-
-
-class RedactedApiExecution(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    status: str
-    status_code: int | None = None
-    error_code: str | None = None
-    public_message: str | None = None
-    validation_issue_count: int = Field(ge=0)
-    validation_phases: tuple[str, ...]
-    http_call_count: int = Field(ge=0, le=1)
-    started_at: str
-    finished_at: str
-    traces: tuple[SafeApiTraceRecord, ...]
 
 
 _TRACE_DETAIL_ALLOWLIST: Mapping[str, frozenset[str]] = {

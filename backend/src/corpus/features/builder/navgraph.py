@@ -16,8 +16,7 @@ from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.contracts.suggestions import SuggestedAction
 from routedeck_core.contracts.surfaces import Surface, SurfaceAffordance, SurfaceLifecycle, SurfaceSlots
 
-from corpus.features.designer.schemas import DesignContent
-from corpus.features.designer.topology import compile_design_topology
+from corpus.features.designer.contracts import DesignContent, compile_design_topology
 
 from .domain import BuilderInputSnapshot, BuilderSourceBinding
 from .ports import BuilderConflict, BuilderUnavailable

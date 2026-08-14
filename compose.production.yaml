@@ -21,8 +21,10 @@ x-runtime-environment: &runtime-environment
   CORPUS_TOOLROUTER_EMBEDDING_DEVICE: cpu
   CORPUS_TOOLROUTER_EMBEDDING_BATCH_SIZE: "64"
   CORPUS_TOOLROUTER_EMBEDDING_LOCAL_FILES_ONLY: "true"
+  CORPUS_TOOLROUTER_MODEL_PROVIDER: openai
   CORPUS_TOOLROUTER_GENERATOR_MODEL: gpt-5.6-luna
   CORPUS_TOOLROUTER_REVIEWER_MODEL: gpt-5.6-luna
+  CORPUS_TOOLROUTER_OPENAI_REASONING_EFFORT: low
   CORPUS_TOOLROUTER_EVALSET_TIMEOUT_SECONDS: "240"
   CORPUS_DATABASE_URL: sqlite+aiosqlite:////srv/corpus/state/corpus.sqlite3
   CORPUS_MIGRATION_REVISION: 0019_builder_assembly_lifecycle
@@ -75,7 +77,7 @@ services:
     networks:
       corpus-internal:
         ipv4_address: 172.30.0.4
-    command: ["python", "-m", "huey.bin.huey_consumer", "corpus.features.sources.worker.huey", "--workers", "1"]
+    command: ["python", "-m", "huey.bin.huey_consumer", "corpus.app.worker.huey", "--workers", "1"]
     healthcheck:
       disable: true
     depends_on:

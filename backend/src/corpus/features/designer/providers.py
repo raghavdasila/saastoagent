@@ -5,7 +5,7 @@ import uuid
 from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.supervision.guards import ProviderInvocationContext, ProviderResult
 
-from corpus.features.agents.ports import AgentOwnerScopeGateway
+from corpus.auth.contracts import AgentOwnerScopeGateway
 
 from .ports import DesignerUnavailable
 from .service import DesignerService

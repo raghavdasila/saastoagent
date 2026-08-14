@@ -239,8 +239,12 @@ services:
     command: ["python", "-m", "uvicorn", "corpus.main:create_live_app", "--factory", "--host", "0.0.0.0", "--port", "8099", "--workers", "1"]
   worker:
     image: ${CORPUS_BACKEND_IMAGE}
-    command: ["python", "-m", "huey.bin.huey_consumer", "corpus.features.sources.worker.huey", "--workers", "1"]
+    command: ["python", "-m", "huey.bin.huey_consumer", "corpus.app.worker.huey", "--workers", "1"]
 ```
+
+> Historical plan snapshot: ADR-005 supersedes the worker module shown above.
+> Current Compose and runbooks use `corpus.app.worker.huey`; do not copy the
+> earlier feature-owned command.
 
 Both backend and worker mount the same `/srv/corpus/state` and `/srv/corpus/data`. Only `web` publishes host ports. The Compose project consumes `/run/corpus/runtime.env` and an ignored image-manifest file.
 

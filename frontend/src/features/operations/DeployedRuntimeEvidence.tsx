@@ -1,7 +1,7 @@
 import { memo } from "react";
 
-import { BuildNavGraph } from "../builder/BuildNavGraph";
-import type { AgentBuildView, OperationsInteractionView } from "../builder/models";
+import { BuildNavGraph } from "@/shared/agent/BuildNavGraph";
+import type { AgentBuildView, OperationsInteractionView } from "../builder/contracts";
 
 const ROUTING_EVENTS = new Set([
   "model.decision",

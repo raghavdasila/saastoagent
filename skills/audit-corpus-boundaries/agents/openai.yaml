@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit Corpus Boundaries"
+  short_description: "Audit and enforce Corpus module boundaries"
+  default_prompt: "Use $audit-corpus-boundaries to audit the current Corpus dependency boundaries and report or fix violations."

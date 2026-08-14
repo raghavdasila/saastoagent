@@ -19,6 +19,7 @@ from routedeck_core.contracts.projection import FrozenJson, PublicEntityHandle, 
 from routedeck_core.ports.executor import ExecutionContext
 
 from corpus.features.sources.contracts import API_CONNECTION_FORM_ID
+from corpus.auth.contracts import AgentOwnerScopeGateway, AgentOwnerScopeUnavailable
 
 from .declarations import (
     ATTACH_CREATED_SOURCE,
@@ -50,8 +51,6 @@ from .ports import (
     AgentDependencyConflict,
     AgentLifecycleConflict,
     AgentNotFound,
-    AgentOwnerScopeGateway,
-    AgentOwnerScopeUnavailable,
     AgentSourceAttachmentConflict,
     AgentSourceAttachmentUnavailable,
     AgentVersionConflict,

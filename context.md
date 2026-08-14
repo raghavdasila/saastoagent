@@ -1,6 +1,31 @@
 # Corpus Current Context
 
-Updated: 2026-08-13
+Updated: 2026-08-14
+
+## Current Architecture State
+
+ADR-005 is implemented and locally validated. Corpus remains a modular
+monolith, now with one directory-discovered boundary checker governing every
+immediate backend and frontend feature with zero baseline exemptions.
+Cross-feature behavior uses exact public contracts, consumer-owned ports,
+neutral shared types, and adapters composed under `corpus.app`. The Huey
+process entrypoint is `corpus.app.worker.huey`.
+
+Generic reviewed API execution validates the selected persisted revision's own
+canonical identity. Medusa 2.13.6 acceptance correction is isolated under
+`corpus.integrations.medusa_acceptance` and explicitly selected by application
+composition. ToolRouter model-provider configuration is independent of the
+product conversation-model provider. The Docker backend reaches local Medusa
+at `host.docker.internal:9100`; host smoke remains `127.0.0.1:9100`.
+
+Fresh completion gates passed: architecture zero violations; root 98/98;
+backend 532/532; frontend 188/188; TypeScript/build; local and production
+Compose parsing; boundary-skill validation; and four live HTTP 200 smokes.
+Fresh local horizontal runs passed Surface 39/39
+(`20260814T093227Z-c2b50e9520`), Hybrid 40/40
+(`20260814T094346Z-c08c93dd9e`), and Chat 39/39
+(`20260814T104438Z-b8dd360dbc`). Exact evidence and claim boundaries are in
+`docs/superpowers/validation/2026-08-14-corpus-boundary-refactor.md`.
 
 ## Current State
 
@@ -123,9 +148,9 @@ normal-speed feature artifact before any replacement horizontal acceptance.
 - Owner behavior authority (read-only):
   `docs/corpus-agent-design/feature-behavior-notes.md`
 - Current validation:
-  `docs/superpowers/validation/2026-08-13-horizontal-ecommerce-chat-surface-hybrid.md`
+  `docs/superpowers/validation/2026-08-14-corpus-boundary-refactor.md`
 - Current checkpoint:
-  `context_checkpoints/2026-08-13-ecommerce-three-mode-acceptance.md`
+  `context_checkpoints/2026-08-14-boundary-refactor.md`
 - Current log:
   `logs/20260813_ecommerce_three_mode_acceptance.md`
 - Architecture ownership: `architecture/code-map.md`

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import uuid
-from typing import Protocol
+from dataclasses import dataclass
+from typing import Mapping, Protocol
 
-from corpus.integrations.agent_execution import (
+from corpus.shared.agent_execution import (
     EligibilityProjection,
     EvaluationCaseProjection,
     EvaluationRunProjection,
@@ -24,6 +25,53 @@ class EvaluationUnavailable(RuntimeError):
 
 class EvaluationConflict(RuntimeError):
     pass
+
+
+@dataclass(frozen=True)
+class EvaluationGenerationBuild:
+    id: uuid.UUID
+    status: str
+    runtime_build_hash: str | None
+    source_bindings: tuple[Mapping[str, object], ...]
+
+
+@dataclass(frozen=True)
+class EvaluationGeneratedCase:
+    task_id: str
+    query: str
+    category: str
+    expected_operation_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class EvaluationGeneratedBatch:
+    status: str
+    accepted_count: int
+    expected_count: int
+    generator_model: str
+    generator_model_digest: str
+    reviewer_model: str
+    reviewer_model_digest: str
+    cases: tuple[EvaluationGeneratedCase, ...]
+
+
+class EvaluationGenerationGateway(Protocol):
+    """Application-composed access to one immutable build and case generator."""
+
+    async def get_build(
+        self,
+        organization_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        build_id: uuid.UUID,
+    ) -> EvaluationGenerationBuild: ...
+
+    def generate(
+        self,
+        *,
+        binding: Mapping[str, object],
+        evalset_id: str,
+        categories: tuple[str, ...],
+    ) -> EvaluationGeneratedBatch: ...
 
 
 class EvaluationRuntimeGateway(Protocol):

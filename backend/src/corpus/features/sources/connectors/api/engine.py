@@ -48,6 +48,7 @@ class ApiSourceEngine(Protocol):
         tasks_per_category: int,
         max_generation_attempts: int,
         max_review_attempts: int,
+        allowed_endpoint_ids: tuple[str, ...] | None = None,
     ) -> SourceEvalsetResult: ...
 
 

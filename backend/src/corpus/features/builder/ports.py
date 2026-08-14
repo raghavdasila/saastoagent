@@ -14,6 +14,12 @@ class BuilderConflict(RuntimeError):
     pass
 
 
+class BuilderAgentGateway(Protocol):
+    async def get(
+        self, organization_id: uuid.UUID, agent_id: uuid.UUID
+    ) -> object: ...
+
+
 class BuilderInputGateway(Protocol):
     async def current_build_request_id(
         self,

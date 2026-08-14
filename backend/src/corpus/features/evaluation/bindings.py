@@ -1,6 +1,6 @@
 from routedeck_core.app import FeatureBindings
 
-from corpus.features.agents.ports import AgentOwnerScopeGateway
+from corpus.auth.contracts import AgentOwnerScopeGateway
 
 from .declarations import CREATE_CASE, DELETE_CASE, EDIT_CASE, GENERATE_SET, RETRY_CASE_RUN, RETRY_GENERATION, RUN_CASE
 from .operations import (

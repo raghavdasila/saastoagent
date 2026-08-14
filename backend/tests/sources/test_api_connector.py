@@ -9,7 +9,7 @@ from corpus.features.sources.connectors.api import (
     SourceUpload,
     SourceUploadError,
 )
-from corpus.features.sources.connectors.api.toolrouter import (
+from corpus.app.toolrouter_source_adapter import (
     ToolRouterApiSourceEngine,
 )
 from corpus.features.sources.contracts import SourceRetrievalResult

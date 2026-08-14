@@ -3,12 +3,11 @@ from __future__ import annotations
 import asyncio
 import uuid
 
-from corpus.features.builder.service import BuilderService
-from corpus.features.sandbox.ports import SandboxRunFailed
-from corpus.features.sandbox.service import SandboxService
+from corpus.features.builder.contracts import BuilderRuntimeReader
+from corpus.features.sandbox.contracts import SandboxRunFailed, SandboxRuntimeReader
 from corpus.jobs import DurableJobEnqueueError, DurableJobPort
-from corpus.jobs.repository import DurableJobNotFound, DurableJobStateConflict
-from corpus.integrations.agent_execution import EligibilityProjection
+from corpus.jobs import DurableJobNotFound, DurableJobStateConflict
+from corpus.shared.agent_execution import EligibilityProjection
 
 from .eligibility import current_eligibility
 from .ports import EvaluationConflict, EvaluationRepository, EvaluationRuntimeGateway, EvaluationUnavailable
@@ -25,8 +24,8 @@ class EvaluationService:
         self,
         repository: EvaluationRepository,
         runtime: EvaluationRuntimeGateway,
-        builds: BuilderService,
-        sandbox: SandboxService,
+        builds: BuilderRuntimeReader,
+        sandbox: SandboxRuntimeReader,
         generation_jobs: DurableJobPort | None = None,
         run_jobs: DurableJobPort | None = None,
     ) -> None:

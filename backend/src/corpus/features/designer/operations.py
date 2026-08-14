@@ -8,7 +8,7 @@ from routedeck_core.contracts.failures import FailureKind, FailureSafeDetails, R
 from routedeck_core.contracts.operations import DeliveryPhase, OperationOutcome
 from routedeck_core.ports.executor import ExecutionContext
 
-from corpus.features.agents.ports import AgentOwnerScopeGateway, AgentOwnerScopeUnavailable
+from corpus.auth.contracts import AgentOwnerScopeGateway, AgentOwnerScopeUnavailable
 
 from .declarations import APPROVE_DESIGN, CUSTOMIZE_DESIGN, GENERATE_FEATURE, PROPOSE_DESIGN, REQUEST_BUILD
 from .ports import DesignerConflict, DesignerUnavailable

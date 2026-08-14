@@ -47,10 +47,19 @@ class ToolRouterSettings:
             )
         provider = str(payload.get("model_provider") or "ollama").strip()
         if provider == "openai":
-            openai_model = values.get("CORPUS_OPENAI_MODEL")
-            if openai_model:
-                payload.setdefault("generator_model", openai_model)
-                payload.setdefault("reviewer_model", openai_model)
+            missing = tuple(
+                name
+                for name in (
+                    "CORPUS_TOOLROUTER_GENERATOR_MODEL",
+                    "CORPUS_TOOLROUTER_REVIEWER_MODEL",
+                )
+                if not str(values.get(name) or "").strip()
+            )
+            if missing:
+                raise ValueError(
+                    "The ToolRouter OpenAI provider requires explicit ToolRouter "
+                    f"model settings: {', '.join(missing)}"
+                )
         return cls(**payload)
 
     def __post_init__(self) -> None:
@@ -69,6 +78,8 @@ class ToolRouterSettings:
             raise ValueError("ToolRouter embedding_batch_size must be positive")
         if self.evalset_timeout_seconds <= 0:
             raise ValueError("ToolRouter evalset_timeout_seconds must be positive")
+        if self.model_provider not in {"ollama", "openai"}:
+            raise ValueError("ToolRouter model_provider must be ollama or openai")
         if self.model_provider == "ollama" and not self.ollama_url.strip():
             raise ValueError("ToolRouter setting ollama_url cannot be empty")
         if (
@@ -93,13 +104,12 @@ _TOOLROUTER_ENV_FIELDS = {
     "CORPUS_TOOLROUTER_EMBEDDING_DEVICE": "embedding_device",
     "CORPUS_TOOLROUTER_EMBEDDING_BATCH_SIZE": "embedding_batch_size",
     "CORPUS_TOOLROUTER_EMBEDDING_LOCAL_FILES_ONLY": "embedding_local_files_only",
-    "CORPUS_MODEL_PROVIDER": "model_provider",
+    "CORPUS_TOOLROUTER_MODEL_PROVIDER": "model_provider",
     "CORPUS_TOOLROUTER_OLLAMA_URL": "ollama_url",
     "CORPUS_TOOLROUTER_GENERATOR_MODEL": "generator_model",
     "CORPUS_TOOLROUTER_REVIEWER_MODEL": "reviewer_model",
     "OPENAI_API_KEY": "openai_api_key",
-    "CORPUS_OPENAI_MODEL": "_selected_openai_model",
-    "CORPUS_OPENAI_REASONING_EFFORT": "openai_reasoning_effort",
+    "CORPUS_TOOLROUTER_OPENAI_REASONING_EFFORT": "openai_reasoning_effort",
     "CORPUS_TOOLROUTER_EVALSET_TIMEOUT_SECONDS": "evalset_timeout_seconds",
 }
 

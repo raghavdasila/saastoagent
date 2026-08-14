@@ -22,6 +22,7 @@ x-runtime-environment: &runtime-environment
   CORPUS_TOOLROUTER_EMBEDDING_DEVICE: cpu
   CORPUS_TOOLROUTER_EMBEDDING_BATCH_SIZE: "64"
   CORPUS_TOOLROUTER_EMBEDDING_LOCAL_FILES_ONLY: "true"
+  CORPUS_TOOLROUTER_MODEL_PROVIDER: ollama
   CORPUS_TOOLROUTER_OLLAMA_URL: ${CORPUS_DOCKER_OLLAMA_URL:-http://host.docker.internal:11434}
   CORPUS_TOOLROUTER_GENERATOR_MODEL: ${CORPUS_DOCKER_GENERATOR_MODEL:-gemma4:latest}
   CORPUS_TOOLROUTER_REVIEWER_MODEL: ${CORPUS_DOCKER_REVIEWER_MODEL:-qwen2.5-coder:7b}
@@ -103,7 +104,7 @@ services:
       - python
       - -m
       - huey.bin.huey_consumer
-      - corpus.features.sources.worker.huey
+      - corpus.app.worker.huey
       - --workers
       - "1"
     stop_grace_period: 20s

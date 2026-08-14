@@ -2,17 +2,16 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { RouteDeckSurfaceComponentProps } from "@routedeck/react";
 
 import { Button } from "@/components/ui/button";
-import type { AgentStore } from "../agents/store";
-import { completedOutcome } from "../agents/operationResult";
-import type { DesignerClient } from "../designer/client";
-import type { AgentDesignView } from "../designer/models";
+import type { AgentSelectionStore } from "../agents/contracts";
+import { completedOutcome } from "@/shared/routedeck/operationResult";
+import type { DesignerReader, AgentDesignView } from "../designer/contracts";
 import type { AgentRuntimeClient } from "./client";
 import type { AgentBuildView, EvaluationSetView } from "./models";
-import { BuildNavGraph } from "./BuildNavGraph";
+import { BuildNavGraph } from "@/shared/agent/BuildNavGraph";
 import { useRouteDeckSessionVersion } from "../../routedeck/RouteDeckSessionVersionContext";
 
 
-export function BuilderSurface({ dispatchAffordance, props, agentStore, designerClient, runtimeClient }: RouteDeckSurfaceComponentProps & { agentStore: AgentStore; designerClient: DesignerClient; runtimeClient: AgentRuntimeClient }) {
+export function BuilderSurface({ dispatchAffordance, props, agentStore, designerClient, runtimeClient }: RouteDeckSurfaceComponentProps & { agentStore: AgentSelectionStore; designerClient: DesignerReader; runtimeClient: AgentRuntimeClient }) {
   const sessionVersion = useRouteDeckSessionVersion();
   const agents = useSyncExternalStore(agentStore.subscribe, agentStore.snapshot);
   const selectedRef = typeof props.selected_agent_ref === "string" ? props.selected_agent_ref : null;

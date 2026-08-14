@@ -24,7 +24,7 @@ from corpus.features.builder.ports import BuilderRuntimeGateway, BuilderUnavaila
 from corpus.features.builder.navgraph import compile_agent_navgraph
 from corpus.features.sandbox.domain import RuntimeSandboxRun
 from corpus.features.sources.connectors.api.engine import SourceManagedParameter
-from corpus.features.sources.connectors.api.toolrouter import ToolRouterApiSourceEngine
+from corpus.app.toolrouter_source_adapter import ToolRouterApiSourceEngine
 from corpus.app.agent_routedeck_runtime import (
     AgentRouteDeckSupervisor,
     agent_route_session,

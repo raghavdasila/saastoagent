@@ -16,7 +16,7 @@ from routedeck_core.contracts.projection import FrozenJsonObject
 from corpus.shared.schemas import EMPTY_OBJECT_SCHEMA
 from corpus.auth.contracts import OWNER_CONTEXT_PROVIDER
 from . import policies
-from .contracts import API_CONNECTION_FORM_ID
+from .contracts import API_CONNECTION_FORM_ID, SOURCES_API_REF
 from .schemas import (
     ApproveContractRevisionArguments,
     ContinueCurrentApiRoutePlanArguments,
@@ -530,7 +530,6 @@ APPROVE_CONTRACT_REVISION = operation(
 
 SOURCES_HOME_REF = NodeRef(id="sources.home")
 SOURCES_API_INTAKE_REF = NodeRef(id="sources.api_intake")
-SOURCES_API_REF = NodeRef(id="sources.api")
 __all__ = [
     "ACCEPT_STAGED_API",
     "APPROVE_CONTRACT_REVISION",

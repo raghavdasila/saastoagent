@@ -5,7 +5,7 @@ from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.contracts.surfaces import Surface, SurfaceAffordance, SurfaceLifecycle, SurfaceSlots
 
 from corpus.auth.contracts import OWNER_CONTEXT_PROVIDER
-from corpus.features.agents.declarations import (
+from corpus.features.agents.contracts import (
     AGENT_ENTITY_PROVIDER,
     OPEN_AGENT_BUILDS,
     OPEN_AGENT_EVALUATION,
@@ -16,7 +16,7 @@ from corpus.features.agents.declarations import (
 from .contracts import CHANNELS_HOME_REF
 from .declarations import CREATE_CHANNEL, SET_CHANNEL_ENABLED
 from .policies import CHANNEL_POLICIES
-from corpus.features.deployment.declarations import DEPLOY_AGENT, RETRY_DEPLOYMENT, ROLLBACK_DEPLOYMENT
+from corpus.features.deployment.contracts import DEPLOY_AGENT, RETRY_DEPLOYMENT, ROLLBACK_DEPLOYMENT
 
 
 CHANNELS_HOME_SURFACE = Surface(

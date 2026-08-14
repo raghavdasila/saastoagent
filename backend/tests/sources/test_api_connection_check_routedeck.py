@@ -21,7 +21,6 @@ from routedeck_sqlalchemy import open_sqlalchemy_routedeck_runtime
 from corpus.auth.contracts import OwnerRouteContext
 from corpus.bindings import bind_corpus_app
 from corpus.composition import compile_corpus_app
-from corpus.features.sources.connectors.api import connection_checks as checks_module
 from corpus.session import create_guest_session, create_owner_session, initialize_guest_session
 
 from backend.tests.sources.test_api_connection_checks import (
@@ -80,7 +79,6 @@ async def test_sql_routedeck_guard_allows_exact_agent_check_and_blocks_stale_sur
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     repository, source_id, revision_id, profile_id, contract_hash = _fixture(tmp_path)
-    monkeypatch.setattr(checks_module, "MEDUSA_EFFECTIVE_CONTRACT_HASH", contract_hash)
     calls = 0
 
     async def respond(request: httpx.Request) -> httpx.Response:

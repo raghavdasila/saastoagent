@@ -9,7 +9,7 @@ vi.mock("@routedeck/react", () => ({
   </section>,
 }));
 
-import { BuildNavGraph } from "@/features/builder/BuildNavGraph";
+import { BuildNavGraph } from "@/shared/agent/BuildNavGraph";
 import type { AgentBuildView } from "@/features/builder/models";
 
 

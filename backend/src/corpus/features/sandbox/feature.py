@@ -5,7 +5,7 @@ from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.contracts.surfaces import Surface, SurfaceAffordance, SurfaceLifecycle, SurfaceSlots
 
 from corpus.auth.contracts import OWNER_CONTEXT_PROVIDER
-from corpus.features.agents.declarations import AGENT_ENTITY_PROVIDER, OPEN_AGENT_EVALUATION, RETURN_TO_AGENT_HUB
+from corpus.features.agents.contracts import AGENT_ENTITY_PROVIDER, OPEN_AGENT_EVALUATION, RETURN_TO_AGENT_HUB
 
 from .contracts import SANDBOX_HOME_REF
 from .declarations import ACCEPT_SANDBOX_REVIEW, REJECT_SANDBOX_REVIEW, RESUME_SANDBOX, START_SANDBOX

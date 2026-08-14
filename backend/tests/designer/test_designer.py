@@ -27,7 +27,7 @@ from corpus.features.designer.domain import (
 )
 from corpus.features.designer.ports import DesignerConflict, DesignerUnavailable
 from corpus.features.designer.providers import CurrentDesignProvider
-from corpus.features.designer.repository import SqlAlchemyDesignerRepository
+from corpus.app.designer_repository import SqlAlchemyDesignerRepository
 from corpus.features.designer.schemas import DesignContent
 from corpus.features.designer.service import DesignerService
 from corpus.features.designer.topology import DesignerTopologyError, compile_design_topology

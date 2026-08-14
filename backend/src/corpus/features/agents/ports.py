@@ -34,10 +34,6 @@ class AgentDependencyConflict(RuntimeError):
     pass
 
 
-class AgentOwnerScopeUnavailable(RuntimeError):
-    pass
-
-
 class AgentSourceAttachmentConflict(RuntimeError):
     pass
 
@@ -79,13 +75,6 @@ class AgentSourceGateway(Protocol):
         source_id: str,
         source_revision_id: str,
     ) -> AttachableSource: ...
-
-
-class AgentOwnerScopeGateway(Protocol):
-    async def organization_id_for_route(
-        self,
-        route_session_id: str,
-    ) -> uuid.UUID: ...
 
 
 class AgentProductOverviewGateway(Protocol):
@@ -201,8 +190,6 @@ __all__ = [
     "AgentDependencyConflict",
     "AgentLifecycleConflict",
     "AgentNotFound",
-    "AgentOwnerScopeGateway",
-    "AgentOwnerScopeUnavailable",
     "AgentProductOverviewGateway",
     "AgentRepository",
     "AgentSourceAttachmentConflict",

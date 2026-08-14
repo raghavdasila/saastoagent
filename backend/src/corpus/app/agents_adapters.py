@@ -4,10 +4,9 @@ import asyncio
 import uuid
 from dataclasses import dataclass
 
+from corpus.auth.contracts import AgentOwnerScopeGateway, AgentOwnerScopeUnavailable
 from corpus.auth.service import AuthService, SessionUnavailable
 from corpus.features.agents.ports import (
-    AgentOwnerScopeGateway,
-    AgentOwnerScopeUnavailable,
     AgentSourceAttachmentUnavailable,
     AgentSourceGateway,
     AttachableSource,

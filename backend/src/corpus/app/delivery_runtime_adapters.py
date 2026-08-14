@@ -8,7 +8,7 @@ from agent_execution_runtime import ApiCallResult
 from agent_delivery_runtime.domain import DeployableAgentBundle
 from agent_delivery_runtime.ports import RuntimeProjection, RuntimeReadiness
 
-from corpus.clarification import (
+from corpus.shared.clarification import (
     ClarificationInputRejected,
     parse_clarification_answers,
 )

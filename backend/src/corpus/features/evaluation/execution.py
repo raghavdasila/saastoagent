@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from corpus.jobs.repository import SqlAlchemyDurableJobRepository
+from corpus.jobs import DurableJobLifecyclePort
 
 from .ports import EvaluationConflict, EvaluationRepository, EvaluationUnavailable
 from .service import EvaluationService
@@ -13,7 +13,7 @@ class EvaluationRunProcessor:
 
     def __init__(
         self,
-        jobs: SqlAlchemyDurableJobRepository,
+        jobs: DurableJobLifecyclePort,
         evaluations: EvaluationRepository,
         service: EvaluationService,
     ) -> None:

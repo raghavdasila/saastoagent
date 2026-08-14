@@ -1,6 +1,6 @@
 # Corpus boundary refactor design
 
-Status: architecture direction approved; written design awaiting owner review
+Status: approved, implemented, and validated
 
 Date: 2026-08-14
 

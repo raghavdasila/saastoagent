@@ -20,10 +20,8 @@ from routedeck_sqlalchemy import open_sqlalchemy_routedeck_runtime
 from corpus.auth.contracts import OwnerRouteContext
 from corpus.bindings import bind_corpus_app
 from corpus.composition import compile_corpus_app
-from corpus.features.sources.connectors.api.contract_revisions import (
-    ApiContractRevisionService,
-    proposal_public_ref,
-)
+from corpus.features.sources.connectors.api.contract_revisions import proposal_public_ref
+from corpus.integrations.medusa_acceptance import MedusaContractAcceptanceAdapter
 from corpus.session import create_guest_session, create_owner_session, initialize_guest_session
 
 from backend.tests.sources.test_api_contract_revisions import OWNER, _ready_fixture
@@ -75,7 +73,7 @@ async def test_contract_revision_review_is_durable_rejects_without_mutation_and_
     tmp_path: Path,
 ) -> None:
     repository, source, plan = _ready_fixture(tmp_path)
-    service = ApiContractRevisionService(repository, plan=plan)
+    service = MedusaContractAcceptanceAdapter(repository, plan=plan)
     owner = RuntimeOwnerProbe(OWNER)
     compiled = compile_corpus_app()
     database_url = f"sqlite+pysqlite:///{(tmp_path / 'routedeck.sqlite3').as_posix()}"

@@ -2,7 +2,7 @@
 
 Date: 2026-08-14
 
-Status: complete read-only audit; high-severity refactor approved for design
+Status: complete audit; all three high-severity findings remediated and validated
 
 ## Question
 
@@ -220,3 +220,26 @@ in
   were not re-read from the live control plane.
 - The complete backend/frontend suites and the horizontal E2E were not rerun.
 - No source was changed to test a proposed boundary repair.
+
+## Remediation status
+
+ADR-005 has now been implemented and validated. The universal checker
+discovers every backend and frontend feature
+and currently reports zero violations without a baseline. Worker composition
+is owned by `corpus.app.worker`; cross-feature service/repository/model imports
+were replaced by public contracts, consumer ports, shared neutral types, and
+application adapters; frontend composition/presentation seams are neutral;
+generic API check/route/execute paths use the selected persisted reviewed
+revision; and the Medusa 2.13.6 plan is isolated in the explicitly selected
+`corpus.integrations.medusa_acceptance` adapter.
+
+Fresh completion evidence is green: root Python 98/98, backend 532/532,
+frontend 188/188, TypeScript and production build, local and production
+Compose parsing, the repo-local boundary skill validator, four live HTTP 200
+smokes, and three independent local horizontal journeys (Surface 39/39,
+Hybrid 40/40, Chat 39/39). See
+`docs/superpowers/validation/2026-08-14-corpus-boundary-refactor.md` for exact
+commands, run IDs, and artifact paths.
+
+The original findings and limitations above remain the audit-time record; they
+are not rewritten as if the initial scan had observed the remediated state.

@@ -1,50 +1,17 @@
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 
 from fastapi import Request, Response
 from routedeck_fastapi.contracts import RouteDeckHttpProblem
 
+from .contracts import BearerCredentialError, bearer_token, conversation_id
 from .service import (
     AuthService,
     ConversationLimitReached,
     ConversationUnavailable,
     SessionUnavailable,
 )
-
-
-_PUBLIC_ID = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
-
-
-class BearerCredentialError(ValueError):
-    pass
-
-
-def bearer_token(request: Request) -> str:
-    authorization = request.headers.get("authorization")
-    if authorization is None:
-        raise BearerCredentialError("Authorization bearer credentials are required.")
-    scheme, separator, value = authorization.partition(" ")
-    if (
-        not separator
-        or scheme.casefold() != "bearer"
-        or not value
-        or value != value.strip()
-        or " " in value
-        or len(value) > 512
-    ):
-        raise BearerCredentialError("Authorization bearer credentials are invalid.")
-    return value
-
-
-def conversation_id(request: Request) -> str:
-    value = request.headers.get("x-corpus-conversation-id")
-    if value is None:
-        raise ValueError("X-Corpus-Conversation-ID is required.")
-    if not _PUBLIC_ID.fullmatch(value):
-        raise ValueError("X-Corpus-Conversation-ID is invalid.")
-    return value
 
 
 @dataclass(frozen=True)

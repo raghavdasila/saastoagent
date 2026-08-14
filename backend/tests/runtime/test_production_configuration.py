@@ -24,6 +24,7 @@ def test_production_compose_has_only_the_runtime_services() -> None:
     assert services["backend"]["environment"]["ROUTEDECK_WORKER_COUNT"] == "1"
     assert all(service["restart"] == "unless-stopped" for service in services.values())
     assert all(".env.local" not in str(service.get("env_file", "")) for service in services.values())
+    assert services["worker"]["command"][3] == "corpus.app.worker.huey"
 
 
 def test_backend_and_worker_share_only_the_declared_persistent_roots() -> None:

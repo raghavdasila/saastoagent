@@ -13,6 +13,10 @@ class SourceOwnerScopeGateway(Protocol):
     async def conversation_id_for_route(self, route_session_id: str) -> str: ...
 
 
+class SourceOwnerScopeUnavailable(RuntimeError):
+    pass
+
+
 @dataclass(frozen=True)
 class SourceDependencyReferences:
     attached_agent_ids: tuple[uuid.UUID, ...] = ()
@@ -30,4 +34,5 @@ __all__ = [
     "SourceDependencyGateway",
     "SourceDependencyReferences",
     "SourceOwnerScopeGateway",
+    "SourceOwnerScopeUnavailable",
 ]

@@ -3,7 +3,13 @@ import { NavGraphInspector } from "@routedeck/react";
 import { memo, useMemo, useState } from "react";
 
 import { presentNavGraphContract, presentNavGraphNodeTitle, presentSemanticLabel } from "@/lib/navgraphPresentation";
-import type { AgentBuildView } from "./models";
+
+interface AgentBuildView {
+  readonly id: string;
+  readonly navgraph_hash: string | null;
+  readonly compiled_navgraph: Readonly<Record<string, unknown>>;
+  readonly frontend_contract: Readonly<Record<string, unknown>>;
+}
 
 interface GraphNode {
   readonly id: string;

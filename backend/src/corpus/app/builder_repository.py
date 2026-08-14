@@ -9,9 +9,9 @@ from sqlalchemy.exc import IntegrityError
 from corpus.features.designer.models import AgentBuildRequest, AgentDesign, AgentDesignRevision
 from corpus.persistence import CorpusDatabase
 
-from .domain import BuilderRecord, RuntimeBuildArtifact
-from .models import AgentRunnableBuild
-from .ports import BuilderConflict, BuilderUnavailable
+from corpus.features.builder.domain import BuilderRecord, RuntimeBuildArtifact
+from corpus.features.builder.models import AgentRunnableBuild
+from corpus.features.builder.ports import BuilderConflict, BuilderUnavailable
 
 
 class SqlAlchemyBuilderRepository:

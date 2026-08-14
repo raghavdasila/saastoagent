@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from corpus.features.sources.connectors.api.contract_revisions import (
-    ApiContractRevisionConflict,
-    ApiContractRevisionService,
+from corpus.features.sources.connectors.api.contract_revisions import ApiContractRevisionConflict
+from corpus.integrations.medusa_acceptance import (
     ApprovedPatchPlan,
     EffectiveContractPlan,
     MEDUSA_EFFECTIVE_CONTRACT_PLAN,
+    MedusaContractAcceptanceAdapter,
 )
 from corpus.features.sources.models import ContractRevisionProposalState, SourceState
 from corpus.features.sources.repository import LocalSourceRepository, SourceNotFound
@@ -21,7 +21,7 @@ from corpus.integrations.api_execution._snapshot.contract_revision import (
     approve_contract_patches,
     openapi_document_hash,
 )
-from corpus.features.sources.connectors.api.toolrouter import load_api_contract_documents
+from corpus.app.toolrouter_source_adapter import load_api_contract_documents
 
 
 OWNER = uuid.UUID("00000000-0000-0000-0000-000000000001")
@@ -143,7 +143,7 @@ def test_proposal_and_approval_are_owner_scoped_immutable_and_transport_free(
     tmp_path: Path,
 ) -> None:
     repository, source, plan = _ready_fixture(tmp_path)
-    service = ApiContractRevisionService(repository, plan=plan)
+    service = MedusaContractAcceptanceAdapter(repository, plan=plan)
 
     proposal = service.propose(
         owner_id=OWNER,
@@ -194,7 +194,7 @@ def test_accept_time_recheck_rejects_persisted_patch_provenance_drift(
     tmp_path: Path,
 ) -> None:
     repository, source, plan = _ready_fixture(tmp_path)
-    service = ApiContractRevisionService(repository, plan=plan)
+    service = MedusaContractAcceptanceAdapter(repository, plan=plan)
     proposal = service.propose(
         owner_id=OWNER,
         source_id=source.source_id,

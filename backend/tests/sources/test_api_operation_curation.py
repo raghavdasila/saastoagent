@@ -251,7 +251,6 @@ def test_operation_curation_http_is_owner_scoped_and_body_free(tmp_path: Path) -
         create_api_source_router(
             service=object(),
             auth_service=OwnerResolver(),  # type: ignore[arg-type]
-            auth_settings=_auth_settings(),
             mutation_policy=SameOriginMutationPolicy(
                 trusted_origins=frozenset({"http://127.0.0.1:5199"})
             ),

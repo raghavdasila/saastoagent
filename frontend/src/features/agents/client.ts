@@ -6,10 +6,7 @@ import type {
   AgentSourceAttachmentListView,
   AgentView,
 } from "./models";
-
-export interface AgentAuthorizedTransport {
-  fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
-}
+import type { AuthorizedTransport } from "@/shared/transport/contracts";
 
 export class AgentClientError extends Error {
   constructor(
@@ -23,7 +20,7 @@ export class AgentClientError extends Error {
 }
 
 export class AgentClient {
-  constructor(private readonly transport: AgentAuthorizedTransport) {}
+  constructor(private readonly transport: AuthorizedTransport) {}
 
   async list(): Promise<AgentListView> {
     return this.request<AgentListView>("/api/agents");

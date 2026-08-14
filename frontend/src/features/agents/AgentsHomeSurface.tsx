@@ -8,7 +8,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { AgentStore } from "./store";
-import { completedOutcome } from "./operationResult";
+import { completedOutcome } from "@/shared/routedeck/operationResult";
 import type { SourceInventoryClient, SourceView } from "../sources/contracts";
 import { useRouteDeckSessionVersion } from "../../routedeck/RouteDeckSessionVersionContext";
 

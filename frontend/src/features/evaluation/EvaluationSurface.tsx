@@ -4,15 +4,14 @@ import type { RouteDeckSurfaceComponentProps } from "@routedeck/react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import type { AgentStore } from "../agents/store";
-import { completedOutcome } from "../agents/operationResult";
-import type { AgentRuntimeClient } from "../builder/client";
-import type { AgentBuildView, EvaluationCaseView, EvaluationSetView, SandboxRunView } from "../builder/models";
-import { BuildNavGraph } from "../builder/BuildNavGraph";
+import type { AgentSelectionStore } from "../agents/contracts";
+import { completedOutcome } from "@/shared/routedeck/operationResult";
+import type { AgentRuntimeReader, AgentBuildView, EvaluationCaseView, EvaluationSetView, SandboxRunView } from "../builder/contracts";
+import { BuildNavGraph } from "@/shared/agent/BuildNavGraph";
 import { useRouteDeckSessionVersion } from "../../routedeck/RouteDeckSessionVersionContext";
 
 
-export function EvaluationSurface({ dispatchAffordance, props, agentStore, runtimeClient }: RouteDeckSurfaceComponentProps & { agentStore: AgentStore; runtimeClient: AgentRuntimeClient }) {
+export function EvaluationSurface({ dispatchAffordance, props, agentStore, runtimeClient }: RouteDeckSurfaceComponentProps & { agentStore: AgentSelectionStore; runtimeClient: AgentRuntimeReader }) {
   const sessionVersion = useRouteDeckSessionVersion();
   const agents = useSyncExternalStore(agentStore.subscribe, agentStore.snapshot);
   const selectedRef = typeof props.selected_agent_ref === "string" ? props.selected_agent_ref : null;

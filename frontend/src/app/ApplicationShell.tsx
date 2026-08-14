@@ -9,7 +9,7 @@ import {
 import type { ComponentProps, ReactNode } from "react";
 
 import { AgentShell } from "./AgentShell";
-import type { ChatSourceUpload } from "./Composer";
+import type { ChatSourceUpload } from "@/shared/conversation/Composer";
 import { ApplicationNavigationDrawer } from "./ApplicationNavigationDrawer";
 import type { AppRouteDeck } from "./createRouteDeck";
 import { NavgraphSidebar } from "./NavgraphSidebar";

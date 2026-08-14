@@ -11,6 +11,12 @@ from urllib.parse import urlsplit
 import httpx
 
 from corpus.credentials import CredentialVaultPort
+from corpus.shared.api_execution import (
+    RoutedApiExecutionError,
+    RoutedApiExecutionOutcome,
+    RoutedApiExecutionTarget,
+    RoutedApiTraceRecord,
+)
 
 from ._snapshot.contracts import (
     CapabilityEnvelope,
@@ -35,65 +41,6 @@ from .adapters import (
     _normalize_base_url,
     _plugins,
 )
-
-
-RoutedDelivery = Literal["not_sent", "response_received", "possibly_sent"]
-
-
-class RoutedApiExecutionError(RuntimeError):
-    """A fail-closed pre-transport routed execution error."""
-
-
-@dataclass(frozen=True)
-class RoutedApiExecutionTarget:
-    execution_id: str
-    owner_id: uuid.UUID
-    connection_profile_id: str
-    base_url: str
-    authentication_method: str
-    credential_name: str | None
-    credential_reference_id: uuid.UUID | None
-    credential_version: int | None
-    document_hash: str
-    document: Mapping[str, Any]
-    operation_id: str
-    path: Mapping[str, Any] = None  # type: ignore[assignment]
-    query: Mapping[str, Any] = None  # type: ignore[assignment]
-    header: Mapping[str, Any] = None  # type: ignore[assignment]
-    cookie: Mapping[str, Any] = None  # type: ignore[assignment]
-    body: Any = None
-    approved_write: bool = False
-
-    def __post_init__(self) -> None:
-        for name in ("path", "query", "header", "cookie"):
-            value = getattr(self, name)
-            object.__setattr__(self, name, dict(value or {}))
-
-
-@dataclass(frozen=True)
-class RoutedApiTraceRecord:
-    event: str
-    occurred_at: str
-    safe_details: Mapping[str, str | int | bool | None]
-
-
-@dataclass(frozen=True)
-class RoutedApiExecutionOutcome:
-    status: str
-    delivery: RoutedDelivery
-    status_code: int | None
-    response_media_type: str | None
-    response_byte_count: int
-    response_body_sha256: str | None
-    error_code: str | None
-    public_message: str | None
-    validation_issue_count: int
-    validation_phases: tuple[str, ...]
-    outcome_verified: bool | None
-    http_call_count: int
-    started_at: str
-    finished_at: str
-    traces: tuple[RoutedApiTraceRecord, ...]
 
 
 class RoutedApiExecutionAdapter:

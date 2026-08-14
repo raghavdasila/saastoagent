@@ -36,14 +36,15 @@ def test_toolrouter_settings_own_and_load_all_toolrouter_values(
     assert settings.evalset_timeout_seconds == 90
 
 
-def test_toolrouter_settings_reuse_selected_openai_runtime_configuration(
+def test_toolrouter_settings_load_explicit_openai_runtime_configuration(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    monkeypatch.setenv("CORPUS_MODEL_PROVIDER", "openai")
+    monkeypatch.setenv("CORPUS_TOOLROUTER_MODEL_PROVIDER", "openai")
     monkeypatch.setenv("OPENAI_API_KEY", "deployment-key")
-    monkeypatch.setenv("CORPUS_OPENAI_MODEL", "gpt-5.6-luna")
-    monkeypatch.setenv("CORPUS_OPENAI_REASONING_EFFORT", "low")
+    monkeypatch.setenv("CORPUS_TOOLROUTER_GENERATOR_MODEL", "gpt-5.6-luna")
+    monkeypatch.setenv("CORPUS_TOOLROUTER_REVIEWER_MODEL", "gpt-5.6-luna")
+    monkeypatch.setenv("CORPUS_TOOLROUTER_OPENAI_REASONING_EFFORT", "low")
 
     settings = ToolRouterSettings.from_env(tmp_path / "missing.env")
 
@@ -53,6 +54,20 @@ def test_toolrouter_settings_reuse_selected_openai_runtime_configuration(
     assert settings.generator_model == "gpt-5.6-luna"
     assert settings.reviewer_model == "gpt-5.6-luna"
     assert settings.openai_reasoning_effort == "low"
+
+
+def test_toolrouter_provider_is_not_selected_by_the_product_model_provider(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("CORPUS_MODEL_PROVIDER", "openai")
+    monkeypatch.setenv("CORPUS_OPENAI_MODEL", "gpt-5.6-luna")
+
+    settings = ToolRouterSettings.from_env(tmp_path / "missing.env")
+
+    assert settings.model_provider == "ollama"
+    assert settings.generator_model == "gemma4:latest"
+    assert settings.reviewer_model == "qwen2.5-coder:7b"
 
 
 def test_toolrouter_adapter_requires_an_api_key_for_openai() -> None:

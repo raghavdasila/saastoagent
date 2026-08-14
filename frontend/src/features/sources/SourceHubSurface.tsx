@@ -17,6 +17,7 @@ import { ApiConnectionPanel } from "./ApiConnectionPanel";
 import { ApiOperationCurationPanel } from "./ApiOperationCurationPanel";
 import type { ContractRevisionStore } from "./contractRevisionStore";
 import { resultMessage } from "./ApiContractRevisionPanel";
+import { isReviewedApiRevision } from "./reviewedRevision";
 import { useRouteDeckSessionVersion } from "../../routedeck/RouteDeckSessionVersionContext";
 
 
@@ -719,9 +720,7 @@ export function SourceHubSurface({
                         sourceId={selected.source_id}
                         sourceRevisionId={selected.revision.revision_id}
                         safeCheckEnabled={
-                          selected.revision.summary.revision_kind === "reviewed_api_contract"
-                          && selected.revision.summary.final_canonical_sha256
-                            === "c0b9c6bf1b149a0e458de9fbda4f7bad3cf6f9f7eb4ff383bded3b09d23e50ef"
+                          isReviewedApiRevision(selected.revision)
                         }
                         sourceClient={sourceClient}
                         privateForm={privateForm}

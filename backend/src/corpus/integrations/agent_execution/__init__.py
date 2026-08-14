@@ -1,6 +1,6 @@
 from .adapter import NeutralAgentExecutionAdapter
 from .evaluation import NeutralEvaluationAdapter
-from .contracts import (
+from corpus.shared.agent_execution import (
     BuildConnectionSpec,
     EligibilityProjection,
     EvaluationCaseProjection,

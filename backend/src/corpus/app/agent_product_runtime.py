@@ -20,7 +20,7 @@ from corpus.app.agent_runtime_store import CorpusLocalAgentRuntimeStore
 from corpus.app.builder_adapters import CorpusBuilderInputGateway
 from corpus.app.source_composition import SourceRuntime
 from corpus.features.agents.service import AgentService
-from corpus.features.builder.repository import SqlAlchemyBuilderRepository
+from corpus.app.builder_repository import SqlAlchemyBuilderRepository
 from corpus.features.builder.service import BuilderService
 from corpus.features.sandbox.repository import SqlAlchemySandboxRepository
 from corpus.features.sandbox.service import SandboxService

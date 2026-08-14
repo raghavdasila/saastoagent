@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import json
 import secrets
 import uuid
 from dataclasses import dataclass, field
@@ -11,16 +9,15 @@ from typing import Any, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from corpus.integrations.api_execution._snapshot.contract_revision import openapi_document_hash
-from corpus.integrations.api_execution.routed import (
-    RoutedApiExecutionAdapter,
+from corpus.shared.api_execution import (
     RoutedApiExecutionError,
     RoutedApiExecutionOutcome,
+    RoutedApiExecutionPort,
     RoutedApiExecutionTarget,
 )
 
 from ...repository import LocalSourceRepository
-from .connection_checks import MEDUSA_EFFECTIVE_CONTRACT_HASH
+from .reviewed_revision import ReviewedApiRevisionMismatch, load_reviewed_document
 from .route_plans import ApiRoutePlanConflict, ApiRoutePlanRecord, ApiRoutePlanService
 
 
@@ -135,6 +132,7 @@ class _PreparedRoutedExecution:
     claim: ApiRoutedExecutionClaim
     profile: Any
     document: Mapping[str, Any]
+    document_hash: str
     path: Mapping[str, Any]
     query: Mapping[str, Any]
     header: Mapping[str, Any]
@@ -146,7 +144,7 @@ class ApiRoutedExecutionService:
     sources: LocalSourceRepository
     plans: ApiRoutePlanService
     records: "ApiRoutedExecutionRepository"
-    execution: RoutedApiExecutionAdapter
+    execution: RoutedApiExecutionPort
 
     def require_variant(
         self,
@@ -220,7 +218,7 @@ class ApiRoutedExecutionService:
                         credential_name=profile.credential_name,
                         credential_reference_id=profile.credential_reference_id,
                         credential_version=profile.credential_version,
-                        document_hash=MEDUSA_EFFECTIVE_CONTRACT_HASH,
+                        document_hash=prepared.document_hash,
                         document=prepared.document,
                         operation_id=claim.operation_id,
                         path=prepared.path,
@@ -278,20 +276,13 @@ class ApiRoutedExecutionService:
                 revision_dir=revision_dir,
             )
             step = _selected_step(record, expected_safety)
-            content_path = revision_dir / "i" / source.revision.original_filename
             try:
-                content = content_path.read_bytes()
-                document = json.loads(content)
-            except (OSError, json.JSONDecodeError) as error:
-                raise ApiRoutedExecutionError(
-                    "The approved API definition is unavailable."
-                ) from error
-            if (
-                hashlib.sha256(content).hexdigest() != source.revision.content_sha256
-                or not isinstance(document, Mapping)
-                or openapi_document_hash(document) != MEDUSA_EFFECTIVE_CONTRACT_HASH
-                or record.document_sha256 != MEDUSA_EFFECTIVE_CONTRACT_HASH
-            ):
+                document, document_hash = load_reviewed_document(
+                    source, revision_dir, owner_key=str(owner_id)
+                )
+            except ReviewedApiRevisionMismatch as error:
+                raise ApiRoutedExecutionConflict(str(error)) from error
+            if record.document_sha256 != document_hash:
                 raise ApiRoutedExecutionConflict(
                     "The selected API version no longer matches its approved identity."
                 )
@@ -327,6 +318,7 @@ class ApiRoutedExecutionService:
                 claim=existing,
                 profile=context["profile"],
                 document=document,
+                document_hash=document_hash,
                 path=path,
                 query=query,
                 header=header,

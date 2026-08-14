@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from corpus.jobs.repository import SqlAlchemyDurableJobRepository
+from corpus.jobs import DurableJobLifecyclePort
 
 from .ports import DeploymentConflict, DeploymentUnavailable
 from .service import DeploymentService
@@ -13,7 +13,7 @@ class DeploymentProcessor:
 
     def __init__(
         self,
-        jobs: SqlAlchemyDurableJobRepository,
+        jobs: DurableJobLifecyclePort,
         deployments: object,
         service: DeploymentService,
     ) -> None:

@@ -3,16 +3,15 @@ import type { RouteDeckSurfaceComponentProps } from "@routedeck/react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { AgentStore } from "../agents/store";
-import { completedOutcome, stagedReview } from "../agents/operationResult";
-import type { AgentRuntimeClient } from "../builder/client";
-import type { AgentBuildView, ChannelView, DeploymentView } from "../builder/models";
+import type { AgentSelectionStore } from "../agents/contracts";
+import { completedOutcome, stagedReview } from "@/shared/routedeck/operationResult";
+import type { AgentRuntimeReader, AgentBuildView, ChannelView, DeploymentView } from "../builder/contracts";
 import type { ChannelDraftStore } from "./channelDraftStore";
 import { useRouteDeckSessionVersion } from "../../routedeck/RouteDeckSessionVersionContext";
-import { BuildNavGraph } from "../builder/BuildNavGraph";
+import { BuildNavGraph } from "@/shared/agent/BuildNavGraph";
 
 
-export function ChannelsSurface({ dispatchAffordance, props, agentStore, runtimeClient, draftStore }: RouteDeckSurfaceComponentProps & { agentStore: AgentStore; runtimeClient: AgentRuntimeClient; draftStore: ChannelDraftStore }) {
+export function ChannelsSurface({ dispatchAffordance, props, agentStore, runtimeClient, draftStore }: RouteDeckSurfaceComponentProps & { agentStore: AgentSelectionStore; runtimeClient: AgentRuntimeReader; draftStore: ChannelDraftStore }) {
   const sessionVersion = useRouteDeckSessionVersion();
   const agents = useSyncExternalStore(agentStore.subscribe, agentStore.snapshot);
   const selectedRef = typeof props.selected_agent_ref === "string" ? props.selected_agent_ref : null;

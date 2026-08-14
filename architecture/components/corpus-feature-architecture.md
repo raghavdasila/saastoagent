@@ -71,23 +71,23 @@ HTTP problems, handlers, declarations, app/runtime modules, and integration
 implementations are forbidden. Consumer-owned ports are implemented and wired
 by `corpus.app`.
 
-The current source does not yet satisfy that accepted target. Exact findings
-and counts are retained in
-`audits/2026-08-14-present-system-boundary-audit.md`; the approved refactor is
-specified in
-`docs/superpowers/specs/2026-08-14-corpus-boundary-refactor-design.md`. Do not
-add a permanent violation baseline or broad ignore list during the transition.
+The source now satisfies that target with no baseline or broad ignore list.
+The original findings and counts remain historical evidence in
+`audits/2026-08-14-present-system-boundary-audit.md`; ADR-005 and the matching
+design specification own the decision and implementation shape.
 
 Run:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\check_architecture_boundaries.py
+.\.venv\Scripts\python.exe -m pytest tests\test_architecture_boundaries.py -q
 ```
 
-Until ADR-005 is implemented, the checker governs Lounge, Workspace, and
-Agents only. That passing result is not evidence that later feature boundaries
-are clean. After the refactor, this section and the checker must report
-universal feature discovery and zero violations.
+The checker discovers every immediate directory under both backend and
+frontend feature roots. Its tests prove the allowed public roots and exact
+`contracts` exception, and reject concrete cross-feature, app, runtime,
+integration, and infrastructure-repository imports. A pass requires the real
+repository and all negative fixtures to pass.
 
 ## Agent Source attachment boundary
 

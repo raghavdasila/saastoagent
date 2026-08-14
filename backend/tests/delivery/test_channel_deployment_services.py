@@ -82,6 +82,7 @@ def test_public_projection_keeps_owner_runtime_diagnostics_private() -> None:
         "revision": 4,
         "messages": projection.messages,
         "awaiting_clarification": True,
+        "pending_action_review": None,
         "suggested_prompts": ["Read catalog"],
     }
     serialized = json.dumps(public)

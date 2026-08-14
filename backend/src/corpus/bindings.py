@@ -15,9 +15,11 @@ from .app.lounge_adapters import (
 from .app.source_adapters import AuthSourceOwnerScopeGateway
 from .auth.routedeck import OWNER_CONTEXT_PROVIDER, OwnerContextProvider
 from .features.agents.bindings import create_agents_bindings
+from .features.agents.operations import OpenAgentAreaHandler
 from .features.agents.service import AgentService
 from .features.agents.overview import AgentProductOverviewService
 from .features.designer.bindings import create_designer_bindings
+from .features.designer.declarations import RETURN_TO_AGENT
 from .features.designer.service import DesignerService
 from .features.builder.bindings import create_builder_bindings
 from .features.builder.service import BuilderService
@@ -91,10 +93,16 @@ def bind_corpus_app(
         AuthAgentOwnerScopeGateway(auth_service),
         agent_overview_service,
     )
+    designer_owner_scope = AuthAgentOwnerScopeGateway(auth_service)
     designer = create_designer_bindings(
         designer_service,
-        agent_service,
-        AuthAgentOwnerScopeGateway(auth_service),
+        designer_owner_scope,
+        OpenAgentAreaHandler(
+            agent_service,
+            designer_owner_scope,
+            RETURN_TO_AGENT.id,
+            "hub",
+        ),
     )
     builder = create_builder_bindings(builder_service, AuthAgentOwnerScopeGateway(auth_service))
     sandbox = create_sandbox_bindings(sandbox_service, AuthAgentOwnerScopeGateway(auth_service))

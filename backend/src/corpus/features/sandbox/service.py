@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import uuid
 
-from corpus.clarification import (
+from corpus.shared.clarification import (
     ClarificationInputRejected,
     screen_clarification_values,
 )
-from corpus.features.builder.service import BuilderService
+from corpus.features.builder.contracts import BuilderRuntimeReader
 
 from .domain import RuntimeSandboxRun
 from .ports import (
@@ -25,7 +25,7 @@ from .schemas import (
 
 
 class SandboxService:
-    def __init__(self, repository: SandboxRepository, runtime: SandboxRuntimeGateway, builds: BuilderService) -> None:
+    def __init__(self, repository: SandboxRepository, runtime: SandboxRuntimeGateway, builds: BuilderRuntimeReader) -> None:
         self.repository, self.runtime, self.builds = repository, runtime, builds
 
     async def list(self, organization_id: uuid.UUID, agent_id: uuid.UUID) -> SandboxRunCollectionView:

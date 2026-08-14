@@ -18,7 +18,7 @@ vi.mock("@routedeck/react", async (importOriginal) => {
     useRouteDeckReviewActions: () => ({ accept: acceptReview, reject: rejectReview }),
   };
 });
-vi.mock("../features/builder/BuildNavGraph", () => ({
+vi.mock("../shared/agent/BuildNavGraph", () => ({
   BuildNavGraph: ({ build }: { readonly build: AgentBuildView }) => <div>NavGraph {build.id}</div>,
 }));
 

@@ -18,9 +18,8 @@ import {
 import { loadRouteDeck } from "./loadRouteDeck";
 import {
   createConversationTransport,
-  type AuthorizedTransport,
-  type ConversationTransport,
 } from "./transports";
+import type { AuthorizedTransport, ConversationTransport } from "@/shared/transport/contracts";
 
 export interface MountedConversation {
   summary: ConversationSummary;

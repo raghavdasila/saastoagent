@@ -37,17 +37,15 @@ from corpus.features.sources.http import (
     SourceHttpProblem,
     source_problem_response,
 )
-from corpus.features.agents.http import (
-    AgentsHttpProblem,
-    agents_problem_response,
-    create_agents_router,
-)
+from corpus.features.agents.http import create_agents_router
+from corpus.shared.http import CorpusHttpProblem, corpus_problem_response
 from corpus.features.agents.repository import SqlAlchemyAgentRepository
 from corpus.features.agents.service import AgentService
 from corpus.features.agents.overview import AgentProductOverviewService
 from corpus.app.designer_adapters import CorpusDesignerGenerationGateway, CorpusDesignerInputGateway
 from corpus.features.designer.http import create_designer_router
-from corpus.features.designer.repository import SqlAlchemyDesignerRepository
+from corpus.app.designer_repository import SqlAlchemyDesignerRepository
+from corpus.app.evaluation_adapters import CorpusEvaluationGenerationGateway
 from corpus.features.designer.service import DesignerService
 from corpus.runtime.model import create_chat_model
 from corpus.features.builder.http import create_builder_router
@@ -165,8 +163,9 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
         EvaluationGenerationProcessor(
             source_runtime.infrastructure.job_repository,
             evaluation_repository,
-            builder_repository,
-            source_runtime.api_engine,
+            CorpusEvaluationGenerationGateway(
+                builder_repository, source_runtime.api_engine
+            ),
         ),
     )
     evaluation_jobs = HueyDurableJobPort(
@@ -342,7 +341,7 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
         trusted_origins=frozenset(browser_origins)
     )
     app.add_exception_handler(AuthHttpProblem, auth_problem_response)
-    app.add_exception_handler(AgentsHttpProblem, agents_problem_response)
+    app.add_exception_handler(CorpusHttpProblem, corpus_problem_response)
     app.add_exception_handler(WorkspaceHttpProblem, workspace_problem_response)
     app.add_exception_handler(SourceHttpProblem, source_problem_response)
     app.include_router(

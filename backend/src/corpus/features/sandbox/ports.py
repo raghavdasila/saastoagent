@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import Protocol
 
-from corpus.features.builder.domain import BuilderRecord
+from corpus.features.builder.contracts import BuilderRecord
 
 from .domain import RuntimeSandboxRun, SandboxRecord
 

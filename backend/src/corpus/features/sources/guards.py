@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from routedeck_core.contracts.failures import FailureKind, RouteDeckFailure
 from routedeck_core.supervision.guards import GuardDecision, GuardInvocationContext
 
-from corpus.app.source_adapters import SourceOwnerScopeUnavailable
+from .ports import SourceOwnerScopeUnavailable
 
 from .connectors.api.contract_revisions import (
     ApiContractRevisionConflict,

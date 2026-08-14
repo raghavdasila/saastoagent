@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 
-import { Composer } from "../app/Composer";
+import { Composer } from "../shared/conversation/Composer";
 
 it("stages one exact owner attachment before chat without pre-processing or exposing its ID", async () => {
   const order: string[] = [];

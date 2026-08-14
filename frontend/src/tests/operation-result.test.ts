@@ -1,7 +1,7 @@
 import type { RouteDeckDispatchResult } from "@routedeck/core";
 import { describe, expect, it } from "vitest";
 
-import { stagedReview } from "../features/agents/operationResult";
+import { stagedReview } from "../shared/routedeck/operationResult";
 
 describe("RouteDeck review staging", () => {
   it("accepts only the exact required-review projection", () => {

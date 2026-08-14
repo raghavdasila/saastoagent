@@ -20,9 +20,9 @@ from .connections import (
     ApiConnectionProfile,
     ApiConnectionProfileRepository,
 )
-from .connection_checks import MEDUSA_EFFECTIVE_CONTRACT_HASH
 from .engine import ApiSourceEngine, SourceManagedParameter
 from .operation_curation import ApiOperationCurationService, ApiOperationInventoryItem
+from .reviewed_revision import ReviewedApiRevisionMismatch, require_reviewed_contract_hash
 
 
 ApiRoutePlanState = Literal[
@@ -454,14 +454,12 @@ class ApiRoutePlanService:
     ) -> dict[str, Any]:
         if source.connector_key != "api" or source.revision.state is not SourceState.READY:
             raise SourceNotReady("The selected API Source revision is not ready.")
-        if (
-            source.revision.summary.get("revision_kind") != "reviewed_api_contract"
-            or source.revision.summary.get("final_canonical_sha256")
-            != MEDUSA_EFFECTIVE_CONTRACT_HASH
-        ):
-            raise ApiRoutePlanConflict(
-                "The selected API Source revision is not the approved effective contract."
+        try:
+            document_hash = require_reviewed_contract_hash(
+                source, owner_key=str(owner_id)
             )
+        except ReviewedApiRevisionMismatch as error:
+            raise ApiRoutePlanConflict(str(error)) from error
         curation = self.curations.inspect_locked(
             owner_id=owner_id,
             source=source,
@@ -506,6 +504,7 @@ class ApiRoutePlanService:
             "artifact_revision_id": artifact_revision_id,
             "artifact_dir": revision_dir.parent.parent / "r" / artifact_revision_id / "a",
             "subset_fingerprint": subset_fingerprint,
+            "document_hash": document_hash,
         }
 
     def _route_locked(
@@ -574,7 +573,7 @@ class ApiRoutePlanService:
             "source_id": source.source_id,
             "source_revision_id": source.revision.revision_id,
             "artifact_revision_id": context["artifact_revision_id"],
-            "document_sha256": MEDUSA_EFFECTIVE_CONTRACT_HASH,
+            "document_sha256": context["document_hash"],
             "profile_id": profile.id,
             "credential_reference_id": profile.credential_reference_id,
             "credential_version": profile.credential_version,

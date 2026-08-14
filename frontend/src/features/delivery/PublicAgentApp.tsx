@@ -2,8 +2,8 @@ import type { AgentConversationMessage, AgentStreamStatus } from "@routedeck/rea
 import { Bot, LockKeyhole } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { Composer } from "@/app/Composer";
-import { Conversation } from "@/app/Conversation";
+import { Composer } from "@/shared/conversation/Composer";
+import { Conversation } from "@/shared/conversation/Conversation";
 import { Button } from "@/components/ui/button";
 
 interface PublicAgentProjection {

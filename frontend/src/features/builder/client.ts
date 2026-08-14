@@ -1,8 +1,8 @@
-import type { AgentAuthorizedTransport } from "../agents/client";
+import type { AuthorizedTransport } from "@/shared/transport/contracts";
 import type { AgentBuildCollectionView, ChannelCollectionView, DeploymentCollectionView, EvaluationCollectionView, OperationsCollectionView, SandboxRunCollectionView } from "./models";
 
 export class AgentRuntimeClient {
-  constructor(private readonly transport: AgentAuthorizedTransport) {}
+  constructor(private readonly transport: AuthorizedTransport) {}
 
   async builds(agentId: string): Promise<AgentBuildCollectionView> {
     return this.get(`/api/agents/${encodeURIComponent(agentId)}/runtime-builds`, "Agent Builds are unavailable.");

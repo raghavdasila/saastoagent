@@ -1,6 +1,6 @@
 from routedeck_core.app import FeatureBindings
 
-from corpus.features.agents.ports import AgentOwnerScopeGateway
+from corpus.auth.contracts import AgentOwnerScopeGateway
 
 from .declarations import ACCEPT_SANDBOX_REVIEW, REJECT_SANDBOX_REVIEW, RESUME_SANDBOX, START_SANDBOX
 from .operations import ResolveSandboxReviewHandler, ResumeSandboxHandler, StartSandboxHandler

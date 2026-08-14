@@ -1821,18 +1821,19 @@ def test_chat_evidence_uses_short_ordinary_intent_without_spoonfeeding() -> None
     _validate_chat_prompts()
 
     assert CHAT_PROMPTS["setup_from_file"] == (
-        "Use this file please. Also set up the agent for me."
+        "Use this file please. Analyze it, then ask me which Agent should use it."
     )
     assert CHAT_PROMPTS["choose_new_agent"] == "Create a new one."
     assert CHAT_PROMPTS["create_agent"] == (
         "It is a shopping assistant that finds products and adds a chosen product to a cart only after approval."
     )
     assert CHAT_PROMPTS["resume_api"] == (
-        "Continue with the store API we just added and show me its analyzed structure."
+        "I want to continue with the store API attached to the selected Agent and see its "
+        "analyzed structure."
     )
     assert CHAT_PROMPTS["curate_api"] == (
-        "Keep product search, cart creation, and adding an item to a cart. "
-        "Exclude every other API action."
+        "Keep only API actions that list or search products, create an empty cart, and "
+        "add a line item to a cart. Exclude product-by-ID lookup and every other action."
     )
     assert CHAT_PROMPTS["prepare_api_update"] == (
         "The API analysis is finished. Prepare the safest API correction for me to review, but do not apply it yet."
@@ -1928,7 +1929,8 @@ def test_horizontal_profile_save_uses_a_stable_surface_form_and_real_private_wri
     assert "profiles = await _profiles(observations, ids[\"sourceId\"], minimum_count=1)" in source
     assert callable(_save_profile_exact)
     assert CHAT_PROMPTS["enter_operations"] == (
-        "Show me how that public request to this assistant actually ran."
+        "Show me how that public request to this assistant actually ran, but do not "
+        "save it as an Evaluation case yet."
     )
     assert CHAT_PROMPTS["enter_evaluation"] == (
         "Keep that successful trial in the Baseline set as a required easy routing case "

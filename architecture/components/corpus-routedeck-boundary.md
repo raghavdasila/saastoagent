@@ -23,8 +23,8 @@ public conversations, persistence, revocation, and ownership claims stay in
 
 ## Owner Files
 
-- `backend/src/corpus/app/**` - RouteDeck host plus concrete application
-  composition roots
+- `backend/src/corpus/app/**` - RouteDeck host, concrete feature/integration
+  adapters, and the complete `corpus.app.worker.huey` process composition
 - `backend/src/corpus/runtime/**` - persistence and explicitly selected Ollama- or OpenAI-backed agent drivers
 - `backend/src/corpus/features/lounge/**` - public Lounge, account journeys,
   bindings, and scoped AgentPolicies
@@ -33,10 +33,12 @@ public conversations, persistence, revocation, and ownership claims stay in
   `sandbox/**`, `evaluation/**`, `channels/**`, `deployment/**`, and
   `operations/**` - owner product domains and their compiled RouteDeck feature
   declarations
-- `backend/src/corpus/features/sources/**` - generic Sources lifecycle and
-  transport plus connector-owned configuration, HTTP, ports, and bridges
+- `backend/src/corpus/features/sources/**` - generic Sources lifecycle,
+  transport, connector contracts, configuration, HTTP, and acceptance port
 - `backend/src/corpus/integrations/toolrouter/**` - private copied engine and
-  replaceable adapter used only by the API Source connector
+  replaceable adapter selected by application composition
+- `backend/src/corpus/integrations/medusa_acceptance/**` - explicit Medusa
+  2.13.6 correction evidence and acceptance adapter; never generic API truth
 - `backend/src/corpus/composition.py` - selects all nine host features and the
   Lounge entry
 - `frontend/src/app/**` - generic permanent chat shell and Navgraph slot

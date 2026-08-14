@@ -3,7 +3,7 @@ import type { RouteDeckSurfaceComponentProps } from "@routedeck/react";
 import type { RouteDeckDispatchResult } from "@routedeck/core";
 import { expect, it, vi } from "vitest";
 
-import { Composer } from "../app/Composer";
+import { Composer } from "../shared/conversation/Composer";
 import { OwnerSessionProvider } from "../auth/OwnerSessionContext";
 import { ResetPasswordSurface } from "../features/lounge/ResetPasswordSurface";
 import { ForgotPasswordSurface } from "../features/lounge/ForgotPasswordSurface";

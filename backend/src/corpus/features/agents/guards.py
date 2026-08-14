@@ -6,7 +6,9 @@ import uuid
 from routedeck_core.contracts.failures import FailureKind, RouteDeckFailure
 from routedeck_core.supervision.guards import GuardDecision, GuardInvocationContext
 
-from .ports import AgentNotFound, AgentOwnerScopeGateway, AgentOwnerScopeUnavailable
+from corpus.auth.contracts import AgentOwnerScopeGateway, AgentOwnerScopeUnavailable
+
+from .ports import AgentNotFound
 from .service import AgentService
 
 

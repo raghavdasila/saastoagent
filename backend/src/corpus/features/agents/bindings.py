@@ -48,7 +48,7 @@ from .operations import (
     SelectAgentHandler,
 )
 from .guards import ArchiveCurrentGuard, DeleteDependenciesGuard
-from .ports import AgentOwnerScopeGateway
+from corpus.auth.contracts import AgentOwnerScopeGateway
 from .service import AgentService
 from .overview import AgentProductOverviewService
 from .providers import PendingSourceProvider, SelectedAgentOverviewProvider, SelectedAgentProvider

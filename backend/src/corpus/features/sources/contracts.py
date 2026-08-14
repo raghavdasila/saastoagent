@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Literal
+from routedeck_core.contracts.navigation import NodeRef
 
 
 SourceTraceMode = Literal["bounded", "full"]
 API_CONNECTION_FORM_ID = "sources-api-connection"
+SOURCES_API_REF = NodeRef(id="sources.api")
 
 
 @dataclass(frozen=True)
@@ -54,6 +56,7 @@ class SourceEvalsetResult:
 
 __all__ = [
     "API_CONNECTION_FORM_ID",
+    "SOURCES_API_REF",
     "SourceEvalsetResult",
     "SourceRankedItem",
     "SourceRetrievalResult",

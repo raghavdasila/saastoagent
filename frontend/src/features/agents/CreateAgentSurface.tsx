@@ -8,7 +8,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { AgentStore } from "./store";
-import { completedOutcome } from "./operationResult";
+import { completedOutcome } from "@/shared/routedeck/operationResult";
 
 export function CreateAgentSurface({
   dispatchAffordance,

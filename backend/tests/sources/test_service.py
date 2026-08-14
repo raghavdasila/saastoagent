@@ -8,7 +8,7 @@ import pytest
 
 from corpus.features.sources import LocalSourceRepository, SourceService, SourceState
 from corpus.features.sources.connectors.api import ApiSourceConnector, SourceUpload
-from corpus.features.sources.connectors.api.toolrouter import ToolRouterApiSourceEngine
+from corpus.app.toolrouter_source_adapter import ToolRouterApiSourceEngine
 from corpus.integrations.toolrouter import ToolRouterAdapter, ToolRouterSettings
 from corpus.jobs import DurableJobRecord, DurableJobState
 from backend.tests.integrations.toolrouter.conftest import (

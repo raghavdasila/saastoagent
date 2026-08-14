@@ -516,7 +516,6 @@ def test_route_plan_http_derives_owner_conversation_and_route_session(
         create_api_source_router(
             service=object(),
             auth_service=ConversationOwnerResolver(),  # type: ignore[arg-type]
-            auth_settings=_auth_settings(),
             mutation_policy=SameOriginMutationPolicy(
                 trusted_origins=frozenset({"http://127.0.0.1:5199"})
             ),
@@ -787,6 +786,7 @@ def _service(
             "endpoint_count": 2,
             "revision_kind": "reviewed_api_contract",
             "final_canonical_sha256": "6fca793be700dfb8bf511c2217d72cf97abf2f6cba08fbc2cd26ef0369b8f3f6",
+            "approved_by_owner_id": str(OWNER),
         },
     )
     graph_dir = prepared.artifact_dir / "graph"

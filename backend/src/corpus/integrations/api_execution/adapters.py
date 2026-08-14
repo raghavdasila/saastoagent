@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from corpus.credentials import CredentialVaultPort
+from corpus.shared.api_execution import SafeApiExecutionError, SafeApiExecutionTarget
 
 from ._snapshot.contracts import (
     CapabilityEnvelope,
@@ -32,27 +33,6 @@ SAFE_API_OPERATIONS: Mapping[str, tuple[str, str]] = {
     "GetProductTypes": ("GET", "/store/product-types"),
     "GetProductTags": ("GET", "/store/product-tags"),
 }
-
-
-class SafeApiExecutionError(RuntimeError):
-    """A pre-transport failure in the Corpus-owned restricted adapter."""
-
-
-@dataclass(frozen=True)
-class SafeApiExecutionTarget:
-    execution_id: str
-    owner_id: uuid.UUID
-    source_id: str
-    source_revision_id: str
-    connection_profile_id: str
-    base_url: str
-    authentication_method: str
-    credential_name: str | None
-    credential_reference_id: uuid.UUID | None
-    credential_version: int | None
-    document_hash: str
-    document: Mapping[str, Any]
-    operation_id: str
 
 
 @dataclass(frozen=True)
@@ -159,6 +139,11 @@ class SafeApiExecutionAdapter:
             traces=tuple(trace.events),
             http_call_count=counting_transport.call_count,
         )
+
+    async def execute_redacted(self, target: SafeApiExecutionTarget):
+        from .redaction import redact_execution
+
+        return redact_execution(await self.execute(target))
 
 
 class _ExactDocumentProvider:

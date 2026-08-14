@@ -1,5 +1,5 @@
 from .adapter import NeutralAgentDeliveryAdapter
-from .contracts import (
+from corpus.shared.agent_delivery import (
     ActivationProjection,
     ChannelProjection,
     DeployableBundleSpec,
