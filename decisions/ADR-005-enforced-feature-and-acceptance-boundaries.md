@@ -62,6 +62,13 @@ Cross-feature navigation identities that are deliberately shared are public
 contracts. RouteDeck continues to own whether an operation is currently legal
 and whether its transition may commit.
 
+RouteDeck identity types remain specific to their crossing. Context providers
+consume persisted `PrivateEntityBinding` values, whose `private_id` is a
+string. Guards and operation handlers consume resolved execution inputs, whose
+`private_id` is a `SecretStr`. Corpus provider code must not reuse guard-side
+secret-unwrapping logic, and provider tests must use the persisted binding
+contract rather than a shape-compatible mock.
+
 ### Put process composition in the application layer
 
 The Huey consumer entrypoint and complete task registration move under
@@ -181,6 +188,10 @@ The decision is implemented only when:
    Medusa acceptance adapter retains exact parent/hash failure semantics; and
 6. the existing final horizontal surface, ordinary-chat, and hybrid E2E checks
    pass after focused verification is green.
+
+The universal checker also rejects `private_id.get_secret_value()` in feature
+provider modules, with a negative test that proves the persisted-versus-
+execution identity boundary.
 
 The horizontal E2E is the final acceptance gate, not the refactor debugger.
 

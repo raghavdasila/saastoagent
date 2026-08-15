@@ -41,6 +41,22 @@ def test_backend_discovers_every_feature_directory(tmp_path: Path) -> None:
     assert "feature 'new_feature'" in violations[0].message
 
 
+def test_backend_context_providers_use_persisted_string_entity_identity(
+    tmp_path: Path,
+) -> None:
+    feature = tmp_path / "backend/src/corpus/features/consumer"
+    feature.mkdir(parents=True)
+    (feature / "providers.py").write_text(
+        "value = binding.private_id.get_secret_value()\n",
+        encoding="utf-8",
+    )
+
+    violations = find_architecture_violations(tmp_path)
+
+    assert len(violations) == 1
+    assert "persisted private_id is already a string" in violations[0].message
+
+
 def test_backend_allows_only_declared_public_dependencies(tmp_path: Path) -> None:
     feature = tmp_path / "backend/src/corpus/features/consumer"
     feature.mkdir(parents=True)

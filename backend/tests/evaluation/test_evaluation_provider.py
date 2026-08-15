@@ -4,8 +4,8 @@ import uuid
 from types import SimpleNamespace
 
 import pytest
-from pydantic import SecretStr
 from routedeck_core.contracts.navigation import NodeRef
+from routedeck_core.contracts.session import PrivateEntityBinding
 
 from corpus.features.evaluation.declarations import (
     CURRENT_EVALUATION_PROVIDER,
@@ -80,9 +80,10 @@ async def test_current_evaluation_provider_exposes_exact_pending_origin_counts()
                 session_id="evaluation-session",
                 private_state=SimpleNamespace(
                     entity_bindings=(
-                        SimpleNamespace(
+                        PrivateEntityBinding(
                             entity_kind="agent",
-                            private_id=SecretStr(str(agent_id)),
+                            public_handle=f"agent-{agent_id.hex[:20]}",
+                            private_id=str(agent_id),
                         ),
                     )
                 ),

@@ -2,7 +2,7 @@
 
 Date: 2026-08-14
 
-Status: complete audit; all three high-severity findings remediated and validated
+Status: complete audit; four high-severity findings remediated; final deployed validation in progress
 
 ## Question
 
@@ -163,6 +163,24 @@ vertical, but the executable restriction sits inside the generic API Source
 core. An arbitrary reviewed API definition cannot use the same route-planning
 and execution path. This is both a product claim boundary and an integration
 ownership violation.
+
+### H4. Provider tests crossed persisted and execution identity types
+
+Production Hybrid validation exposed a RouteDeck identity-boundary mismatch in
+the new Evaluation context provider. Persisted session bindings use
+`PrivateEntityBinding.private_id: str`; resolved guard and handler inputs use
+`ResolvedEntityInput.private_id: SecretStr`. The Evaluation provider and the
+selected-Agent overview provider copied guard-side `.get_secret_value()` logic,
+while their tests supplied synthetic `SecretStr` bindings instead of the real
+persisted contract.
+
+Every real `evaluation.run_case` context refresh therefore failed before the
+operation handler. The failure was retained in deployed Hybrid runs
+`20260814T160456Z-71524c1311` and `20260814T162035Z-39fe6f0280`. The smallest
+Corpus-owned correction reads the persisted string directly, makes both
+provider tests construct `PrivateEntityBinding`, and adds a universal checker
+rule that rejects execution-time secret unwrapping in feature provider modules.
+RouteDeck source remained read-only.
 
 ## Medium findings retained for later work
 

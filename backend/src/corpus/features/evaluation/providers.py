@@ -39,7 +39,7 @@ class CurrentEvaluationProvider:
         organization_id = await self.owner_scope.organization_id_for_route(
             context.session.session_id
         )
-        agent_id = uuid.UUID(bindings[0].private_id.get_secret_value())
+        agent_id = uuid.UUID(bindings[0].private_id)
         collection = await self.service.list(organization_id, agent_id)
         pending_counts = {origin: 0 for origin in _ORIGIN_BY_SOURCE_KIND.values()}
         active_count = 0

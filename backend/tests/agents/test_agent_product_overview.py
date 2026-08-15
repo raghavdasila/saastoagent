@@ -5,7 +5,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
-from pydantic import SecretStr
+from routedeck_core.contracts.session import PrivateEntityBinding
 
 from corpus.app.agent_overview_adapters import CorpusAgentProductOverviewGateway
 from corpus.features.designer.ports import DesignerUnavailable
@@ -170,8 +170,10 @@ def test_selected_agent_context_is_empty_without_selection_and_exact_after_selec
 
     selected = SimpleNamespace(session=SimpleNamespace(
         session_id="route-session",
-        private_state=SimpleNamespace(entity_bindings=(SimpleNamespace(
-            entity_kind="agent", private_id=SecretStr(str(AGENT)),
+        private_state=SimpleNamespace(entity_bindings=(PrivateEntityBinding(
+            entity_kind="agent",
+            public_handle=f"agent-{AGENT.hex[:20]}",
+            private_id=str(AGENT),
         ),)),
     ))
     populated = asyncio.run(provider(selected))

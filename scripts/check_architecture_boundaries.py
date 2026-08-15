@@ -25,6 +25,7 @@ def find_architecture_violations(repository: Path) -> list[ArchitectureViolation
     return sorted(
         [
             *_backend_feature_violations(repository),
+            *_backend_provider_identity_violations(repository),
             *_backend_shared_violations(repository),
             *_frontend_feature_violations(repository),
             *_frontend_auth_violations(repository),
@@ -54,6 +55,39 @@ def _backend_feature_violations(
                         f"feature '{feature}' cannot import '{module}'",
                     )
                 )
+    return violations
+
+
+def _backend_provider_identity_violations(
+    repository: Path,
+) -> list[ArchitectureViolation]:
+    root = repository / "backend" / "src" / "corpus" / "features"
+    violations: list[ArchitectureViolation] = []
+    if not root.exists():
+        return violations
+    for path in root.rglob("providers.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            method = node.func
+            if (
+                not isinstance(method, ast.Attribute)
+                or method.attr != "get_secret_value"
+                or not isinstance(method.value, ast.Attribute)
+                or method.value.attr != "private_id"
+            ):
+                continue
+            violations.append(
+                ArchitectureViolation(
+                    _relative(repository, path),
+                    node.lineno,
+                    (
+                        "context-provider persisted private_id is already a "
+                        "string; do not apply execution-time SecretStr handling"
+                    ),
+                )
+            )
     return violations
 
 

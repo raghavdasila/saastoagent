@@ -70,7 +70,7 @@ class SelectedAgentOverviewProvider:
         )
         value = await self.service.get(
             organization_id,
-            uuid.UUID(bindings[0].private_id.get_secret_value()),
+            uuid.UUID(bindings[0].private_id),
         )
         return ProviderResult(values=FrozenJsonObject(value.model_dump(mode="json")))
 

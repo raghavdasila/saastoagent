@@ -73,6 +73,14 @@ If no existing RouteDeck public projection can carry the required state, stop
 and report the missing framework contract instead of adding a Corpus-side
 parallel context system.
 
+Keep RouteDeck identity representations at their owning crossing. A
+`ProviderInvocationContext` reads persisted `PrivateEntityBinding` values from
+session state, where `private_id` is already a string. A guard or operation
+receives `ResolvedEntityInput`, where `private_id` is a `SecretStr`. Never copy
+`get_secret_value()` handling from a guard into a context provider. Provider
+tests must construct a real `PrivateEntityBinding`, and the architecture
+checker must reject execution-time secret unwrapping in `providers.py`.
+
 ## Classify findings
 
 For each finding, record:

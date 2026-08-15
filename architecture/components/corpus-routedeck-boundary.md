@@ -219,6 +219,12 @@ public conversations, persistence, revocation, and ownership claims stay in
   styling hooks. Mobile continues to use the fixed Sheet width.
 - The model adapter uses the native `langchain-ollama` integration; readiness
   verifies the exact configured model through the official Ollama Python SDK.
+- Corpus context providers read persisted RouteDeck
+  `PrivateEntityBinding.private_id` values as strings. Guards and operation
+  handlers alone unwrap the `SecretStr` carried by resolved execution inputs.
+  Provider tests use the persisted binding contract, and the universal
+  architecture checker rejects execution-time secret unwrapping in provider
+  modules.
 - A substantive product question from Lounge home is supervised through the
   Product-help transition before the model answers. RouteDeck deduplicates the
   live and newly durable LangGraph tool exchange by tool-call identity so the
