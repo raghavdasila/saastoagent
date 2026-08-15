@@ -1,5 +1,8 @@
 from routedeck_core.contracts.navigation import NodeRef
 
-OPERATIONS_HOME_REF = NodeRef(id="operations.home")
+from corpus.features.agents.contracts import RETURN_TO_AGENT_HUB
 
-__all__ = ["OPERATIONS_HOME_REF"]
+OPERATIONS_HOME_REF = NodeRef(id="operations.home")
+OPERATIONS_AGENT_BOUND_OPERATION_IDS = (RETURN_TO_AGENT_HUB.id,)
+
+__all__ = ["OPERATIONS_AGENT_BOUND_OPERATION_IDS", "OPERATIONS_HOME_REF"]

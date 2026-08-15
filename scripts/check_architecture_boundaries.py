@@ -12,6 +12,9 @@ PUBLIC_BACKEND_NAMESPACES = frozenset({"corpus.persistence", "corpus.shared"})
 IMPORT_PATTERN = re.compile(
     r"(?:import|export)\s+(?:type\s+)?(?:[^;]*?\s+from\s+)?[\"']([^\"']+)[\"']"
 )
+EXTERNAL_FEATURE_ROUTE_ID_PATTERN = re.compile(
+    r"^(?:builder|sandbox|evaluation|channels|deployment|operations)\.[a-z0-9_]+$"
+)
 
 
 @dataclass(frozen=True, order=True)
@@ -26,6 +29,7 @@ def find_architecture_violations(repository: Path) -> list[ArchitectureViolation
         [
             *_backend_feature_violations(repository),
             *_backend_provider_identity_violations(repository),
+            *_backend_cross_feature_route_id_violations(repository),
             *_backend_shared_violations(repository),
             *_frontend_feature_violations(repository),
             *_frontend_auth_violations(repository),
@@ -89,6 +93,37 @@ def _backend_provider_identity_violations(
                 )
             )
     return violations
+
+
+def _backend_cross_feature_route_id_violations(
+    repository: Path,
+) -> list[ArchitectureViolation]:
+    path = (
+        repository
+        / "backend"
+        / "src"
+        / "corpus"
+        / "features"
+        / "agents"
+        / "operations.py"
+    )
+    if not path.is_file():
+        return []
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    return [
+        ArchitectureViolation(
+            _relative(repository, path),
+            node.lineno,
+            (
+                "selected-Agent cross-feature RouteDeck IDs must come from "
+                "the owning feature contracts"
+            ),
+        )
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and EXTERNAL_FEATURE_ROUTE_ID_PATTERN.fullmatch(node.value)
+    ]
 
 
 def _backend_feature_import_allowed(feature: str, module: str) -> bool:

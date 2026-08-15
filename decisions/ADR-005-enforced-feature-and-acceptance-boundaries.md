@@ -62,6 +62,14 @@ Cross-feature navigation identities that are deliberately shared are public
 contracts. RouteDeck continues to own whether an operation is currently legal
 and whether its transition may commit.
 
+The target feature also owns the exact operation IDs for which a cross-feature
+selected-entity binding is authorized. Those IDs are exported from that
+feature's public `contracts` module and must equal the target RouteDeck Node's
+declared operations that consume the entity kind. A transition handler must not
+copy external operation IDs into a second allowlist. Compiled-contract tests
+prove equality, while the architecture checker rejects hard-coded external
+RouteDeck IDs in the selected-Agent transition handler.
+
 RouteDeck identity types remain specific to their crossing. Context providers
 consume persisted `PrivateEntityBinding` values, whose `private_id` is a
 string. Guards and operation handlers consume resolved execution inputs, whose

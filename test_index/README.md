@@ -242,7 +242,10 @@ The gate discovers and checks every immediate backend and frontend feature
 directory. It allows only self imports, stable shared/public infrastructure,
 `corpus.auth.contracts`, and another feature's exact public `contracts` module.
 It rejects concrete cross-feature internals, application/runtime composition,
-concrete integrations, and private infrastructure repositories. The command
+concrete integrations, private infrastructure repositories, and hard-coded
+external RouteDeck IDs in the selected-Agent transition handler. The backend
+Agents contract suite additionally proves that every exported external-area
+allowlist equals the compiled target Node's actual Agent-bound operations. The command
 must pass with zero real-repository violations; no checked-in baseline or
 current-file ignore is permitted. See
 `skills/audit-corpus-boundaries/SKILL.md` for the audit/fix workflow.

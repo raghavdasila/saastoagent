@@ -59,6 +59,26 @@ from corpus.features.agents.schemas import (
     UpdateAgentArguments,
 )
 from corpus.features.agents.service import AgentService
+from corpus.features.builder.contracts import (
+    BUILDER_AGENT_BOUND_OPERATION_IDS,
+    BUILDER_HOME_REF,
+)
+from corpus.features.channels.contracts import (
+    CHANNELS_AGENT_BOUND_OPERATION_IDS,
+    CHANNELS_HOME_REF,
+)
+from corpus.features.evaluation.contracts import (
+    EVALUATION_AGENT_BOUND_OPERATION_IDS,
+    EVALUATION_HOME_REF,
+)
+from corpus.features.operations.contracts import (
+    OPERATIONS_AGENT_BOUND_OPERATION_IDS,
+    OPERATIONS_HOME_REF,
+)
+from corpus.features.sandbox.contracts import (
+    SANDBOX_AGENT_BOUND_OPERATION_IDS,
+    SANDBOX_HOME_REF,
+)
 from corpus.persistence import CorpusDatabase
 from corpus.composition import compile_corpus_app
 from routedeck_core.contracts.operations import (
@@ -954,8 +974,8 @@ def test_selected_agent_binding_keeps_every_horizontal_destination_available() -
     builder = _external_agent_surface_effects(
         "agent-horizontal",
         "00000000-0000-0000-0000-000000000001",
-        surface_id="builder.home",
-        operation_ids=("builder.assemble",),
+        surface_id=BUILDER_HOME_REF.id,
+        operation_ids=BUILDER_AGENT_BOUND_OPERATION_IDS,
     )
     assert expected_navigation <= set(hub.replace_entities[0].bindings[0].allowed_operation_ids)
     assert set(designer.replace_entities[0].bindings[0].allowed_operation_ids) == {
@@ -969,10 +989,44 @@ def test_selected_agent_binding_keeps_every_horizontal_destination_available() -
         "designer.return_to_agent",
     }
     assert "agents.return_to_hub" not in designer.replace_entities[0].bindings[0].allowed_operation_ids
-    assert set(builder.replace_entities[0].bindings[0].allowed_operation_ids) == {
-        "builder.assemble",
-        "agents.return_to_hub",
+    assert (
+        builder.replace_entities[0].bindings[0].allowed_operation_ids
+        == BUILDER_AGENT_BOUND_OPERATION_IDS
+    )
+
+
+def test_every_external_agent_binding_matches_its_target_node_contract() -> None:
+    compiled = compile_corpus_app()
+    external_areas = {
+        BUILDER_HOME_REF.id: BUILDER_AGENT_BOUND_OPERATION_IDS,
+        SANDBOX_HOME_REF.id: SANDBOX_AGENT_BOUND_OPERATION_IDS,
+        EVALUATION_HOME_REF.id: EVALUATION_AGENT_BOUND_OPERATION_IDS,
+        CHANNELS_HOME_REF.id: CHANNELS_AGENT_BOUND_OPERATION_IDS,
+        OPERATIONS_HOME_REF.id: OPERATIONS_AGENT_BOUND_OPERATION_IDS,
     }
+
+    for node_id, binding_operation_ids in external_areas.items():
+        node = compiled.frontend_contract.nodes[node_id]
+        declared_agent_bound_ids = tuple(
+            operation_id
+            for operation_id in node.operation_ids
+            if any(
+                entity_input.entity_kind == "agent"
+                for entity_input in compiled.operations[operation_id].entity_inputs
+            )
+        )
+        assert binding_operation_ids == declared_agent_bound_ids
+
+        effects = _external_agent_surface_effects(
+            "agent-horizontal",
+            "00000000-0000-0000-0000-000000000001",
+            surface_id=node_id,
+            operation_ids=binding_operation_ids,
+        )
+        assert (
+            effects.replace_entities[0].bindings[0].allowed_operation_ids
+            == declared_agent_bound_ids
+        )
 
 
 def test_agents_http_reads_are_authenticated_and_workspace_scoped(tmp_path: Path) -> None:

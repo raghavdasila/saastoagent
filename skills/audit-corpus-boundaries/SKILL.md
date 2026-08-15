@@ -81,6 +81,14 @@ receives `ResolvedEntityInput`, where `private_id` is a `SecretStr`. Never copy
 tests must construct a real `PrivateEntityBinding`, and the architecture
 checker must reject execution-time secret unwrapping in `providers.py`.
 
+For a selected entity crossing into another feature Node, compare that Node's
+declared operations with the binding's `allowed_operation_ids`. The target
+feature owns and exports its exact entity-bound operation tuple through
+`contracts`; the transition handler imports it and must not repeat external
+RouteDeck ID strings. Require a compiled-app regression that proves equality,
+including review, retry, and navigation operations. RouteDeck should reject a
+missing authorization; do not weaken its entity-resolution guard.
+
 ## Classify findings
 
 For each finding, record:

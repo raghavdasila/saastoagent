@@ -89,6 +89,14 @@ frontend feature roots. Its tests prove the allowed public roots and exact
 integration, and infrastructure-repository imports. A pass requires the real
 repository and all negative fixtures to pass.
 
+Cross-feature selected-Agent transitions follow the same ownership rule. Each
+target feature's `contracts` module exports the exact operations on that Node
+that consume the Agent entity binding. The Agents transition handler imports
+those contracts rather than repeating operation IDs. A compiled-application
+test requires the binding tuple to equal the target Node's Agent-bound
+operations, and the checker rejects hard-coded external RouteDeck IDs in the
+handler.
+
 ## Agent Source attachment boundary
 
 Agents owns `AgentSourceAttachment`, including organization scope, exact

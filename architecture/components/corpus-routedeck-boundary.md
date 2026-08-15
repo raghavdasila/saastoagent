@@ -225,6 +225,12 @@ public conversations, persistence, revocation, and ownership claims stay in
   Provider tests use the persisted binding contract, and the universal
   architecture checker rejects execution-time secret unwrapping in provider
   modules.
+- A selected Agent crossing into Builder, Sandbox, Evaluation, Channels, or
+  Operations receives only the target Node's exact Agent-bound operation
+  allowlist. The target feature exports that list through `contracts`; Agents
+  does not copy cross-feature operation IDs. RouteDeck resolves the public
+  handle only when the current operation is allowlisted, and a compiled-app
+  regression requires the exported list to match the Node declaration.
 - A substantive product question from Lounge home is supervised through the
   Product-help transition before the model answers. RouteDeck deduplicates the
   live and newly durable LangGraph tool exchange by tool-call identity so the

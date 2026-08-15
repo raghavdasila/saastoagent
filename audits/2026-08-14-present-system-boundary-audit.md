@@ -2,7 +2,7 @@
 
 Date: 2026-08-14
 
-Status: complete audit; four high-severity findings remediated; final deployed validation in progress
+Status: complete audit; five high-severity findings remediated; final deployed validation in progress
 
 ## Question
 
@@ -181,6 +181,28 @@ Corpus-owned correction reads the persisted string directly, makes both
 provider tests construct `PrivateEntityBinding`, and adds a universal checker
 rule that rejects execution-time secret unwrapping in feature provider modules.
 RouteDeck source remained read-only.
+
+### H5. Cross-feature Agent bindings drifted from target-node operations
+
+Final deployed Hybrid validation reached the reviewed publication prompt but
+RouteDeck blocked `agents.open_builds` with `invalid_entity_reference`. The
+public Agent handle was correct. Corpus had declared `agents.open_builds` and
+`deployment.retry` on `channels.home`, but the selected-Agent binding installed
+when entering Channels did not authorize either operation. The same duplicated
+allowlist also omitted the two Sandbox review-resolution operations.
+
+RouteDeck correctly requires an entity binding to authorize the exact current
+operation and correctly rejects a handle when that operation is absent from
+`allowed_operation_ids`. The missing contract was entirely Corpus-owned:
+cross-feature node operations were declared by their owning feature while
+Agents separately copied their IDs into a transition-effect tuple.
+
+Each target feature now exports its exact Agent-bound operation IDs through its
+public `contracts` module. The Agents transition handler consumes those
+contracts without cross-feature RouteDeck ID literals. A compiled-application
+test requires every exported allowlist to equal the target Node's actual
+Agent-bound operations, and the architecture checker rejects a reintroduced
+hard-coded external RouteDeck ID in the handler. RouteDeck remained read-only.
 
 ## Medium findings retained for later work
 

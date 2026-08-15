@@ -20,6 +20,26 @@ from routedeck_core.ports.executor import ExecutionContext
 
 from corpus.features.sources.contracts import API_CONNECTION_FORM_ID
 from corpus.auth.contracts import AgentOwnerScopeGateway, AgentOwnerScopeUnavailable
+from corpus.features.builder.contracts import (
+    BUILDER_AGENT_BOUND_OPERATION_IDS,
+    BUILDER_HOME_REF,
+)
+from corpus.features.channels.contracts import (
+    CHANNELS_AGENT_BOUND_OPERATION_IDS,
+    CHANNELS_HOME_REF,
+)
+from corpus.features.evaluation.contracts import (
+    EVALUATION_AGENT_BOUND_OPERATION_IDS,
+    EVALUATION_HOME_REF,
+)
+from corpus.features.operations.contracts import (
+    OPERATIONS_AGENT_BOUND_OPERATION_IDS,
+    OPERATIONS_HOME_REF,
+)
+from corpus.features.sandbox.contracts import (
+    SANDBOX_AGENT_BOUND_OPERATION_IDS,
+    SANDBOX_HOME_REF,
+)
 
 from .declarations import (
     ATTACH_CREATED_SOURCE,
@@ -570,51 +590,32 @@ class OpenAgentAreaHandler:
                     context.private_entity_id("agent_ref"),
                 )
         else:
-            surface_id, operation_ids = {
+            surface_ref, operation_ids = {
                 "builds": (
-                    "builder.home",
-                    (
-                        "builder.assemble",
-                        "builder.run",
-                        "builder.pause",
-                        "builder.stop",
-                        "builder.delete",
-                        OPEN_ATTACHED_SOURCE.id,
-                        OPEN_AGENT_SANDBOX.id,
-                    ),
+                    BUILDER_HOME_REF,
+                    BUILDER_AGENT_BOUND_OPERATION_IDS,
                 ),
-                "sandbox": ("sandbox.home", ("sandbox.start", "sandbox.resume", OPEN_AGENT_EVALUATION.id)),
+                "sandbox": (
+                    SANDBOX_HOME_REF,
+                    SANDBOX_AGENT_BOUND_OPERATION_IDS,
+                ),
                 "evaluation": (
-                    "evaluation.home",
-                    (
-                        "evaluation.create_case",
-                        "evaluation.generate_set",
-                        "evaluation.retry_generation",
-                        "evaluation.edit_case",
-                        "evaluation.delete_case",
-                        "evaluation.run_case",
-                        "evaluation.retry_case_run",
-                        OPEN_AGENT_BUILDS.id,
-                        OPEN_AGENT_CHANNELS.id,
-                    ),
+                    EVALUATION_HOME_REF,
+                    EVALUATION_AGENT_BOUND_OPERATION_IDS,
                 ),
                 "channels": (
-                    "channels.home",
-                    (
-                        "channels.create",
-                        "channels.set_enabled",
-                        "deployment.deploy",
-                        "deployment.rollback",
-                        OPEN_AGENT_EVALUATION.id,
-                        OPEN_AGENT_OPERATIONS.id,
-                    ),
+                    CHANNELS_HOME_REF,
+                    CHANNELS_AGENT_BOUND_OPERATION_IDS,
                 ),
-                "operations": ("operations.home", ("operations.promote_evaluation_case",)),
+                "operations": (
+                    OPERATIONS_HOME_REF,
+                    OPERATIONS_AGENT_BOUND_OPERATION_IDS,
+                ),
             }[self.area]
             effects = _external_agent_surface_effects(
                     payload.agent_ref,
                     context.private_entity_id("agent_ref"),
-                    surface_id=surface_id,
+                    surface_id=surface_ref.id,
                     operation_ids=operation_ids,
                 )
         return _success("opened", effects=effects)
@@ -886,7 +887,7 @@ def _external_agent_surface_effects(
             _agent_binding_effect(
                 agent_ref,
                 private_agent_id,
-                operation_ids + (RETURN_TO_AGENT_HUB.id,),
+                operation_ids,
             ),
         ),
         surface_updates=(

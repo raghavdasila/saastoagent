@@ -57,6 +57,22 @@ def test_backend_context_providers_use_persisted_string_entity_identity(
     assert "persisted private_id is already a string" in violations[0].message
 
 
+def test_selected_agent_cross_feature_route_ids_require_owning_contracts(
+    tmp_path: Path,
+) -> None:
+    feature = tmp_path / "backend/src/corpus/features/agents"
+    feature.mkdir(parents=True)
+    (feature / "operations.py").write_text(
+        'operation_ids = ("deployment.deploy",)\n',
+        encoding="utf-8",
+    )
+
+    violations = find_architecture_violations(tmp_path)
+
+    assert len(violations) == 1
+    assert "owning feature contracts" in violations[0].message
+
+
 def test_backend_allows_only_declared_public_dependencies(tmp_path: Path) -> None:
     feature = tmp_path / "backend/src/corpus/features/consumer"
     feature.mkdir(parents=True)
