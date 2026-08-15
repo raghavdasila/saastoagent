@@ -2104,7 +2104,7 @@ def test_chat_downstream_navigation_accepts_direct_legal_cross_feature_paths() -
     assert "(open_operation_id,)," in helper
     assert "(return_operation_id, open_operation_id)," in helper
     assert CHAT_PROMPTS["run_generated_evaluation"] == (
-        "Evaluate the automatically generated required case for this version."
+        "Evaluate the automatically generated draft case for this version."
     )
 
 

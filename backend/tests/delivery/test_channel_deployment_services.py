@@ -46,6 +46,14 @@ def test_natural_operation_choice_accepts_duplicate_identical_candidates() -> No
     ) == "PostCartsIdLineItems"
 
 
+def test_natural_operation_choice_prefers_one_unique_most_specific_candidate() -> None:
+    assert _selected_operation(
+        "Use carts id line items.",
+        ("PostCartsIdLineItems", "PostCarts", "GetProducts"),
+        (),
+    ) == "PostCartsIdLineItems"
+
+
 class Runtime:
     def verify(self, bundle):
         return RuntimeReadiness(True, "test", "pinned", {"build_hash": bundle.content_hash})

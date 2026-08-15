@@ -147,7 +147,7 @@ CHAT_PROMPTS = {
     "start_private_trial": "Run a private trial that finds products matching \"Medusa T-Shirt\".",
     "enter_evaluation": "Keep that successful trial in the Baseline set as a required easy routing case called Product search success for future versions.",
     "create_evaluation": "Keep that trial in the Baseline set as a required easy routing case called Product search success for future versions.",
-    "run_generated_evaluation": "Evaluate the automatically generated required case for this version.",
+    "run_generated_evaluation": "Evaluate the automatically generated draft case for this version.",
     "run_evaluation": "Now check the required case from my private trial.",
     "enter_delivery": "Set up /{slug} as a hosted address called Medusa Shopping, but do not publish it yet.",
     "create_channel": "Use /{slug} for a hosted address called Medusa Shopping.",
