@@ -1821,7 +1821,8 @@ def test_chat_evidence_uses_short_ordinary_intent_without_spoonfeeding() -> None
     _validate_chat_prompts()
 
     assert CHAT_PROMPTS["setup_from_file"] == (
-        "Use this file please. Analyze it, then ask me which Agent should use it."
+        "Add this attached API definition and start its analysis now. Complete both actions, "
+        "then ask me which Agent should use it."
     )
     assert CHAT_PROMPTS["choose_new_agent"] == "Create a new one."
     assert CHAT_PROMPTS["create_agent"] == (
@@ -2074,6 +2075,10 @@ def test_chat_builder_runtime_proof_survives_immediate_navigation_to_sandbox() -
     assert "await _wait_for_build_runtime_lifecycle(" in runtime
     assert 'ids["buildId"],\n                    "running",' in runtime
     assert "await ready_build.get_by_text(\"Running\"" in runtime
+    assert CHAT_PROMPTS["start_build_runtime"] == (
+        "The build is already assembled. Start that exact build's private runtime so I can "
+        "try the approved assistant. Do not create another build."
+    )
 
 
 def test_chat_sandbox_start_accepts_current_node_without_redundant_navigation() -> None:
@@ -2255,6 +2260,12 @@ def test_public_write_driver_handles_operation_choice_before_input_detail() -> N
     assert "operation_choice_sent" in segment
     assert "detail_sent" in segment
     assert "unsupported additional clarification" in segment
+    helper = source[
+        source.index("async def _assistant_response_text("):
+        source.index("def _observe_horizontal(")
+    ]
+    assert 'article.locator(":scope > :not(header)").all_inner_texts()' in helper
+    assert "_assistant_response_text(responses.last)" in source
 
 
 def test_visible_architecture_inspector_cannot_collide_with_product_surface_readiness() -> None:

@@ -1,6 +1,6 @@
 # Corpus GCP Single-VM Deployment
 
-Status: deployed for internal v0.1 testing on 2026-08-13
+Status: deployed and revalidated for internal v0.1 testing on 2026-08-15
 
 The selected methodology, alternatives, security/cost trade-offs, and revisit
 triggers are recorded in
@@ -151,7 +151,7 @@ both a pre-restore archive and the moved pre-restore directories.
 Corpus runs on `corpus-vm-1` (`n2-standard-2`, `asia-south1-a`, 160 GB
 balanced disk). Its only ecommerce acceptance destination is private Medusa
 `http://10.138.0.2:9100`; backend and worker receive that exact allowlist
-entry. The current backend and worker image digest is
+entry. The 2026-08-13 backend and worker image digest was
 `sha256:50145616831f69ad3999b35589794897404565b4d789855ea486004deb6bf595`.
 
 The deployed Surface, Hybrid, and Chat journeys passed 39/39, 40/40, and
@@ -161,3 +161,30 @@ kills. Peak one-minute load was 1.53 on two vCPUs; sampled host CPU had brief
 seconds. This is sufficient for the current internal five-user acceptance
 target; no resize was performed. The evidence and exact run IDs are in
 `docs/superpowers/validation/2026-08-13-deployed-ecommerce-three-mode.md`.
+
+## 2026-08-15 boundary-refactor rollout
+
+The universal boundary refactor and its deployed-runtime corrections are live.
+The immutable manifest and running containers agree exactly:
+
+- backend and worker:
+  `sha256:6b9c677b54bea60ea85ce9816a0e176d6e97b1f5185aea9b62fa0b2f59fd18ee`;
+- web:
+  `sha256:1a9acb0a572b7708e87bd9b7d0407af9ae1cb38154d5f717f38a4e6aa41a6b41`.
+
+`corpus.service` and `corpus-backup.timer` are active. Backend, worker, and web
+are running with zero container restarts and `OOMKilled=false`; the backend is
+healthy. The worker registers exactly five tasks. Public `/healthz` and
+`/readyz` returned HTTP 200 after the final E2E campaign. Expected canceled SSE
+responses appear when the browser navigates or closes; no unexpected product
+error was present in the accepted browser diagnostics.
+
+Deployed Surface `20260815T113953Z-89bb70e514` passed 39/39, Hybrid
+`20260815T102407Z-828e3735c3` passed 40/40, and Chat
+`20260815T115153Z-5847710253` passed 39/39. Exact recordings, hashes, retained
+failed attempts, and claim boundaries are in
+`docs/superpowers/validation/2026-08-15-deployed-boundary-refactor.md`.
+
+Readiness remains intentionally strict: `/readyz` calls the configured OpenAI
+dependency with a five-second timeout. A dependency stall therefore makes
+readiness fail rather than silently selecting a fallback.

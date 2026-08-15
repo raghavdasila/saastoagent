@@ -2,7 +2,7 @@
 
 Date: 2026-08-14
 
-Status: complete audit; five high-severity findings remediated; final deployed validation in progress
+Status: complete audit; all five high-severity findings remediated and deployed validation complete
 
 ## Question
 
@@ -283,3 +283,32 @@ commands, run IDs, and artifact paths.
 
 The original findings and limitations above remain the audit-time record; they
 are not rewritten as if the initial scan had observed the remediated state.
+
+## Current boundary audit after deployed validation
+
+The current production system closes all five HIGH findings:
+
+| Finding | Current result |
+| --- | --- |
+| H1 universal enforcement | Closed. The directory-discovered checker governs every immediate backend and frontend feature with zero baseline exemptions. |
+| H2 worker composition | Closed. The Huey process entrypoint and task composition are owned by `corpus.app.worker`; the live worker registers exactly five application-owned tasks. |
+| H3 generic Source vs Medusa acceptance | Closed. Generic check/plan/execute behavior validates the selected persisted reviewed revision; Medusa 2.13.6 correction is an explicitly selected integration adapter. |
+| H4 persisted vs execution identity | Closed. Context providers consume persisted string identities and their tests construct the real persisted binding contract. |
+| H5 target-operation Agent bindings | Closed. Target features export their own Agent-bound operation sets, the compiled contract test proves equality with target Nodes, and the transition handler contains no copied external RouteDeck IDs. |
+
+Production runs backend/worker digest
+`sha256:6b9c677b54bea60ea85ce9816a0e176d6e97b1f5185aea9b62fa0b2f59fd18ee`
+and web digest
+`sha256:1a9acb0a572b7708e87bd9b7d0407af9ae1cb38154d5f717f38a4e6aa41a6b41`.
+Fresh deployed Surface, Hybrid, and Chat journeys passed 39/39, 40/40, and
+39/39 with independent lineages and zero unexpected browser/network
+diagnostics. Root tests passed 100/100 and backend tests passed 536/536. Exact
+recordings, hashes, commands, retained failed attempts, and operational proof
+are in
+`docs/superpowers/validation/2026-08-15-deployed-boundary-refactor.md`.
+
+The four MEDIUM findings remain valid follow-up work. They are not hidden HIGH
+failures: immutable image digests still do not independently name the sibling
+RouteDeck source revision; built-Agent isolation remains logical rather than
+hostile-code/process isolation; code-map glob ownership remains partially
+overlapping; and green structural checks still require real product-path E2E.

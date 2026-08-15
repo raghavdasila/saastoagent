@@ -115,7 +115,8 @@ FEATURE_SURFACE_SELECTORS = {
 
 CHAT_PROMPTS = {
     "setup_from_file": (
-        "Use this file please. Analyze it, then ask me which Agent should use it."
+        "Add this attached API definition and start its analysis now. Complete both actions, "
+        "then ask me which Agent should use it."
     ),
     "choose_new_agent": "Create a new one.",
     "create_agent": "It is a shopping assistant that finds products and adds a chosen product to a cart only after approval.",
@@ -142,7 +143,10 @@ CHAT_PROMPTS = {
     "request_build": "Save this approved design as the version I want built next.",
     "enter_build": "I want to try the approved assistant privately now.",
     "assemble_build": "Create the runnable build from that approved design and its store access.",
-    "start_build_runtime": "Start this private runtime so I can try the approved assistant.",
+    "start_build_runtime": (
+        "The build is already assembled. Start that exact build's private runtime so I can "
+        "try the approved assistant. Do not create another build."
+    ),
     "enter_private_trial": "Before customers see it, I want to try a real product search.",
     "start_private_trial": "Run a private trial that finds products matching \"Medusa T-Shirt\".",
     "enter_evaluation": "Keep that successful trial in the Baseline set as a required easy routing case called Product search success for future versions.",
@@ -3220,7 +3224,7 @@ async def _public_send(page: Page, text: str) -> str:
     deadline = asyncio.get_running_loop().time() + 180
     while asyncio.get_running_loop().time() < deadline:
         if await responses.count() > previous_count:
-            current = await responses.last.inner_text()
+            current = await _assistant_response_text(responses.last)
             if current.strip():
                 return current
         await page.wait_for_timeout(250)
@@ -3256,7 +3260,7 @@ async def _public_request_review(
             return review
         current_count = await responses.count()
         if current_count > previous_count:
-            response = (await responses.last.inner_text()).strip()
+            response = await _assistant_response_text(responses.last)
             if clarification is None:
                 raise RuntimeError(
                     "The deployed Agent responded without staging the requested review: "
@@ -3301,11 +3305,16 @@ async def _public_accept_review(page: Page, review: Locator) -> str:
     deadline = asyncio.get_running_loop().time() + 180
     while asyncio.get_running_loop().time() < deadline:
         if await responses.count() > previous_count:
-            current = await responses.last.inner_text()
+            current = await _assistant_response_text(responses.last)
             if current.strip():
                 return current
         await page.wait_for_timeout(250)
     raise TimeoutError("The reviewed Agent action did not publish its terminal response.")
+
+
+async def _assistant_response_text(article: Locator) -> str:
+    parts = await article.locator(":scope > :not(header)").all_inner_texts()
+    return "\n".join(part.strip() for part in parts if part.strip()).strip()
 
 
 def _observe_horizontal(page: Page, observations: dict, trace: list[dict]) -> None:

@@ -1,6 +1,6 @@
 # ADR-005: Enforced feature and acceptance boundaries
 
-Status: accepted and implemented; validation complete
+Status: accepted and implemented; local and deployed validation complete
 
 Date: 2026-08-14
 
