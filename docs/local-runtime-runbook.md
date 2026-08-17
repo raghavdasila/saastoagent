@@ -105,7 +105,7 @@ each dependency in detached-HEAD state at its approved commit, verifies the
 resulting identity, and never falls back to a floating branch. It currently
 pins:
 
-- RouteDeck `d58c5aa05b64ce44ccb1d77472f9609a28eb50f6`;
+- RouteDeck `0f777587f015bb99e69d537dcba427798ca4175f`;
 - Agent Execution Runtime
   `f0b4033562708090dff8d9a072423ddf20bc9274`;
 - Agent Delivery Runtime
@@ -353,6 +353,29 @@ pnpm --dir docs/corpus-agent-design/workbench dev --host 0.0.0.0 --port 8782 --s
 Open `http://127.0.0.1:8782/`. The page title is
 `RouteDeck Agent Design Studio · Corpus`, and its authoritative autosaved state
 is `docs/corpus-agent-design/workbench/design-state.json`.
+
+### 4. Provision the local Medusa target when required
+
+Medusa 2.13.6 is source-complete inside the pinned sibling RouteDeck checkout;
+there is no separate Medusa repository to clone. Provision the deterministic
+target once, then use `Up -Services medusa` for ordinary starts:
+
+```powershell
+Set-Location ..\routedeck
+powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Provision
+powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Up -Services medusa
+(Invoke-WebRequest http://127.0.0.1:9100/health -UseBasicParsing).StatusCode
+```
+
+Stop Medusa while retaining the protected volumes, then return to Corpus:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Down
+Set-Location ..\saastoagent-v0.1
+```
+
+`-Action Reset` is an explicitly destructive reset and is not part of normal
+first-time setup, restart, or shutdown.
 
 ## Smoke Checks
 

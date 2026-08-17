@@ -96,6 +96,29 @@ Smoke URLs:
 - Backend readiness: `http://127.0.0.1:8099/readyz`
 - RouteDeck Agent Design Studio: `http://127.0.0.1:8782/`
 
+### Local Medusa target
+
+Medusa is source-complete inside the pinned sibling RouteDeck checkout; do not
+clone a separate Medusa repository. Provision it once, then start only the
+Medusa service for Corpus acceptance work:
+
+```powershell
+Set-Location ..\routedeck
+powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Provision
+powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Up -Services medusa
+(Invoke-WebRequest http://127.0.0.1:9100/health -UseBasicParsing).StatusCode
+```
+
+Stop it without deleting its protected data:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Down
+Set-Location ..\saastoagent-v0.1
+```
+
+`-Action Reset` destroys the protected demo data and is not part of normal
+first-time setup, restart, or shutdown.
+
 ToolRouter runs inside the backend container. It uses the explicitly selected
 Ollama or OpenAI generation/review provider and always retains the pinned local
 CPU MiniLM embedding path. Runtime state persists under `.runtime`.
