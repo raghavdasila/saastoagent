@@ -13,7 +13,10 @@ shape and boundary parity.
 `dependency-provenance/` contains machine-readable records for approved,
 exactly pinned product dependencies. These manifests record source, license,
 version, wheel hash, local reference evidence, and whether any source snapshot
-was imported; they are not runtime configuration or a dependency resolver.
+was imported. The development source checkout manifest additionally owns the
+exact RouteDeck and standalone runtime Git repositories and commits consumed by
+the Docker build; the bootstrap reads that manifest without selecting a
+floating branch.
 
 The central aggregate is the versioned **Agent Configuration**:
 

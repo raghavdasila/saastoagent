@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "dependencies": [
+    {
+      "name": "RouteDeck",
+      "directory": "routedeck",
+      "repository": "https://github.com/saastoagent/routedeck.git",
+      "commit": "d58c5aa05b64ce44ccb1d77472f9609a28eb50f6",
+      "visibility": "public"
+    },
+    {
+      "name": "Agent Execution Runtime",
+      "directory": "agent-execution-runtime",
+      "repository": "https://github.com/saastoagent/agent-execution-runtime.git",
+      "commit": "f0b4033562708090dff8d9a072423ddf20bc9274",
+      "package_version": "0.1.0",
+      "visibility": "private"
+    },
+    {
+      "name": "Agent Delivery Runtime",
+      "directory": "agent-delivery-runtime",
+      "repository": "https://github.com/saastoagent/agent-delivery-runtime.git",
+      "commit": "2fdeab9b35f0997123ecdc4b6ab670dc6795fd1b",
+      "package_version": "0.1.0",
+      "visibility": "private"
+    }
+  ]
+}

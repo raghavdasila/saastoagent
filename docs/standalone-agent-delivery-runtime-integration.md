@@ -1,80 +1,95 @@
-# Standalone Agent Delivery Runtime integration
+# Agent Delivery Runtime Integration
 
-Status: proven independently; not imported into or invoked by Corpus
+Updated: 2026-08-17
+
+Status: package integrated through Corpus-owned adapters; standalone proof host
+remains separate and optional
 
 Standalone authority: `D:\Dev\AI Projects\agent-delivery-runtime`
 
-## Purpose
+Canonical source is the private repository
+`https://github.com/saastoagent/agent-delivery-runtime` at the exact commit
+recorded in
+`contracts/dependency-provenance/development-source-checkouts.json`.
 
-The standalone runtime proves the isolated delivery provider needed after an
-agent is already compiled and eligible: immutable deployment revisions,
-activation and rollback, a hosted Web channel, deployment-pinned public
-sessions, real RouteDeck execution, redacted interaction evidence, and
-evaluation-candidate export.
+## Purpose and authority
 
-It does not compile Corpus Agent Designer state, build an agent, authorize a
-Corpus owner, or render Corpus-owned product components. Running it beside
-Corpus is module proof, not Corpus integration proof.
+The separately owned package supplies immutable deployment revisions,
+activation and rollback, channel/public-session state, redacted interaction
+evidence, and evaluation-candidate export for an already compiled eligible
+Agent.
 
-## Ownership and integration points
+Corpus installs pinned `agent-delivery-runtime==0.1.0` source into its
+backend/worker image and consumes the package in process behind Corpus-owned
+delivery adapters and stores. The standalone API/owner/public Web environment
+on ports 8880/5280 remains an optional package proof. It is not part of the
+ordinary Corpus service topology and its Medusa example is not Corpus product
+acceptance.
 
-| Corpus owner | Standalone boundary | Required Corpus integration |
+## Current ownership and integration
+
+| Corpus owner | Package boundary | Current integration |
 | --- | --- | --- |
-| Agent Designer and RouteDeck mapping | No direct boundary; Delivery accepts an already compiled bundle | Corpus must first pass the accepted Studio design to current RouteDeck contract mapping/parity gate. Delivery must never compile or reinterpret Studio state. |
-| Agent Builder | Trusted immutable deployable bundle | Replace the proof-only Medusa bundle catalogue with a Corpus-authorized artifact publisher/reader. Preserve exact content, RouteDeck app, surface-contract, and eligibility identities. |
-| Owner identity | `OwnerIdentityPort` and authenticated control APIs | Supply Corpus owner authorization through a narrow adapter. The local bearer-token file and standalone owner UI are proof infrastructure, not product identity. |
-| Channels/Web | Channel create, enable/disable, public slug, session and projection APIs | Corpus owns channel configuration and product-facing management UI. Delivery owns hosting state and public session lifecycle. Deployed-agent users remain separate from Corpus owners. |
-| Deployment | Deployment request/status, verification, activation, retry and rollback | Corpus submits only an authorized immutable bundle ID and presents status. Delivery owns queue claims, compatibility checks and transaction-safe activation. Eligibility failure must remain visible. |
-| RouteDeck runtime | `DeployedAgentRuntimePort` | A production adapter must provision and invoke the exact compiled agent through public RouteDeck contracts. RouteDeck continues to own agent state, operations, surfaces and terminal execution semantics. |
-| Product Web rendering | RouteDeck message/surface/suggested-action projection | The bundle must provide its matching frontend surface registry and private-form/review components. Delivery transports projections but does not copy Corpus components. |
-| Operations | Redacted interaction records and detail projections | Corpus owns owner authorization, search/presentation, retention and review workflow. Delivery owns delivery/runtime evidence and must not expose provider objects, credentials or unrestricted bodies. |
-| Evaluation | `delivery-runtime.v1` evaluation-candidate export | Corpus Evaluation must ingest through a versioned adapter, retain deployment/build lineage and decide whether the candidate enters an evalset. Export alone is not evaluation. |
-| Persistence and work queue | `DeliveryStorePort` and `DeploymentJobPort` | SQLite and Huey are local adapters. Production topology, durability, tenancy, backup and scaling require separately approved adapters without changing domain contracts. |
+| Agent Designer and RouteDeck mapping | No direct boundary; Delivery accepts an already compiled bundle | Corpus passes only accepted, compiled RouteDeck and product-surface identities. Delivery never compiles or reinterprets Studio state. |
+| Agent Builder | trusted immutable deployable bundle | Corpus publishes the exact eligible build through its application adapters while preserving build, RouteDeck app, surface-contract, and eligibility identities. |
+| Owner identity | authenticated Corpus operations | Corpus owner authorization remains outside the package. Standalone bearer-token files and its owner UI are proof infrastructure only. |
+| Channels/Web | channel state, public slug, sessions, and projections | Corpus owns channel configuration and owner-facing management; the delivery package owns immutable activation and public-session lifecycle behind Corpus adapters. |
+| Deployment | request/status, verification, activation, retry, and rollback | Corpus stages RouteDeck review and submits the authorized exact build. The package preserves compatibility checks and transaction-safe activation; failures remain visible. |
+| RouteDeck runtime | deployed-Agent runtime port | Corpus provisions/invokes the exact compiled Agent through public RouteDeck contracts. RouteDeck retains state, operation, review, surface, and terminal-execution authority. |
+| Product Web rendering | RouteDeck message/surface/suggested-action projection | Corpus owns the hosted Agent route and product components. Package projections never copy owner-only Corpus state into a public session. |
+| Operations | redacted interaction records/projections | Corpus authorizes, searches, and presents evidence; provider objects, credentials, and unrestricted bodies remain private. |
+| Evaluation | evaluation-candidate export | Corpus retains build/deployment/interaction lineage and decides whether evidence enters an evaluation set. Export alone is not evaluation. |
+| Persistence and work queue | delivery store and deployment job ports | Corpus supplies its selected SQLite/Huey adapters in the current single-host topology without changing package domain contracts. |
 
-## Intended product flow
+Application composition is owned by
+`backend/src/corpus/app/delivery_runtime_adapters.py`,
+`backend/src/corpus/app/delivery_runtime_store.py`, and
+`backend/src/corpus/integrations/agent_delivery`. Feature packages consume
+neutral `corpus.shared.agent_delivery` contracts.
+
+## Current product flow
 
 ```text
 accepted Corpus design
--> compiled RouteDeck agent and product surface bundle
+-> compiled RouteDeck Agent and product surface contract
 -> immutable Corpus Agent Build
 -> Corpus evaluation and eligibility decision
--> authorized Delivery bundle publication
--> Delivery verification and activation
--> public Web session pinned to one activation
+-> reviewed deployment publication
+-> immutable activation and public session
 -> RouteDeck invocation and product projection
--> redacted Delivery interaction evidence
+-> reviewed public write when requested
+-> redacted interaction evidence
 -> Corpus Operations and optional Evaluation intake
 ```
 
-## Adoption gates
+This flow is accepted for the Medusa ecommerce vertical through independent
+Surface, Hybrid, and Chat journeys. Exact deployed evidence is owned by
+`docs/superpowers/validation/2026-08-15-deployed-boundary-refactor.md`.
 
-1. Pass the mandatory current Studio-to-RouteDeck mapping/parity gate.
-2. Define the Corpus Agent Build and deployable artifact schema; do not reuse
-   the proof-only Medusa catalogue as product storage.
-3. Define a versioned Corpus adapter for control commands, public channel
-   projections, Operations evidence and evaluation candidates.
-4. Replace local token identity with Corpus authorization while keeping
-   deployed-agent identity and sessions separate from Corpus owner sessions.
-5. Package and verify the exact product frontend surface registry alongside
-   the compiled RouteDeck agent.
-6. Select approved persistence, queue, secret, public-hosting and observability
-   adapters. Preserve fail-closed behavior and immutable activation lineage.
-7. Prove the real Corpus browser path from eligible Agent Build through Web
-   deployment, public interaction, rollback and Operations.
+## Maintained gates
 
-## Current blockers and claim limits
+1. Pass the current Studio-to-RouteDeck mapping/parity gate before build
+   compilation.
+2. Publish only an exact eligible immutable build; never use the standalone
+   proof catalogue as Corpus product storage.
+3. Keep Corpus owner authorization and deployed-Agent public identities and
+   sessions separate.
+4. Package/resolve the exact product surface contract with the compiled Agent.
+5. Preserve review, failure, retry, rollback, redaction, and activation lineage
+   across every adapter.
+6. Prove changes through focused delivery/runtime tests and the real Corpus
+   deployment, public interaction, rollback, and Operations path.
 
-- Corpus has no Agent-Build-to-Delivery artifact publisher or host adapter.
-- The standalone trusted catalogue contains only the verified local Medusa
-  proof bundle.
-- Corpus owner authentication is not connected to Delivery control APIs.
-- Corpus product surface/private-form/review rendering is not packaged into the
-  standalone public host.
-- Delivery interaction export is not ingested by Corpus Operations or
-  Evaluation.
-- Local SQLite, Huey, loopback Vite and the generated token are development
-  proof choices, not production hosting decisions.
+## Claim limits
 
-No RouteDeck change is implied by this document. If the current RouteDeck
-contracts cannot represent a required compiled-agent or projection boundary,
-stop and report the exact upstream gap before implementation.
+- The standalone 8880/5280 environment still proves only its own RouteDeck
+  Medusa example and does not independently prove a Corpus-built Agent.
+- Current Corpus persistence, Huey, and single-host topology are internal v0.1
+  choices, not multi-host scaling or SLA evidence.
+- Built-Agent isolation is logical and identity/state scoped, not hostile-code
+  process/container isolation.
+- Accepted Corpus evidence covers the Medusa ecommerce vertical, not every
+  channel type, external API, or concurrency level.
+- No RouteDeck change is implied. If a current public RouteDeck contract cannot
+  represent a required compiled-Agent or projection boundary, stop and report
+  the exact upstream gap.
