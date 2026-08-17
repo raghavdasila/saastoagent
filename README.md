@@ -29,17 +29,48 @@ see `context.md` for current evidence and claim boundaries.
 
 ## Local Setup
 
-The primary development path runs Corpus backend, application worker, and
-frontend in Docker, with the authoritative Agent Design Studio separately.
-Generative models may run through host Ollama or OpenAI. A complete image build
-also requires the exact sibling RouteDeck, Agent Execution Runtime, and Agent
-Delivery Runtime source directories described in the runbook.
-
-After cloning Corpus, authenticated organization members can create those
-exact pinned sibling checkouts with:
+The supported complete-product path runs the Corpus backend, application
+worker, and frontend in Docker, with the authoritative Agent Design Studio as
+a separate host process. Generative models may run through host Ollama or
+OpenAI. Start from an empty parent directory so Docker receives the required
+four-repository sibling layout:
 
 ```powershell
+New-Item -ItemType Directory -Path C:\dev\corpus-development
+Set-Location C:\dev\corpus-development
+git clone https://github.com/saastoagent/saastoagent.git saastoagent-v0.1
+Set-Location saastoagent-v0.1
+
+# Required for the two private runtime repositories.
+gh auth login
+gh auth setup-git
+gh auth status
+
+# Clones RouteDeck and both runtimes at reviewed immutable commits.
 .\scripts\clone-development-dependencies.ps1
+```
+
+The resulting layout is:
+
+```text
+corpus-development/
+|-- saastoagent-v0.1/
+|-- routedeck/
+|-- agent-execution-runtime/
+`-- agent-delivery-runtime/
+```
+
+These repositories are source-build dependencies, not Git submodules or
+separately started Corpus services. Compose uses `corpus-development/` as its
+build context. The backend image installs RouteDeck plus the two runtime Python
+packages from the pinned sibling sources; the frontend image builds and links
+RouteDeck's `@routedeck/core` and `@routedeck/react` packages. Corpus uses the
+execution and delivery packages through Corpus-owned adapters.
+
+Install the Design Studio dependencies once:
+
+```powershell
+pnpm --dir docs/corpus-agent-design/workbench install
 ```
 
 Default Ollama lane:
@@ -69,46 +100,9 @@ ToolRouter runs inside the backend container. It uses the explicitly selected
 Ollama or OpenAI generation/review provider and always retains the pinned local
 CPU MiniLM embedding path. Runtime state persists under `.runtime`.
 See `docs/local-runtime-runbook.md` for prerequisites, exact startup order,
-health checks, logs, rebuilds, shutdown, and failure diagnosis. The Compose
-`notebook` service on port `8771` is stale and is deliberately excluded.
-
-The direct-host setup remains available for focused development without
-containers.
-
-Verified versions on 2026-07-23:
-
-- Python 3.11.9
-- Node.js 24.3.0 and pnpm 11.7.0
-- Ollama 0.21.0 with `gemma4:latest` and `qwen2.5-coder:7b`
-- RouteDeck 0.1.0 from the sibling `..\routedeck` checkout
-- FastAPI 0.136.3, Uvicorn 0.48.0, LangGraph 1.2.9, LangChain 1.3.13,
-  React 19.2.7, Vite 8.1.4, and TypeScript 7.0.2
-
-```powershell
-ollama pull gemma4:latest
-ollama pull qwen2.5-coder:7b
-.\scripts\init-local.ps1
-```
-
-The setup creates an ignored `.venv`, `.env.local`, and SQLite database path.
-It installs the approved local RouteDeck source and locked frontend
-dependencies, pins the ToolRouter Python dependency versions, and caches the
-exact MiniLM revision used by retrieval. It fails if RouteDeck, Ollama,
-`gemma4:latest`, `qwen2.5-coder:7b`, or the pinned embedding model is
-unavailable.
-
-Direct-host mode starts the two product processes in separate terminals:
-
-```powershell
-.\scripts\run-backend.ps1
-.\scripts\run-frontend.ps1
-```
-
-Smoke URL: `http://127.0.0.1:5199/`. Sign in or create an owner, then use
-`http://127.0.0.1:5199/sources` through the Home **Open Sources debug** action.
-
-Backend health/readiness: `http://127.0.0.1:8099/healthz` and
-`http://127.0.0.1:8099/readyz`.
+health checks, direct-host focused development, logs, rebuilds, shutdown, and
+failure diagnosis. The Compose `notebook` service on port `8771` is stale and
+is deliberately excluded.
 
 ## Validation
 

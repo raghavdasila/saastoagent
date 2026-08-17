@@ -46,8 +46,8 @@ Do not treat the API-related modules as interchangeable:
 | OpenAPI ingestion, semantic graph/grouping, GRAG routing candidates, reviewed evalset generation | ToolRouter snapshot behind the Corpus API Source connector | Source Hub, API Source, and the ToolRouter portion of Evaluation | Integrated in the Corpus backend |
 | Standalone source lifecycle, durable ToolRouter processing, encrypted connections, explicit real API execution, response-schema review and corrected OpenAPI schema lineage | `D:\Dev\AI Projects\source-hub-runtime`, using the sibling `api-execution-runtime` behind its executor adapter | Proven Source Hub/API Source behaviour plus foundations for future Evaluation, Sandbox and Operations | Proven separately; not imported into Corpus |
 | Low-level authorized and validated HTTP execution | Private neutral `api-execution-runtime==0.1.0` snapshot under `corpus.integrations.api_execution._snapshot`; sibling remains read-only | Source connection checks and routed execution for API Sources, Agent Builds, Sandbox, deployed Channels, and hosted-agent writes | Integrated behind `SafeApiExecutionAdapter` and `RoutedApiExecutionAdapter`; the accepted Medusa ecommerce path performs real reviewed reads and writes through it |
-| Immutable Agent Build, model intent, ToolRouter routing, capability-scoped API execution, durable trace, evaluation, and eligibility | `D:\Dev\AI Projects\agent-execution-runtime`, installed into the Corpus image | Builder, Sandbox, Evaluation, Operations, and the execution side of deployed Agents | Integrated through Corpus-owned app/runtime adapters; the separate standalone Studio remains an optional proof environment |
-| Immutable deployment revisions, Web-channel activation/rollback, pinned public sessions, interaction evidence, and evaluation-candidate export | `D:\Dev\AI Projects\agent-delivery-runtime`, installed into the Corpus image | Channels/Web, Deployment, public hosted-agent sessions, and deployed-agent Operations | Integrated through Corpus-owned delivery adapters; the separate standalone owner/public Web remains an optional proof environment |
+| Immutable Agent Build, model intent, ToolRouter routing, capability-scoped API execution, durable trace, evaluation, and eligibility | Pinned sibling `agent-execution-runtime`, installed into the Corpus image | Builder, Sandbox, Evaluation, Operations, and the execution side of deployed Agents | Integrated through Corpus-owned app/runtime adapters; the separate standalone Studio remains an optional proof environment |
+| Immutable deployment revisions, Web-channel activation/rollback, pinned public sessions, interaction evidence, and evaluation-candidate export | Pinned sibling `agent-delivery-runtime`, installed into the Corpus image | Channels/Web, Deployment, public hosted-agent sessions, and deployed-agent Operations | Integrated through Corpus-owned delivery adapters; the separate standalone owner/public Web remains an optional proof environment |
 | Product behavior, RouteDeck configuration, policies, operations, and surfaces | RouteDeck Agent Design Studio | Agent Designer | Studio exists; compiled parity is a separate gate |
 
 The API execution runtime does not choose a tool and ToolRouter does not make
@@ -77,7 +77,7 @@ Clone Corpus first:
 ```powershell
 New-Item -ItemType Directory -Path C:\dev\corpus-development
 Set-Location C:\dev\corpus-development
-git clone https://github.com/raghavdasila/saastoagent.git saastoagent-v0.1
+git clone https://github.com/saastoagent/saastoagent.git saastoagent-v0.1
 Set-Location saastoagent-v0.1
 ```
 
@@ -114,6 +114,37 @@ pins:
 Do not substitute similarly named projects or update a pin merely to make a
 build pass. A dependency update requires its own validation and a reviewed
 manifest change.
+
+### How the sibling repositories enter Corpus
+
+The sibling repositories are not Git submodules, floating branch checkouts, or
+separately started Corpus services. They are immutable source inputs to the
+Corpus image build:
+
+1. `compose.yaml` sets the parent `corpus-development/` directory as the Docker
+   build context.
+2. `Dockerfile.dockerignore` admits only the required Corpus, RouteDeck, Agent
+   Execution Runtime, and Agent Delivery Runtime source paths.
+3. The backend image installs RouteDeck from `../routedeck` with its FastAPI
+   and persistence extras.
+4. The backend image installs `agent-execution-runtime==0.1.0` and
+   `agent-delivery-runtime==0.1.0` from their sibling `pyproject.toml` and
+   `src/` trees, then verifies both installed package versions.
+5. The backend installs Corpus and composes the runtime packages through
+   Corpus-owned integration and application adapters. Builder, Sandbox, and
+   Evaluation use `agent_execution_runtime`; Channels, Deployment, hosted Web,
+   and Operations use `agent_delivery_runtime`.
+6. The frontend image builds RouteDeck's `@routedeck/core` and
+   `@routedeck/react` packages from the sibling source. Corpus links those
+   packages through `frontend/package.json` for navigation, projection,
+   surfaces, reviews, recovery, and conversation state.
+
+RouteDeck remains the framework owner of legal topology, operations, policies,
+guards, reviews, sessions, projections, and recovery. Corpus remains the owner
+of product declarations, identities, persistence, handlers, adapter
+composition, and presentation. The standalone runtime Web/API applications
+described later are optional proof environments; ordinary Corpus startup does
+not start them.
 
 ## Prerequisites
 
@@ -216,6 +247,40 @@ pnpm --dir docs/corpus-agent-design/workbench install
 Corpus runtime data and generated development secrets are stored under the
 ignored `.runtime/` directory. Do not delete it during ordinary startup,
 shutdown, or rebuilds.
+
+### Focused direct-host development
+
+Docker Compose is the supported complete-product path. Direct-host mode is
+available for focused backend/frontend development, but it still requires all
+three pinned sibling repositories from the fresh-checkout layout.
+
+For the default Ollama lane, prepare the local environment from the Corpus
+root, then install both runtime packages from the pinned sibling sources:
+
+```powershell
+ollama pull gemma4:latest
+ollama pull qwen2.5-coder:7b
+.\scripts\init-local.ps1
+.\.venv\Scripts\python.exe -m pip install `
+  ..\agent-execution-runtime `
+  ..\agent-delivery-runtime
+.\.venv\Scripts\python.exe -m pip check
+```
+
+`init-local.ps1` installs RouteDeck, Corpus, and frontend dependencies; the
+explicit runtime-package installation above is required because the runtime
+packages are source-build inputs rather than public package-index
+dependencies. Start the backend and frontend in separate terminals:
+
+```powershell
+.\scripts\run-backend.ps1
+.\scripts\run-frontend.ps1
+```
+
+The direct-host product URL is `http://127.0.0.1:5199/`; backend health and
+readiness are `http://127.0.0.1:8099/healthz` and
+`http://127.0.0.1:8099/readyz`. Use the Docker path for complete environment
+verification and release evidence.
 
 ## Start the Complete Development Environment
 
@@ -456,11 +521,11 @@ startup dependency.
 
 ### Standalone Agent Execution Runtime
 
-Run from `D:\Dev\AI Projects\agent-execution-runtime`. This standalone suite
-is optional for ordinary Corpus startup and is not a separate Corpus service.
-Corpus installs the package in its backend/worker image and composes it through
-Corpus-owned adapters; the commands below exercise the package's isolated proof
-environment.
+Run from the pinned sibling `agent-execution-runtime` checkout. This standalone
+suite is optional for ordinary Corpus startup and is not a separate Corpus
+service. Corpus installs the package in its backend/worker image and composes
+it through Corpus-owned adapters; the commands below exercise the package's
+isolated proof environment. Start each command block from the Corpus root.
 
 Prerequisites:
 
@@ -481,12 +546,12 @@ Invoke-RestMethod http://127.0.0.1:11434/api/tags
 Start the acceptance dependency and Studio in separate PowerShell terminals:
 
 ```powershell
-cd 'D:\Dev\AI Projects\agent-execution-runtime'
+Set-Location ..\agent-execution-runtime
 .\scripts\run_acceptance_api.ps1
 ```
 
 ```powershell
-cd 'D:\Dev\AI Projects\agent-execution-runtime'
+Set-Location ..\agent-execution-runtime
 .\scripts\run_medusa_studio.ps1
 ```
 
@@ -538,25 +603,26 @@ The standalone repository owns the detailed coverage matrix in
 
 ### Standalone Agent Delivery Runtime
 
-Run from `D:\Dev\AI Projects\agent-delivery-runtime`. This standalone suite is
-optional for ordinary Corpus startup and is not a separate Corpus service.
-Corpus installs the package in its backend/worker image and composes it through
-Corpus-owned delivery adapters. The commands below still prove delivery of the
-standalone RouteDeck Medusa example, not the separate Corpus-built Agent path.
+Run from the pinned sibling `agent-delivery-runtime` checkout. This standalone
+suite is optional for ordinary Corpus startup and is not a separate Corpus
+service. Corpus installs the package in its backend/worker image and composes
+it through Corpus-owned delivery adapters. The commands below still prove
+delivery of the standalone RouteDeck Medusa example, not the separate
+Corpus-built Agent path. Start each command block from the Corpus root.
 
 Prerequisites:
 
 - Docker Desktop with the Linux engine running;
 - local Ollama at `http://127.0.0.1:11434` with `qwen3.5:4b`;
 - the provisioned RouteDeck Medusa stack from
-  `D:\Dev\AI Projects\routedeck`;
+  the pinned sibling `routedeck` checkout;
 - the standalone repository's Python 3.11 environment and built `web/dist`.
 
 Start the RouteDeck Medusa dependency from the RouteDeck checkout. `Provision`
 is first-time setup; ordinary restarts use only `Up`:
 
 ```powershell
-cd 'D:\Dev\AI Projects\routedeck'
+Set-Location ..\routedeck
 powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Provision
 powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Up -Services all
 ```
@@ -565,9 +631,10 @@ Build the trusted local bundle when it is missing or the verified RouteDeck
 source changed, then start Delivery:
 
 ```powershell
-cd 'D:\Dev\AI Projects\agent-delivery-runtime'
-.\.venv\Scripts\python.exe .\scripts\build_medusa_bundle.py --routedeck-root 'D:\Dev\AI Projects\routedeck' --output '.\.runtime\proof\medusa-bundle.json'
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-local.ps1 -RouteDeckRoot 'D:\Dev\AI Projects\routedeck'
+Set-Location ..\agent-delivery-runtime
+$RouteDeckRoot = (Resolve-Path ..\routedeck).Path
+.\.venv\Scripts\python.exe .\scripts\build_medusa_bundle.py --routedeck-root $RouteDeckRoot --output '.\.runtime\proof\medusa-bundle.json'
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-local.ps1 -RouteDeckRoot $RouteDeckRoot
 ```
 
 The launcher creates `.runtime/owner-token.txt`. Copy it without printing it,
@@ -594,10 +661,10 @@ dependency. `Down` retains the protected Medusa volumes; never use `Reset` for
 ordinary shutdown:
 
 ```powershell
-cd 'D:\Dev\AI Projects\agent-delivery-runtime'
+Set-Location ..\agent-delivery-runtime
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\stop-local.ps1
 
-cd 'D:\Dev\AI Projects\routedeck'
+Set-Location ..\routedeck
 powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Down
 ```
 
