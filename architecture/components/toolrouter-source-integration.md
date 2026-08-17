@@ -70,14 +70,16 @@ their fields or defaults. `app/source_composition.py` passes each object to its
 owner. The Source data root has no code default: local setup writes the
 explicit `CORPUS_SOURCE_DATA_ROOT` value.
 
-In Docker development, Compose supplies ToolRouter-owned environment names
-directly and points `CORPUS_TOOLROUTER_OLLAMA_URL` at the external host service
-`http://host.docker.internal:11434`. The evalset engine accepts an explicitly
-configured HTTP hostname with an explicit port; it no longer assumes the
-provider hostname must be loopback. This is an environment-boundary adaptation
-inside the private ToolRouter snapshot, is recorded in `SOURCE.md` and the
-source manifest, and does not add a fallback provider or move model values into
-generic Sources configuration.
+In Docker development, Compose exposes the ToolRouter-owned provider and model
+settings while retaining Ollama defaults. When Ollama is selected, it points
+`CORPUS_TOOLROUTER_OLLAMA_URL` at the external host service
+`http://host.docker.internal:11434`; when OpenAI is selected, the adapter uses
+the explicit API key, generator/reviewer model names, and reasoning effort.
+The evalset engine accepts an explicitly configured HTTP hostname with an
+explicit port; it no longer assumes the provider hostname must be loopback.
+This is an environment-boundary adaptation inside the private ToolRouter
+snapshot, is recorded in `SOURCE.md` and the source manifest, and does not add
+a fallback provider or move model values into generic Sources configuration.
 
 ## Product Path
 
@@ -288,7 +290,8 @@ owner's source from a missing source.
 - After revision creation, any ingestion failure persists a `failed` revision
   with an explicit safe code/message; it never appears ready.
 - Retrieval requires a ready revision and existing graph/index artifacts.
-- Missing MiniLM, Ollama, model digest, parser, graph, or artifact fails loudly.
+- Missing MiniLM, selected provider/API, model digest, parser, graph, or
+  artifact fails loudly.
 - Evalset failure does not downgrade an already-ready source revision.
 - Zero accepted candidates are `quarantined`; accepted output is never called
   gold and engine `run_dir` paths are not exposed by HTTP.

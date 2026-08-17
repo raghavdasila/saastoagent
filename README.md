@@ -5,21 +5,21 @@ deploying, operating, and improving agents. RouteDeck supplies the legal
 interaction topology and scopes the Corpus agent to the prompt, context, tools,
 operations, and surfaces of the active node.
 
-The fresh-project framework, Corpus owner identity, Workspace, and the first
-Sources connector are runnable locally. An authenticated owner can upload a
-real OpenAPI collection, build a persisted resource-first semantic graph and
-MiniLM index, inspect GRAG retrieval, and generate independently reviewed
-evalset candidates through the local Gemma/Qwen factory. This is an
-experimental debug path; Agent Designer, Sandbox, public Web deployment, and
-Operations remain later work in the launch milestone.
+The current development product spans owner identity, Workspace, Sources,
+Agents, Designer, Builder, Sandbox, Evaluation, Channels, Deployment, hosted
+Web sessions, and Operations. Its accepted ecommerce path uses real OpenAPI
+ingestion, persisted ToolRouter evidence, reviewed API execution, immutable
+build/deployment lineage, and explicit write review. That path does not prove
+every external API, exhaustive feature breadth, multi-host scaling, or an SLA;
+see `context.md` for current evidence and claim boundaries.
 
 ## Start Here
 
 - `AGENTIC_CODING_GUIDE.md` - start, completion, and closeout sequence
 - `critical_prompt.md` - product north star and non-negotiable boundaries
 - `context.md` - concise current restart state
-- `docs/local-runtime-runbook.md` - authoritative Docker, Ollama, and Agent
-  Design Studio startup and diagnosis
+- `docs/local-runtime-runbook.md` - authoritative fresh-checkout, Docker,
+  Ollama/OpenAI, and Agent Design Studio startup and diagnosis
 - `docs/corpus-product-definition.md` - locked layout and feature set
 - `docs/corpus-behavior-reference.md` - verified legacy behavior reference
 - `docs/toolrouter-integration-requirements.md` - implemented Sources/API and
@@ -29,13 +29,33 @@ Operations remain later work in the launch milestone.
 
 ## Local Setup
 
-The primary development path runs host Ollama, Corpus backend/frontend in
-Docker, and the authoritative Agent Design Studio separately:
+The primary development path runs Corpus backend, application worker, and
+frontend in Docker, with the authoritative Agent Design Studio separately.
+Generative models may run through host Ollama or OpenAI. A complete image build
+also requires the exact sibling RouteDeck, Agent Execution Runtime, and Agent
+Delivery Runtime source directories described in the runbook.
+
+After cloning Corpus, authenticated organization members can create those
+exact pinned sibling checkouts with:
+
+```powershell
+.\scripts\clone-development-dependencies.ps1
+```
+
+Default Ollama lane:
 
 ```powershell
 ollama pull gemma4:latest
 ollama pull qwen2.5-coder:7b
-docker compose up --build -d backend frontend
+docker compose up --build -d backend source-worker frontend
+pnpm --dir docs/corpus-agent-design/workbench dev --host 0.0.0.0 --port 8782 --strictPort
+```
+
+OpenAI lane, for systems that cannot run the local Gemma/Qwen models:
+
+```powershell
+# First create ignored .env.local exactly as documented in the runbook.
+docker compose --env-file .env.local up --build -d backend source-worker frontend
 pnpm --dir docs/corpus-agent-design/workbench dev --host 0.0.0.0 --port 8782 --strictPort
 ```
 
@@ -45,8 +65,9 @@ Smoke URLs:
 - Backend readiness: `http://127.0.0.1:8099/readyz`
 - RouteDeck Agent Design Studio: `http://127.0.0.1:8782/`
 
-ToolRouter runs inside the backend container; Ollama stays on the host at the
-explicit Compose-configured endpoint. Runtime state persists under `.runtime`.
+ToolRouter runs inside the backend container. It uses the explicitly selected
+Ollama or OpenAI generation/review provider and always retains the pinned local
+CPU MiniLM embedding path. Runtime state persists under `.runtime`.
 See `docs/local-runtime-runbook.md` for prerequisites, exact startup order,
 health checks, logs, rebuilds, shutdown, and failure diagnosis. The Compose
 `notebook` service on port `8771` is stale and is deliberately excluded.

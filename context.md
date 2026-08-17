@@ -1,6 +1,25 @@
 # Corpus Current Context
 
-Updated: 2026-08-15
+Updated: 2026-08-17
+
+## Local follow-up pending publication
+
+The Docker build requires sibling `agent-execution-runtime==0.1.0` and
+`agent-delivery-runtime==0.1.0` source directories. Both are now canonical
+private repositories under the `saastoagent` GitHub organization. The
+repository-owned dependency manifest and bootstrap clone RouteDeck plus both
+runtimes at immutable commits; a fresh checkout requires authenticated
+organization access rather than undocumented local source.
+
+Local, not-yet-published follow-up now makes development Compose honor the
+existing explicit OpenAI ToolRouter provider contract, documents separate
+Ollama and OpenAI setup lanes, preserves the pinned local CPU MiniLM embedding
+boundary, adds the pinned source bootstrap, and corrects
+`scripts/init-local.ps1` to migration
+`0019_builder_assembly_lifecycle`. Focused provider/runtime tests and both
+default and OpenAI Compose configuration checks pass. Production remains on
+the previously recorded digests and was not changed or redeployed by this
+follow-up.
 
 ## Current state
 

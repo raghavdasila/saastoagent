@@ -2,9 +2,13 @@
 
 This is the authoritative procedure for running the current Corpus development
 product locally. Corpus backend and frontend run in Docker, the primary Corpus
-model is explicitly selectable between host Ollama and OpenAI, and the RouteDeck
-Agent Design Studio runs separately with Vite. ToolRouter retains its separate
-host-Ollama configuration.
+model and ToolRouter model provider are selected explicitly as Ollama or
+OpenAI, and the RouteDeck Agent Design Studio runs separately with Vite. The
+OpenAI lane does not require a local generative model, but ToolRouter still
+uses its pinned local CPU MiniLM embedding model.
+
+Last reconciled with the current Compose file, Dockerfile, application worker,
+and Agent runtime adapters: 2026-08-17.
 
 The Compose `notebook` service on port `8771` is stale. The isolated R1 Studio
 under `mockruns/corpus-r1` on port `8783` is also stale. Neither is the current
@@ -14,10 +18,10 @@ Agent Design Studio.
 
 | Process | Location | URL | Required |
 | --- | --- | --- | --- |
-| Ollama | Windows host | `http://127.0.0.1:11434` | Required for the Ollama primary provider and current ToolRouter paths |
-| OpenAI API | Remote | `https://api.openai.com/v1` | Required only when the primary or evaluation provider is `openai` |
+| Ollama | Windows host | `http://127.0.0.1:11434` | Required only when the primary Corpus model or ToolRouter selects `ollama` |
+| OpenAI API | Remote | `https://api.openai.com/v1` | Required when the primary Corpus model, ToolRouter, or an evaluation runner selects `openai` |
 | Corpus backend | Docker Compose | `http://127.0.0.1:8099` | Yes |
-| Corpus Source worker | Docker Compose, Huey | No HTTP surface | Yes for API-source processing |
+| Corpus application worker (Compose service `source-worker`) | Docker Compose, Huey | No HTTP surface | Yes for Source processing, build assembly, evaluation generation/execution, and deployment publication |
 | Corpus frontend | Docker Compose | `http://127.0.0.1:5199` | Yes |
 | RouteDeck Agent Design Studio | Windows host, Vite | `http://127.0.0.1:8782` | When designing |
 | Standalone Source Hub backend | Windows host, FastAPI | `http://127.0.0.1:8870` | Optional isolated capability proof |
@@ -26,10 +30,12 @@ Agent Design Studio.
 | Agent Delivery Runtime API | Windows host, FastAPI/Huey | `http://127.0.0.1:8880` | Optional isolated delivery proof |
 | Agent Delivery Runtime owner/public Web | Windows host, Vite preview | `http://127.0.0.1:5280` | Optional isolated delivery proof |
 | RouteDeck Medusa agent API | Docker Compose from the RouteDeck checkout | `http://127.0.0.1:8098` | Required by Agent Delivery Runtime proof |
-| Local Medusa target | Docker Compose from the RouteDeck checkout | `http://127.0.0.1:9100` | Required by real standalone Medusa proofs |
+| Local Medusa target | Docker Compose from the RouteDeck checkout | `http://127.0.0.1:9100` | Required for real Corpus ecommerce acceptance and standalone Medusa proofs; not required for ordinary startup |
 
 ToolRouter is embedded in the Corpus backend. It is not a separate service.
-The backend reaches host Ollama through `host.docker.internal:11434`.
+When Ollama is selected, the backend reaches it through
+`host.docker.internal:11434`. Provider failure remains a failure; neither
+Corpus nor ToolRouter switches to the other provider.
 
 ## Capability Ownership
 
@@ -39,26 +45,94 @@ Do not treat the API-related modules as interchangeable:
 | --- | --- | --- | --- |
 | OpenAPI ingestion, semantic graph/grouping, GRAG routing candidates, reviewed evalset generation | ToolRouter snapshot behind the Corpus API Source connector | Source Hub, API Source, and the ToolRouter portion of Evaluation | Integrated in the Corpus backend |
 | Standalone source lifecycle, durable ToolRouter processing, encrypted connections, explicit real API execution, response-schema review and corrected OpenAPI schema lineage | `D:\Dev\AI Projects\source-hub-runtime`, using the sibling `api-execution-runtime` behind its executor adapter | Proven Source Hub/API Source behaviour plus foundations for future Evaluation, Sandbox and Operations | Proven separately; not imported into Corpus |
-| Low-level authorized and validated HTTP execution | Private neutral `api-execution-runtime==0.1.0` snapshot under `corpus.integrations.api_execution._snapshot`; sibling remains read-only | Future Corpus execution adapter used by API Sources, Agent Builds, Sandbox, deployed Channels and Operations | Phase A dependency, provenance, import and compatibility foundation is integrated; no Corpus adapter or product path invokes it yet |
-| Immutable Agent Build, Ollama intent, ToolRouter routing, capability-scoped API execution, durable trace, evaluation, and eligibility | `D:\Dev\AI Projects\agent-execution-runtime` | Future Agent Builder, Sandbox, Evaluation, and Operations execution kernel | Proven separately; not imported into or invoked by Corpus |
-| Immutable deployment revisions, Web-channel activation/rollback, pinned public sessions, interaction evidence, and evaluation-candidate export | `D:\Dev\AI Projects\agent-delivery-runtime` | Future Channels/Web, Deployment, and deployed-agent Operations | Proven separately against RouteDeck Medusa and local Ollama; not imported into or invoked by Corpus |
+| Low-level authorized and validated HTTP execution | Private neutral `api-execution-runtime==0.1.0` snapshot under `corpus.integrations.api_execution._snapshot`; sibling remains read-only | Source connection checks and routed execution for API Sources, Agent Builds, Sandbox, deployed Channels, and hosted-agent writes | Integrated behind `SafeApiExecutionAdapter` and `RoutedApiExecutionAdapter`; the accepted Medusa ecommerce path performs real reviewed reads and writes through it |
+| Immutable Agent Build, model intent, ToolRouter routing, capability-scoped API execution, durable trace, evaluation, and eligibility | `D:\Dev\AI Projects\agent-execution-runtime`, installed into the Corpus image | Builder, Sandbox, Evaluation, Operations, and the execution side of deployed Agents | Integrated through Corpus-owned app/runtime adapters; the separate standalone Studio remains an optional proof environment |
+| Immutable deployment revisions, Web-channel activation/rollback, pinned public sessions, interaction evidence, and evaluation-candidate export | `D:\Dev\AI Projects\agent-delivery-runtime`, installed into the Corpus image | Channels/Web, Deployment, public hosted-agent sessions, and deployed-agent Operations | Integrated through Corpus-owned delivery adapters; the separate standalone owner/public Web remains an optional proof environment |
 | Product behavior, RouteDeck configuration, policies, operations, and surfaces | RouteDeck Agent Design Studio | Agent Designer | Studio exists; compiled parity is a separate gate |
 
 The API execution runtime does not choose a tool and ToolRouter does not make
 the HTTP call. The standalone Source Hub proves their source-level composition,
-but it has no agent. A future Corpus path must explicitly connect an exact
-Agent Build and RouteDeck policy decision to ToolRouter's operation identity,
-allowed-operation enforcement and then one capability-scoped API runtime
-request.
+but it has no agent and does not define Corpus contracts. The current Corpus
+path connects an exact Agent Build and RouteDeck policy decision to
+ToolRouter's operation identity, allowed-operation enforcement, and then one
+capability-scoped API runtime request through Corpus-owned adapters.
+
+## Fresh GitHub Checkout
+
+A complete Docker build currently consumes four source directories under one
+parent directory. The names are part of the build contract because
+`compose.yaml` uses the parent as its build context and `Dockerfile` copies
+each directory explicitly:
+
+```text
+corpus-development/
+|-- saastoagent-v0.1/
+|-- routedeck/
+|-- agent-execution-runtime/
+`-- agent-delivery-runtime/
+```
+
+Clone Corpus first:
+
+```powershell
+New-Item -ItemType Directory -Path C:\dev\corpus-development
+Set-Location C:\dev\corpus-development
+git clone https://github.com/raghavdasila/saastoagent.git saastoagent-v0.1
+Set-Location saastoagent-v0.1
+```
+
+RouteDeck is public. `agent-execution-runtime==0.1.0` and
+`agent-delivery-runtime==0.1.0` are private organization repositories and real
+source build dependencies, not optional standalone demos. Authenticate a Git
+credential with access to the `saastoagent` organization before cloning them.
+One supported GitHub CLI path is:
+
+```powershell
+gh auth login
+gh auth setup-git
+gh auth status
+```
+
+Then clone every sibling at the immutable commit recorded in
+`contracts/dependency-provenance/development-source-checkouts.json`:
+
+```powershell
+.\scripts\clone-development-dependencies.ps1
+```
+
+The bootstrap refuses to modify an existing dependency directory, checks out
+each dependency in detached-HEAD state at its approved commit, verifies the
+resulting identity, and never falls back to a floating branch. It currently
+pins:
+
+- RouteDeck `d58c5aa05b64ce44ccb1d77472f9609a28eb50f6`;
+- Agent Execution Runtime
+  `f0b4033562708090dff8d9a072423ddf20bc9274`;
+- Agent Delivery Runtime
+  `2fdeab9b35f0997123ecdc4b6ab670dc6795fd1b`.
+
+Do not substitute similarly named projects or update a pin merely to make a
+build pass. A dependency update requires its own validation and a reviewed
+manifest change.
 
 ## Prerequisites
 
-- Run commands from `D:\Dev\AI Projects\saastoagent-v0.1` in PowerShell.
+- Run commands from the cloned `saastoagent-v0.1` directory in PowerShell.
 - Docker Desktop must be running with its Linux container engine.
-- The sibling RouteDeck source must exist at
-  `D:\Dev\AI Projects\routedeck`; the Docker build consumes it read-only.
-- Ollama must be installed on Windows.
+- Git is required. GitHub authentication with `saastoagent` organization
+  access is required to clone the two private runtime repositories.
+- The three sibling sources in the fresh-checkout layout must exist. The
+  Docker build consumes RouteDeck read-only and installs the two pinned
+  `0.1.0` runtime packages; Corpus accesses them only through its
+  application/integration adapters.
 - Node.js and pnpm must be installed for the Design Studio.
+- The first image build requires internet access for container and package
+  dependencies and the pinned MiniLM model.
+- The Ollama lane additionally requires Ollama and enough local capacity for
+  `gemma4:latest` and `qwen2.5-coder:7b`.
+- The OpenAI lane requires an OpenAI API key and outbound API access, but does
+  not require Ollama or a local generative model. Never paste the key into chat
+  or commit `.env.local`.
 
 Check the tools and Docker configuration:
 
@@ -66,12 +140,19 @@ Check the tools and Docker configuration:
 docker version
 docker compose version
 docker compose config --quiet
-ollama --version
 node --version
 pnpm --version
 ```
 
+For the Ollama lane, also check:
+
+```powershell
+ollama --version
+```
+
 ## First-Time Setup
+
+### Ollama generative-model lane
 
 Pull the exact models configured by Compose:
 
@@ -80,6 +161,51 @@ ollama pull gemma4:latest
 ollama pull qwen2.5-coder:7b
 ollama list
 ```
+
+No `.env.local` provider override is required for this default lane. Docker's
+entrypoint generates and persists the required development secrets without
+printing them.
+
+### OpenAI generative-model lane
+
+Create the ignored `.env.local` file with only the explicit provider
+configuration and secret. Use the approved OpenAI model recorded by the
+project; the current development and production configuration uses
+`gpt-5.6-luna` with low reasoning effort.
+
+```dotenv
+OPENAI_API_KEY=<your-openai-api-key>
+CORPUS_MODEL_PROVIDER=openai
+CORPUS_OPENAI_MODEL=gpt-5.6-luna
+CORPUS_OPENAI_REASONING_EFFORT=low
+CORPUS_TOOLROUTER_MODEL_PROVIDER=openai
+CORPUS_TOOLROUTER_GENERATOR_MODEL=gpt-5.6-luna
+CORPUS_TOOLROUTER_REVIEWER_MODEL=gpt-5.6-luna
+CORPUS_TOOLROUTER_OPENAI_REASONING_EFFORT=low
+CORPUS_EVAL_PROVIDER=openai
+CORPUS_EVAL_TESTER_MODEL=gpt-5.6-luna
+CORPUS_EVAL_JUDGE_MODEL=gpt-5.6-luna
+```
+
+Do not copy the placeholder secrets or absolute paths from `.env.example`.
+Docker generates its own development encryption, vault, reset, and
+verification secrets. `CORPUS_EVAL_*` configures the repository's explicit
+evaluation runners; it does not create a fallback for product execution.
+
+Compose interpolation must read the same file so the ToolRouter values are not
+replaced by Ollama defaults. Use `--env-file .env.local` for every Compose
+command in this lane:
+
+```powershell
+docker compose --env-file .env.local config --quiet
+```
+
+This lane removes the large local Gemma/Qwen requirement. The image still
+downloads and runs the pinned `sentence-transformers/all-MiniLM-L6-v2`
+embedding model on CPU for ToolRouter ingestion and retrieval. Corpus does not
+currently provide a remote embedding-provider path.
+
+### Design Studio dependencies
 
 Install the authoritative Design Studio dependencies:
 
@@ -93,7 +219,9 @@ shutdown, or rebuilds.
 
 ## Start the Complete Development Environment
 
-### 1. Start Ollama on the host
+### 1. Start the selected model dependency
+
+For the Ollama lane, start Ollama on the host.
 
 In the first PowerShell terminal:
 
@@ -114,6 +242,11 @@ ToolRouter paths. Corpus fails visibly when the explicitly selected primary
 provider or model is unavailable; it does not select the other provider or
 return synthetic success.
 
+For the OpenAI lane, skip the Ollama terminal. Confirm that `.env.local`
+contains the explicit OpenAI configuration and that the account has API access
+to the configured model. Readiness and model-backed operations fail closed if
+the key, model, network, or API is unavailable.
+
 ### 2. Start Corpus in Docker
 
 In the second PowerShell terminal:
@@ -123,12 +256,25 @@ docker compose up --build -d backend source-worker frontend
 docker compose ps
 ```
 
+For the OpenAI lane, run the corresponding commands with its environment file:
+
+```powershell
+docker compose --env-file .env.local up --build -d backend source-worker frontend
+docker compose --env-file .env.local ps
+```
+
 Specifying `backend source-worker frontend` is intentional: it includes the
 durable API-source consumer and excludes the stale Compose
 `notebook` service. For an ordinary restart when no image dependency changed:
 
 ```powershell
 docker compose up -d backend source-worker frontend
+```
+
+The OpenAI restart form remains:
+
+```powershell
+docker compose --env-file .env.local up -d backend source-worker frontend
 ```
 
 ### 3. Start the authoritative Agent Design Studio
@@ -310,8 +456,11 @@ startup dependency.
 
 ### Standalone Agent Execution Runtime
 
-Run from `D:\Dev\AI Projects\agent-execution-runtime`. This suite is optional
-for ordinary Corpus startup and is not a Corpus service.
+Run from `D:\Dev\AI Projects\agent-execution-runtime`. This standalone suite
+is optional for ordinary Corpus startup and is not a separate Corpus service.
+Corpus installs the package in its backend/worker image and composes it through
+Corpus-owned adapters; the commands below exercise the package's isolated proof
+environment.
 
 Prerequisites:
 
@@ -371,8 +520,9 @@ inspect eligibility.
 
 Claim limits:
 
-- this proves the isolated execution/evidence kernel, not a current Corpus
-  integration, RouteDeck compilation, deployment, or public channel;
+- this proves the isolated execution/evidence kernel; it does not by itself
+  prove Corpus adapter wiring, RouteDeck compilation, deployment, or a public
+  channel;
 - `model.decision` chooses direct response versus API search requests;
   ToolRouter ranks operations and the immutable build grants authority;
 - real `GetProducts` currently returns HTTP 200 but fails the approved response
@@ -380,7 +530,7 @@ Claim limits:
   success;
 - local ToolRouter and API Runtime references remain development-only.
 
-Architecture and future integration are documented in
+The standalone reference architecture and Corpus integration boundary are documented in
 `architecture/components/standalone-agent-execution-runtime-reference.md`.
 The standalone repository owns the detailed coverage matrix in
 `docs/corpus-behavior-coverage.md` and proof semantics in
@@ -388,9 +538,11 @@ The standalone repository owns the detailed coverage matrix in
 
 ### Standalone Agent Delivery Runtime
 
-Run from `D:\Dev\AI Projects\agent-delivery-runtime`. This suite is optional
-for ordinary Corpus startup and is not a Corpus service. It currently proves
-delivery of the RouteDeck Medusa example, not delivery of a Corpus-built agent.
+Run from `D:\Dev\AI Projects\agent-delivery-runtime`. This standalone suite is
+optional for ordinary Corpus startup and is not a separate Corpus service.
+Corpus installs the package in its backend/worker image and composes it through
+Corpus-owned delivery adapters. The commands below still prove delivery of the
+standalone RouteDeck Medusa example, not the separate Corpus-built Agent path.
 
 Prerequisites:
 
@@ -459,8 +611,9 @@ repository's `docs/INTEGRATION.md`.
 ```powershell
 docker compose ps
 docker compose logs --tail 200 backend
+docker compose logs --tail 200 source-worker
 docker compose logs --tail 200 frontend
-docker compose logs -f backend
+docker compose logs -f backend source-worker
 ```
 
 Diagnose failures in this order:
@@ -471,12 +624,17 @@ Diagnose failures in this order:
    and exact model. Then inspect backend logs.
 3. If the frontend is not running, inspect `docker compose ps`; it waits for
    the backend health check to pass.
-4. If the Studio refuses to start, another process owns port `8782` or its
+4. If Source, Builder, Evaluation, or Deployment background work stalls,
+   inspect `docker compose ps` and `docker compose logs --tail 200 source-worker`.
+   The Compose service retains the `source-worker` name, but its entrypoint is
+   the application-owned `corpus.app.worker.huey` process.
+5. If the Studio refuses to start, another process owns port `8782` or its
    dependencies are missing. Keep `--strictPort`; do not silently move the
    authoritative Studio to another port.
-5. If the Docker build cannot find RouteDeck, verify its exact sibling path.
-   Do not copy RouteDeck behavior into Corpus as a workaround.
-6. If backend import fails because an `Operation` lacks `allowed_sources`, stop.
+6. If the Docker build cannot find RouteDeck, Agent Execution Runtime, or Agent
+   Delivery Runtime, verify their exact sibling paths. Do not copy their
+   behavior into Corpus as a workaround.
+7. If backend import fails because an `Operation` lacks `allowed_sources`, stop.
    This is Studio/Corpus-to-RouteDeck contract drift, not a Docker problem.
    Map each affected operation to its legal agent, surface, or route invocation
    sources and pass the parity gate; do not assign a permissive default merely
@@ -490,13 +648,13 @@ After backend, frontend, Dockerfile, or sibling RouteDeck source changes:
 docker compose up --build -d backend source-worker frontend
 ```
 
-Restart one service with `docker compose restart backend` or
-`docker compose restart frontend`.
+Restart one service with `docker compose restart backend`,
+`docker compose restart source-worker`, or `docker compose restart frontend`.
 
 Stop Corpus without deleting runtime data:
 
 ```powershell
-docker compose stop frontend backend
+docker compose stop frontend source-worker backend
 ```
 
 Stop the Studio with `Ctrl+C` in its terminal. Stop `ollama serve` with
@@ -509,23 +667,26 @@ databases, and persistent development secrets.
 
 ## Runtime Configuration
 
-The primary and evaluation providers are independently selected in ignored
-`.env.local` with `CORPUS_MODEL_PROVIDER` and `CORPUS_EVAL_PROVIDER`. Each must
-be `ollama` or `openai`. Model names use `OLLAMA_MODEL`,
-`CORPUS_OPENAI_MODEL`, `CORPUS_EVAL_TESTER_MODEL`, and
-`CORPUS_EVAL_JUDGE_MODEL`; `OPENAI_API_KEY` is required for an OpenAI
-selection. A failed provider never invokes the other one.
+The primary Corpus model, ToolRouter generation/review, and repository
+evaluation runners are independently explicit. Their provider settings are
+`CORPUS_MODEL_PROVIDER`, `CORPUS_TOOLROUTER_MODEL_PROVIDER`, and
+`CORPUS_EVAL_PROVIDER`; each must be `ollama` or `openai`. Model names use
+`OLLAMA_MODEL`, `CORPUS_OPENAI_MODEL`,
+`CORPUS_TOOLROUTER_GENERATOR_MODEL`,
+`CORPUS_TOOLROUTER_REVIEWER_MODEL`, `CORPUS_EVAL_TESTER_MODEL`, and
+`CORPUS_EVAL_JUDGE_MODEL`. `OPENAI_API_KEY` is required when any selected
+model provider is OpenAI. A failed provider never invokes the other one.
 
-Compose continues to provide these container-specific Ollama defaults:
+Without provider overrides, Compose continues to provide these Ollama defaults:
 
 - Ollama endpoint: `http://host.docker.internal:11434`
 - primary and ToolRouter generator model: `gemma4:latest`
 - ToolRouter reviewer model: `qwen2.5-coder:7b`
 
-Explicit overrides are available through `CORPUS_DOCKER_OLLAMA_URL`,
-`CORPUS_DOCKER_PRIMARY_MODEL`, `CORPUS_DOCKER_GENERATOR_MODEL`, and
-`CORPUS_DOCKER_REVIEWER_MODEL` before the Compose start command. Verify the
-exact endpoint and model before using an override.
+`CORPUS_DOCKER_OLLAMA_URL` and `CORPUS_DOCKER_PRIMARY_MODEL` override the
+container-to-host Ollama endpoint and primary model. ToolRouter provider and
+model overrides use their ToolRouter-owned names shown above. Verify the exact
+provider, endpoint, and models before starting Compose.
 
 This runbook describes a local development environment, not a production
 deployment.

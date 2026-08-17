@@ -97,3 +97,24 @@ def test_compose_keeps_live_sqlite_state_off_the_windows_bind_mount() -> None:
         )
     )
     assert "/data/" not in serialized_environment
+
+
+def test_compose_allows_explicit_toolrouter_provider_selection() -> None:
+    repository_root = Path(__file__).resolve().parents[3]
+    compose = yaml.safe_load(
+        (repository_root / "compose.yaml").read_text(encoding="utf-8")
+    )
+    environment = compose["x-runtime-environment"]
+
+    assert environment["CORPUS_TOOLROUTER_MODEL_PROVIDER"] == (
+        "${CORPUS_TOOLROUTER_MODEL_PROVIDER:-ollama}"
+    )
+    assert environment["CORPUS_TOOLROUTER_GENERATOR_MODEL"] == (
+        "${CORPUS_TOOLROUTER_GENERATOR_MODEL:-gemma4:latest}"
+    )
+    assert environment["CORPUS_TOOLROUTER_REVIEWER_MODEL"] == (
+        "${CORPUS_TOOLROUTER_REVIEWER_MODEL:-qwen2.5-coder:7b}"
+    )
+    assert environment["CORPUS_TOOLROUTER_OPENAI_REASONING_EFFORT"] == (
+        "${CORPUS_TOOLROUTER_OPENAI_REASONING_EFFORT:-low}"
+    )
