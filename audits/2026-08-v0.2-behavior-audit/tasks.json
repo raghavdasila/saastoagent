@@ -1,0 +1,1114 @@
+{
+  "updatedAt": "2026-08-19T07:59:18.402824+00:00",
+  "tasks": [
+    {
+      "id": "TASK-owner-auth-request-reset",
+      "behaviorId": "owner-auth-request-reset",
+      "feature": "Lounge",
+      "title": "Request password recovery",
+      "severity": "high",
+      "category": "behavior-defect",
+      "status": "open",
+      "result": "failed",
+      "reproduction": "Run the application as-is and follow the surface interaction shown by the ordered evidence for owner-auth-request-reset.",
+      "expectedResult": "A visitor submits an email for password recovery. Corpus shows the same generic confirmation whether or not the account exists. A delivery-service outage may be reported only when it is known independently of the submitted account; recipient-specific delivery results never reveal account existence.",
+      "observedResult": "The reset request was exercised, but no reset message arrived in Mail.tm within 30 seconds.",
+      "evidence": [
+        "evidence/owner-auth-request-reset/surface/01-01-start.png",
+        "evidence/owner-auth-request-reset/surface/01-02-private-reset-request.png",
+        "evidence/owner-auth-request-reset/surface/01-02-private-reset-request-mobile.png",
+        "evidence/owner-auth-request-reset/surface/01-03-reset-request-result.png"
+      ],
+      "evidenceHashes": {
+        "evidence/owner-auth-request-reset/surface/01-01-start.png": "5521ac83d53936d6608ccd07ba26113d352f79e06e729a1186076998eaf0c160",
+        "evidence/owner-auth-request-reset/surface/01-02-private-reset-request.png": "3a943a4eb79a0b695aeaedd321a3c664084ca2288a2fda6550212312f4d3ec49",
+        "evidence/owner-auth-request-reset/surface/01-02-private-reset-request-mobile.png": "298926ad8d8be62cf19c013895159e54fbbb3a99aa2673627eddc12088fd8ca3",
+        "evidence/owner-auth-request-reset/surface/01-03-reset-request-result.png": "3162166a3259bd851d52fdebeaefd5bfde1def8db22d28e7bb6924ef92cdccb9"
+      },
+      "ownerSubsystem": "Lounge",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:26:47.951511+00:00",
+          "status": "failed",
+          "observed": "The reset request was exercised, but no reset message arrived in Mail.tm within 30 seconds.",
+          "screenshots": [
+            "evidence/owner-auth-request-reset/surface/01-01-start.png",
+            "evidence/owner-auth-request-reset/surface/01-02-private-reset-request.png",
+            "evidence/owner-auth-request-reset/surface/01-02-private-reset-request-mobile.png",
+            "evidence/owner-auth-request-reset/surface/01-03-reset-request-result.png"
+          ],
+          "diagnostics": [
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/conversation/runs/entry-turn%3A10f67ddc0dcfa3ab09a322d567de9e7e06842a410fdc9075e963000c102704f0/events?after=2 net::ERR_ABORTED"
+            },
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=1 net::ERR_ABORTED"
+            },
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=2 net::ERR_ABORTED"
+            },
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/private-forms/lounge-sign-in net::ERR_ABORTED"
+            },
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=3 net::ERR_ABORTED"
+            },
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/private-forms/lounge-password-reset-request net::ERR_ABORTED"
+            },
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=4 net::ERR_ABORTED"
+            },
+            {
+              "kind": "http",
+              "message": "503 POST http://127.0.0.1:5199/api/routedeck/dispatch"
+            },
+            {
+              "kind": "console",
+              "message": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+            },
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=5 net::ERR_ABORTED"
+            }
+          ],
+          "url": "http://127.0.0.1:5199/forgot-password"
+        }
+      ]
+    },
+    {
+      "id": "TASK-owner-auth-confirm-reset",
+      "behaviorId": "owner-auth-confirm-reset",
+      "feature": "Lounge",
+      "title": "Set a new password",
+      "severity": "medium",
+      "category": "audit-blocker",
+      "status": "open",
+      "result": "blocked",
+      "reproduction": "Run the application as-is and follow the surface interaction shown by the ordered evidence for owner-auth-confirm-reset.",
+      "expectedResult": "An owner opens a one-time reset link and chooses a new password. Corpus removes the token from the visible URL, changes the password, revokes existing sessions, and returns to sign-in. Missing, invalid, or expired links remain explicit failures.",
+      "observedResult": "No valid reset link was available from the real configured mail path; the password was not changed.",
+      "evidence": [
+        "evidence/owner-auth-confirm-reset/surface/01-01-start.png",
+        "evidence/owner-auth-confirm-reset/surface/01-02-classification.png"
+      ],
+      "evidenceHashes": {
+        "evidence/owner-auth-confirm-reset/surface/01-01-start.png": "3162166a3259bd851d52fdebeaefd5bfde1def8db22d28e7bb6924ef92cdccb9",
+        "evidence/owner-auth-confirm-reset/surface/01-02-classification.png": "3162166a3259bd851d52fdebeaefd5bfde1def8db22d28e7bb6924ef92cdccb9"
+      },
+      "ownerSubsystem": "Lounge",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:26:48.186869+00:00",
+          "status": "blocked",
+          "observed": "No valid reset link was available from the real configured mail path; the password was not changed.",
+          "screenshots": [
+            "evidence/owner-auth-confirm-reset/surface/01-01-start.png",
+            "evidence/owner-auth-confirm-reset/surface/01-02-classification.png"
+          ],
+          "diagnostics": [],
+          "url": "http://127.0.0.1:5199/forgot-password"
+        }
+      ]
+    },
+    {
+      "id": "TASK-owner-auth-request-verification",
+      "behaviorId": "owner-auth-request-verification",
+      "feature": "Lounge",
+      "title": "Resend email verification",
+      "severity": "high",
+      "category": "behavior-defect",
+      "status": "open",
+      "result": "failed",
+      "reproduction": "Run the application as-is and follow the surface interaction shown by the ordered evidence for owner-auth-request-verification.",
+      "expectedResult": "A signed-in owner whose email is pending verification asks for another verification message. Corpus reports whether the request was accepted, rate-limited, or unavailable; acceptance is not presented as recipient delivery or successful verification, and permitted Workspace use remains available.",
+      "observedResult": "The verification request exposed a visible delivery failure and no verification message arrived in Mail.tm.",
+      "evidence": [
+        "evidence/owner-auth-request-verification/surface/01-01-start.png",
+        "evidence/owner-auth-request-verification/surface/01-02-verification-surface.png",
+        "evidence/owner-auth-request-verification/surface/01-03-verification-request-result.png"
+      ],
+      "evidenceHashes": {
+        "evidence/owner-auth-request-verification/surface/01-01-start.png": "0c9fd1aef4a16277b9bd4ba52f6195d40654ba3ead61ee71f848c6f3eee2a341",
+        "evidence/owner-auth-request-verification/surface/01-02-verification-surface.png": "1f926eb563dbc3a90496192e8190a7fa54d300fe6c7614c7f54630519189bc8f",
+        "evidence/owner-auth-request-verification/surface/01-03-verification-request-result.png": "4b91d71d3b37cee3fc7ee4f218a95bd69e6933f2bc6afd5bebb9f000daf442b0"
+      },
+      "ownerSubsystem": "Lounge",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:25:06.361461+00:00",
+          "status": "failed",
+          "observed": "The verification request exposed a visible delivery failure and no verification message arrived in Mail.tm.",
+          "screenshots": [
+            "evidence/owner-auth-request-verification/surface/01-01-start.png",
+            "evidence/owner-auth-request-verification/surface/01-02-verification-surface.png",
+            "evidence/owner-auth-request-verification/surface/01-03-verification-request-result.png"
+          ],
+          "diagnostics": [
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=8 net::ERR_ABORTED"
+            },
+            {
+              "kind": "http",
+              "message": "503 POST http://127.0.0.1:5199/api/routedeck/dispatch"
+            },
+            {
+              "kind": "console",
+              "message": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+            },
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=9 net::ERR_ABORTED"
+            }
+          ],
+          "url": "http://127.0.0.1:5199/verification-pending"
+        }
+      ]
+    },
+    {
+      "id": "TASK-owner-auth-confirm-verification",
+      "behaviorId": "owner-auth-confirm-verification",
+      "feature": "Lounge",
+      "title": "Confirm email verification",
+      "severity": "medium",
+      "category": "audit-blocker",
+      "status": "open",
+      "result": "blocked",
+      "reproduction": "Run the application as-is and follow the surface interaction shown by the ordered evidence for owner-auth-confirm-verification.",
+      "expectedResult": "An owner opens a one-time verification link. Corpus removes its token from the visible URL, verifies the address, refreshes owner state, and shows the result. Missing, invalid, or expired links remain explicit failures.",
+      "observedResult": "No valid verification link was available from the real configured mail path.",
+      "evidence": [
+        "evidence/owner-auth-confirm-verification/surface/01-01-start.png",
+        "evidence/owner-auth-confirm-verification/surface/01-02-classification.png"
+      ],
+      "evidenceHashes": {
+        "evidence/owner-auth-confirm-verification/surface/01-01-start.png": "4b91d71d3b37cee3fc7ee4f218a95bd69e6933f2bc6afd5bebb9f000daf442b0",
+        "evidence/owner-auth-confirm-verification/surface/01-02-classification.png": "4b91d71d3b37cee3fc7ee4f218a95bd69e6933f2bc6afd5bebb9f000daf442b0"
+      },
+      "ownerSubsystem": "Lounge",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:25:06.503285+00:00",
+          "status": "blocked",
+          "observed": "No valid verification link was available from the real configured mail path.",
+          "screenshots": [
+            "evidence/owner-auth-confirm-verification/surface/01-01-start.png",
+            "evidence/owner-auth-confirm-verification/surface/01-02-classification.png"
+          ],
+          "diagnostics": [],
+          "url": "http://127.0.0.1:5199/verification-pending"
+        }
+      ]
+    },
+    {
+      "id": "TASK-workspace-product-help",
+      "behaviorId": "workspace-product-help",
+      "feature": "Workspace",
+      "title": "Ask about Corpus while signed in",
+      "severity": "high",
+      "category": "behavior-defect",
+      "status": "open",
+      "result": "failed",
+      "reproduction": "Run the application as-is and follow the chat interaction shown by the ordered evidence for workspace-product-help.",
+      "expectedResult": "An authenticated owner asks how Corpus or one of its features works. Corpus answers without discarding the current Workspace context and makes any relevant next action available.",
+      "observedResult": "The answer did not visibly address evaluation.",
+      "evidence": [
+        "evidence/workspace-product-help/chat/01-01-start.png",
+        "evidence/workspace-product-help/chat/01-02-workspace-product-help.png"
+      ],
+      "evidenceHashes": {
+        "evidence/workspace-product-help/chat/01-01-start.png": "feb8cd26d57ffca05cf6fd44f3286ee9d4f1b1fe7e79138b800ecca0e90df276",
+        "evidence/workspace-product-help/chat/01-02-workspace-product-help.png": "77026390ae81de3dc7bf4ce84ade3d0f64c76643a81d6db63e94f3c6c8934247"
+      },
+      "ownerSubsystem": "Workspace",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:25:12.421133+00:00",
+          "status": "failed",
+          "observed": "The answer did not visibly address evaluation.",
+          "screenshots": [
+            "evidence/workspace-product-help/chat/01-01-start.png",
+            "evidence/workspace-product-help/chat/01-02-workspace-product-help.png"
+          ],
+          "diagnostics": [
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=11 net::ERR_ABORTED"
+            },
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=12 net::ERR_ABORTED"
+            }
+          ],
+          "url": "http://127.0.0.1:5199/home"
+        }
+      ]
+    },
+    {
+      "id": "TASK-agents-create-source",
+      "behaviorId": "agents-create-source",
+      "feature": "Agents",
+      "title": "Create and attach a source",
+      "severity": "high",
+      "category": "behavior-defect",
+      "status": "open",
+      "result": "failed",
+      "reproduction": "Run the application as-is and follow the surface interaction shown by the ordered evidence for agents-create-source.",
+      "expectedResult": "The owner chooses to add a source that does not yet exist. Corpus opens Source Hub in the context of the current agent. When source creation completes, Corpus returns to the agent and shows the new source attached; cancellation returns without attachment.",
+      "observedResult": "The visible Create and attach action stayed on the Agent and returned 'The operation returned invalid state effects' instead of opening Agent-bound Source intake.",
+      "evidence": [
+        "evidence/agents-create-source/surface/01-01-start.png",
+        "evidence/agents-create-source/surface/01-02-classification.png",
+        "evidence/agents-create-source/surface/02-01-start.png",
+        "evidence/agents-create-source/surface/02-02-create-and-attach-product-failure.png"
+      ],
+      "evidenceHashes": {
+        "evidence/agents-create-source/surface/01-01-start.png": "2d8433e231656246b0c8d960eba86730245da75d4d120d2fcb02c83c8e3be206",
+        "evidence/agents-create-source/surface/01-02-classification.png": "f8bf8841451723947a4b040ac35d4a4a8eb3495f58fdb59ed030a26aa6aa6a32",
+        "evidence/agents-create-source/surface/02-01-start.png": "f15c398772f8f6ba814fe14ab53053d3483fc3cccb48366725417c6b8e69c864",
+        "evidence/agents-create-source/surface/02-02-create-and-attach-product-failure.png": "e845f8abfecc36f6a7d08314d5c70cf0330d5a39d6a19579b8bfb2561989aed4"
+      },
+      "ownerSubsystem": "Agents",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:29:31.372793+00:00",
+          "status": "pending",
+          "observed": "The separate create-and-attach Source branch was not executed in the canonical Agent lineage.",
+          "screenshots": [
+            "evidence/agents-create-source/surface/01-01-start.png",
+            "evidence/agents-create-source/surface/01-02-classification.png"
+          ],
+          "diagnostics": [
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=38 net::ERR_ABORTED"
+            }
+          ],
+          "url": "http://127.0.0.1:5199/agents"
+        },
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:34:20.038534+00:00",
+          "status": "failed",
+          "observed": "The visible Create and attach action stayed on the Agent and returned 'The operation returned invalid state effects' instead of opening Agent-bound Source intake.",
+          "screenshots": [
+            "evidence/agents-create-source/surface/02-01-start.png",
+            "evidence/agents-create-source/surface/02-02-create-and-attach-product-failure.png"
+          ],
+          "diagnostics": [
+            {
+              "kind": "http",
+              "message": "503 POST http://127.0.0.1:5199/api/routedeck/dispatch"
+            },
+            {
+              "kind": "console",
+              "message": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+            },
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=79 net::ERR_ABORTED"
+            }
+          ],
+          "url": "http://127.0.0.1:5199/agents"
+        }
+      ]
+    },
+    {
+      "id": "TASK-agents-setup-from-api-file",
+      "behaviorId": "agents-setup-from-api-file",
+      "feature": "Agents",
+      "title": "Set up an agent from an attached API definition",
+      "severity": "high",
+      "category": "behavior-defect",
+      "status": "open",
+      "result": "failed",
+      "reproduction": "Run the application as-is and follow the hybrid interaction shown by the ordered evidence for agents-setup-from-api-file.",
+      "expectedResult": "The owner attaches an OpenAPI file and asks Corpus to set up an agent. Attaching the file only stages it for the current conversation. Corpus decides the legal next action from the request: it creates the API source and starts analysis when the request authorizes setup, while preserving any selected-agent context. If no agent is selected, Corpus asks whether to use an existing agent or create one; creating one requires the owner's goal and responsibilities. When those words include a clear role phrase but no separate display name, Corpus derives a concise display name from that exact phrase instead of asking another naming question, and it does not invent capabilities. Corpus attaches only a ready source, never invents operation selections, and continues through design, build, private trial, evaluation, and delivery only as each prerequisite and consequential approval becomes available.",
+      "observedResult": "The independent lifecycle branch failed in the real UI: TimeoutError: Locator.wait_for: Timeout 180000ms exceeded.\nCall log:\n  - waiting for locator(\"section.api-source-workspace\") to be visible\n",
+      "evidence": [
+        "evidence/agents-setup-from-api-file/hybrid/01-01-start.png",
+        "evidence/agents-setup-from-api-file/hybrid/01-02-classification.png",
+        "evidence/agents-setup-from-api-file/hybrid/02-01-start.png",
+        "evidence/agents-setup-from-api-file/hybrid/02-02-definition-attached-to-chat.png",
+        "evidence/agents-setup-from-api-file/hybrid/02-99-failure.png"
+      ],
+      "evidenceHashes": {
+        "evidence/agents-setup-from-api-file/hybrid/01-01-start.png": "992d8b5d3f3efb0bc810502735e80b5e7350a0fdd8aa878654f4a5cd3b79bf42",
+        "evidence/agents-setup-from-api-file/hybrid/01-02-classification.png": "e37b40c2a914386e170ff4f4439cd620e91f739348798f9cc0905c53fff03363",
+        "evidence/agents-setup-from-api-file/hybrid/02-01-start.png": "9b331d7313215e6f81ad78400e50f2046da7dcc871230759590538c60be6fa6c",
+        "evidence/agents-setup-from-api-file/hybrid/02-02-definition-attached-to-chat.png": "414ed80187bf211f04a32872dc6fc17b775d8eefc58d1ed497b6cd723f52ff86",
+        "evidence/agents-setup-from-api-file/hybrid/02-99-failure.png": "c06bf7e8af4277800c003b4a2d8157085293baffd7fd84617088e95c430ba14b"
+      },
+      "ownerSubsystem": "Agents",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:29:31.535319+00:00",
+          "status": "pending",
+          "observed": "The API file was added through Source Hub and attached, rather than through the Agent hybrid intake branch.",
+          "screenshots": [
+            "evidence/agents-setup-from-api-file/hybrid/01-01-start.png",
+            "evidence/agents-setup-from-api-file/hybrid/01-02-classification.png"
+          ],
+          "diagnostics": [],
+          "url": "http://127.0.0.1:5199/agents"
+        },
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:38:37.045558+00:00",
+          "status": "failed",
+          "observed": "The independent lifecycle branch failed in the real UI: TimeoutError: Locator.wait_for: Timeout 180000ms exceeded.\nCall log:\n  - waiting for locator(\"section.api-source-workspace\") to be visible\n",
+          "screenshots": [
+            "evidence/agents-setup-from-api-file/hybrid/02-01-start.png",
+            "evidence/agents-setup-from-api-file/hybrid/02-02-definition-attached-to-chat.png",
+            "evidence/agents-setup-from-api-file/hybrid/02-99-failure.png"
+          ],
+          "diagnostics": [
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=96 net::ERR_ABORTED"
+            },
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=97 net::ERR_ABORTED"
+            },
+            {
+              "kind": "request",
+              "message": "POST http://127.0.0.1:5199/api/routedeck/chat net::ERR_ABORTED"
+            }
+          ],
+          "url": "http://127.0.0.1:5199/home"
+        }
+      ]
+    },
+    {
+      "id": "TASK-agents-open-source",
+      "behaviorId": "agents-open-source",
+      "feature": "Agents",
+      "title": "Open an attached source",
+      "severity": "high",
+      "category": "behavior-defect",
+      "status": "open",
+      "result": "failed",
+      "reproduction": "Run the application as-is and follow the surface interaction shown by the ordered evidence for agents-open-source.",
+      "expectedResult": "The owner selects an attached source for inspection or editing. Corpus navigates to that source in its owning feature and preserves the agent context for return. The Agents feature does not edit source-owned records itself.",
+      "observedResult": "The attached Source opened correctly, but it lost the selected-Agent return context and exposed only Source Hub navigation.",
+      "evidence": [
+        "evidence/agents-open-source/surface/01-01-start.png",
+        "evidence/agents-open-source/surface/01-02-attached-source-open.png"
+      ],
+      "evidenceHashes": {
+        "evidence/agents-open-source/surface/01-01-start.png": "6aabe0bb18f1ae39493a746048a1ca6eafaedc343d7e74ac0b928c65ba169384",
+        "evidence/agents-open-source/surface/01-02-attached-source-open.png": "7939e329441bbac00f99ff2647fd41a64d34ed4499c1c3e94867fd843cc6e758"
+      },
+      "ownerSubsystem": "Agents",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:29:26.259391+00:00",
+          "status": "failed",
+          "observed": "The attached Source opened correctly, but it lost the selected-Agent return context and exposed only Source Hub navigation.",
+          "screenshots": [
+            "evidence/agents-open-source/surface/01-01-start.png",
+            "evidence/agents-open-source/surface/01-02-attached-source-open.png"
+          ],
+          "diagnostics": [
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=34 net::ERR_ABORTED"
+            }
+          ],
+          "url": "http://127.0.0.1:5199/sources/api"
+        }
+      ]
+    },
+    {
+      "id": "TASK-agents-build-source-lineage",
+      "behaviorId": "agents-build-source-lineage",
+      "feature": "Agents",
+      "title": "Inspect historical build source references",
+      "severity": "high",
+      "category": "behavior-defect",
+      "status": "open",
+      "result": "failed",
+      "reproduction": "Run the application as-is and follow the surface interaction shown by the ordered evidence for agents-build-source-lineage.",
+      "expectedResult": "The owner inspects a historical build. Corpus shows the exact source revisions captured when the build was assembled. Opening a reference shows that immutable revision rather than the source's current revision. Missing, unauthorized, or corrupt lineage remains visible as unavailable and is never reconstructed or substituted.",
+      "observedResult": "The retained historical build did not expose the required exact captured API Source revision control after runtime removal.",
+      "evidence": [
+        "evidence/agents-build-source-lineage/surface/01-01-start.png",
+        "evidence/agents-build-source-lineage/surface/01-02-classification.png",
+        "evidence/agents-build-source-lineage/surface/02-01-start.png",
+        "evidence/agents-build-source-lineage/surface/02-02-historical-source-link-unavailable.png"
+      ],
+      "evidenceHashes": {
+        "evidence/agents-build-source-lineage/surface/01-01-start.png": "ccd5225b781c97f13c74c26183ad9994427795032e4f57edcca9c8148fb50f17",
+        "evidence/agents-build-source-lineage/surface/01-02-classification.png": "ccd5225b781c97f13c74c26183ad9994427795032e4f57edcca9c8148fb50f17",
+        "evidence/agents-build-source-lineage/surface/02-01-start.png": "1bbda7042b441518da7628e08ea07a8119cf9b1a255510f848cbad95f95cf09d",
+        "evidence/agents-build-source-lineage/surface/02-02-historical-source-link-unavailable.png": "e9207f8f42d9de8ca20e9721b51a8fe566c6b3d0611b83ed1efce3967bc947cc"
+      },
+      "ownerSubsystem": "Agents",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:29:32.181341+00:00",
+          "status": "pending",
+          "observed": "No historical build existed yet at this BFS depth.",
+          "screenshots": [
+            "evidence/agents-build-source-lineage/surface/01-01-start.png",
+            "evidence/agents-build-source-lineage/surface/01-02-classification.png"
+          ],
+          "diagnostics": [],
+          "url": "http://127.0.0.1:5199/agents"
+        },
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:34:02.821399+00:00",
+          "status": "failed",
+          "observed": "The retained historical build did not expose the required exact captured API Source revision control after runtime removal.",
+          "screenshots": [
+            "evidence/agents-build-source-lineage/surface/02-01-start.png",
+            "evidence/agents-build-source-lineage/surface/02-02-historical-source-link-unavailable.png"
+          ],
+          "diagnostics": [],
+          "url": "http://127.0.0.1:5199/agents"
+        }
+      ]
+    },
+    {
+      "id": "TASK-deployed-agent-clarification",
+      "behaviorId": "deployed-agent-clarification",
+      "feature": "Agent Designer",
+      "title": "Resolve deployed-agent clarification",
+      "severity": "medium",
+      "category": "audit-blocker",
+      "status": "open",
+      "result": "blocked",
+      "reproduction": "Run the application as-is and follow the chat interaction shown by the ordered evidence for deployed-agent-clarification.",
+      "expectedResult": "When routing finds an ambiguous operation or missing parameter, the deployed agent first checks only permitted current-session context and immutable accepted design. It resolves evidence-backed details without another lookup call and records safe provenance. It never invents values, exposes credentials, crosses session or tenant boundaries, or starts part of an unresolved multi-call plan. A write is selected autonomously only when the existing request establishes its exact target and intended effect, with configured review preserved. If still unresolved, the agent asks one concise natural question and resumes the same run after the answer. Internal routing outcome names never appear to the user.",
+      "observedResult": "The public clarification path requires an active hosted deployment, which this ineligible build cannot provide.",
+      "evidence": [
+        "evidence/deployed-agent-clarification/chat/01-01-start.png",
+        "evidence/deployed-agent-clarification/chat/01-02-classification.png",
+        "evidence/deployed-agent-clarification/chat/02-01-start.png",
+        "evidence/deployed-agent-clarification/chat/02-02-classification.png"
+      ],
+      "evidenceHashes": {
+        "evidence/deployed-agent-clarification/chat/01-01-start.png": "5b403161460a3da0e72aece26019999e01c7ef29ec0176dc8fccbfb3b3512e72",
+        "evidence/deployed-agent-clarification/chat/01-02-classification.png": "dcc381f41ff1f9df20f24e2e377b644d70aa68181b00e66c97f948640008a5d1",
+        "evidence/deployed-agent-clarification/chat/02-01-start.png": "ce203d0b3421fb88a75977be66d8706ab40a1cc4940775ea904f6a01097a1ab5",
+        "evidence/deployed-agent-clarification/chat/02-02-classification.png": "64b37c779e81b30170f39fabd1c977f949238c332f34b6b548aea216debc21dd"
+      },
+      "ownerSubsystem": "Agent Designer",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:29:58.359528+00:00",
+          "status": "blocked",
+          "observed": "A deployed public Agent does not exist until the downstream build, evaluation, and deployment path succeeds.",
+          "screenshots": [
+            "evidence/deployed-agent-clarification/chat/01-01-start.png",
+            "evidence/deployed-agent-clarification/chat/01-02-classification.png"
+          ],
+          "diagnostics": [],
+          "url": "http://127.0.0.1:5199/agents/designer"
+        },
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:33:51.530026+00:00",
+          "status": "blocked",
+          "observed": "The public clarification path requires an active hosted deployment, which this ineligible build cannot provide.",
+          "screenshots": [
+            "evidence/deployed-agent-clarification/chat/02-01-start.png",
+            "evidence/deployed-agent-clarification/chat/02-02-classification.png"
+          ],
+          "diagnostics": [],
+          "url": "http://127.0.0.1:5199/agents/channels"
+        }
+      ]
+    },
+    {
+      "id": "TASK-sources-delete",
+      "behaviorId": "sources-delete",
+      "feature": "Source Hub",
+      "title": "Delete an API source",
+      "severity": "medium",
+      "category": "audit-blocker",
+      "status": "open",
+      "result": "blocked",
+      "reproduction": "Run the application as-is and follow the surface interaction shown by the ordered evidence for sources-delete.",
+      "expectedResult": "The owner requests deletion of an API source. Corpus shows attached agents or other material blockers before confirmation. It deletes only when permitted and keeps blocked or failed deletion visible.",
+      "observedResult": "Corpus visibly blocked deletion of the attached canonical Source, but a safe disposable Source was unavailable because Create and attach failed earlier in this same real UI lineage.",
+      "evidence": [
+        "evidence/sources-delete/surface/01-01-start.png",
+        "evidence/sources-delete/surface/01-02-classification.png",
+        "evidence/sources-delete/surface/02-01-start.png",
+        "evidence/sources-delete/surface/02-02-attached-source-delete-blocked.png"
+      ],
+      "evidenceHashes": {
+        "evidence/sources-delete/surface/01-01-start.png": "e4e2bd13c1e83454fe4b21ea5e1242d826491a180eba56079a22ad601ef4f7c4",
+        "evidence/sources-delete/surface/01-02-classification.png": "e4e2bd13c1e83454fe4b21ea5e1242d826491a180eba56079a22ad601ef4f7c4",
+        "evidence/sources-delete/surface/02-01-start.png": "ba208261c44d3feeab1778820fe8fcbfededa64de5c6ec4ada7b439f72722650",
+        "evidence/sources-delete/surface/02-02-attached-source-delete-blocked.png": "ef6d4e7b1be4880df5e2686d90044f5a700d42faa8227996a067b2035bdda6e9"
+      },
+      "ownerSubsystem": "Source Hub",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:29:21.478255+00:00",
+          "status": "pending",
+          "observed": "The canonical ready Source was retained because downstream behaviors depend on it; no disposable Source existed yet.",
+          "screenshots": [
+            "evidence/sources-delete/surface/01-01-start.png",
+            "evidence/sources-delete/surface/01-02-classification.png"
+          ],
+          "diagnostics": [],
+          "url": "http://127.0.0.1:5199/sources/api"
+        },
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:34:26.559044+00:00",
+          "status": "blocked",
+          "observed": "Corpus visibly blocked deletion of the attached canonical Source, but a safe disposable Source was unavailable because Create and attach failed earlier in this same real UI lineage.",
+          "screenshots": [
+            "evidence/sources-delete/surface/02-01-start.png",
+            "evidence/sources-delete/surface/02-02-attached-source-delete-blocked.png"
+          ],
+          "diagnostics": [
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=82 net::ERR_ABORTED"
+            }
+          ],
+          "url": "http://127.0.0.1:5199/sources/api"
+        }
+      ]
+    },
+    {
+      "id": "TASK-api-test-operation",
+      "behaviorId": "api-test-operation",
+      "feature": "API Source",
+      "title": "Route and test an API operation",
+      "severity": "high",
+      "category": "behavior-defect",
+      "status": "open",
+      "result": "failed",
+      "reproduction": "Run the application as-is and follow the surface interaction shown by the ordered evidence for api-test-operation.",
+      "expectedResult": "The owner asks to test an API action. ToolRouter routes only against operations discovered and included for the exact ready revision. Corpus resolves inputs only from permitted current task context, asks one natural question when needed, preserves configured review for writes, and starts no call until the full plan is resolved. Corpus runs the authorized operation against the real configured API and returns the observed result or failure with credentials and secret headers redacted.",
+      "observedResult": "ToolRouter selected an included exact operation and made one authorized real Medusa read, but the API returned a visible HTTP 400 failure instead of the expected result; no retry or fallback was used.",
+      "evidence": [
+        "evidence/api-test-operation/surface/01-01-start.png",
+        "evidence/api-test-operation/surface/01-02-routed-read-plan-input.png",
+        "evidence/api-test-operation/surface/01-03-resolved-no-call-plan.png",
+        "evidence/api-test-operation/surface/01-04-real-api-result.png"
+      ],
+      "evidenceHashes": {
+        "evidence/api-test-operation/surface/01-01-start.png": "7ded1f3676312bf2afc7acc1d852ce9bdc0e84acfde363624795a4af366c1fde",
+        "evidence/api-test-operation/surface/01-02-routed-read-plan-input.png": "89559f041ab84b9f92352cd3b3480e56e4d323097130f5b1a2c1811eb8bef326",
+        "evidence/api-test-operation/surface/01-03-resolved-no-call-plan.png": "483051c2f2c39580afe1390aaf2024f6b9a8a64580405f5279b29a90741b92cb",
+        "evidence/api-test-operation/surface/01-04-real-api-result.png": "e4e2bd13c1e83454fe4b21ea5e1242d826491a180eba56079a22ad601ef4f7c4"
+      },
+      "ownerSubsystem": "API Source",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:29:20.958054+00:00",
+          "status": "failed",
+          "observed": "ToolRouter selected an included exact operation and made one authorized real Medusa read, but the API returned a visible HTTP 400 failure instead of the expected result; no retry or fallback was used.",
+          "screenshots": [
+            "evidence/api-test-operation/surface/01-01-start.png",
+            "evidence/api-test-operation/surface/01-02-routed-read-plan-input.png",
+            "evidence/api-test-operation/surface/01-03-resolved-no-call-plan.png",
+            "evidence/api-test-operation/surface/01-04-real-api-result.png"
+          ],
+          "diagnostics": [
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=28 net::ERR_ABORTED"
+            },
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=29 net::ERR_ABORTED"
+            },
+            {
+              "kind": "http",
+              "message": "409 POST http://127.0.0.1:5199/api/routedeck/dispatch"
+            },
+            {
+              "kind": "console",
+              "message": "Failed to load resource: the server responded with a status of 409 (Conflict)"
+            },
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=30 net::ERR_ABORTED"
+            }
+          ],
+          "url": "http://127.0.0.1:5199/sources/api"
+        }
+      ]
+    },
+    {
+      "id": "TASK-sandbox-start-run",
+      "behaviorId": "sandbox-start-run",
+      "feature": "Builder and Sandbox",
+      "title": "Start an isolated Sandbox interaction",
+      "severity": "high",
+      "category": "behavior-defect",
+      "status": "open",
+      "result": "failed",
+      "reproduction": "Run the application as-is and follow the surface interaction shown by the ordered evidence for sandbox-start-run.",
+      "expectedResult": "Sandbox starts one isolated conversation and run for the selected immutable build. The built Agent and ToolRouter resolve the owner's request, perform only an allowed supervised operation, and persist the actual status, response-derived result, API call count, and safe evidence separately from Corpus and deployed activity. After a successful run, Sandbox offers explicit continuation to Evaluation for that same selected Agent.",
+      "observedResult": "The isolated Sandbox run reached the durable failed terminal against the exact build.",
+      "evidence": [
+        "evidence/sandbox-start-run/surface/01-01-start.png",
+        "evidence/sandbox-start-run/surface/01-02-sandbox-home.png",
+        "evidence/sandbox-start-run/surface/01-02-sandbox-home-mobile.png",
+        "evidence/sandbox-start-run/surface/01-03-sandbox-started.png",
+        "evidence/sandbox-start-run/surface/01-04-sandbox-result.png"
+      ],
+      "evidenceHashes": {
+        "evidence/sandbox-start-run/surface/01-01-start.png": "d61709969b8c10491ce39270c473623a1f498db1315559f08803f75e73457bd2",
+        "evidence/sandbox-start-run/surface/01-02-sandbox-home.png": "5f16a7926b506e091c4fafc22303c6f832dbbfc408b9c7d72a9407ca8f1a0656",
+        "evidence/sandbox-start-run/surface/01-02-sandbox-home-mobile.png": "8184028f30528f23f2a9a78dc0ec3c8bbb3d007421c36784f6d41f1fbc538cd1",
+        "evidence/sandbox-start-run/surface/01-03-sandbox-started.png": "b3d40fe928fd0c75e4573570b00051ade6015af2ca288a6a94e8345086fddde3",
+        "evidence/sandbox-start-run/surface/01-04-sandbox-result.png": "e76ce6e1a65fea88fe1f3c9a30df6bc598b773e781d86a507dfb033d63a0bc6a"
+      },
+      "ownerSubsystem": "Builder and Sandbox",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:30:19.816724+00:00",
+          "status": "failed",
+          "observed": "The isolated Sandbox run reached the durable failed terminal against the exact build.",
+          "screenshots": [
+            "evidence/sandbox-start-run/surface/01-01-start.png",
+            "evidence/sandbox-start-run/surface/01-02-sandbox-home.png",
+            "evidence/sandbox-start-run/surface/01-02-sandbox-home-mobile.png",
+            "evidence/sandbox-start-run/surface/01-03-sandbox-started.png",
+            "evidence/sandbox-start-run/surface/01-04-sandbox-result.png"
+          ],
+          "diagnostics": [
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=53 net::ERR_ABORTED"
+            },
+            {
+              "kind": "request",
+              "message": "GET http://127.0.0.1:5199/api/routedeck/events?after=54 net::ERR_ABORTED"
+            }
+          ],
+          "url": "http://127.0.0.1:5199/agents/sandbox"
+        }
+      ]
+    },
+    {
+      "id": "TASK-sandbox-continue-clarification",
+      "behaviorId": "sandbox-continue-clarification",
+      "feature": "Builder and Sandbox",
+      "title": "Continue a waiting Sandbox clarification",
+      "severity": "high",
+      "category": "behavior-defect",
+      "status": "open",
+      "result": "failed",
+      "reproduction": "Run the application as-is and follow the chat interaction shown by the ordered evidence for sandbox-continue-clarification.",
+      "expectedResult": "When ToolRouter needs an operation choice or missing non-secret input, Sandbox keeps the same immutable run waiting, shows one natural question and user-facing candidate labels, accepts only the exact answer, and resumes that same run without lookup, fallback, duplicate call, or internal operation-ID prompting.",
+      "observedResult": "The real Sandbox did not produce or resume the required waiting clarification: RuntimeError: The natural Sandbox request resolved as failed instead of producing ToolRouter clarification.",
+      "evidence": [
+        "evidence/sandbox-continue-clarification/chat/01-01-start.png",
+        "evidence/sandbox-continue-clarification/chat/01-04-clarification-unavailable.png"
+      ],
+      "evidenceHashes": {
+        "evidence/sandbox-continue-clarification/chat/01-01-start.png": "e76ce6e1a65fea88fe1f3c9a30df6bc598b773e781d86a507dfb033d63a0bc6a",
+        "evidence/sandbox-continue-clarification/chat/01-04-clarification-unavailable.png": "e76ce6e1a65fea88fe1f3c9a30df6bc598b773e781d86a507dfb033d63a0bc6a"
+      },
+      "ownerSubsystem": "Builder and Sandbox",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:30:20.497699+00:00",
+          "status": "failed",
+          "observed": "The real Sandbox did not produce or resume the required waiting clarification: RuntimeError: The natural Sandbox request resolved as failed instead of producing ToolRouter clarification.",
+          "screenshots": [
+            "evidence/sandbox-continue-clarification/chat/01-01-start.png",
+            "evidence/sandbox-continue-clarification/chat/01-04-clarification-unavailable.png"
+          ],
+          "diagnostics": [],
+          "url": "http://127.0.0.1:5199/agents/sandbox"
+        }
+      ]
+    },
+    {
+      "id": "TASK-evaluation-create-case",
+      "behaviorId": "evaluation-create-case",
+      "feature": "Evaluation",
+      "title": "Create a categorized evaluation case",
+      "severity": "medium",
+      "category": "audit-blocker",
+      "status": "open",
+      "result": "blocked",
+      "reproduction": "Run the application as-is and follow the surface interaction shown by the ordered evidence for evaluation-create-case.",
+      "expectedResult": "Evaluation creates one categorized, difficulty-labelled case from an exact immutable successful Sandbox interaction and build lineage. It never copies credentials, retargets a later build, or treats the case as already run.",
+      "observedResult": "The as-is Sandbox produced no successful interaction, so Evaluation correctly exposed no interaction that could be converted into this case.",
+      "evidence": [
+        "evidence/evaluation-create-case/surface/01-01-start.png",
+        "evidence/evaluation-create-case/surface/01-02-no-successful-sandbox-interaction.png"
+      ],
+      "evidenceHashes": {
+        "evidence/evaluation-create-case/surface/01-01-start.png": "8547794a1e114f3cf28c5189dbb32e31a39308b8893164f337371381b4f32575",
+        "evidence/evaluation-create-case/surface/01-02-no-successful-sandbox-interaction.png": "e6af85799bad6859ff4c98465076c88b58fe0e584c8823b8b08965c71c493f7f"
+      },
+      "ownerSubsystem": "Evaluation",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:30:26.533976+00:00",
+          "status": "blocked",
+          "observed": "The as-is Sandbox produced no successful interaction, so Evaluation correctly exposed no interaction that could be converted into this case.",
+          "screenshots": [
+            "evidence/evaluation-create-case/surface/01-01-start.png",
+            "evidence/evaluation-create-case/surface/01-02-no-successful-sandbox-interaction.png"
+          ],
+          "diagnostics": [],
+          "url": "http://127.0.0.1:5199/agents/evaluation"
+        }
+      ]
+    },
+    {
+      "id": "TASK-evaluation-manage-cases",
+      "behaviorId": "evaluation-manage-cases",
+      "feature": "Evaluation",
+      "title": "Edit or remove evaluation cases",
+      "severity": "medium",
+      "category": "audit-blocker",
+      "status": "open",
+      "result": "blocked",
+      "reproduction": "Run the application as-is and follow the surface interaction shown by the ordered evidence for evaluation-manage-cases.",
+      "expectedResult": "The owner can edit or remove an exact evaluation case while immutable prior runs remain attributable and unavailable operations remain explicit. A change never rewrites another case, build, or completed result.",
+      "observedResult": "No successful Sandbox-derived case exists to edit or remove in this state lineage.",
+      "evidence": [
+        "evidence/evaluation-manage-cases/surface/01-01-start.png",
+        "evidence/evaluation-manage-cases/surface/01-02-classification.png"
+      ],
+      "evidenceHashes": {
+        "evidence/evaluation-manage-cases/surface/01-01-start.png": "93ce7bf1048d5fdffd0d2d0fa5d3af0a8444abbfc2e9a9cf967fdaed53024708",
+        "evidence/evaluation-manage-cases/surface/01-02-classification.png": "93ce7bf1048d5fdffd0d2d0fa5d3af0a8444abbfc2e9a9cf967fdaed53024708"
+      },
+      "ownerSubsystem": "Evaluation",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:30:26.698444+00:00",
+          "status": "blocked",
+          "observed": "No successful Sandbox-derived case exists to edit or remove in this state lineage.",
+          "screenshots": [
+            "evidence/evaluation-manage-cases/surface/01-01-start.png",
+            "evidence/evaluation-manage-cases/surface/01-02-classification.png"
+          ],
+          "diagnostics": [],
+          "url": "http://127.0.0.1:5199/agents/evaluation"
+        }
+      ]
+    },
+    {
+      "id": "TASK-channels-link-custom-domain",
+      "behaviorId": "channels-link-custom-domain",
+      "feature": "Channels and Deployment",
+      "title": "Explore linking a custom domain",
+      "severity": "low",
+      "category": "deferred-capability",
+      "status": "accepted_deferred",
+      "result": "pending",
+      "reproduction": "Run the application as-is and follow the surface interaction shown by the ordered evidence for channels-link-custom-domain.",
+      "expectedResult": "Custom-domain linking remains an explicit exploration item until ownership verification, certificate lifecycle, routing, rollback, and failure semantics are designed. Corpus must not present the hosted Corpus URL as a configured custom domain.",
+      "observedResult": "The as-is Channels surface contains no custom-domain action or configured-domain claim. The deliberately deferred capability is honestly absent, but no exploration item is implemented.",
+      "evidence": [
+        "evidence/channels-link-custom-domain/surface/01-01-start.png",
+        "evidence/channels-link-custom-domain/surface/01-02-current-delivery-capabilities.png"
+      ],
+      "evidenceHashes": {
+        "evidence/channels-link-custom-domain/surface/01-01-start.png": "34fea6d5311fe3df903dd26cc0bf81238b89e47a5360d207a7652addcaee89c4",
+        "evidence/channels-link-custom-domain/surface/01-02-current-delivery-capabilities.png": "34fea6d5311fe3df903dd26cc0bf81238b89e47a5360d207a7652addcaee89c4"
+      },
+      "ownerSubsystem": "Channels and Deployment",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:29:35.423674+00:00",
+          "status": "pending",
+          "observed": "The as-is Channels surface contains no custom-domain action or configured-domain claim. The deliberately deferred capability is honestly absent, but no exploration item is implemented.",
+          "screenshots": [
+            "evidence/channels-link-custom-domain/surface/01-01-start.png",
+            "evidence/channels-link-custom-domain/surface/01-02-current-delivery-capabilities.png"
+          ],
+          "diagnostics": [],
+          "url": "http://127.0.0.1:5199/agents/channels"
+        }
+      ]
+    },
+    {
+      "id": "TASK-deployment-publish-eligible-build",
+      "behaviorId": "deployment-publish-eligible-build",
+      "feature": "Channels and Deployment",
+      "title": "Deploy an eligible Agent build",
+      "severity": "medium",
+      "category": "audit-blocker",
+      "status": "open",
+      "result": "blocked",
+      "reproduction": "Run the application as-is and follow the surface interaction shown by the ordered evidence for deployment-publish-eligible-build.",
+      "expectedResult": "Deployment stages durable consequence review for one exact eligible immutable build and configured channel. Acceptance rechecks eligibility and current context, queues one durable deployment attempt, and returns control immediately. The worker activates that build at most once and preserves unknown external outcomes without automatic retry.",
+      "observedResult": "The exact build did not become eligible in the available Evaluation lineage, so Corpus correctly exposed no deployable build.",
+      "evidence": [
+        "evidence/deployment-publish-eligible-build/surface/01-01-start.png",
+        "evidence/deployment-publish-eligible-build/surface/01-02-classification.png"
+      ],
+      "evidenceHashes": {
+        "evidence/deployment-publish-eligible-build/surface/01-01-start.png": "d6033398300fc6292fa940f52205fb49913b6ca3dd769c2a260e5a86cd559877",
+        "evidence/deployment-publish-eligible-build/surface/01-02-classification.png": "d6033398300fc6292fa940f52205fb49913b6ca3dd769c2a260e5a86cd559877"
+      },
+      "ownerSubsystem": "Channels and Deployment",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:33:47.570776+00:00",
+          "status": "blocked",
+          "observed": "The exact build did not become eligible in the available Evaluation lineage, so Corpus correctly exposed no deployable build.",
+          "screenshots": [
+            "evidence/deployment-publish-eligible-build/surface/01-01-start.png",
+            "evidence/deployment-publish-eligible-build/surface/01-02-classification.png"
+          ],
+          "diagnostics": [],
+          "url": "http://127.0.0.1:5199/agents/channels"
+        }
+      ]
+    },
+    {
+      "id": "TASK-deployment-observe-lifecycle",
+      "behaviorId": "deployment-observe-lifecycle",
+      "feature": "Channels and Deployment",
+      "title": "Observe durable deployment status",
+      "severity": "medium",
+      "category": "audit-blocker",
+      "status": "open",
+      "result": "blocked",
+      "reproduction": "Run the application as-is and follow the surface interaction shown by the ordered evidence for deployment-observe-lifecycle.",
+      "expectedResult": "Deployment separately shows durable queued, running, ready, failed, active-build, public-URL, and unknown-delivery state across navigation and restart. An eligible build that is not running offers explicit continuation to Builds for the same selected Agent. An active deployment offers explicit continuation to owner-only Operations. A definite failure remains immutable and can be retried only through a new reviewed attempt; an uncertain external outcome requires reconciliation and cannot be retried.",
+      "observedResult": "No reviewed deployment attempt exists because the exact build is ineligible.",
+      "evidence": [
+        "evidence/deployment-observe-lifecycle/surface/01-01-start.png",
+        "evidence/deployment-observe-lifecycle/surface/01-02-classification.png"
+      ],
+      "evidenceHashes": {
+        "evidence/deployment-observe-lifecycle/surface/01-01-start.png": "d6033398300fc6292fa940f52205fb49913b6ca3dd769c2a260e5a86cd559877",
+        "evidence/deployment-observe-lifecycle/surface/01-02-classification.png": "d6033398300fc6292fa940f52205fb49913b6ca3dd769c2a260e5a86cd559877"
+      },
+      "ownerSubsystem": "Channels and Deployment",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:33:47.718909+00:00",
+          "status": "blocked",
+          "observed": "No reviewed deployment attempt exists because the exact build is ineligible.",
+          "screenshots": [
+            "evidence/deployment-observe-lifecycle/surface/01-01-start.png",
+            "evidence/deployment-observe-lifecycle/surface/01-02-classification.png"
+          ],
+          "diagnostics": [],
+          "url": "http://127.0.0.1:5199/agents/channels"
+        }
+      ]
+    },
+    {
+      "id": "TASK-deployment-rollback",
+      "behaviorId": "deployment-rollback",
+      "feature": "Channels and Deployment",
+      "title": "Roll back the hosted Agent",
+      "severity": "medium",
+      "category": "audit-blocker",
+      "status": "open",
+      "result": "blocked",
+      "reproduction": "Run the application as-is and follow the surface interaction shown by the ordered evidence for deployment-rollback.",
+      "expectedResult": "Rollback stages review for one exact earlier ready deployment and, after accept-time recheck, activates it once without deleting history or silently choosing another version.",
+      "observedResult": "No earlier ready deployment exists in this newly created disposable channel.",
+      "evidence": [
+        "evidence/deployment-rollback/surface/01-01-start.png",
+        "evidence/deployment-rollback/surface/01-02-classification.png"
+      ],
+      "evidenceHashes": {
+        "evidence/deployment-rollback/surface/01-01-start.png": "d6033398300fc6292fa940f52205fb49913b6ca3dd769c2a260e5a86cd559877",
+        "evidence/deployment-rollback/surface/01-02-classification.png": "d6033398300fc6292fa940f52205fb49913b6ca3dd769c2a260e5a86cd559877"
+      },
+      "ownerSubsystem": "Channels and Deployment",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:33:47.858905+00:00",
+          "status": "blocked",
+          "observed": "No earlier ready deployment exists in this newly created disposable channel.",
+          "screenshots": [
+            "evidence/deployment-rollback/surface/01-01-start.png",
+            "evidence/deployment-rollback/surface/01-02-classification.png"
+          ],
+          "diagnostics": [],
+          "url": "http://127.0.0.1:5199/agents/channels"
+        }
+      ]
+    },
+    {
+      "id": "TASK-channels-use-hosted-agent",
+      "behaviorId": "channels-use-hosted-agent",
+      "feature": "Channels and Deployment",
+      "title": "Use the hosted Web Agent",
+      "severity": "medium",
+      "category": "audit-blocker",
+      "status": "open",
+      "result": "blocked",
+      "reproduction": "Run the application as-is and follow the hybrid interaction shown by the ordered evidence for channels-use-hosted-agent.",
+      "expectedResult": "The public hosted Agent creates a deployment-pinned session, answers through the exact immutable RouteDeck build, preserves natural ToolRouter clarification in the same public run, and exposes no owner-only NavGraph, policy, trace, credential, or private Corpus state.",
+      "observedResult": "The disposable hosted channel has no eligible active deployment, so public Agent use is unavailable.",
+      "evidence": [
+        "evidence/channels-use-hosted-agent/hybrid/01-01-start.png",
+        "evidence/channels-use-hosted-agent/hybrid/01-02-classification.png"
+      ],
+      "evidenceHashes": {
+        "evidence/channels-use-hosted-agent/hybrid/01-01-start.png": "fafce1c78c9c955b8c2465570ae1fdfb0da26004003ed29351d06273d55de446",
+        "evidence/channels-use-hosted-agent/hybrid/01-02-classification.png": "31e18bc22ef59ccbab6637121d4a1b4d52ec6261dabbc9a8f13017f5eeb8b5b8"
+      },
+      "ownerSubsystem": "Channels and Deployment",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:33:51.339850+00:00",
+          "status": "blocked",
+          "observed": "The disposable hosted channel has no eligible active deployment, so public Agent use is unavailable.",
+          "screenshots": [
+            "evidence/channels-use-hosted-agent/hybrid/01-01-start.png",
+            "evidence/channels-use-hosted-agent/hybrid/01-02-classification.png"
+          ],
+          "diagnostics": [],
+          "url": "http://127.0.0.1:5199/agents/channels"
+        }
+      ]
+    },
+    {
+      "id": "TASK-operations-view-interactions",
+      "behaviorId": "operations-view-interactions",
+      "feature": "Operations",
+      "title": "View deployed Agent interactions",
+      "severity": "medium",
+      "category": "audit-blocker",
+      "status": "open",
+      "result": "blocked",
+      "reproduction": "Run the application as-is and follow the surface interaction shown by the ordered evidence for operations-view-interactions.",
+      "expectedResult": "Operations lists only the authenticated owner's deployed interactions for the selected Agent with exact deployment and build lineage, durable result status, and no Sandbox or other-owner activity.",
+      "observedResult": "No deployed public interaction exists in this lineage.",
+      "evidence": [
+        "evidence/operations-view-interactions/surface/01-01-start.png",
+        "evidence/operations-view-interactions/surface/01-02-classification.png"
+      ],
+      "evidenceHashes": {
+        "evidence/operations-view-interactions/surface/01-01-start.png": "350a1c6a0dcf7e1d079776d1f6eabc245a4e86fd7e37b9d3a24a9378e47a2a43",
+        "evidence/operations-view-interactions/surface/01-02-classification.png": "350a1c6a0dcf7e1d079776d1f6eabc245a4e86fd7e37b9d3a24a9378e47a2a43"
+      },
+      "ownerSubsystem": "Operations",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:33:51.709795+00:00",
+          "status": "blocked",
+          "observed": "No deployed public interaction exists in this lineage.",
+          "screenshots": [
+            "evidence/operations-view-interactions/surface/01-01-start.png",
+            "evidence/operations-view-interactions/surface/01-02-classification.png"
+          ],
+          "diagnostics": [],
+          "url": "http://127.0.0.1:5199/agents/channels"
+        }
+      ]
+    },
+    {
+      "id": "TASK-operations-inspect-evidence",
+      "behaviorId": "operations-inspect-evidence",
+      "feature": "Operations",
+      "title": "Inspect deployed result and decision evidence",
+      "severity": "medium",
+      "category": "audit-blocker",
+      "status": "open",
+      "result": "blocked",
+      "reproduction": "Run the application as-is and follow the surface interaction shown by the ordered evidence for operations-inspect-evidence.",
+      "expectedResult": "Operations presents the exact immutable build NavGraph and allowlisted RouteDeck, ToolRouter clarification, API activity, completion, or failure evidence for one deployed interaction without credentials, request or response bodies, cookies, or public exposure of owner diagnostics.",
+      "observedResult": "No deployed public interaction exists to inspect.",
+      "evidence": [
+        "evidence/operations-inspect-evidence/surface/01-01-start.png",
+        "evidence/operations-inspect-evidence/surface/01-02-classification.png"
+      ],
+      "evidenceHashes": {
+        "evidence/operations-inspect-evidence/surface/01-01-start.png": "350a1c6a0dcf7e1d079776d1f6eabc245a4e86fd7e37b9d3a24a9378e47a2a43",
+        "evidence/operations-inspect-evidence/surface/01-02-classification.png": "350a1c6a0dcf7e1d079776d1f6eabc245a4e86fd7e37b9d3a24a9378e47a2a43"
+      },
+      "ownerSubsystem": "Operations",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:33:51.912338+00:00",
+          "status": "blocked",
+          "observed": "No deployed public interaction exists to inspect.",
+          "screenshots": [
+            "evidence/operations-inspect-evidence/surface/01-01-start.png",
+            "evidence/operations-inspect-evidence/surface/01-02-classification.png"
+          ],
+          "diagnostics": [],
+          "url": "http://127.0.0.1:5199/agents/channels"
+        }
+      ]
+    },
+    {
+      "id": "TASK-operations-promote-evaluation",
+      "behaviorId": "operations-promote-evaluation",
+      "feature": "Operations",
+      "title": "Promote a deployed interaction to Evaluation",
+      "severity": "medium",
+      "category": "audit-blocker",
+      "status": "open",
+      "result": "blocked",
+      "reproduction": "Run the application as-is and follow the surface interaction shown by the ordered evidence for operations-promote-evaluation.",
+      "expectedResult": "Operations creates one categorized evaluation case from the explicit deployed interaction and its exact build lineage. It does not copy secrets or bodies, alter the historical interaction, or silently select another interaction.",
+      "observedResult": "No deployed public interaction exists to promote into Evaluation.",
+      "evidence": [
+        "evidence/operations-promote-evaluation/surface/01-01-start.png",
+        "evidence/operations-promote-evaluation/surface/01-02-classification.png"
+      ],
+      "evidenceHashes": {
+        "evidence/operations-promote-evaluation/surface/01-01-start.png": "350a1c6a0dcf7e1d079776d1f6eabc245a4e86fd7e37b9d3a24a9378e47a2a43",
+        "evidence/operations-promote-evaluation/surface/01-02-classification.png": "350a1c6a0dcf7e1d079776d1f6eabc245a4e86fd7e37b9d3a24a9378e47a2a43"
+      },
+      "ownerSubsystem": "Operations",
+      "runHistory": [
+        {
+          "runId": "RUN-20260818T192408Z-3bd810db",
+          "runAt": "2026-08-18T19:33:52.111635+00:00",
+          "status": "blocked",
+          "observed": "No deployed public interaction exists to promote into Evaluation.",
+          "screenshots": [
+            "evidence/operations-promote-evaluation/surface/01-01-start.png",
+            "evidence/operations-promote-evaluation/surface/01-02-classification.png"
+          ],
+          "diagnostics": [],
+          "url": "http://127.0.0.1:5199/agents/channels"
+        }
+      ]
+    }
+  ]
+}
