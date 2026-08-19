@@ -18,7 +18,7 @@ source traceability, validation, and compact handoffs.
 | Vision | `critical_prompt.md` |
 | Live state | `context.md`, `structure.md` |
 | State history | `context_history/`, `context_checkpoints/` |
-| Process | `AGENTIC_CODING_GUIDE.md`, `instructions.md`, `work_prompt.md`, `context_pipeline.md` |
+| Process | `AGENTIC_CODING_GUIDE.md`, `instructions.md`, `work_prompt.md`, `context_pipeline.md`, `docs/corpus-behavior-first-delivery-process.md` |
 | Architecture | `architecture/code-map.md`, `architecture/components/`, `architecture/diagrams/` |
 | Product behavior | `docs/` |
 | Runtime and UX flow index | `SYSTEM_FLOW_INDEX.md` |

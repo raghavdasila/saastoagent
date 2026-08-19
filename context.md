@@ -11,10 +11,16 @@ and pushed at `94ab630`. Canonical run
 The evidence dashboard and machine ledger live under
 `audits/2026-08-v0.2-behavior-audit/`.
 
-Use `docs/corpus-behavior-evidence-ledger.md` as the process and data-contract
-owner and `skills/audit-corpus-behaviors/SKILL.md` as the repeatable operator
-workflow. Future retests build on the committed baseline; the current recorder
-supports full in-place reruns but not selective behavior or feature filters.
+Use `docs/corpus-behavior-evidence-ledger.md` as the audit-process and
+data-contract owner and `skills/audit-corpus-behaviors/SKILL.md` as the
+repeatable operator workflow. Future retests build on the committed baseline;
+the current recorder supports full in-place reruns but not selective behavior
+or feature filters.
+
+Use `docs/corpus-behavior-first-delivery-process.md` as the separate product
+delivery process: owner behavior -> accepted Studio design -> RouteDeck mapping
+-> Corpus vertical implementation -> isolated validation -> canonical ledger
+retest -> release-level horizontal acceptance.
 
 ## Local follow-up pending publication
 
@@ -116,5 +122,6 @@ production build, package/import checks, and `pip check` before publication.
 - Boundary checker workflow: `skills/audit-corpus-boundaries/SKILL.md`
 - Behavior ledger workflow: `skills/audit-corpus-behaviors/SKILL.md`
 - Behavior ledger contract: `docs/corpus-behavior-evidence-ledger.md`
+- Behavior-first delivery process: `docs/corpus-behavior-first-delivery-process.md`
 - Test meaning and commands: `test_index/README.md`
 - Architecture ownership: `architecture/code-map.md`

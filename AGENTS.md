@@ -60,6 +60,23 @@ Before implementing a Studio behavior in Corpus:
 Never interpret a product term as proof that RouteDeck needs a new primitive.
 Prove the gap against current RouteDeck source first.
 
+## Behavior-First Delivery Process
+
+- Follow `docs/corpus-behavior-first-delivery-process.md` for every product
+  behavior change from owner intent through Studio, RouteDeck mapping, Corpus
+  implementation, isolated validation, ledger retest, and closeout.
+- Use `docs/corpus-behavior-evidence-ledger.md` and
+  `skills/audit-corpus-behaviors/SKILL.md` for observed behavior truth and the
+  canonical audit workflow. Do not create a second ledger, runner, dashboard,
+  schema, or competing status vocabulary.
+- Keep audit and product-fix lanes separate. An as-is behavior campaign is
+  read-only for product source; an implementation task must not edit evidence
+  to manufacture a pass.
+- Do not use a complete horizontal journey to debug one feature. Validate the
+  feature in isolation, retest it through the supported canonical audit path,
+  and run release-level chat/surface/hybrid journeys only at the documented
+  gate.
+
 ## Working Rules
 
 - Follow the read order in `AGENTIC_CODING_GUIDE.md`: `critical_prompt.md`,
