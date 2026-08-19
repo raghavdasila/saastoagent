@@ -1,6 +1,20 @@
 # Corpus Current Context
 
-Updated: 2026-08-17
+Updated: 2026-08-19
+
+## Local behavior evidence baseline
+
+The first exhaustive local as-is Design Studio behavior campaign is committed
+and pushed at `94ab630`. Canonical run
+`RUN-20260818T192408Z-3bd810db` records 77 behaviors: 53 passed, 10 failed,
+13 blocked, and 1 pending, with 231 tracked screenshots and 24 linked tasks.
+The evidence dashboard and machine ledger live under
+`audits/2026-08-v0.2-behavior-audit/`.
+
+Use `docs/corpus-behavior-evidence-ledger.md` as the process and data-contract
+owner and `skills/audit-corpus-behaviors/SKILL.md` as the repeatable operator
+workflow. Future retests build on the committed baseline; the current recorder
+supports full in-place reruns but not selective behavior or feature filters.
 
 ## Local follow-up pending publication
 
@@ -100,5 +114,7 @@ production build, package/import checks, and `pip check` before publication.
 - Log: `logs/20260815_deployed_boundary_refactor.md`
 - Deployment: `docs/deployment/gcp-single-vm.md`
 - Boundary checker workflow: `skills/audit-corpus-boundaries/SKILL.md`
+- Behavior ledger workflow: `skills/audit-corpus-behaviors/SKILL.md`
+- Behavior ledger contract: `docs/corpus-behavior-evidence-ledger.md`
 - Test meaning and commands: `test_index/README.md`
 - Architecture ownership: `architecture/code-map.md`

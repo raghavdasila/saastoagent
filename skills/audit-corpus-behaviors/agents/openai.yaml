@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit Corpus Behaviors"
+  short_description: "Record and validate Corpus behavior evidence"
+  default_prompt: "Use $audit-corpus-behaviors to run or validate the local screenshot-backed Corpus behavior ledger."
