@@ -22,24 +22,38 @@ delivery process: owner behavior -> accepted Studio design -> RouteDeck mapping
 -> Corpus vertical implementation -> isolated validation -> canonical ledger
 retest -> release-level horizontal acceptance.
 
-## Local follow-up pending publication
+## v0.2 Sandbox publication
 
 The Docker build requires sibling `agent-execution-runtime==0.1.0` and
-`agent-delivery-runtime==0.1.0` source directories. Both are now canonical
+`agent-delivery-runtime==0.2.0` source directories. Both are now canonical
 private repositories under the `saastoagent` GitHub organization. The
 repository-owned dependency manifest and bootstrap clone RouteDeck plus both
 runtimes at immutable commits; a fresh checkout requires authenticated
 organization access rather than undocumented local source.
 
-Local, not-yet-published follow-up now makes development Compose honor the
-existing explicit OpenAI ToolRouter provider contract, documents separate
-Ollama and OpenAI setup lanes, preserves the pinned local CPU MiniLM embedding
-boundary, adds the pinned source bootstrap, and corrects
-`scripts/init-local.ps1` to migration
-`0019_builder_assembly_lifecycle`. Focused provider/runtime tests and both
-default and OpenAI Compose configuration checks pass. Production remains on
-the previously recorded digests and was not changed or redeployed by this
-follow-up.
+Published `agent-delivery-runtime` v0.2 work at
+`a20fce7dfa831bca4e6e10a4ea00b0badb01b47f` generalizes the shared runtime into
+`sandbox` and `delivery` deployment modes. Corpus now owns one explicit
+owner-private Sandbox target per Agent, deployment history, pinned persistent
+Playground sessions, private diagnostics, and Evaluation-owned isolated case
+sessions. Existing public Delivery admission and APIs remain unchanged. The
+local OpenAI lane uses `gpt-5.6-luna` with low reasoning for the primary Agent,
+ToolRouter generation/review, and Evaluation. Compose reads `.env.local`
+through each service's `env_file`; no provider fallback is enabled. Production
+remains on the previously recorded digests and was not changed or redeployed.
+The canonical local Medusa-backed acceptance run is recorded at
+`artifacts/sandbox-deployment-v02/20260819T160037Z-b692dfdff1/result.json`;
+its exact-build evaluation succeeded with a session isolated from Playground
+and no HTTP, page, or request failures. Build-scoped Agent RouteDeck access is
+serialized across backend and worker processes so the existing single-instance
+RouteDeck database lease remains authoritative under concurrent inspection.
+
+The pre-v0.2 horizontal recorder is now explicitly bounded to new Designer or
+Builder milestone runs. Its historical artifacts remain verifiable, while the
+canonical v0.2 Sandbox journey owns current Sandbox and Evaluation proof. The
+next approved work is, in order: configurable complete Evaluation coverage,
+owner-scoped Agent discovery/selection, and cross-feature Studio journeys plus
+a stable selected-Agent shell.
 
 ## Current state
 

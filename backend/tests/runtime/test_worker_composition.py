@@ -33,7 +33,7 @@ def test_application_worker_registers_every_product_task_once(
         ),
         database=CorpusDatabaseSettings(
             url=f"sqlite+aiosqlite:///{(tmp_path / 'corpus.sqlite3').as_posix()}",
-            migration_revision="0019_builder_assembly_lifecycle",
+            migration_revision="0020_sandbox_deployment_mode",
         ),
         auth=AuthSettings(
             reset_secret="r" * 40,

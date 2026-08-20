@@ -336,6 +336,7 @@ class SqlAlchemyEvaluationRepository:
 
     async def create_run_attempt(
         self, organization_id, agent_id, case_id, *, retry_of_attempt_id=None,
+        sandbox_deployment_id=None,
     ):
         now = utc_now()
         async with self.database.session() as session:
@@ -382,6 +383,8 @@ class SqlAlchemyEvaluationRepository:
                     case_id=case.id, build_id=case.build_id,
                     case_revision=case.current_revision, job_id=None,
                     retry_of_attempt_id=retry_of_attempt_id,
+                    sandbox_deployment_id=sandbox_deployment_id,
+                    sandbox_session_id=None, runtime_agent_run_id=None,
                     active_case_id=case.id, status="queued",
                     failure_code=None, failure_message=None,
                     runtime_evaluation_run_id=None,
@@ -394,6 +397,40 @@ class SqlAlchemyEvaluationRepository:
                     raise EvaluationConflict(
                         "That evaluation case already has an active run."
                     ) from error
+                return _attempt(value)
+
+    async def bind_attempt_sandbox_session(
+        self, organization_id, attempt_id, *, session_id, runtime_agent_run_id,
+    ):
+        async with self.database.session() as session:
+            async with session.begin():
+                value = await session.scalar(select(
+                    AgentEvaluationRunAttempt
+                ).where(
+                    AgentEvaluationRunAttempt.id == attempt_id,
+                    AgentEvaluationRunAttempt.organization_id == organization_id,
+                ).with_for_update())
+                if value is None:
+                    raise EvaluationUnavailable(
+                        "The evaluation run attempt is unavailable."
+                    )
+                if value.status != "running":
+                    raise EvaluationConflict(
+                        "The evaluation attempt is not running."
+                    )
+                if value.sandbox_session_id is not None:
+                    if (
+                        value.sandbox_session_id == session_id
+                        and value.runtime_agent_run_id == runtime_agent_run_id
+                    ):
+                        return _attempt(value)
+                    raise EvaluationConflict(
+                        "The evaluation attempt already owns another Sandbox session."
+                    )
+                value.sandbox_session_id = session_id
+                value.runtime_agent_run_id = runtime_agent_run_id
+                value.updated_at = utc_now()
+                await session.flush()
                 return _attempt(value)
 
     async def link_run_attempt_job(
@@ -586,6 +623,8 @@ def _attempt(value):
         value.status, value.failure_code, value.failure_message,
         value.runtime_evaluation_run_id, value.created_at,
         value.updated_at, value.completed_at,
+        value.sandbox_deployment_id, value.sandbox_session_id,
+        value.runtime_agent_run_id,
     )
 
 

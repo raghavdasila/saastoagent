@@ -20,8 +20,8 @@
       "name": "Agent Delivery Runtime",
       "directory": "agent-delivery-runtime",
       "repository": "https://github.com/saastoagent/agent-delivery-runtime.git",
-      "commit": "2fdeab9b35f0997123ecdc4b6ab670dc6795fd1b",
-      "package_version": "0.1.0",
+      "commit": "a20fce7dfa831bca4e6e10a4ea00b0badb01b47f",
+      "package_version": "0.2.0",
       "visibility": "private"
     }
   ]

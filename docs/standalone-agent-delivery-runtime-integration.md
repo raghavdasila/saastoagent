@@ -1,6 +1,6 @@
 # Agent Delivery Runtime Integration
 
-Updated: 2026-08-17
+Updated: 2026-08-19
 
 Status: package integrated through Corpus-owned adapters; standalone proof host
 remains separate and optional
@@ -14,12 +14,13 @@ recorded in
 
 ## Purpose and authority
 
-The separately owned package supplies immutable deployment revisions,
-activation and rollback, channel/public-session state, redacted interaction
-evidence, and evaluation-candidate export for an already compiled eligible
-Agent.
+The separately owned package supplies neutral immutable deployment targets and
+revisions, activation/replacement, pinned Agent sessions, runtime interaction
+evidence, and mode/purpose policy for an already compiled Agent. `sandbox` and
+`delivery` use the same execution kernel without sharing targets, sessions, or
+state.
 
-Corpus installs pinned `agent-delivery-runtime==0.1.0` source into its
+Corpus installs pinned `agent-delivery-runtime==0.2.0` source into its
 backend/worker image and consumes the package in process behind Corpus-owned
 delivery adapters and stores. The standalone API/owner/public Web environment
 on ports 8880/5280 remains an optional package proof. It is not part of the
@@ -33,6 +34,7 @@ acceptance.
 | Agent Designer and RouteDeck mapping | No direct boundary; Delivery accepts an already compiled bundle | Corpus passes only accepted, compiled RouteDeck and product-surface identities. Delivery never compiles or reinterprets Studio state. |
 | Agent Builder | trusted immutable deployable bundle | Corpus publishes the exact eligible build through its application adapters while preserving build, RouteDeck app, surface-contract, and eligibility identities. |
 | Owner identity | authenticated Corpus operations | Corpus owner authorization remains outside the package. Standalone bearer-token files and its owner UI are proof infrastructure only. |
+| Sandbox | one owner-scoped target, explicit deployment, Playground and evaluation-case sessions | Corpus owns admission, Evaluation results, and private diagnostics. Sandbox deployment does not require Delivery eligibility and never creates public exposure. |
 | Channels/Web | channel state, public slug, sessions, and projections | Corpus owns channel configuration and owner-facing management; the delivery package owns immutable activation and public-session lifecycle behind Corpus adapters. |
 | Deployment | request/status, verification, activation, retry, and rollback | Corpus stages RouteDeck review and submits the authorized exact build. The package preserves compatibility checks and transaction-safe activation; failures remain visible. |
 | RouteDeck runtime | deployed-Agent runtime port | Corpus provisions/invokes the exact compiled Agent through public RouteDeck contracts. RouteDeck retains state, operation, review, surface, and terminal-execution authority. |
@@ -53,9 +55,11 @@ neutral `corpus.shared.agent_delivery` contracts.
 accepted Corpus design
 -> compiled RouteDeck Agent and product surface contract
 -> immutable Corpus Agent Build
--> Corpus evaluation and eligibility decision
--> reviewed deployment publication
--> immutable activation and public session
+-> explicit Sandbox deployment without eligibility admission
+-> pinned Playground or Evaluation-owned case sessions
+-> Corpus evaluation evidence and eligibility decision
+-> reviewed Delivery publication to a channel
+-> immutable Delivery activation and public session
 -> RouteDeck invocation and product projection
 -> reviewed public write when requested
 -> redacted interaction evidence
@@ -70,10 +74,11 @@ Surface, Hybrid, and Chat journeys. Exact deployed evidence is owned by
 
 1. Pass the current Studio-to-RouteDeck mapping/parity gate before build
    compilation.
-2. Publish only an exact eligible immutable build; never use the standalone
-   proof catalogue as Corpus product storage.
-3. Keep Corpus owner authorization and deployed-Agent public identities and
-   sessions separate.
+2. Publish Delivery only for an exact eligible immutable build. Sandbox accepts
+   an exact ready build because it is where Evaluation executes; never use the
+   standalone proof catalogue as Corpus product storage.
+3. Keep owner-private Sandbox admission/sessions and deployed-Agent public
+   identities/sessions separate.
 4. Package/resolve the exact product surface contract with the compiled Agent.
 5. Preserve review, failure, retry, rollback, redaction, and activation lineage
    across every adapter.

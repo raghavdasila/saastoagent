@@ -133,7 +133,7 @@ Why agent builder is separate from agent designer?  agent design is like schema 
 Agent builder actually converts the agent design into a routedeck powered agent ready to be tested in sandbox and generate evalsets.
 The best way I can describe this in terms of product is this is like how a service or vps is provisioned in infra projects.
 using schema, the agent can be started/stopped/paused etc.
-agent builder automatically generates the evalsets too on a agent build
+When a build becomes ready, Agent Builder automatically schedules ToolRouter evaluation-set generation for that exact immutable build. Generation state remains visible, and generation alone does not count as a passing evaluation or deployment eligibility.
 each built agent has its own execution runtime. its state, conversations and results remain separate from Corpus and from other agents. sandbox and deployed results are also viewed separately.
 one important thing to note that is the built must be isolated [to explore]
 
@@ -146,15 +146,23 @@ actions
 
 ## 7. Sandbox
 
-Sandbox is a playground for running the actual draft agent without unintended real-world impact.
+Sandbox is the owner's private deployment mode for running the actual draft agent without unintended public or channel exposure.
+
+Sandbox uses the same RouteDeck-powered Agent deployment runtime as a deployed Agent. The owner must explicitly deploy one ready immutable build to Sandbox before using it. A later ready build never replaces the active Sandbox deployment automatically.
+
+The Sandbox deployment is admitted only to the authenticated owner. It has no public slug or channel binding and does not write deployed Operations history. Its deployment, sessions, conversations, and evidence remain isolated from Delivery even when the same immutable build is deployed through both modes.
 
 For the minimal end-to-end proof, the agent performs at least one safe real API operation. This can be a read-only operation or an action against a sandbox account supplied by the user. The user is responsible for ensuring supplied credentials belong to a real sandbox account.
 
 API-schema-generated responses can support exploration, but they are clearly shown as simulations and do not count as proof of the real integration.
 
-Each interaction records how the query was resolved, including the decisions and API activity involved. The detailed UI will be explored later.
+The conversation is the primary experience. The owner can start and continue persistent Playground conversations pinned to the exact active Sandbox deployment and build. Existing conversations remain pinned to their original deployment after a newer build is explicitly deployed. Each interaction records how the query was resolved, including the decisions and API activity involved. Owner-only NavGraph diagnostics, ToolRouter decisions, and safe operation traces remain available separately and do not expose internal identifiers in the conversation.
 
-one important thing to note is that the sandboxed agent has its own execution runtime. its conversations, state and results are kept separate and can be viewed separately from deployed agent activity.
+one important thing to note is that Sandbox is a mode of the shared Agent deployment runtime, not a second execution implementation. The mode changes admission, exposure, allowed session purposes, and evidence ownership; it never shares sessions or state with a Delivery deployment.
+
+For the selected immutable Sandbox deployment, Sandbox can launch a defined ToolRouter-generated or owner-authored evalset and show its durable progress and results. Evaluation remains the source of truth for evalset generation, case management, execution state, results, metrics, retry lineage, and Delivery eligibility. Each evaluation case and each explicit retry runs in a fresh `evaluation_case` Sandbox session that is excluded from Playground history and deployed Operations.
+
+The owner can start a new isolated conversation without changing or deleting previous Sandbox history.
 
 - chat with agent, user can view navgraph diagnostics here fully. [NAVGRAPH FEATURE ISN'T AVAILABLE TO END USERS OF THE AGENT, ONLY THE OWNER]
 - view sandbox operations traces in a separate surface
@@ -163,6 +171,8 @@ one important thing to note is that the sandboxed agent has its own execution ru
 ## 8. Evaluation
 
 Users can generate and configure evalsets with ToolRouter, as well as add, remove, or edit evaluation cases.
+
+Evaluation is the source of truth for generated cases, evaluation execution, retry, results, and deployment eligibility. Sandbox provides the exact private deployment target, can initiate an Evaluation-owned run, and presents its Evaluation-owned projection without taking persistence ownership.
 
 For the baseline, an evalset runs against the exact draft agent version and produces a simple eligible or ineligible result for deployment, with basic metrics visible to the user.
 

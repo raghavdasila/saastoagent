@@ -42,7 +42,7 @@ from scripts.smoke_restart_recovery_isolated import (
 )
 
 
-_REVISION = "0019_builder_assembly_lifecycle"
+_REVISION = "0020_sandbox_deployment_mode"
 
 
 def _owner() -> TemporaryOwner:

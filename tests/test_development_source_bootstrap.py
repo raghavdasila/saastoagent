@@ -33,7 +33,7 @@ def test_development_source_manifest_pins_exact_canonical_repositories() -> None
 
     assert dependencies["routedeck"]["visibility"] == "public"
     assert dependencies["agent-execution-runtime"]["package_version"] == "0.1.0"
-    assert dependencies["agent-delivery-runtime"]["package_version"] == "0.1.0"
+    assert dependencies["agent-delivery-runtime"]["package_version"] == "0.2.0"
     assert dependencies["agent-execution-runtime"]["visibility"] == "private"
     assert dependencies["agent-delivery-runtime"]["visibility"] == "private"
 

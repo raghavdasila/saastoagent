@@ -60,6 +60,13 @@ def test_toolrouter_provider_is_not_selected_by_the_product_model_provider(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    for name in (
+        "CORPUS_TOOLROUTER_MODEL_PROVIDER",
+        "CORPUS_TOOLROUTER_GENERATOR_MODEL",
+        "CORPUS_TOOLROUTER_REVIEWER_MODEL",
+        "CORPUS_TOOLROUTER_OPENAI_REASONING_EFFORT",
+    ):
+        monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("CORPUS_MODEL_PROVIDER", "openai")
     monkeypatch.setenv("CORPUS_OPENAI_MODEL", "gpt-5.6-luna")
 

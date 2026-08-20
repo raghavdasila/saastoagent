@@ -1264,7 +1264,12 @@
       "routeDeckFeature": "builder+sandbox",
       "implementationStatus": "partial",
       "runtimeImplementationStatus": "complete",
-      "unmappedDesignBehaviors": [],
+      "unmappedDesignBehaviors": [
+        "Start a Sandbox Playground conversation",
+        "Continue a waiting Sandbox clarification",
+        "Deploy an Agent build to Sandbox",
+        "Continue a Sandbox Playground conversation"
+      ],
       "unmappedCompiledNodes": [],
       "featurePromptPolicy": "builder.feature.prompt",
       "behaviors": [
@@ -1336,32 +1341,6 @@
           }
         },
         {
-          "designBehavior": "Start an isolated Sandbox interaction",
-          "node": "sandbox.home",
-          "capabilities": {
-            "Agent Sandbox": "sandbox.execution"
-          },
-          "surfaces": {
-            "Agent Sandbox": "sandbox.home"
-          },
-          "operations": {
-            "Start Sandbox run": "sandbox.start"
-          }
-        },
-        {
-          "designBehavior": "Continue a waiting Sandbox clarification",
-          "node": "sandbox.home",
-          "capabilities": {
-            "Agent Sandbox": "sandbox.execution"
-          },
-          "surfaces": {
-            "Agent Sandbox": "sandbox.home"
-          },
-          "operations": {
-            "Continue waiting Agent run": "sandbox.resume"
-          }
-        },
-        {
           "designBehavior": "Inspect Sandbox RouteDeck diagnostics",
           "node": "sandbox.home",
           "capabilities": {
@@ -1406,7 +1385,15 @@
           "implementationStatus": "pending_external_evidence",
           "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
         },
-        "sandbox-start-run-contract": {
+        "sandbox-playground-session-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "sandbox-explicit-deployment-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "sandbox-playground-continue-contract": {
           "implementationStatus": "pending_external_evidence",
           "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
         },
@@ -1436,7 +1423,9 @@
       "routeDeckFeature": "evaluation",
       "implementationStatus": "partial",
       "runtimeImplementationStatus": "complete",
-      "unmappedDesignBehaviors": [],
+      "unmappedDesignBehaviors": [
+        "Run an evaluation set against Sandbox"
+      ],
       "unmappedCompiledNodes": [],
       "featurePromptPolicy": "evaluation.feature.prompt",
       "behaviors": [
@@ -1543,6 +1532,10 @@
           "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
         },
         "evaluation-observe-lifecycle-contract": {
+          "implementationStatus": "pending_external_evidence",
+          "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
+        },
+        "sandbox-evaluation-case-isolation": {
           "implementationStatus": "pending_external_evidence",
           "externalEvidenceOwner": "scripts/run_horizontal_product_journey.py"
         }

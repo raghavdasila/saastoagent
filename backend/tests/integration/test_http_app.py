@@ -43,7 +43,7 @@ def test_live_http_app_serves_a_bearer_selected_conversation(
         ),
         database=CorpusDatabaseSettings(
             url=database_url,
-            migration_revision="0019_builder_assembly_lifecycle",
+                migration_revision="0020_sandbox_deployment_mode",
         ),
         auth=AuthSettings(
             reset_secret="r" * 40,

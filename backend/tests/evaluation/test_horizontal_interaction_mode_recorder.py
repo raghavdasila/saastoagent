@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -48,6 +49,42 @@ from scripts.run_horizontal_product_journey import (
     _wait_for_unique_locator,
     _wait_for_sandbox_clarification,
 )
+
+
+@pytest.mark.parametrize("stop_after", [None, "evaluation"])
+def test_new_horizontal_run_rejects_superseded_sandbox_evaluation_segment(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    stop_after: str | None,
+) -> None:
+    argv = ["run_horizontal_product_journey.py"]
+    if stop_after is not None:
+        argv.extend(["--stop-after", stop_after])
+    monkeypatch.setattr(sys, "argv", argv)
+
+    with pytest.raises(SystemExit) as error:
+        horizontal_journey.arguments()
+
+    assert error.value.code == 2
+    stderr = capsys.readouterr().err
+    assert "superseded by v0.2 Sandbox deployment mode" in stderr
+    assert "run_v02_sandbox_deployment_journey.py" in stderr
+
+
+@pytest.mark.parametrize("stop_after", ["designer", "builder"])
+def test_new_horizontal_run_allows_retained_bounded_milestones(
+    monkeypatch: pytest.MonkeyPatch,
+    stop_after: str,
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["run_horizontal_product_journey.py", "--stop-after", stop_after],
+    )
+
+    parsed = horizontal_journey.arguments()
+
+    assert parsed.stop_after == stop_after
 
 
 class _ReadyResponse:
@@ -570,7 +607,7 @@ def test_chat_operation_boundary_rejects_an_unrequested_mutation() -> None:
     ]
 
     with pytest.raises(RuntimeError, match="unexpected operation"):
-        asyncio.run(_chat_operations_after(trace, 7, ("sandbox.start",)))
+        asyncio.run(_chat_operations_after(trace, 7, ("agents.open_sandbox",)))
 
 
 def test_chat_multi_operation_boundary_allows_autonomous_safe_navigation() -> None:
@@ -1589,9 +1626,9 @@ def test_current_user_suffix_accepts_rotation_when_pre_turn_history_was_one_belo
             }]}},
             "provider_result": {"value": {
                 "type": "routedeck_operation_result",
-                "operation_id": "sandbox.start",
+                "operation_id": "agents.open_sandbox",
                 "disposition": "completed",
-                "outcome": "started",
+                "outcome": "opened",
                 "session_version": 40,
                 "projection_version": 38,
             }},
@@ -1610,7 +1647,7 @@ def test_current_user_suffix_accepts_rotation_when_pre_turn_history_was_one_belo
         "recent_operations": [{
             "event_id": "sandbox-current-event",
             "cursor": 39,
-            "operation_id": "sandbox.start",
+            "operation_id": "agents.open_sandbox",
             "status_code": "ready",
             "session_version": 40,
             "projection_version": 38,
@@ -1620,7 +1657,7 @@ def test_current_user_suffix_accepts_rotation_when_pre_turn_history_was_one_belo
             {
                 "role": "tool",
                 "id": "sandbox-current-tool",
-                "name": _provider_safe_operation_name("sandbox.start"),
+                "name": _provider_safe_operation_name("agents.open_sandbox"),
                 "status": "success",
             },
         ]},
@@ -1636,7 +1673,7 @@ def test_current_user_suffix_accepts_rotation_when_pre_turn_history_was_one_belo
         current_user_message=current_message,
     )
 
-    assert [item["operationId"] for item in operations] == ["sandbox.start"]
+    assert [item["operationId"] for item in operations] == ["agents.open_sandbox"]
     assert operations[0]["evidenceId"] == "sandbox-current-event"
 
 
@@ -1999,18 +2036,6 @@ def test_chat_only_path_begins_file_first_then_collects_agent_intent() -> None:
         '                                "agents.open_builds",\n'
         '                                "builder.assemble",'
     ) in source
-    assert (
-        '"agents.open_sandbox",\n                                "sandbox.start",'
-        in source
-    )
-    assert (
-        '"agents.return_to_hub",\n                                "agents.open_sandbox",\n                                "sandbox.start",'
-        in source
-    )
-    assert '("agents.open_evaluation", "evaluation.create_case")' in source
-    assert '("agents.open_channels", "channels.create")' in source
-    assert 'CHAT_PROMPTS["run_evaluation"],\n                    "evaluation.run_case",' in source
-    assert 'CHAT_PROMPTS["request_deployment"],\n                    "deployment.deploy",' in source
     helper = source[
         source.index("async def _open_agent_area_for_mode"):
         source.index("async def _open_bound_agent_area")
@@ -2081,36 +2106,38 @@ def test_chat_builder_runtime_proof_survives_immediate_navigation_to_sandbox() -
     )
 
 
-def test_chat_sandbox_start_accepts_current_node_without_redundant_navigation() -> None:
+def test_horizontal_recorder_source_declares_v02_sandbox_supersession() -> None:
     source = (
         __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
         .read_text(encoding="utf-8")
     )
-    start = source.index('CHAT_PROMPTS["start_private_trial"]')
-    flow = source[start:source.index("sandbox_result =", start)]
-
-    assert '("sandbox.start",),' in flow
-    assert '(\n                                "agents.open_sandbox",\n                                "sandbox.start",' in flow
-    assert '"agents.return_to_hub",\n                                "agents.open_sandbox",\n                                "sandbox.start",' in flow
+    assert "V02_HORIZONTAL_BOUNDARY_ERROR" in source
+    assert "superseded by v0.2 Sandbox" in source
+    assert "run_v02_sandbox_deployment_journey.py" in source
+    assert 'parsed.stop_after not in {"designer", "builder"}' in source
 
 
-def test_chat_downstream_navigation_accepts_direct_legal_cross_feature_paths() -> None:
-    source = (
-        __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
-        .read_text(encoding="utf-8")
+
+def test_retained_evaluation_milestone_can_still_verify_historical_artifact(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "result.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_horizontal_product_journey.py",
+            "--verify-milestone",
+            "evaluation",
+            "--artifact",
+            str(artifact),
+        ],
     )
 
-    assert '("agents.open_evaluation", "evaluation.create_case")' in source
-    assert '("agents.open_channels", "channels.create")' in source
-    helper = source[
-        source.index("async def _open_agent_area_for_mode"):
-        source.index("async def _open_bound_agent_area")
-    ]
-    assert "(open_operation_id,)," in helper
-    assert "(return_operation_id, open_operation_id)," in helper
-    assert CHAT_PROMPTS["run_generated_evaluation"] == (
-        "Evaluate the automatically generated draft case for this version."
-    )
+    parsed = horizontal_journey.arguments()
+    assert parsed.verify_milestone == "evaluation"
+    assert parsed.artifact == artifact
 
 
 def test_evaluation_surface_cannot_supply_derived_sandbox_operation_evidence() -> None:
@@ -2397,25 +2424,17 @@ def test_designer_owner_task_can_publish_bounded_three_mode_evidence() -> None:
     assert 'rows = inventory.get_by_role("listitem")' in source
 
 
-def test_evaluation_owner_task_publishes_a_bounded_maximized_feature_film() -> None:
+def test_legacy_evaluation_owner_task_is_retained_only_for_artifact_verification() -> None:
     source = (
         __import__("pathlib").Path("scripts/run_horizontal_product_journey.py")
         .read_text(encoding="utf-8")
     )
 
     assert 'EVALUATION_CHECKPOINT_EXPECTED_CHECKS = 23' in source
-    assert 'if parsed.stop_after == "evaluation" and parsed.mode != "surface":' in source
-    assert 'destination=directory / "builder-sandbox-evaluation-maximized.webm"' in source
-    assert '"playbackRate": 1.0' in source
-    assert '"maximizedSurface": True' in source
-    assert 'name=f"Initial evaluation coverage for build {ids[\'buildId\']}"' in source
-    assert 'name="Start runtime", exact=True' in source
-    assert '"Sandbox returns a meaningful real Medusa product"' in source
-    assert 'has_text="Generated coverage"' in source
-    assert 'get_by_text("Draft coverage", exact=True)' in source
-    assert 'run_case_name = "Run exact case"' in source
-    assert '"generatedDraftStatus": generated_status' in source
-    assert 'if args.stop_after == "evaluation":\n                if video_clock_started is not None:' in source
+    assert 'choices=("designer", "builder", "evaluation")' in source
+    assert 'parsed.verify_milestone is None and parsed.stop_after not in {"designer", "builder"}' in source
+    assert "V02_HORIZONTAL_BOUNDARY_ERROR" in source
+    assert "run_v02_sandbox_deployment_journey.py" in source
 
 
 def test_builder_owner_task_publishes_only_the_durable_assembly_milestone() -> None:

@@ -18,6 +18,10 @@ const HORIZONTAL_FEATURE_IDS = new Set([
 
 const SENSITIVE_SURFACE_ONLY_OPERATIONS = new Set([
   "Save API connection",
+  "Start Sandbox Playground conversation",
+  "Deploy build to Sandbox",
+  "Send Sandbox Playground message",
+  "Run evaluation set in Sandbox",
 ])
 
 const CHAT_OPERATIONS_WITH_EQUIVALENT_ALWAYS_VISIBLE_SURFACE = new Set([

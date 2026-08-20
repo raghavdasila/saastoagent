@@ -77,6 +77,9 @@ class EvaluationRunAttemptRecord:
     created_at: datetime
     updated_at: datetime
     completed_at: datetime | None
+    sandbox_deployment_id: uuid.UUID | None = None
+    sandbox_session_id: str | None = None
+    runtime_agent_run_id: str | None = None
 
 
 @dataclass(frozen=True)

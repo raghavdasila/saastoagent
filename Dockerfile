@@ -35,7 +35,7 @@ COPY agent-delivery-runtime/src /workspace/agent-delivery-runtime/src
 RUN python -m pip install \
     /workspace/agent-execution-runtime \
     /workspace/agent-delivery-runtime \
-    && python -c "from importlib.metadata import version; assert version('agent-execution-runtime') == '0.1.0'; assert version('agent-delivery-runtime') == '0.1.0'"
+    && python -c "from importlib.metadata import version; assert version('agent-execution-runtime') == '0.1.0'; assert version('agent-delivery-runtime') == '0.2.0'"
 
 COPY saastoagent-v0.1/backend /workspace/corpus/backend
 RUN python -m pip install -e "/workspace/corpus/backend[testing]"

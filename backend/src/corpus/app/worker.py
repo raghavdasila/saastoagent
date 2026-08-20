@@ -12,6 +12,7 @@ from corpus.features.evaluation.execution import EvaluationRunProcessor
 from corpus.features.evaluation.generation import EvaluationGenerationProcessor
 from corpus.features.evaluation.repository import SqlAlchemyEvaluationRepository
 from corpus.features.evaluation.service import EvaluationService
+from corpus.features.sandbox.deployment_service import SandboxDeploymentService
 from corpus.features.evaluation.tasks import (
     register_evaluation_generation_task,
     register_evaluation_run_task,
@@ -111,10 +112,17 @@ neutral_delivery = NeutralAgentDeliveryAdapter(
         product_runtime.supervisor,
     ),
 )
+deployment_repository = SqlAlchemyDeploymentRepository(database)
+sandbox_deployment_service = SandboxDeploymentService(
+    deployment_repository,
+    product_runtime.builder_service,
+    neutral_delivery,
+    product_runtime.bindings,
+)
+evaluation_service.bind_sandbox_deployment_runtime(sandbox_deployment_service)
 channel_service = ChannelService(
     SqlAlchemyChannelRepository(database), neutral_delivery, agents
 )
-deployment_repository = SqlAlchemyDeploymentRepository(database)
 register_deployment_task(
     huey,
     DeploymentProcessor(

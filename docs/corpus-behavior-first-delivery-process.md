@@ -364,8 +364,10 @@ At that gate:
 2. run exactly one current ordinary-chat-only journey, one surface-only
    journey, and one hybrid journey, each from an independent owner/conversation
    lineage;
-3. use `scripts/run_horizontal_product_journey.py` for the current complete
-   Corpus lifecycle unless the accepted scope names another reviewed recorder;
+3. use the current reviewed recorder or recorder set named in
+   `test_index/README.md`; never assume
+   `scripts/run_horizontal_product_journey.py` still owns product stages that
+   a newer accepted architecture has superseded;
 4. retain one continuous, uncut, 1.0x Playwright video from run start through
    terminal result for each mode, including failures and slow/awkward portions;
 5. retain synchronized result JSON, video path/duration/bytes/SHA-256,

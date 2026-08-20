@@ -62,6 +62,7 @@ def test_horizontal_runner_exposes_explicit_production_target_arguments(monkeypa
             "--runtime-mode", "gcp-production",
             "--medusa-base-url", "http://10.138.0.2:9100",
             "--mode", "surface",
+            "--stop-after", "builder",
         ],
     )
 
@@ -74,7 +75,11 @@ def test_horizontal_runner_exposes_explicit_production_target_arguments(monkeypa
 def test_horizontal_runner_uses_the_docker_reachable_local_medusa_target(monkeypatch) -> None:
     monkeypatch.setattr(
         "sys.argv",
-        ["run_horizontal_product_journey.py", "--mode", "surface"],
+        [
+            "run_horizontal_product_journey.py",
+            "--mode", "surface",
+            "--stop-after", "builder",
+        ],
     )
 
     parsed = arguments()

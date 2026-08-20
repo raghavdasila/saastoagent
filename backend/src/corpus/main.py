@@ -52,6 +52,7 @@ from corpus.features.builder.http import create_builder_router
 from corpus.features.builder.execution import BuilderAssemblyProcessor
 from corpus.features.builder.tasks import register_builder_assembly_task
 from corpus.features.sandbox.http import create_sandbox_router
+from corpus.features.sandbox.deployment_service import SandboxDeploymentService
 from corpus.features.evaluation.http import create_evaluation_router
 from corpus.features.evaluation.repository import SqlAlchemyEvaluationRepository
 from corpus.features.evaluation.service import EvaluationService
@@ -228,6 +229,18 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
         SqlAlchemyChannelRepository(database), neutral_delivery, agent_service
     )
     deployment_repository = SqlAlchemyDeploymentRepository(database)
+    sandbox_deployment_service = SandboxDeploymentService(
+        deployment_repository,
+        builder_service,
+        neutral_delivery,
+        runtime_bindings,
+    )
+    evaluation_worker_service.bind_sandbox_deployment_runtime(
+        sandbox_deployment_service
+    )
+    evaluation_service.bind_sandbox_deployment_runtime(
+        sandbox_deployment_service
+    )
     deployment_worker_service = DeploymentService(
         deployment_repository,
         channel_service,
@@ -374,7 +387,9 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
     )
     app.include_router(create_designer_router(designer_service, agent_owner_scope))
     app.include_router(create_builder_router(builder_service, agent_owner_scope))
-    app.include_router(create_sandbox_router(sandbox_service, agent_owner_scope))
+    app.include_router(create_sandbox_router(
+        sandbox_service, sandbox_deployment_service, agent_owner_scope
+    ))
     app.include_router(create_evaluation_router(evaluation_service, agent_owner_scope))
     app.include_router(create_channels_router(channel_service, deployment_service, agent_owner_scope, neutral_delivery))
     app.include_router(create_operations_router(operations_service, agent_owner_scope))
@@ -402,6 +417,7 @@ def create_live_app(settings: CorpusRuntimeSettings | None = None):
     app.state.corpus_designer_service = designer_service
     app.state.corpus_builder_service = builder_service
     app.state.corpus_sandbox_service = sandbox_service
+    app.state.corpus_sandbox_deployment_service = sandbox_deployment_service
     app.state.corpus_evaluation_service = evaluation_service
     app.state.corpus_channel_service = channel_service
     app.state.corpus_deployment_service = deployment_service

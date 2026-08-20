@@ -28,12 +28,35 @@ class ChannelProjection:
 @dataclass(frozen=True)
 class DeploymentProjection:
     deployment_id: str
-    channel_id: str
+    channel_id: str | None
     bundle_id: str
     bundle_hash: str
     status: str
     failure_code: str | None
     failure_message: str | None
+    target_id: str | None = None
+    mode: str = "delivery"
+    request_key: str | None = None
+
+
+@dataclass(frozen=True)
+class DeploymentTargetProjection:
+    target_id: str
+    mode: str
+    owner_scope: str
+    channel_id: str | None
+    name: str
+
+
+@dataclass(frozen=True)
+class AgentSessionProjection:
+    session_id: str
+    target_id: str
+    activation_id: str
+    deployment_id: str
+    mode: str
+    purpose: str
+    created_at: str
 
 
 @dataclass(frozen=True)

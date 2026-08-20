@@ -2568,6 +2568,13 @@ export function createSeedState(): WorkbenchState {
 }
 
 function applyHorizontalInvocationBaseline(state: WorkbenchState): WorkbenchState {
+  const surfaceOnlyOperations = new Set([
+    "Save API connection",
+    "Start Sandbox Playground conversation",
+    "Deploy build to Sandbox",
+    "Send Sandbox Playground message",
+    "Run evaluation set in Sandbox",
+  ])
   const featureIds = new Set([
     "workspace",
     "agents",
@@ -2583,7 +2590,7 @@ function applyHorizontalInvocationBaseline(state: WorkbenchState): WorkbenchStat
     for (const story of feature.stories) {
       if (story.status !== "approved") continue
       for (const operation of story.operations) {
-        operation.availableThrough = operation.name === "Save API connection"
+        operation.availableThrough = surfaceOnlyOperations.has(operation.name)
           ? "product-surface"
           : operation.name === "Inspect current API architecture"
             ? "chat"
@@ -2615,6 +2622,452 @@ type HorizontalBehaviorSpec = {
   status?: "approved" | "draft"
   featurePolicyOnly?: boolean
 }
+
+const SANDBOX_PLAYGROUND_START_STORY: DesignStory = {
+  "id": "sandbox-start-run",
+  "title": "Start a Sandbox Playground conversation",
+  "userIntent": "Start a private conversation with the exact Agent build I explicitly deployed to Sandbox.",
+  "agentIntent": "Create one owner-private Playground session on the Agent's active ready Sandbox deployment and execute it through the shared RouteDeck-powered Agent deployment runtime.",
+  "expectedBehavior": "After the owner has explicitly deployed a ready immutable build to Sandbox, Sandbox creates a new Playground conversation pinned to that exact Sandbox deployment and build. The owner and Agent can exchange real messages through the same deployed-Agent runtime used by Delivery, while admission, sessions, state, diagnostics, and evidence remain private and isolated. Missing or failed deployment remains visible and starts no session.",
+  "messages": [
+    {
+      "id": "sandbox-start-run-owner",
+      "actor": "Owner",
+      "content": "Try this exact draft Agent privately with a real safe request."
+    },
+    {
+      "id": "sandbox-start-run-corpus",
+      "actor": "Corpus",
+      "content": "I will use only the exact persisted inputs and keep the actual result visible."
+    }
+  ],
+  "mockSurfacePath": null,
+  "nodePolicies": [],
+  "capabilities": [
+    {
+      "name": "Agent Sandbox",
+      "purpose": "Create and continue owner-private Playground conversations on the active ready Sandbox deployment, using the shared deployed-Agent runtime while preserving deployment, session, state, diagnostic, and evidence isolation.",
+      "operationNames": [
+        "Start Sandbox Playground conversation"
+      ],
+      "surfaceNames": [
+        "Agent Sandbox"
+      ],
+      "policies": []
+    }
+  ],
+  "surfaces": [
+    {
+      "name": "Agent Sandbox",
+      "purpose": "Show the active Sandbox deployment, persistent private conversation history, real message exchange, clarification and review state, and owner-only runtime diagnostics.",
+      "policies": []
+    }
+  ],
+  "operations": [
+    {
+      "name": "Start Sandbox Playground conversation",
+      "availableThrough": "product-surface",
+      "purpose": "Create one new owner-private Playground session on the active ready Sandbox deployment without changing the deployment or any earlier conversation.",
+      "inputs": "Authenticated owner, exact selected Agent, and one active ready Sandbox deployment explicitly pinned to an immutable build.",
+      "outcomes": "Return and persist the new Playground conversation and its exact deployment/build binding; missing or unavailable deployment starts nothing and remains visible.",
+      "safetyAndReview": "This host control creates no public channel and performs no Agent tool action by itself. Subsequent messages remain governed by the deployed Agent's RouteDeck policies and reviews.",
+      "recovery": "Keep the prior deployment and all conversations unchanged, show the exact failure, and require an explicit corrected attempt without automatic retry.",
+      "policies": []
+    }
+  ],
+  "suggestedActions": [],
+  "behaviorEvals": [
+    {
+      "id": "sandbox-playground-session-contract",
+      "title": "Start an owner-private Playground session",
+      "enabled": true,
+      "blocking": true,
+      "coverage": [
+        "normal",
+        "state",
+        "boundary",
+        "failure",
+        "privacy",
+        "adversarial"
+      ],
+      "input": "Start a new private Playground conversation with the Agent currently deployed to Sandbox.",
+      "referenceResponse": "Create a fresh Playground session pinned to the active Sandbox deployment and preserve its real multi-turn state.",
+      "requiredCriteria": [
+        "Corpus creates one fresh owner-private Playground session pinned to the exact active ready Sandbox deployment and build, executes messages through the shared deployed-Agent runtime, preserves multi-turn state, and keeps Sandbox evidence isolated from Delivery Operations."
+      ],
+      "forbiddenCriteria": [
+        "Uses an undeployed build, creates a Delivery session, exposes a public channel, switches deployments silently, fabricates execution, or reports failure as success."
+      ],
+      "expectations": {
+        "startingBehavior": "Start a Sandbox Playground conversation",
+        "finalBehavior": "Start a Sandbox Playground conversation",
+        "allowedFinalBehaviors": [],
+        "authentication": "authenticated",
+        "requiredOperations": [
+          "Start Sandbox Playground conversation"
+        ],
+        "allowedOperations": [],
+        "forbiddenOperations": [],
+        "requiredSurfaces": [
+          "Agent Sandbox"
+        ],
+        "requiredSuggestedActions": [],
+        "forbiddenOutcomes": [
+          "public channel exposure"
+        ]
+      },
+      "actionPlan": {
+        "preconditions": [
+          "The authenticated owner has one active ready Sandbox deployment for this Agent and no session has yet been created for this request."
+        ],
+        "steps": [
+          {
+            "id": "behavior-eval-1787145648296-opening",
+            "kind": "message",
+            "source": "authored-input"
+          },
+          {
+            "id": "behavior-eval-1787145648296-final",
+            "kind": "checkpoint",
+            "label": "Pinned Playground conversation",
+            "stateAssertions": [
+              "Exactly one new playground-purpose session exists for the active Sandbox deployment, is pinned to its immutable build and runtime configuration, is owner-private, and has no Delivery Operations evidence."
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "evalExemptions": [],
+  "status": "approved",
+  "rejectionReason": ""
+}
+
+const SANDBOX_DEPLOYMENT_MODE_STORIES: DesignStory[] = [
+  {
+    "id": "story-1787145337156",
+    "title": "Deploy an Agent build to Sandbox",
+    "userIntent": "Make this exact ready Agent build the private Sandbox deployment I can test.",
+    "agentIntent": "Create and verify one owner-private Sandbox deployment revision through the shared Agent deployment runtime, then activate it only when the exact immutable build is ready.",
+    "expectedBehavior": "The authenticated owner explicitly deploys one ready immutable Agent build to Sandbox. Corpus creates a sandbox deployment revision with no channel and no Evaluation-eligibility prerequisite, verifies the exact RouteDeck application and runtime dependencies, and atomically activates it. A failed replacement leaves the prior ready deployment active; a successful replacement never mutates prior deployments or sessions.",
+    "messages": [],
+    "mockSurfacePath": null,
+    "nodePolicies": [],
+    "capabilities": [
+      {
+        "name": "Sandbox deployment",
+        "purpose": "Manage explicit owner-private Sandbox deployment revisions for one Agent through the shared Agent deployment runtime.",
+        "operationNames": [
+          "Deploy build to Sandbox"
+        ],
+        "surfaceNames": [
+          "Sandbox deployments"
+        ],
+        "policies": []
+      }
+    ],
+    "surfaces": [
+      {
+        "name": "Sandbox deployments",
+        "purpose": "Show the selected build, active private deployment, deployment history, explicit deployment control, verification progress, and retained failure.",
+        "policies": []
+      }
+    ],
+    "operations": [
+      {
+        "name": "Deploy build to Sandbox",
+        "availableThrough": "product-surface",
+        "purpose": "Create and verify a sandbox-mode deployment revision for the selected ready immutable build, then activate it on the Agent's private Sandbox target.",
+        "inputs": "Authenticated owner, exact selected Agent, ready immutable build, and an idempotency request key. Evaluation eligibility is not required.",
+        "outcomes": "A verified ready revision becomes active, or the explicit failed revision is retained while any prior active ready Sandbox deployment remains unchanged.",
+        "safetyAndReview": "The deployment is owner-private, creates no channel or public slug, exposes no secret, and cannot silently change build, provider, credential version, or runtime configuration.",
+        "recovery": "Persist the failure and require an explicit corrected request or retry. Never auto-retry or replace the prior active deployment on failure.",
+        "policies": []
+      }
+    ],
+    "suggestedActions": [],
+    "behaviorEvals": [
+      {
+        "id": "sandbox-explicit-deployment-contract",
+        "title": "Explicit owner-private Sandbox deployment",
+        "enabled": true,
+        "blocking": true,
+        "coverage": [
+          "normal",
+          "state",
+          "boundary",
+          "failure",
+          "privacy",
+          "adversarial"
+        ],
+        "input": "Deploy this ready build to Sandbox.",
+        "referenceResponse": "",
+        "requiredCriteria": [
+          "Corpus creates and verifies an owner-private Sandbox deployment for the exact ready build, activates it only on success, and does not require Evaluation eligibility."
+        ],
+        "forbiddenCriteria": [],
+        "expectations": {
+          "startingBehavior": "Deploy an Agent build to Sandbox",
+          "finalBehavior": "Deploy an Agent build to Sandbox",
+          "allowedFinalBehaviors": [],
+          "authentication": "unchanged",
+          "requiredOperations": [
+            "Deploy build to Sandbox"
+          ],
+          "allowedOperations": [],
+          "forbiddenOperations": [],
+          "requiredSurfaces": [
+            "Sandbox deployments"
+          ],
+          "requiredSuggestedActions": [],
+          "forbiddenOutcomes": []
+        },
+        "actionPlan": {
+          "preconditions": [
+            "The authenticated owner has one selected Agent, a ready immutable build, and either no active Sandbox deployment or one earlier active ready deployment."
+          ],
+          "steps": [
+            {
+              "id": "behavior-eval-1787145422165-opening",
+              "kind": "message",
+              "source": "authored-input"
+            },
+            {
+              "id": "behavior-eval-1787145422165-final",
+              "kind": "checkpoint",
+              "label": "Final product state",
+              "stateAssertions": [
+                "The exact requested build is active only after verification; a failed replacement retains the previous active deployment and creates no channel or public exposure."
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "evalExemptions": [],
+    "status": "approved",
+    "rejectionReason": ""
+  },
+  {
+    "id": "story-1787145693785",
+    "title": "Continue a Sandbox Playground conversation",
+    "userIntent": "Continue this private Sandbox conversation with the same deployed Agent and its existing state.",
+    "agentIntent": "Send a message or resolve a pending review in the existing owner-private Playground session without creating a new session or changing its pinned deployment.",
+    "expectedBehavior": "Corpus loads the exact Playground session owned by the authenticated owner, verifies that it belongs to the active or historical Sandbox deployment to which it was pinned, and continues through the shared deployed-Agent runtime. Messages, clarifications, reviews, runtime state, and diagnostics remain durable and private; missing ownership, closed state, or runtime failure is visible and never creates a replacement session or Delivery evidence.",
+    "messages": [],
+    "mockSurfacePath": null,
+    "nodePolicies": [],
+    "capabilities": [
+      {
+        "name": "Persistent Sandbox conversation",
+        "purpose": "Continue one exact owner-private Playground session through its pinned Sandbox deployment, including messages, clarifications, and reviews.",
+        "operationNames": [
+          "Send Sandbox Playground message"
+        ],
+        "surfaceNames": [
+          "Sandbox Playground"
+        ],
+        "policies": []
+      }
+    ],
+    "surfaces": [
+      {
+        "name": "Sandbox Playground",
+        "purpose": "Show one persistent owner-private Sandbox conversation, its pinned deployment and build, real messages, clarification and review state, and private diagnostics.",
+        "policies": []
+      }
+    ],
+    "operations": [
+      {
+        "name": "Send Sandbox Playground message",
+        "availableThrough": "product-surface",
+        "purpose": "Continue the selected owner-private Playground session through its exact pinned Sandbox deployment and return the real Agent response or pending review.",
+        "inputs": "Authenticated owner scope, existing Playground session ID, non-empty owner message, and the session's exact pinned deployment and runtime state.",
+        "outcomes": "The existing session records the owner message and real Agent response, clarification, or review; no new session is created. Ownership, state, or runtime failures remain visible.",
+        "safetyAndReview": "Owner authentication and session ownership are mandatory. Reviews use the same runtime review contract; no public exposure, cross-deployment state access, provider fallback, or secret disclosure is allowed.",
+        "recovery": "A failed interaction records a visible failure without masquerading as success or creating a replacement session. The owner may retry explicitly only when the session remains valid.",
+        "policies": []
+      }
+    ],
+    "suggestedActions": [],
+    "behaviorEvals": [
+      {
+        "id": "sandbox-playground-continue-contract",
+        "title": "Continue exact Sandbox Playground state",
+        "enabled": true,
+        "blocking": true,
+        "coverage": [
+          "normal",
+          "state",
+          "boundary",
+          "failure",
+          "privacy",
+          "adversarial"
+        ],
+        "input": "Continue this Sandbox conversation and use the context from my previous turn.",
+        "referenceResponse": "Continue the exact existing session without changing deployments or creating another conversation.",
+        "requiredCriteria": [
+          "Corpus continues the same owner-private Playground session through its exact pinned Sandbox deployment, preserving prior messages, runtime state, clarification and review state, and durable diagnostics."
+        ],
+        "forbiddenCriteria": [
+          "Creates a new session, switches to the active deployment, uses Delivery state, bypasses review, fabricates context, or exposes another owner's session."
+        ],
+        "expectations": {
+          "startingBehavior": "Continue a Sandbox Playground conversation",
+          "finalBehavior": "Continue a Sandbox Playground conversation",
+          "allowedFinalBehaviors": [],
+          "authentication": "authenticated",
+          "requiredOperations": [
+            "Send Sandbox Playground message"
+          ],
+          "allowedOperations": [],
+          "forbiddenOperations": [],
+          "requiredSurfaces": [
+            "Sandbox Playground"
+          ],
+          "requiredSuggestedActions": [],
+          "forbiddenOutcomes": [
+            "replacement session"
+          ]
+        },
+        "actionPlan": {
+          "preconditions": [
+            "An authenticated owner has an existing Playground session with at least one completed turn and an exact pinned Sandbox deployment."
+          ],
+          "steps": [
+            {
+              "id": "behavior-eval-1787145748373-opening",
+              "kind": "message",
+              "source": "authored-input"
+            },
+            {
+              "id": "behavior-eval-1787145748373-final",
+              "kind": "checkpoint",
+              "label": "Durable continued conversation",
+              "stateAssertions": [
+                "The existing session gains the new turn and real Agent outcome while retaining the same session, deployment, build, runtime configuration, owner, and Playground purpose."
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "evalExemptions": [],
+    "status": "approved",
+    "rejectionReason": ""
+  }
+]
+
+const SANDBOX_EVALUATION_MODE_STORIES: DesignStory[] = [
+  {
+    "id": "story-1787145783983",
+    "title": "Run an evaluation set against Sandbox",
+    "userIntent": "Run this defined evaluation set against the exact Agent deployment currently in Sandbox.",
+    "agentIntent": "Let Evaluation launch each case and retry as a fresh evaluation-purpose session on the selected exact Sandbox deployment, then persist Evaluation-owned results and lineage.",
+    "expectedBehavior": "The authenticated owner selects an Evaluation-owned evalset and one exact ready Sandbox deployment. Evaluation creates a fresh evaluation_case session for every case and explicit retry, executes it through the shared deployed-Agent runtime, and durably owns the case inputs, outputs, verdicts, retry lineage, runtime identities, and source identities. Evaluation sessions never appear in Playground history or Delivery Operations, and execution never silently retargets a replacement deployment.",
+    "messages": [],
+    "mockSurfacePath": null,
+    "nodePolicies": [],
+    "capabilities": [
+      {
+        "name": "Sandbox evaluation execution",
+        "purpose": "Launch Evaluation-owned evalsets against an exact Sandbox deployment with per-case and retry isolation.",
+        "operationNames": [
+          "Run evaluation set in Sandbox"
+        ],
+        "surfaceNames": [
+          "Sandbox Evaluations"
+        ],
+        "policies": []
+      }
+    ],
+    "surfaces": [
+      {
+        "name": "Sandbox Evaluations",
+        "purpose": "Select an Evaluation-owned evalset and exact Sandbox deployment, launch isolated case sessions, inspect attempt lineage, and read durable Evaluation results.",
+        "policies": []
+      }
+    ],
+    "operations": [
+      {
+        "name": "Run evaluation set in Sandbox",
+        "availableThrough": "product-surface",
+        "purpose": "Create one Evaluation run against an exact Sandbox deployment, with a fresh isolated evaluation-purpose session for every case and retry.",
+        "inputs": "Authenticated owner, Evaluation-owned evalset ID, exact ready Sandbox deployment ID, and explicit retry selection when retrying a prior case.",
+        "outcomes": "Evaluation persists the run, per-case session and attempt lineage, actual outputs, verdicts, runtime and source identities, and visible failures.",
+        "safetyAndReview": "Evaluation owns all results. Every case and retry is isolated; Playground history and Delivery Operations exclude evaluation sessions. No automatic retry or deployment retargeting.",
+        "recovery": "A case or run failure remains visible with its exact attempt and session. The owner may explicitly retry, producing a new evaluation_case session linked to the prior attempt.",
+        "policies": []
+      }
+    ],
+    "suggestedActions": [],
+    "behaviorEvals": [
+      {
+        "id": "sandbox-evaluation-case-isolation",
+        "title": "Isolate every evaluation case and retry",
+        "enabled": true,
+        "blocking": true,
+        "coverage": [
+          "normal",
+          "state",
+          "boundary",
+          "failure",
+          "privacy",
+          "adversarial"
+        ],
+        "input": "Run this evaluation set against this exact Sandbox deployment, then retry the failed case once.",
+        "referenceResponse": "Create a separate evaluation_case session for every original case and the explicit retry, preserving Evaluation-owned lineage and exact deployment binding.",
+        "requiredCriteria": [
+          "Evaluation creates fresh isolated evaluation_case sessions for each case and explicit retry on the exact selected Sandbox deployment, persists attempt lineage and real results, and excludes those sessions from Playground and Delivery Operations."
+        ],
+        "forbiddenCriteria": [
+          "Reuses a case session, silently retries, retargets the active deployment, writes results into Sandbox ownership, appears in Playground history, or creates Delivery Operations evidence."
+        ],
+        "expectations": {
+          "startingBehavior": "Run an evaluation set against Sandbox",
+          "finalBehavior": "Run an evaluation set against Sandbox",
+          "allowedFinalBehaviors": [],
+          "authentication": "authenticated",
+          "requiredOperations": [
+            "Run evaluation set in Sandbox"
+          ],
+          "allowedOperations": [],
+          "forbiddenOperations": [],
+          "requiredSurfaces": [
+            "Sandbox Evaluations"
+          ],
+          "requiredSuggestedActions": [],
+          "forbiddenOutcomes": [
+            "session reuse across cases"
+          ]
+        },
+        "actionPlan": {
+          "preconditions": [
+            "The authenticated owner has one defined Evaluation evalset and one exact ready Sandbox deployment; no run exists for this request."
+          ],
+          "steps": [
+            {
+              "id": "behavior-eval-1787145805613-opening",
+              "kind": "message",
+              "source": "authored-input"
+            },
+            {
+              "id": "behavior-eval-1787145805613-final",
+              "kind": "checkpoint",
+              "label": "Evaluation-owned isolated attempt lineage",
+              "stateAssertions": [
+                "Each original case and explicit retry has a distinct evaluation_case session pinned to the selected deployment; Evaluation owns results and retry lineage; Playground and Delivery Operations contain none of those sessions."
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "evalExemptions": [],
+    "status": "approved",
+    "rejectionReason": ""
+  }
+]
 
 function horizontalRuntimeFeatures(): DesignFeature[] {
   const builderSandbox = horizontalFeature(
@@ -2696,6 +3149,10 @@ function horizontalRuntimeFeatures(): DesignFeature[] {
     true,
   )
   builderSandbox.prompt = "You are Corpus in Builder and Sandbox. Keep Builder and Sandbox state owner-scoped, immutable where recorded, and bound to exact persisted identities. When the prior Sandbox tool observation asks for clarification, interpret the user's ordinary reply only through its exact candidate choices or missing input names; never ask the user for an internal operation identity, invent a choice, or treat an operation choice as a parameter answer. Failures remain failures and no fallback or automatic retry is permitted."
+  const sandboxStartIndex = builderSandbox.stories.findIndex((story) => story.id === "sandbox-start-run")
+  if (sandboxStartIndex < 0) throw new Error("Missing Sandbox Playground start behavior")
+  builderSandbox.stories.splice(sandboxStartIndex, 1, SANDBOX_PLAYGROUND_START_STORY)
+  builderSandbox.stories.push(...SANDBOX_DEPLOYMENT_MODE_STORIES)
   const channelsDeployment = horizontalFeature(
     "channels-deployment", "Channels and Deployment", "Launch an eligible Agent on hosted Web",
     [
@@ -2771,7 +3228,7 @@ function horizontalRuntimeFeatures(): DesignFeature[] {
     true,
   )
   channelsDeployment.prompt = "You are Corpus in Channels and Deployment. Publishing means activating one exact eligible immutable build on the selected configured channel. Changing channel availability only enables or disables public access; it never selects or activates a build and never satisfies a request to publish an eligible version. Keep Channels and Deployment state owner-scoped, immutable where recorded, and bound to exact persisted identities; failures remain failures and no fallback or automatic retry is permitted."
-  return [
+  const features = [
     builderSandbox,
     horizontalFeature(
       "evaluation", "Evaluation", "Evaluate an exact immutable Agent build",
@@ -2850,6 +3307,10 @@ function horizontalRuntimeFeatures(): DesignFeature[] {
       ],
     ),
   ]
+  const evaluation = features.find((feature) => feature.id === "evaluation")
+  if (evaluation === undefined) throw new Error("Missing Evaluation Studio feature")
+  evaluation.stories.push(...SANDBOX_EVALUATION_MODE_STORIES)
+  return features
 }
 
 function horizontalFeature(

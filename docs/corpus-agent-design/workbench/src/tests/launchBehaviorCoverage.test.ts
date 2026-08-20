@@ -25,6 +25,8 @@ const EXPECTED_BEHAVIORS: Readonly<Record<string, readonly string[]>> = {
     "sandbox-continue-clarification",
     "sandbox-inspect-routedeck",
     "sandbox-inspect-operation-trace",
+    "story-1787145337156",
+    "story-1787145693785",
   ],
   evaluation: [
     "evaluation-resolve-missing-build",
@@ -33,6 +35,7 @@ const EXPECTED_BEHAVIORS: Readonly<Record<string, readonly string[]>> = {
     "evaluation-manage-cases",
     "evaluation-run-build",
     "evaluation-observe-lifecycle",
+    "story-1787145783983",
   ],
   "channels-deployment": [
     "channels-create-hosted-web",

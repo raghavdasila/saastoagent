@@ -274,10 +274,22 @@ def _compiled_operation_ids() -> frozenset[str]:
 CHAT_OPERATION_SAFETY_CLASSES = _manifest_operation_safety_classes()
 CHAT_EVIDENCE_OPERATION_IDS = _compiled_operation_ids()
 
+V02_SANDBOX_JOURNEY_COMMAND = (
+    r".\.venv\Scripts\python.exe scripts\run_v02_sandbox_deployment_journey.py "
+    r"--url http://127.0.0.1:5199 --backend-url http://127.0.0.1:8099"
+)
+V02_HORIZONTAL_BOUNDARY_ERROR = (
+    "The horizontal Sandbox/Evaluation segment is superseded by v0.2 Sandbox "
+    f"deployment mode. Use `{V02_SANDBOX_JOURNEY_COMMAND}`."
+)
+
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Record one joined Corpus Source-to-Operations lifecycle."
+        description=(
+            "Record a bounded Corpus Source-to-Designer or Source-to-Builder "
+            "lifecycle. Sandbox and Evaluation use the canonical v0.2 deployment journey."
+        )
     )
     parser.add_argument("--url", default="http://127.0.0.1:5199")
     parser.add_argument("--backend-url", default="http://127.0.0.1:8099")
@@ -314,7 +326,10 @@ def arguments() -> argparse.Namespace:
         "--stop-after",
         choices=("designer", "builder", "evaluation"),
         default=None,
-        help="Stop after the named owner-task checkpoint and publish that bounded evidence.",
+        help=(
+            "Required for new runs. Designer and Builder publish bounded evidence; "
+            "Evaluation is retained only to produce the explicit v0.2 supersession error."
+        ),
     )
     parser.add_argument(
         "--verify-milestone",
@@ -331,8 +346,8 @@ def arguments() -> argparse.Namespace:
     parsed = parser.parse_args()
     if (parsed.verify_milestone is None) != (parsed.artifact is None):
         parser.error("--verify-milestone and --artifact must be supplied together")
-    if parsed.stop_after == "evaluation" and parsed.mode != "surface":
-        parser.error("The bounded Evaluation feature film currently proves the surface-only product path.")
+    if parsed.verify_milestone is None and parsed.stop_after not in {"designer", "builder"}:
+        parser.error(V02_HORIZONTAL_BOUNDARY_ERROR)
     return parsed
 
 

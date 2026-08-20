@@ -27,6 +27,12 @@ class DirectProbe:
         )
 
 
+class SlowDirectProbe(DirectProbe):
+    async def execute_direct(self, **values):
+        await asyncio.sleep(0.15)
+        return await super().execute_direct(**values)
+
+
 @pytest.mark.asyncio
 async def test_read_and_reviewed_write_run_in_one_durable_isolated_routedeck_session(tmp_path):
     document_path = tmp_path / "openapi.json"
@@ -162,3 +168,62 @@ async def test_parallel_read_tools_share_one_durable_agent_session_without_sqlit
     assert {call["operation_id"] for call in direct.calls} == {
         "GetProductTypes", "GetProductTags"
     }
+
+
+@pytest.mark.asyncio
+async def test_separate_supervisors_serialize_one_build_database(tmp_path):
+    document_path = tmp_path / "openapi.json"
+    document_path.write_text(json.dumps({
+        "openapi": "3.0.3", "info": {"title": "Store", "version": "1"},
+        "paths": {
+            "/store/types": {"get": {"operationId": "GetProductTypes", "responses": {"200": {"description": "ok"}}}},
+        },
+    }), encoding="utf-8")
+    binding = BuilderSourceBinding(
+        "source", "revision", "curation", "f" * 64,
+        ("GetProductTypes",), tmp_path, document_path,
+        "d" * 64, "profile", "http://127.0.0.1:9100", "none", None, None, None,
+    )
+    snapshot = BuilderInputSnapshot(
+        uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), 1, uuid.uuid4(), "i" * 64,
+        "Taxonomy Agent", "Serve taxonomy requests", "Use only exact results.",
+        ("Store",), ("Answer taxonomy requests",), ("Never invent.",),
+        ("Types: GetProductTypes",), ("GetProductTypes",),
+        ({"title": "Types", "capability_titles": ("Types",)},), (binding,),
+    )
+    artifact = compile_agent_navgraph(snapshot)
+    now = datetime.now(UTC)
+    build = BuilderRecord(
+        snapshot.build_id, snapshot.organization_id, snapshot.agent_id,
+        snapshot.build_request_id, snapshot.design_revision_id, 1, "ready",
+        "running", "r" * 64, "model", "digest", (), ("GetProductTypes",),
+        artifact.navgraph_hash, artifact.compiled_navgraph,
+        artifact.frontend_contract, None, None, now, now,
+    )
+    direct = SlowDirectProbe()
+    encryption_key = Fernet.generate_key().decode("ascii")
+    supervisors = (
+        AgentRouteDeckSupervisor(tmp_path / "sessions", encryption_key, direct),
+        AgentRouteDeckSupervisor(tmp_path / "sessions", encryption_key, direct),
+    )
+
+    async def execute(index: int):
+        with agent_route_session(f"parallel-process-session-{index}"):
+            return await supervisors[index].execute(
+                build=build,
+                tenant_id=str(snapshot.organization_id),
+                operation_id="GetProductTypes",
+                inputs={},
+                execution_id=f"process-request-{index}",
+            )
+
+    results = await asyncio.gather(
+        asyncio.to_thread(lambda: asyncio.run(execute(0))),
+        asyncio.to_thread(lambda: asyncio.run(execute(1))),
+    )
+
+    assert all(
+        result.operation.disposition is OperationDisposition.COMPLETED
+        for result in results
+    )
+    assert len(direct.calls) == 2

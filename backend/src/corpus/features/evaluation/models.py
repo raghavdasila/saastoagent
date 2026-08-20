@@ -122,6 +122,11 @@ class AgentEvaluationRunAttempt(Base):
     retry_of_attempt_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("agent_evaluation_run_attempts.id", ondelete="RESTRICT"), nullable=True
     )
+    sandbox_deployment_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("agent_deployments.id", ondelete="RESTRICT"), nullable=True
+    )
+    sandbox_session_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    runtime_agent_run_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
     active_case_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("agent_evaluation_cases.id", ondelete="RESTRICT"), nullable=True
     )

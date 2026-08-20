@@ -10,12 +10,6 @@ from corpus.features.agents.contracts import (
     RETURN_TO_AGENT_HUB,
 )
 
-from .declarations import (
-    ACCEPT_SANDBOX_REVIEW,
-    REJECT_SANDBOX_REVIEW,
-    RESUME_SANDBOX,
-    START_SANDBOX,
-)
 from .ports import SandboxRunFailed
 from .schemas import SandboxRunCollectionView, SandboxRunView
 
@@ -24,10 +18,6 @@ SANDBOX_AGENT_BOUND_OPERATION_IDS = tuple(
     operation.id
     for operation in (
         RETURN_TO_AGENT_HUB,
-        START_SANDBOX,
-        RESUME_SANDBOX,
-        ACCEPT_SANDBOX_REVIEW,
-        REJECT_SANDBOX_REVIEW,
         OPEN_AGENT_EVALUATION,
     )
 )

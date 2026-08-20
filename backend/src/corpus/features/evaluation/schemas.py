@@ -33,6 +33,8 @@ class EvaluationRunAttemptView(BaseModel):
     failure_code: str | None
     failure_message: str | None
     retry_of_attempt_id: uuid.UUID | None
+    sandbox_deployment_id: uuid.UUID | None = None
+    sandbox_session_id: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -58,6 +60,12 @@ class EvaluationCollectionView(BaseModel):
     model_config = ConfigDict(extra="forbid")
     agent_id: uuid.UUID
     evaluation_sets: tuple[EvaluationSetView, ...]
+
+
+class SandboxEvaluationRunCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    evaluation_set_id: uuid.UUID
+    sandbox_deployment_id: uuid.UUID
 
 
 class CreateEvaluationCaseArguments(BaseModel):

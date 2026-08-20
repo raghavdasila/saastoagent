@@ -56,6 +56,7 @@ export function createCorpusSurfaceRegistry(
   const activeAgentRuntimeClient = agentRuntimeClient ?? {
     builds: async () => { throw new Error("Agent Builds client is unavailable."); },
     sandbox: async () => { throw new Error("Agent Sandbox client is unavailable."); },
+    sandboxDeployment: async () => { throw new Error("Agent Sandbox client is unavailable."); },
     evaluations: async () => { throw new Error("Agent Evaluations are unavailable."); },
     channels: async () => { throw new Error("Agent Channels are unavailable."); },
     deployments: async () => { throw new Error("Agent Deployments are unavailable."); },

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
+import os
 import threading
 import uuid
 from contextlib import asynccontextmanager, contextmanager
@@ -228,14 +229,22 @@ class AgentRouteDeckSupervisor:
     async def _runtime_lock(self, build: BuilderRecord):
         if build.navgraph_hash is None:
             raise BuilderUnavailable("The selected build has no immutable RouteDeck NavGraph.")
+        self.root.mkdir(parents=True, exist_ok=True)
         with self._runtime_locks_guard:
             lock = self._runtime_locks.setdefault(
                 build.navgraph_hash, threading.Lock()
             )
         await asyncio.to_thread(lock.acquire)
+        file_lock = None
         try:
+            file_lock = await asyncio.to_thread(
+                _acquire_file_lock,
+                self.root / f".{build.navgraph_hash}.lock",
+            )
             yield
         finally:
+            if file_lock is not None:
+                await asyncio.to_thread(_release_file_lock, file_lock)
             lock.release()
 
     async def _open(self, build: BuilderRecord, tenant_id: str):
@@ -440,6 +449,43 @@ def _delivery_phase(result: ApiCallResult) -> DeliveryPhase:
     if result.status == "outcome_unknown":
         return DeliveryPhase.POSSIBLY_SENT
     return DeliveryPhase.NOT_SENT
+
+
+def _acquire_file_lock(path: Path):
+    handle = path.open("a+b")
+    try:
+        handle.seek(0)
+        if handle.read(1) == b"":
+            handle.write(b"\0")
+            handle.flush()
+        handle.seek(0)
+        if os.name == "nt":
+            import msvcrt
+
+            msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        return handle
+    except BaseException:
+        handle.close()
+        raise
+
+
+def _release_file_lock(handle) -> None:
+    try:
+        handle.seek(0)
+        if os.name == "nt":
+            import msvcrt
+
+            msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    finally:
+        handle.close()
 
 
 __all__ = [

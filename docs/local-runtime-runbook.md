@@ -47,7 +47,7 @@ Do not treat the API-related modules as interchangeable:
 | Standalone source lifecycle, durable ToolRouter processing, encrypted connections, explicit real API execution, response-schema review and corrected OpenAPI schema lineage | `D:\Dev\AI Projects\source-hub-runtime`, using the sibling `api-execution-runtime` behind its executor adapter | Proven Source Hub/API Source behaviour plus foundations for future Evaluation, Sandbox and Operations | Proven separately; not imported into Corpus |
 | Low-level authorized and validated HTTP execution | Private neutral `api-execution-runtime==0.1.0` snapshot under `corpus.integrations.api_execution._snapshot`; sibling remains read-only | Source connection checks and routed execution for API Sources, Agent Builds, Sandbox, deployed Channels, and hosted-agent writes | Integrated behind `SafeApiExecutionAdapter` and `RoutedApiExecutionAdapter`; the accepted Medusa ecommerce path performs real reviewed reads and writes through it |
 | Immutable Agent Build, model intent, ToolRouter routing, capability-scoped API execution, durable trace, evaluation, and eligibility | Pinned sibling `agent-execution-runtime`, installed into the Corpus image | Builder, Sandbox, Evaluation, Operations, and the execution side of deployed Agents | Integrated through Corpus-owned app/runtime adapters; the separate standalone Studio remains an optional proof environment |
-| Immutable deployment revisions, Web-channel activation/rollback, pinned public sessions, interaction evidence, and evaluation-candidate export | Pinned sibling `agent-delivery-runtime`, installed into the Corpus image | Channels/Web, Deployment, public hosted-agent sessions, and deployed-agent Operations | Integrated through Corpus-owned delivery adapters; the separate standalone owner/public Web remains an optional proof environment |
+| Neutral immutable deployment targets/revisions, activation/replacement, pinned sessions, and interaction evidence for `sandbox` and `delivery` modes | Pinned sibling `agent-delivery-runtime==0.2.0`, installed into the Corpus image | Owner-private Sandbox deployments/Playground/Evaluation sessions plus Channels/Web, Delivery, public hosted-agent sessions, and Operations | Integrated through Corpus-owned adapters; admission and evidence ownership remain mode-specific, while the separate standalone host remains optional proof infrastructure |
 | Product behavior, RouteDeck configuration, policies, operations, and surfaces | RouteDeck Agent Design Studio | Agent Designer | Studio exists; compiled parity is a separate gate |
 
 The API execution runtime does not choose a tool and ToolRouter does not make
@@ -82,7 +82,7 @@ Set-Location saastoagent-v0.1
 ```
 
 RouteDeck is public. `agent-execution-runtime==0.1.0` and
-`agent-delivery-runtime==0.1.0` are private organization repositories and real
+`agent-delivery-runtime==0.2.0` are private organization repositories and real
 source build dependencies, not optional standalone demos. Authenticate a Git
 credential with access to the `saastoagent` organization before cloning them.
 One supported GitHub CLI path is:
@@ -109,7 +109,7 @@ pins:
 - Agent Execution Runtime
   `f0b4033562708090dff8d9a072423ddf20bc9274`;
 - Agent Delivery Runtime
-  `2fdeab9b35f0997123ecdc4b6ab670dc6795fd1b`.
+  `a20fce7dfa831bca4e6e10a4ea00b0badb01b47f`.
 
 Do not substitute similarly named projects or update a pin merely to make a
 build pass. A dependency update requires its own validation and a reviewed
@@ -128,7 +128,7 @@ Corpus image build:
 3. The backend image installs RouteDeck from `../routedeck` with its FastAPI
    and persistence extras.
 4. The backend image installs `agent-execution-runtime==0.1.0` and
-   `agent-delivery-runtime==0.1.0` from their sibling `pyproject.toml` and
+   `agent-delivery-runtime==0.2.0` from their sibling `pyproject.toml` and
    `src/` trees, then verifies both installed package versions.
 5. The backend installs Corpus and composes the runtime packages through
    Corpus-owned integration and application adapters. Builder, Sandbox, and
@@ -223,12 +223,12 @@ Docker generates its own development encryption, vault, reset, and
 verification secrets. `CORPUS_EVAL_*` configures the repository's explicit
 evaluation runners; it does not create a fallback for product execution.
 
-Compose interpolation must read the same file so the ToolRouter values are not
-replaced by Ollama defaults. Use `--env-file .env.local` for every Compose
-command in this lane:
+Each backend service declares `.env.local` as its optional `env_file`, so the
+selected provider reaches the process without a second Compose CLI flag. Check
+the resolved configuration before startup:
 
 ```powershell
-docker compose --env-file .env.local config --quiet
+docker compose config --quiet
 ```
 
 This lane removes the large local Gemma/Qwen requirement. The image still
@@ -321,13 +321,6 @@ docker compose up --build -d backend source-worker frontend
 docker compose ps
 ```
 
-For the OpenAI lane, run the corresponding commands with its environment file:
-
-```powershell
-docker compose --env-file .env.local up --build -d backend source-worker frontend
-docker compose --env-file .env.local ps
-```
-
 Specifying `backend source-worker frontend` is intentional: it includes the
 durable API-source consumer and excludes the stale Compose
 `notebook` service. For an ordinary restart when no image dependency changed:
@@ -336,11 +329,9 @@ durable API-source consumer and excludes the stale Compose
 docker compose up -d backend source-worker frontend
 ```
 
-The OpenAI restart form remains:
-
-```powershell
-docker compose --env-file .env.local up -d backend source-worker frontend
-```
+The same exact commands apply to the OpenAI lane because Compose loads the
+service `env_file`; provider settings are not duplicated in the Compose
+`environment` map.
 
 ### 3. Start the authoritative Agent Design Studio
 

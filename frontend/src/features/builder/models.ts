@@ -58,6 +58,59 @@ export interface SandboxRunCollectionView {
   readonly runs: readonly SandboxRunView[];
 }
 
+export interface SandboxDeploymentView {
+  readonly id: string;
+  readonly target_id: string;
+  readonly agent_id: string;
+  readonly build_id: string;
+  readonly mode: "sandbox";
+  readonly status: "queued" | "running" | "ready" | "failed";
+  readonly request_key: string | null;
+  readonly runtime_deployment_id: string | null;
+  readonly failure_code: string | null;
+  readonly failure_message: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+export interface SandboxProjection {
+  readonly revision: number;
+  readonly messages: readonly Readonly<Record<string, unknown>>[];
+  readonly surfaces: readonly Readonly<Record<string, unknown>>[];
+  readonly suggested_actions: readonly Readonly<Record<string, unknown>>[];
+}
+
+export interface PlaygroundSessionView {
+  readonly session_id: string;
+  readonly target_id: string;
+  readonly deployment_id: string;
+  readonly runtime_deployment_id: string;
+  readonly build_id: string;
+  readonly purpose: "playground" | "evaluation_case";
+  readonly created_at: string;
+  readonly projection: SandboxProjection | null;
+}
+
+export interface SandboxDeploymentCollectionView {
+  readonly agent_id: string;
+  readonly target_id: string | null;
+  readonly active_deployment_id: string | null;
+  readonly deployments: readonly SandboxDeploymentView[];
+  readonly playground_sessions: readonly PlaygroundSessionView[];
+}
+
+export interface PlaygroundInteractionView {
+  readonly session: PlaygroundSessionView;
+  readonly projection: SandboxProjection;
+  readonly interaction_id: string | null;
+}
+
+export interface SandboxDiagnosticsView {
+  readonly session: PlaygroundSessionView;
+  readonly projection: SandboxProjection;
+  readonly interactions: readonly Readonly<Record<string, unknown>>[];
+}
+
 export interface EvaluationCaseView {
   readonly id: string;
   readonly title: string;
@@ -80,6 +133,8 @@ export interface EvaluationRunAttemptView {
   readonly failure_code: string | null;
   readonly failure_message: string | null;
   readonly retry_of_attempt_id: string | null;
+  readonly sandbox_deployment_id?: string | null;
+  readonly sandbox_session_id?: string | null;
   readonly created_at: string;
   readonly updated_at: string;
 }

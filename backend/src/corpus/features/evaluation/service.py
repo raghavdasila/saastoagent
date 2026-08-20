@@ -35,6 +35,12 @@ class EvaluationService:
         self.sandbox = sandbox
         self.generation_jobs = generation_jobs
         self.run_jobs = run_jobs
+        self._sandbox_deployments = None
+
+    def bind_sandbox_deployment_runtime(self, service) -> None:
+        if self._sandbox_deployments is not None:
+            raise RuntimeError("The Sandbox deployment runtime is already bound.")
+        self._sandbox_deployments = service
 
     async def schedule_initial_set(
         self,
@@ -270,6 +276,7 @@ class EvaluationService:
         case_id: uuid.UUID,
         *,
         retry_of_attempt_id: uuid.UUID | None = None,
+        sandbox_deployment_id: uuid.UUID | None = None,
     ) -> EvaluationCollectionView:
         if self.run_jobs is None:
             raise EvaluationUnavailable("Evaluation execution is unavailable.")
@@ -278,14 +285,28 @@ class EvaluationService:
         )
         if case.removed_at is not None:
             raise EvaluationConflict("A removed evaluation case cannot be run.")
-        await self.builds.require_running(
-            organization_id, agent_id, evaluation_set.build_id
-        )
+        if self._sandbox_deployments is None:
+            await self.builds.require_running(
+                organization_id, agent_id, evaluation_set.build_id
+            )
+        else:
+            await self.builds.require_immutable_built(
+                organization_id, agent_id, evaluation_set.build_id
+            )
+        if sandbox_deployment_id is None and self._sandbox_deployments is not None:
+            sandbox_state = await self._sandbox_deployments.list(
+                organization_id, agent_id
+            )
+            sandbox_deployment_id = sandbox_state.active_deployment_id
+            if sandbox_deployment_id is None:
+                raise EvaluationUnavailable(
+                    "Deploy the exact build to Sandbox before running Evaluation."
+                )
+        attempt_options = {"retry_of_attempt_id": retry_of_attempt_id}
+        if sandbox_deployment_id is not None:
+            attempt_options["sandbox_deployment_id"] = sandbox_deployment_id
         attempt = await self.repository.create_run_attempt(
-            organization_id,
-            agent_id,
-            case.id,
-            retry_of_attempt_id=retry_of_attempt_id,
+            organization_id, agent_id, case.id, **attempt_options
         )
         try:
             job = await self.run_jobs.enqueue(
@@ -296,6 +317,11 @@ class EvaluationService:
                     "case_id": str(case.id),
                     "case_revision": case.current_revision,
                     "attempt_id": str(attempt.id),
+                    "sandbox_deployment_id": (
+                        str(sandbox_deployment_id)
+                        if sandbox_deployment_id is not None
+                        else None
+                    ),
                 },
                 max_attempts=1,
             )
@@ -312,6 +338,48 @@ class EvaluationService:
             raise EvaluationUnavailable(
                 "The evaluation run could not be queued."
             ) from error
+        return await self.list(organization_id, agent_id)
+
+    async def queue_set_against_sandbox(
+        self,
+        organization_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        evaluation_set_id: uuid.UUID,
+        *,
+        sandbox_deployment_id: uuid.UUID,
+    ) -> EvaluationCollectionView:
+        if self._sandbox_deployments is None:
+            raise EvaluationUnavailable("Sandbox evaluation execution is unavailable.")
+        evaluation_set = await self.repository.get_set(
+            organization_id, agent_id, evaluation_set_id
+        )
+        deployment = await self._sandbox_deployments.repository.get(
+            organization_id, agent_id, sandbox_deployment_id
+        )
+        if (
+            deployment.mode != "sandbox"
+            or deployment.status != "ready"
+            or deployment.build_id != evaluation_set.build_id
+        ):
+            raise EvaluationConflict(
+                "The evaluation set and exact ready Sandbox deployment must use the same build."
+            )
+        cases = tuple(
+            value
+            for value in await self.repository.cases(
+                organization_id, evaluation_set.id
+            )
+            if value.removed_at is None
+        )
+        if not cases:
+            raise EvaluationConflict("The evaluation set has no active cases.")
+        for case in cases:
+            await self.queue_case(
+                organization_id,
+                agent_id,
+                case.id,
+                sandbox_deployment_id=sandbox_deployment_id,
+            )
         return await self.list(organization_id, agent_id)
 
     async def retry_case_run(
@@ -336,6 +404,7 @@ class EvaluationService:
             agent_id,
             case.id,
             retry_of_attempt_id=attempt.id,
+            sandbox_deployment_id=attempt.sandbox_deployment_id,
         )
 
     async def queue_current_case(
@@ -383,6 +452,7 @@ class EvaluationService:
         case_id: uuid.UUID,
         *,
         expected_case_revision: int | None = None,
+        attempt_id: uuid.UUID | None = None,
     ):
         evaluation_set, case = await self.repository.get_case(organization_id, agent_id, case_id)
         if case.removed_at is not None:
@@ -394,15 +464,71 @@ class EvaluationService:
             raise EvaluationConflict(
                 "The evaluation case changed before its queued run started."
             )
-        build = await self.builds.require_running(organization_id, agent_id, evaluation_set.build_id)
+        if attempt_id is None:
+            build = await self.builds.require_running(
+                organization_id, agent_id, evaluation_set.build_id
+            )
+        else:
+            build = await self.builds.require_immutable_built(
+                organization_id, agent_id, evaluation_set.build_id
+            )
+        runtime_case_id = case.runtime_case_id
+        if attempt_id is not None:
+            if self._sandbox_deployments is None:
+                raise EvaluationUnavailable("Sandbox evaluation execution is unavailable.")
+            _attempt_set, attempt_case, attempt = await self.repository.get_run_attempt(
+                organization_id, agent_id, attempt_id
+            )
+            if attempt_case.id != case.id or attempt.sandbox_deployment_id is None:
+                raise EvaluationConflict(
+                    "The evaluation attempt has no exact Sandbox deployment lineage."
+                )
+            session_result = await self._sandbox_deployments.create_evaluation_session(
+                organization_id, agent_id, attempt.sandbox_deployment_id
+            )
+            runtime_agent_run_id = f"eval_{attempt.id.hex}"
+            await self.repository.bind_attempt_sandbox_session(
+                organization_id,
+                attempt.id,
+                session_id=session_result.session.session_id,
+                runtime_agent_run_id=runtime_agent_run_id,
+            )
+            await self._sandbox_deployments.execute_evaluation_message(
+                organization_id,
+                agent_id,
+                attempt.sandbox_deployment_id,
+                session_result.session.session_id,
+                text=case.message,
+                request_id=runtime_agent_run_id,
+            )
+            runtime_case = await asyncio.to_thread(
+                self.runtime.promote,
+                tenant_id=str(organization_id),
+                run_id=runtime_agent_run_id,
+                message=case.message,
+                expected_operation_ids=case.expected_operation_ids,
+                required_response_fields=case.required_response_fields,
+                require_write_verification=case.require_write_verification,
+            )
+            if runtime_case.build_hash != build.runtime_build_hash:
+                raise EvaluationConflict(
+                    "The Sandbox evaluation session changed its exact build identity."
+                )
+            runtime_case_id = runtime_case.case_id
+            if case.runtime_case_id is None:
+                case = await self.repository.bind_generated_runtime(
+                    organization_id, case.id, runtime_case
+                )
         if case.runtime_case_id is None:
             case = await self._materialize_generated_case(
                 organization_id, agent_id, case
             )
-        if case.runtime_case_id is None:
-            raise EvaluationConflict("The generated evaluation case is not runnable yet.")
-        result = await asyncio.to_thread(self.runtime.evaluate, str(organization_id), case.runtime_case_id)
-        if result.build_hash != build.runtime_build_hash or result.case_id != case.runtime_case_id:
+        if runtime_case_id is None:
+            runtime_case_id = case.runtime_case_id
+        if runtime_case_id is None:
+            raise EvaluationConflict("The evaluation case is not runnable yet.")
+        result = await asyncio.to_thread(self.runtime.evaluate, str(organization_id), runtime_case_id)
+        if result.build_hash != build.runtime_build_hash or result.case_id != runtime_case_id:
             raise EvaluationConflict("The evaluation result did not retain the exact case and build identity.")
         stored_run = await self.repository.add_run(organization_id, case, result)
         cases, _runs = await self._build_evaluation_state(
@@ -545,6 +671,8 @@ class EvaluationService:
                             failure_code=latest_attempt_by_case[case.id].failure_code,
                             failure_message=latest_attempt_by_case[case.id].failure_message,
                             retry_of_attempt_id=latest_attempt_by_case[case.id].retry_of_attempt_id,
+                            sandbox_deployment_id=latest_attempt_by_case[case.id].sandbox_deployment_id,
+                            sandbox_session_id=latest_attempt_by_case[case.id].sandbox_session_id,
                             created_at=latest_attempt_by_case[case.id].created_at,
                             updated_at=latest_attempt_by_case[case.id].updated_at,
                         )

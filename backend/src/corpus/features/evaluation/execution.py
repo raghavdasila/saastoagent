@@ -47,11 +47,11 @@ class EvaluationRunProcessor:
             await self.evaluations.mark_run_attempt_running(
                 job.owner_id, attempt.id, job.id
             )
+            execute_options = {"expected_case_revision": case_revision}
+            if attempt.sandbox_deployment_id is not None:
+                execute_options["attempt_id"] = attempt.id
             stored = await self.service.execute_case(
-                job.owner_id,
-                agent_id,
-                case_id,
-                expected_case_revision=case_revision,
+                job.owner_id, agent_id, case_id, **execute_options
             )
             await self.evaluations.mark_run_attempt_succeeded(
                 job.owner_id, attempt.id, stored.runtime_evaluation_run_id

@@ -27,7 +27,7 @@ x-runtime-environment: &runtime-environment
   CORPUS_TOOLROUTER_OPENAI_REASONING_EFFORT: low
   CORPUS_TOOLROUTER_EVALSET_TIMEOUT_SECONDS: "240"
   CORPUS_DATABASE_URL: sqlite+aiosqlite:////srv/corpus/state/corpus.sqlite3
-  CORPUS_MIGRATION_REVISION: 0019_builder_assembly_lifecycle
+  CORPUS_MIGRATION_REVISION: 0020_sandbox_deployment_mode
   CORPUS_JOB_QUEUE_PATH: /srv/corpus/state/corpus-jobs.sqlite3
   CORPUS_AUTH_ACCESS_TOKEN_MINUTES: "15"
   CORPUS_AUTH_IDLE_SESSION_DAYS: "7"
